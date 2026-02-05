@@ -18,7 +18,7 @@ FUNCTION z_abapgit_agent_get_status.
 
   CLEAR: et_error_log.
 
-  SELECT SINGLE * FROM z_abapgit_agent_res
+  SELECT SINGLE * FROM z_abapg_res
     WHERE job_id = @iv_job_id
     INTO @ls_result.
 
@@ -37,7 +37,7 @@ FUNCTION z_abapgit_agent_get_status.
   ev_started_at = ls_result-started_at.
   ev_finished_at = ls_result-finished_at.
 
-  SELECT message FROM z_abapgit_agent_err
+  SELECT message FROM z_abapg_err
     WHERE job_id = @iv_job_id
     INTO TABLE @et_error_log.
 

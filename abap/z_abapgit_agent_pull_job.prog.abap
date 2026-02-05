@@ -11,23 +11,23 @@ START-OF-SELECTION.
   DATA: lv_activated TYPE i.
   DATA: lv_failed TYPE i.
 
-  DATA(ls_result) = VALUE z_abapgit_agent_res(
+  DATA(ls_result) = VALUE z_abapg_res(
     job_id = pv_job_id
     status = 'RUNNING'
     started_at = |{ sy-datum }{ sy-uzeit }|
   ).
-  MODIFY z_abapgit_agent_res FROM ls_result.
+  MODIFY z_abapg_res FROM ls_result.
 
   TRY.
       lo_repo ?= zcl_abapgit_repo_srv=>get_instance( )->get_by_url( pv_url ).
-      MODIFY z_abapgit_agent_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |Repository found: { pv_url }| ).
+      MODIFY z_abapg_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |Repository found: { pv_url }| ).
       lo_repo->refresh( ).
       lo_repo->pull( iv_branch = pv_branch iv_strategy = zif_abapgit_definitions=>c_git_strategy-branch ).
       DATA(lt_objects_raw) = lo_repo->get_objects_serialized( ).
       LOOP AT lt_objects_raw ASSIGNING FIELD-SYMBOL(<ls_obj>).
         APPEND VALUE #( object_type = <ls_obj>-obj_type object_name = <ls_obj>-obj_name devclass = <ls_obj>-devclass ) TO lt_objects.
       ENDLOOP.
-      MODIFY z_abapgit_agent_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |{ lines( lt_objects ) } objects to activate| ).
+      MODIFY z_abapg_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |{ lines( lt_objects ) } objects to activate| ).
       IF lt_objects IS NOT INITIAL.
         PERFORM activate_objects TABLES lt_objects lt_error_log USING lv_activated lv_failed.
       ELSE.
@@ -41,17 +41,17 @@ START-OF-SELECTION.
       ls_result-failed_count = lv_failed.
       ls_result-finished_at = |{ sy-datum }{ sy-uzeit }|.
       ls_result-status = COND #( WHEN lv_success = abap_true THEN 'COMPLETED' ELSE 'FAILED' ).
-    MODIFY z_abapgit_agent_res FROM ls_result.
-    MODIFY z_abapgit_agent_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = COND #( WHEN lv_success = abap_true THEN 'SUCCESS' ELSE 'ERROR' ) message = ls_result-message ).
+    MODIFY z_abapg_res FROM ls_result.
+    MODIFY z_abapg_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = COND #( WHEN lv_success = abap_true THEN 'SUCCESS' ELSE 'ERROR' ) message = ls_result-message ).
     LOOP AT lt_error_log ASSIGNING FIELD-SYMBOL(<lv_error>).
-      MODIFY z_abapgit_agent_err FROM VALUE #( job_id = pv_job_id message = <lv_error> ).
+      MODIFY z_abapg_err FROM VALUE #( job_id = pv_job_id message = <lv_error> ).
     ENDLOOP.
   CATCH cx_root INTO DATA(lx_exception).
-    MODIFY z_abapgit_agent_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'ERROR' message = lx_exception->get_text( ) ).
+    MODIFY z_abapg_log FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'ERROR' message = lx_exception->get_text( ) ).
     ls_result-success = abap_false.
     ls_result-message = lx_exception->get_text( ).
     ls_result-status = 'FAILED'.
-    MODIFY z_abapgit_agent_res FROM ls_result.
+    MODIFY z_abapg_res FROM ls_result.
 ENDTRY.
 
 FORM activate_objects TABLES it_objects TYPE zif_abapgit_agent=>ty_object_table pt_error_log TYPE string_table USING ev_activated TYPE i ev_failed TYPE i.
