@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0" serializer="LCL_OBJECT_CLAS" serializer_version="1">
+  <asx:abap xmlns:asx="http://www.sap.com/abap/asx" version="1.0">
+    <asx:values>
+      <VSEOCLASS>
+        <CLSNAME>ZCL_ABAPGIT_AGENT_ODATA</CLSNAME>
+        <LANGU>E</LANGU>
+        <DESCRIPT>OData Model Provider for ABAP Git Agent</DESCRIPT>
+        <EXPOSURE>2</EXPOSURE>
+        <STATE>1</STATE>
+        <CLSFINAL>X</CLSFINAL>
+        <CLSABSTRCT></CLSABSTRCT>
+        <UNICODE>X</UNICODE>
+      </VSEOCLASS>
+    </asx:values>
+  </asx:abap>
+</abapGit>

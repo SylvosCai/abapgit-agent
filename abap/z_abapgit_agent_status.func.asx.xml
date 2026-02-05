@@ -1,8 +1,47 @@
-"&lt;function Z_ABAPGIT_AGENT_GET_STATUS
-"&gt; Purpose: Get status and result of a pull/activation job
-"&gt; Created by: ABAP AI Bridge
-"&gt; Date: 2026-02-05
-
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0" serializer="LCL_OBJECT_FUNC" serializer_version="1">
+  <asx:abap xmlns:asx="http://www.sap.com/abap/asx" version="1.0">
+    <asx:values>
+      <FUNCNAME>Z_ABAPGIT_AGENT_GET_STATUS</FUNCNAME>
+      <FUNCTION>
+        <SHORT_TEXT>Get status and result of a pull/activation job</SHORT_TEXT>
+      </FUNCTION>
+      <IMPORT>
+        <PARAMETER>
+          <NAME>IV_JOB_ID</NAME>
+          <TYPE>STRING</TYPE>
+          <OPTIONAL></OPTIONAL>
+        </PARAMETER>
+      </IMPORT>
+      <EXPORT>
+        <PARAMETER>
+          <NAME>EV_STATUS</NAME>
+          <TYPE>STRING</TYPE>
+        </PARAMETER>
+        <PARAMETER>
+          <NAME>EV_SUCCESS</NAME>
+          <TYPE>ABAP_BOOL</TYPE>
+        </PARAMETER>
+        <PARAMETER>
+          <NAME>EV_MESSAGE</NAME>
+          <TYPE>STRING</TYPE>
+        </PARAMETER>
+        <PARAMETER>
+          <NAME>EV_ACTIVATED_COUNT</NAME>
+          <TYPE>I</TYPE>
+        </PARAMETER>
+        <PARAMETER>
+          <NAME>EV_FAILED_COUNT</NAME>
+          <TYPE>I</TYPE>
+        </PARAMETER>
+      </EXPORT>
+      <TABLES>
+        <PARAMETER>
+          <NAME>ET_ERROR_LOG</NAME>
+          <TYPE>STRING_TABLE</TYPE>
+        </PARAMETER>
+      </TABLES>
+      <SOURCE>
 FUNCTION z_abapgit_agent_get_status.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
@@ -21,7 +60,7 @@ FUNCTION z_abapgit_agent_get_status.
   DATA: ls_result TYPE zif_abapgit_agent=>ty_result.
 
   " Read job status from database table
-  SELECT SINGLE * FROM z_abapgit_agent_log
+  SELECT SINGLE * FROM z_abapgit_agent_res
     WHERE job_id = @iv_job_id
     INTO @DATA(ls_log_entry).
 
@@ -56,3 +95,7 @@ FUNCTION z_abapgit_agent_get_status.
   ENDIF.
 
 ENDFUNCTION.
+      </SOURCE>
+    </asx:values>
+  </asx:abap>
+</abapGit>

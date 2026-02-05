@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0" serializer="LCL_OBJECT_FUGR" serializer_version="1">
+  <asx:abap xmlns:asx="http://www.sap.com/abap/asx" version="1.0">
+    <asx:values>
+      <AREAT>ABAP Git Agent - Function Group</AREAT>
+      <INCLUDES>
+        <SARC>LZ_ABAPGIT_AGENTTOP</SARC>
+      </INCLUDES>
+    </asx:values>
+  </asx:abap>
+</abapGit>
