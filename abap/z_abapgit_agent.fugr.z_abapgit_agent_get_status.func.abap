@@ -4,15 +4,19 @@ FUNCTION z_abapgit_agent_get_status.
 *"  IMPORTING
 *"    VALUE(IV_JOB_ID) TYPE STRING
 *"  EXPORTING
-*"    EV_STATUS TYPE STRING
-*"    EV_SUCCESS TYPE ABAP_BOOL
-*"    EV_MESSAGE TYPE STRING
-*"    EV_ACTIVATED_COUNT TYPE I
-*"    EV_FAILED_COUNT TYPE I
+*"    VALUE(EV_STATUS) TYPE STRING
+*"    VALUE(EV_SUCCESS) TYPE ABAP_BOOL
+*"    VALUE(EV_MESSAGE) TYPE STRING
+*"    VALUE(EV_ACTIVATED_COUNT) TYPE I
+*"    VALUE(EV_FAILED_COUNT) TYPE I
+*"    VALUE(EV_STARTED_AT) TYPE STRING
+*"    VALUE(EV_FINISHED_AT) TYPE STRING
 *"  TABLES
 *"    ET_ERROR_LOG TYPE STRING_TABLE
 *"----------------------------------------------------------------------
   DATA: ls_result TYPE zif_abapgit_agent=>ty_result.
+
+  CLEAR: et_error_log.
 
   SELECT SINGLE * FROM z_abapgit_agent_res
     WHERE job_id = @iv_job_id
@@ -30,6 +34,8 @@ FUNCTION z_abapgit_agent_get_status.
   ev_message = ls_result-message.
   ev_activated_count = ls_result-activated_count.
   ev_failed_count = ls_result-failed_count.
+  ev_started_at = ls_result-started_at.
+  ev_finished_at = ls_result-finished_at.
 
   SELECT message FROM z_abapgit_agent_err
     WHERE job_id = @iv_job_id
