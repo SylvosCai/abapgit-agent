@@ -4,12 +4,12 @@
   <asx:values>
    <AREAT>ABAP Git Agent - Function Group</AREAT>
    <INCLUDES>
-    <SOBJ_NAME>LZ_ABAPGIT_AGENTTOP</SOBJ_NAME>
-    <SOBJ_NAME>SAPLZ_ABAPGIT_AGENT</SOBJ_NAME>
+    <SOBJ_NAME>LZABAPGAGENTTOP</SOBJ_NAME>
+    <SOBJ_NAME>SAPLZABAPGAGENT</SOBJ_NAME>
    </INCLUDES>
    <FUNCTIONS>
     <item>
-     <FUNCNAME>Z_ABAPGIT_AGENT_PULL</FUNCNAME>
+     <FUNCNAME>ZABAPGAGENT_PULL</FUNCNAME>
      <REMOTE_CALL>R</REMOTE_CALL>
      <SHORT_TEXT>Trigger git pull and activation for a repository</SHORT_TEXT>
      <IMPORT>
@@ -65,7 +65,7 @@
      </EXCEPTION>
     </item>
     <item>
-     <FUNCNAME>Z_ABAPGIT_AGENT_GET_STATUS</FUNCNAME>
+     <FUNCNAME>ZABAPGAGENT_GET_STATUS</FUNCNAME>
      <REMOTE_CALL>R</REMOTE_CALL>
      <SHORT_TEXT>Get status and result of a pull/activation job</SHORT_TEXT>
      <IMPORT>

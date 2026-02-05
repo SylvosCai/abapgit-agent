@@ -1,4 +1,4 @@
-FUNCTION z_abapgit_agent_get_status.
+FUNCTION zabapgagent_get_status.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING

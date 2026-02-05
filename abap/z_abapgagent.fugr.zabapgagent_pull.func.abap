@@ -1,4 +1,4 @@
-FUNCTION z_abapgit_agent_pull.
+FUNCTION zabapgagent_pull.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING
@@ -47,7 +47,7 @@ FORM start_pull_job USING iv_url TYPE string iv_branch TYPE string iv_job_id TYP
     IMPORTING
       jobcount = rv_jobcount.
 
-  SUBMIT z_abapgit_agent_pull_job VIA JOB rv_jobcount
+  SUBMIT zabapgagent_pull_job VIA JOB rv_jobcount
     WITH pv_url = iv_url
     WITH pv_branch = iv_branch
     WITH pv_job_id = iv_job_id

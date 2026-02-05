@@ -1,4 +1,4 @@
-REPORT z_abapgit_agent_pull_job.
+REPORT zabapgagent_pull_job.
 PARAMETERS: pv_url TYPE string LOWER CASE.
 PARAMETERS: pv_branch TYPE string DEFAULT 'main'.
 PARAMETERS: pv_job_id TYPE string.
