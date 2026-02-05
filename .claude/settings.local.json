@@ -12,7 +12,8 @@
       "Bash(git push:*)",
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "Bash(grep:*)"
     ]
   }
 }
