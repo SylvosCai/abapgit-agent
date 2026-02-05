@@ -1,0 +1,14 @@
+"&lt;table Z_ABAPGIT_AGENT_ERR
+"&gt; Purpose: Error log table for ABAP Git Agent
+"&gt; Created by: ABAP AI Bridge
+"&gt; Date: 2026-02-05
+
+@EndUserText.label : 'ABAP Git Agent Errors'
+define table z_abapgit_agent_err {
+  key mandt    : mandt not null;
+  key job_id   : string not null;
+  key line     : i not null;
+  message      : string;
+  object_type  : trobjtype;
+  object_name  : sobj_name;
+}

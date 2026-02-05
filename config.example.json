@@ -1,0 +1,18 @@
+{
+  "host": "your-sap-system.com",
+  "sapport": 443,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN",
+  "agent": {
+    "port": 3000,
+    "pollInterval": 5000,
+    "maxRetries": 3,
+    "timeout": 300000
+  },
+  "log": {
+    "level": "info",
+    "file": "./logs/agent.log"
+  }
+}
