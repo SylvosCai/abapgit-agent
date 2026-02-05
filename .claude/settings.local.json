@@ -8,7 +8,10 @@
       "Bash(npm install:*)",
       "Bash(npm cache clean:*)",
       "Bash(npm config set:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)"
     ]
   }
 }

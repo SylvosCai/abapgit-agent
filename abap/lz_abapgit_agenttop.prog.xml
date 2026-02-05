@@ -1,7 +1,5 @@
-*&---------------------------------------------------------------------*
- *&  Include          LZ_ABAPGIT_AGENTTOP
- *&---------------------------------------------------------------------*
+FUNCTION-POOL Z_ABAPGIT_AGENT.             " Global Function-Pool
 
-DATA: gv_job_id TYPE string,
-      gt_job_log TYPE zif_abapgit_agent=>ty_log_table,
-      gs_job_result TYPE zif_abapgit_agent=>ty_result.
+DATA: gv_job_id TYPE string.
+DATA: gt_job_log TYPE zif_abapgit_agent=>ty_log_table.
+DATA: gs_job_result TYPE zif_abapgit_agent=>ty_result.
