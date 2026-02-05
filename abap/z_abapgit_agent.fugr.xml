@@ -5,97 +5,18 @@
    <AREAT>ABAP Git Agent - Function Group</AREAT>
    <INCLUDES>
     <SOBJ_NAME>LZ_ABAPGIT_AGENTTOP</SOBJ_NAME>
+    <SOBJ_NAME>SAPLZ_ABAPGIT_AGENT</SOBJ_NAME>
    </INCLUDES>
    <FUNCTIONS>
     <item>
      <FUNCNAME>Z_ABAPGIT_AGENT_PULL</FUNCNAME>
      <REMOTE_CALL>R</REMOTE_CALL>
      <SHORT_TEXT>Trigger git pull and activation for a repository</SHORT_TEXT>
-     <IMPORT>
-      <RSIMP>
-       <PARAMETER>IV_URL</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSIMP>
-      <RSIMP>
-       <PARAMETER>IV_BRANCH</PARAMETER>
-       <TYP>STRING</TYP>
-       <DEFAULT>'main'</DEFAULT>
-       <OPTIONAL>X</OPTIONAL>
-      </RSIMP>
-      <RSIMP>
-       <PARAMETER>IV_ACTIVATE</PARAMETER>
-       <TYP>ABAP_BOOL</TYP>
-       <DEFAULT>ABAP_TRUE</DEFAULT>
-       <OPTIONAL>X</OPTIONAL>
-      </RSIMP>
-     </IMPORT>
-     <EXPORT>
-      <RSEXP>
-       <PARAMETER>EV_SUCCESS</PARAMETER>
-       <TYP>ABAP_BOOL</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_JOB_ID</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_MESSAGE</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_ACTIVATED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_FAILED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-     </EXPORT>
-     <TABLES>
-      <RSTBL>
-       <PARAMETER>ET_ERROR_LOG</PARAMETER>
-       <TYP>STRING_TABLE</TYP>
-      </RSTBL>
-     </TABLES>
     </item>
     <item>
      <FUNCNAME>Z_ABAPGIT_AGENT_GET_STATUS</FUNCNAME>
      <REMOTE_CALL>R</REMOTE_CALL>
      <SHORT_TEXT>Get status and result of a pull/activation job</SHORT_TEXT>
-     <IMPORT>
-      <RSIMP>
-       <PARAMETER>IV_JOB_ID</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSIMP>
-     </IMPORT>
-     <EXPORT>
-      <RSEXP>
-       <PARAMETER>EV_STATUS</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_SUCCESS</PARAMETER>
-       <TYP>ABAP_BOOL</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_MESSAGE</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_ACTIVATED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_FAILED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-     </EXPORT>
-     <TABLES>
-      <RSTBL>
-       <PARAMETER>ET_ERROR_LOG</PARAMETER>
-       <TYP>STRING_TABLE</TYP>
-      </RSTBL>
-     </TABLES>
     </item>
    </FUNCTIONS>
   </asx:values>
