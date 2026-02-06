@@ -9,10 +9,10 @@ CLASS zcl_abapgit_agent_pull DEFINITION PUBLIC FINAL
     METHODS if_rest_resource~post REDEFINITION.
 
   PRIVATE SECTION.
-    METHODS extract_json_field
+    METHODS get_json_value
       IMPORTING
         iv_json TYPE string
-        iv_field TYPE string
+        iv_key TYPE string
       RETURNING
         VALUE(rv_value) TYPE string.
 
@@ -30,10 +30,10 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_password TYPE string.
 
     " Extract fields from JSON
-    lv_url = extract_json_field( iv_json = lv_json iv_field = 'url' ).
-    lv_branch = extract_json_field( iv_json = lv_json iv_field = 'branch' ).
-    lv_username = extract_json_field( iv_json = lv_json iv_field = 'username' ).
-    lv_password = extract_json_field( iv_json = lv_json iv_field = 'password' ).
+    lv_url = get_json_value( iv_json = lv_json iv_key = 'url' ).
+    lv_branch = get_json_value( iv_json = lv_json iv_key = 'branch' ).
+    lv_username = get_json_value( iv_json = lv_json iv_key = 'username' ).
+    lv_password = get_json_value( iv_json = lv_json iv_key = 'password' ).
 
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
@@ -74,36 +74,35 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
-  METHOD extract_json_field.
-    DATA lv_search TYPE string.
+  METHOD get_json_value.
+    DATA lv_key TYPE string.
     DATA lv_pos TYPE i.
     DATA lv_len TYPE i.
-
-    " Build search string for field name
-    CONCATENATE '"' iv_field '"' ':' INTO lv_search.
-    FIND lv_search IN iv_json MATCH OFFSET lv_pos.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    " Get substring after field
-    DATA lv_rest TYPE string.
-    lv_rest = iv_json+lv_pos.
-
-    " Find opening quote
-    FIND '"' IN lv_rest MATCH OFFSET lv_pos.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    " Get length of rest
-    lv_len = strlen( lv_rest ).
-    DATA(lv_skip) = lv_pos + 1.
-    DATA(lv_remaining) = lv_len - lv_skip.
-
-    " Get the part after opening quote
+    DATA lv_after_len TYPE i.
     DATA lv_after TYPE string.
-    lv_after = lv_rest+lv_skip(lv_remaining).
+
+    " Build key pattern
+    CONCATENATE '"' iv_key '"' ':' INTO lv_key.
+
+    " Find the key in JSON
+    FIND lv_key IN iv_json MATCH OFFSET lv_pos.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " Get the part after the key
+    lv_len = strlen( iv_json ).
+    lv_after_len = lv_len - lv_pos.
+    lv_after = iv_json+lv_pos(lv_after_len).
+
+    " Find first quote after key
+    FIND '"' IN lv_after MATCH OFFSET lv_pos.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " Get substring after first quote
+    lv_after = lv_after+lv_pos+1.
 
     " Find closing quote
     FIND '"' IN lv_after MATCH OFFSET lv_pos.
@@ -111,12 +110,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Extract the value
-    rv_value = lv_after.
-    DATA lv_cut TYPE i.
-    lv_cut = strlen( lv_after ) - lv_pos.
-    SHIFT rv_value RIGHT BY lv_cut PLACES.
-    SHIFT rv_value LEFT.
+    rv_value = lv_after(lv_pos).
   ENDMETHOD.
 
 ENDCLASS.
