@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <CLSD>
+    <CLSNAME>ZCL_ABAPGIT_AGENT_ACTIVATE</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>ABAP Git Agent - Activate REST Handler</DESCRIPT>
+    <STATUS>I</STATUS>
+    <UNICODE>X</UNICODE>
+    <CLSCCINX>000</CLSCCINX>
+    <FIXPT>X</FIXPT>
+    <R3REL>754</R3REL>
+    <VERSION>0</VERSION>
+    <LCLEXCEPTIONS/>
+    <METHODS>
+     <item>
+      <NAME>IF_REST_RESOURCE~POST</NAME>
+      <VISIBILITY>PUBLIC</VISIBILITY>
+      <SHORT_TEXT>Handle POST request for activation</SHORT_TEXT>
+      <EXCEPTIONS>
+       <item>
+        <NAME>ERROR</NAME>
+       </item>
+      </EXCEPTIONS>
+     </item>
+    </METHODS>
+    <EVENTS/>
+    <INTERFACES/>
+    <ATTRIBUTES/>
+    <TYPEGROUPS/>
+    <ALIASES/>
+    <ENHANCEMENTS/>
+    <ENHANCEMENTPOSITIONS/>
+   </CLSD>
+  </asx:values>
+ </asx:abap>
+</abapGit>

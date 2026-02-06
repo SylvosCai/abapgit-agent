@@ -169,6 +169,41 @@
       </RSEXC>
      </EXCEPTION>
     </item>
+    <item>
+     <FUNCNAME>ZABAPGAGENT_ACTIVATE</FUNCNAME>
+     <REMOTE_CALL>R</REMOTE_CALL>
+     <SHORT_TEXT>Activate objects from a repository</SHORT_TEXT>
+     <IMPORT>
+      <RSIMP>
+       <PARAMETER>IV_URL</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_PACKAGE</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>DEVCLASS</TYP>
+      </RSIMP>
+     </IMPORT>
+     <EXPORT>
+      <RSEXP>
+       <PARAMETER>EV_SUCCESS</PARAMETER>
+       <TYP>CHAR1</TYP>
+      </RSEXP>
+      <RSEXP>
+       <PARAMETER>EV_MESSAGE</PARAMETER>
+       <TYP>STRING</TYP>
+      </RSEXP>
+     </EXPORT>
+     <EXCEPTION>
+      <RSEXC>
+       <EXCEPTION>ERROR</EXCEPTION>
+      </RSEXC>
+      <RSEXC>
+       <EXCEPTION>ZCX_ABAPGIT_EXCEPTION</EXCEPTION>
+      </RSEXC>
+     </EXCEPTION>
+    </item>
    </FUNCTIONS>
   </asx:values>
  </asx:abap>
