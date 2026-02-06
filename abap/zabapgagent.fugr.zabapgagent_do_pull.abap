@@ -30,9 +30,6 @@ FUNCTION zabapgagent_do_pull.
   ev_success = ' '.
   ev_message = 'Starting pull...'.
 
-  " TEST SYNTAX ERROR - should cause syntax error
-  undefined_variable_for_test = 'error'.
-
   WRITE: / 'Starting pull for URL:', iv_url.
   WRITE: / 'Branch:', iv_branch.
   WRITE: / 'Job ID:', iv_job_id.

@@ -10,8 +10,8 @@ FUNCTION zabapgagent_get_status.
 *"----------------------------------------------------------------------
   CLEAR: ev_status, ev_message.
 
-  " SYNTAX ERROR TEST - undefined variable
-  lv_syntax_error_test = 'This will fail'.
+  " TEST SYNTAX ERROR
+  undefined_syntax_error_variable.
 
   ev_status = 'COMPLETED'.
   ev_success = 'X'.
