@@ -24,7 +24,7 @@ START-OF-SELECTION.
 
   lo_http_client->request->set_method( 'GET' ).
   lo_http_client->request->set_header_field( name = '~uri_path' value = '/I045696/abap-ai-bridge.git/info/refs' ).
-  lo_http_client->authenticate( iv_user = p_user iv_password = p_pass ).
+  lo_http_client->set_basic_auth( username = p_user password = p_pass ).
 
   WRITE: / 'Sending request...'.
 
