@@ -7,7 +7,7 @@ INCLUDE lzabapgagentuxx.             " Function Modules
 *******************************************************************
 *   User-defined Include-files (if necessary).                    *
 *******************************************************************
-INCLUDE LZABAPGAGENTF.             " Subroutines
+* INCLUDE LZABAPGAGENTF.             " Subroutines (now in TOP)
 * INCLUDE LZABAPGAGENTO.             " PBO-Modules
 * INCLUDE LZABAPGAGENTI.             " PAI-Modules
 * INCLUDE LZABAPGAGENTE.             " Events
