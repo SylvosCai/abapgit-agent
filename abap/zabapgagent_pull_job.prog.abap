@@ -13,8 +13,8 @@ PARAMETERS:
   p_pkg      TYPE devclass,
   p_folder   TYPE string DEFAULT 'PREFIX',
   p_new      TYPE char1 AS CHECKBOX DEFAULT ' ',
-  p_username TYPE string,
-  p_password TYPE string.
+  p_user     TYPE string,
+  p_pass     TYPE string.
 
 START-OF-SELECTION.
 
@@ -25,7 +25,7 @@ START-OF-SELECTION.
   WRITE: / 'Package:', p_pkg.
   WRITE: / 'Folder Logic:', p_folder.
   WRITE: / 'Create New:', p_new.
-  IF p_username IS NOT INITIAL.
+  IF p_user IS NOT INITIAL.
     WRITE: / 'Username provided: Yes'.
   ENDIF.
   IF p_test = 'X'.
@@ -42,7 +42,7 @@ START-OF-SELECTION.
       iv_package     = p_pkg
       iv_folder_logic = p_folder
       iv_create_new  = p_new
-      iv_username    = p_username
-      iv_password    = p_password.
+      iv_username    = p_user
+      iv_password    = p_pass.
 
 END-OF-SELECTION.
