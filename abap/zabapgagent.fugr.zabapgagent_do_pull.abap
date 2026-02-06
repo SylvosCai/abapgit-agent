@@ -20,11 +20,8 @@ FUNCTION zabapgagent_do_pull.
   DATA: lv_success TYPE char1.
   DATA: lv_message TYPE string.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
-  DATA: li_log TYPE REF TO zif_abapgit_log.
-  DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+  DATA: lv_key TYPE zif_abapgit_persistence=>ty_repo-key.
   DATA: lv_reason TYPE string.
-  DATA: lv_activated TYPE i.
-  DATA: lv_failed TYPE i.
 
   WRITE: / 'Starting pull for URL:', iv_url.
   WRITE: / 'Branch:', iv_branch.
@@ -52,8 +49,9 @@ FUNCTION zabapgagent_do_pull.
       " Case 1: Repo exists - pull changes
       WRITE: / 'Repository found.'.
       WRITE: / 'Package:', li_repo->get_package( ).
+      lv_key = li_repo->get_key( ).
 
-      PERFORM pull_existing USING li_repo CHANGING lv_success lv_message.
+      PERFORM pull_using_services USING lv_key CHANGING lv_success lv_message.
 
     ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
       " Case 2: Create new repository
@@ -61,6 +59,11 @@ FUNCTION zabapgagent_do_pull.
 
       PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
                             CHANGING li_repo lv_success lv_message.
+
+      IF li_repo IS BOUND.
+        lv_key = li_repo->get_key( ).
+        PERFORM pull_using_services USING lv_key CHANGING lv_success lv_message.
+      ENDIF.
 
     ELSE.
       " Repo not found and create_new is not set
@@ -77,33 +80,31 @@ FUNCTION zabapgagent_do_pull.
 ENDFUNCTION.
 
 *&---------------------------------------------------------------------*
-*&      Form  PULL_EXISTING
+*&      Form  PULL_USING_SERVICES
 *&---------------------------------------------------------------------*
-FORM pull_existing USING li_repo TYPE REF TO zif_abapgit_repo
-                CHANGING cv_success TYPE char1
-                         cv_message TYPE string.
+FORM pull_using_services USING iv_key TYPE zif_abapgit_persistence=>ty_repo-key
+                     CHANGING cv_success TYPE char1
+                              cv_message TYPE string.
 
-  DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+  WRITE: / 'Pulling changes using services...'.
 
-  WRITE: / 'Refreshing repository...'.
-  li_repo->refresh( ).
+  TRY.
+      " Use non-GUI pull method
+      zcl_abapgit_services_git=>pull( iv_key = iv_key ).
 
-  WRITE: / 'Getting deserialize checks...'.
-  ls_checks = li_repo->deserialize_checks( ).
+      cv_success = 'X'.
+      cv_message = 'Pull completed successfully'.
+      WRITE: / 'Pull completed.'.
 
-  WRITE: / 'Pulling changes...'.
-
-  " Create log object for tracking
-  li_repo->create_new_log( ).
-
-  " Perform the deserialization (pull)
-  li_repo->deserialize(
-    is_checks = ls_checks
-    ii_log   = li_repo->get_log( ) ).
-
-  cv_success = 'X'.
-  cv_message = 'Pull completed successfully'.
-  WRITE: / 'Pull completed.'.
+    CATCH zcx_abapgit_exception INTO DATA(lx_error).
+      cv_success = ' '.
+      cv_message = |abapGit error: { lx_error->get_text( ) }|.
+      WRITE: / 'ERROR:', cv_message.
+    CATCH cx_root INTO DATA(lx_error).
+      cv_success = ' '.
+      cv_message = |Error: { lx_error->get_text( ) }|.
+      WRITE: / 'ERROR:', cv_message.
+  ENDTRY.
 
 ENDFORM.
 
@@ -150,12 +151,8 @@ FORM create_new_repo USING iv_url TYPE string
   WRITE: / 'Package:', li_repo->get_package( ).
   WRITE: / 'Key:', li_repo->get_key( ).
 
-  " Now pull changes
-  WRITE: / 'Pulling changes...'.
-  PERFORM pull_existing USING li_repo CHANGING cv_success cv_message.
-
-  IF cv_success = 'X'.
-    cv_message = |Repo created and pull completed: { iv_package }|.
-  ENDIF.
+  cv_success = 'X'.
+  cv_message = |Repository created: { iv_package }|.
+  ci_repo = li_repo.
 
 ENDFORM.
