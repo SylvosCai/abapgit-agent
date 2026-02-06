@@ -6,3 +6,4 @@ logs/
 dist/
 coverage/
 .abapGitAgent
+.abapgit_agent_cookies.txt
