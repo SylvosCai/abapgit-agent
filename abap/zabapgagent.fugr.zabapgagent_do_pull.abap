@@ -14,6 +14,7 @@ FUNCTION zabapgagent_do_pull.
 *"  EXPORTING
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_MESSAGE) TYPE STRING
+*"    VALUE(EV_ERROR_DETAIL) TYPE STRING
 *"  RAISING
 *"    ERROR
 *"    ZCX_ABAPGIT_EXCEPTION
@@ -23,6 +24,7 @@ FUNCTION zabapgagent_do_pull.
 *"----------------------------------------------------------------------
   DATA: lv_success TYPE char1.
   DATA: lv_message TYPE string.
+  DATA: lv_error_detail TYPE string.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_reason TYPE string.
   DATA: lv_login TYPE string.
@@ -82,7 +84,7 @@ FUNCTION zabapgagent_do_pull.
     WRITE: / 'Repository found.'.
     WRITE: / 'Package:', li_repo->get_package( ).
 
-    PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
+    PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message lv_error_detail.
 
   ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
     " Case 2: Create new repository
@@ -90,15 +92,16 @@ FUNCTION zabapgagent_do_pull.
 
     TRY.
         PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
-                              CHANGING li_repo lv_success lv_message.
+                              CHANGING li_repo lv_success lv_message lv_error_detail.
       CATCH zcx_abapgit_exception INTO DATA(lx_new).
         lv_success = ' '.
         lv_message = |Failed to create repo: { lx_new->get_text( ) }|.
+        lv_error_detail = lx_new->get_text( ).
         WRITE: / 'ERROR:', lv_message.
     ENDTRY.
 
     IF li_repo IS BOUND.
-      PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
+      PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message lv_error_detail.
     ENDIF.
 
   ELSE.
@@ -106,6 +109,7 @@ FUNCTION zabapgagent_do_pull.
     lv_success = ' '.
     lv_message = |Repository not found: { iv_url }| &
                |. Set IV_CREATE_NEW = 'X' and provide IV_PACKAGE to create new repo.|.
+    lv_error_detail = |Repository { iv_url } not found in abapGit|.
     WRITE: / 'ERROR:', lv_message.
   ENDIF.
 
@@ -115,6 +119,7 @@ FUNCTION zabapgagent_do_pull.
   " Set export parameters
   ev_success = lv_success.
   ev_message = lv_message.
+  ev_error_detail = lv_error_detail.
 
 ENDFUNCTION.
 
@@ -125,6 +130,7 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
                     iv_url TYPE string
             CHANGING cv_success TYPE char1
                      cv_message TYPE string
+                     cv_error_detail TYPE string
             RAISING zcx_abapgit_exception.
 
   DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
@@ -154,6 +160,7 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
     cv_success = ' '.
     cv_message = |Credentials not configured for { iv_url }| &
                |. Please provide IV_USERNAME and IV_PASSWORD parameters.|.
+    cv_error_detail = |Missing credentials for repository { iv_url }|.
     WRITE: / 'ERROR:', cv_message.
     RETURN.
   ENDIF.
@@ -197,10 +204,30 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
     CATCH zcx_abapgit_exception INTO DATA(lx_git).
       cv_success = ' '.
       cv_message = |abapGit error: { lx_git->get_text( ) }|.
+
+      " Get detailed error info from log
+      DATA(lo_log) = li_repo->get_log( ).
+      IF lo_log IS BOUND.
+        DATA(lv_log_string) = lo_log->to_string( ).
+        IF lv_log_string IS NOT INITIAL.
+          cv_error_detail = lv_log_string.
+        ENDIF.
+      ENDIF.
+
       WRITE: / 'ERROR:', cv_message.
     CATCH cx_root INTO DATA(lx_error).
       cv_success = ' '.
       cv_message = |Error: { lx_error->get_text( ) }|.
+
+      " Get detailed error info from log
+      lo_log = li_repo->get_log( ).
+      IF lo_log IS BOUND.
+        lv_log_string = lo_log->to_string( ).
+        IF lv_log_string IS NOT INITIAL.
+          cv_error_detail = lv_log_string.
+        ENDIF.
+      ENDIF.
+
       WRITE: / 'ERROR:', cv_message.
   ENDTRY.
 
@@ -219,6 +246,7 @@ FORM create_new_repo USING iv_url TYPE string
                 CHANGING ci_repo TYPE REF TO zif_abapgit_repo
                          cv_success TYPE char1
                          cv_message TYPE string
+                         cv_error_detail TYPE string
                 RAISING zcx_abapgit_exception.
 
   DATA: li_repo TYPE REF TO zif_abapgit_repo.

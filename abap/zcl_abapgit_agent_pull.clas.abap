@@ -93,6 +93,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_job_id TYPE string.
     DATA lv_msg TYPE string.
 
+    DATA lv_error_detail TYPE string.
+
     CALL FUNCTION 'ZABAPGAGENT_PULL'
       EXPORTING
         iv_url      = lv_url
@@ -100,12 +102,26 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
         iv_username = lv_username
         iv_password = lv_password
       IMPORTING
-        ev_success = lv_success
-        ev_job_id  = lv_job_id
-        ev_message = lv_msg.
+        ev_success     = lv_success
+        ev_job_id      = lv_job_id
+        ev_message     = lv_msg
+        ev_error_detail = lv_error_detail.
 
-    lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
-                 lv_job_id && '","message":"' && lv_msg && '"}'.
+    IF lv_success = 'X'.
+      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
+                   lv_job_id && '","message":"' && lv_msg && '"}'.
+    ELSE.
+      " Escape special characters in error_detail for JSON
+      DATA(lv_escaped_error) = lv_error_detail.
+      REPLACE ALL OCCURRENCES OF '\' IN lv_escaped_error WITH '\\'.
+      REPLACE ALL OCCURRENCES OF '"' IN lv_escaped_error WITH '\"'.
+      REPLACE ALL OCCURRENCES OF cl_bcs_convert=>c_tab  IN lv_escaped_error WITH '\t'.
+      REPLACE ALL OCCURRENCES OF cl_bcs_convert=>c_crlf IN lv_escaped_error WITH '\n'.
+
+      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
+                   lv_job_id && '","message":"' && lv_msg && '","error_detail":"' &&
+                   lv_escaped_error && '"}'.
+    ENDIF.
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).

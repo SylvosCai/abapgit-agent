@@ -53,6 +53,10 @@
        <PARAMETER>EV_MESSAGE</PARAMETER>
        <TYP>STRING</TYP>
       </RSEXP>
+      <RSEXP>
+       <PARAMETER>EV_ERROR_DETAIL</PARAMETER>
+       <TYP>STRING</TYP>
+      </RSEXP>
      </EXPORT>
      <EXCEPTION>
       <RSEXC>

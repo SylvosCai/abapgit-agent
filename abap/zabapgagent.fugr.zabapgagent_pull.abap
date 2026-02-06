@@ -11,13 +11,14 @@ FUNCTION zabapgagent_pull.
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_JOB_ID) TYPE STRING
 *"    VALUE(EV_MESSAGE) TYPE STRING
+*"    VALUE(EV_ERROR_DETAIL) TYPE STRING
 *"  RAISING
 *"    ERROR
 *"    ZCX_ABAPGIT_EXCEPTION
 *"----------------------------------------------------------------------
   DATA: lv_job_id TYPE string.
 
-  CLEAR: ev_message.
+  CLEAR: ev_message, ev_error_detail.
 
   lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
 
@@ -32,7 +33,8 @@ FUNCTION zabapgagent_pull.
       iv_password    = iv_password
     IMPORTING
       ev_success     = ev_success
-      ev_message     = ev_message.
+      ev_message     = ev_message
+      ev_error_detail = ev_error_detail.
 
   ev_job_id = lv_job_id.
 
