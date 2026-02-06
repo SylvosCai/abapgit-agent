@@ -108,26 +108,29 @@ FUNCTION zabapgagent_activate.
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
-  " Activate objects using abapGit objects class
+  " Activate objects using standard SAP report
   WRITE: / 'Activating objects...'.
   lv_act = 0.
+
+  DATA: lv_obj_type TYPE tadir-object,
+        lv_obj_name TYPE tadir-obj_name.
 
   LOOP AT lt_objects INTO ls_object.
     WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
-    DATA: ls_item TYPE zif_abapgit_definitions=>ty_item.
-    ls_item-obj_type = ls_object-object.
-    ls_item-obj_name = ls_object-obj_name.
+    lv_obj_type = ls_object-object.
+    lv_obj_name = ls_object-obj_name.
 
-    TRY.
-        zcl_abapgit_objects=>activate(
-          is_item = ls_item
-          iv_discard_native_result = abap_false
-          iv_raise_errors = abap_false ).
-        lv_act = lv_act + 1.
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
-        WRITE: / 'Failed to activate:', ls_object-object, ls_object-obj_name.
-    ENDTRY.
+    SUBMIT rseactiv
+      WITH object   = lv_obj_type
+      WITH obj_name = lv_obj_name
+      WITH toselscr = 'X'
+      VIA JOB 'ACTIVATE'
+      USER sy-uname.
+
+    IF sy-subrc = 0.
+      lv_act = lv_act + 1.
+    ENDIF.
   ENDLOOP.
 
   " Restore setting
