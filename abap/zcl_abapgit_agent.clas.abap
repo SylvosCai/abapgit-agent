@@ -145,8 +145,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       ENDIF.
 
       " Get all messages for detail
-      DATA: lt_messages TYPE zif_abapgit_log=>ty_msgs.
-      DATA: ls_msg TYPE zif_abapgit_log=>ty_msg.
+      DATA: lt_messages TYPE zif_abapgit_log=>ty_log_outs.
+      DATA: ls_msg TYPE zif_abapgit_log=>ty_log_out.
       lt_messages = lo_log->get_messages( ).
 
       " Build detail string from error/warning messages
