@@ -25,10 +25,13 @@ START-OF-SELECTION.
   lv_auth = p_user && ':' && p_pass.
   DATA(lv_encoded) = cl_http_utility=>encode_base64( lv_auth ).
 
-  cl_http_client=>create_by_destination( EXPORTING destination = 'NONE' IMPORTING client = lo_http_client ).
+  cl_http_client=>create_by_url(
+    EXPORTING
+      url    = p_url && '/info/refs'
+    IMPORTING
+      client = lo_http_client ).
 
   lo_http_client->request->set_method( 'GET' ).
-  lo_http_client->request->set_header_field( name = '~uri_path' value = '/I045696/abap-ai-bridge.git/info/refs' ).
   lo_http_client->request->set_header_field( name = 'Authorization' value = 'Basic ' && lv_encoded ).
 
   WRITE: / 'Sending request...'.
@@ -65,6 +68,9 @@ START-OF-SELECTION.
   ELSEIF lv_code = 403.
     WRITE: / 'FAILED: Access forbidden (HTTP 403)' COLOR COL_NEGATIVE.
     WRITE: / 'Note: For github.tools.sap, use a Personal Access Token instead of password'.
+  ELSEIF lv_code = 404.
+    WRITE: / 'FAILED: Repository not found (HTTP 404)' COLOR COL_NEGATIVE.
+    WRITE: / 'Check if the URL is correct'.
   ELSE.
     WRITE: / 'FAILED: Unexpected status' COLOR COL_NEGATIVE.
   ENDIF.
