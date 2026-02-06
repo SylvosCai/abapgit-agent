@@ -10,9 +10,7 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     INTERFACES: zif_abapgit_agent.
 
   PRIVATE SECTION.
-    DATA: mo_repo TYPE REF TO zif_abapgit_repo,
-          mv_url TYPE string,
-          mv_job_id TYPE string.
+    DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
     METHODS:
       configure_credentials
@@ -22,6 +20,11 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
       prepare_deserialize_checks
         RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks,
+
+      check_inactive_objects
+        IMPORTING iv_package TYPE devclass
+        CHANGING cv_count TYPE i
+                cv_detail TYPE string,
 
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
@@ -34,20 +37,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD zif_abapgit_agent~pull.
     " Initialize result
     rs_result-job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
-    GET TIME STAMP FIELD rs_result-started_at.
+    rs_result-success = abap_false.
 
     " Validate URL
     IF iv_url IS INITIAL.
-      rs_result-success = abap_false.
       rs_result-message = 'URL is required'.
       RETURN.
     ENDIF.
-
-    mv_url = iv_url.
-
-    " Declare local variables
-    DATA: lv_has_error TYPE abap_bool,
-          lv_error_detail TYPE string.
 
     TRY.
         " Configure credentials if provided
@@ -58,79 +54,71 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             iv_password = iv_password ).
         ENDIF.
 
-        " Find or create repository
-        find_or_create_repo( iv_url = iv_url ).
+        " Find repository
+        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+          EXPORTING iv_url = iv_url
+          IMPORTING ei_repo = mo_repo ).
 
-        " Check if repo was found
-        IF mo_repo IS NOT BOUND.
-          rs_result-success = abap_false.
-          rs_result-message = |Repository not found: { iv_url }|.
-          RETURN.
-        ENDIF.
+        IF mo_repo IS BOUND.
+          " Refresh repo
+          mo_repo->refresh( ).
 
-        " Get deserialize checks
-        DATA(ls_checks) = prepare_deserialize_checks( ).
+          " Get deserialize checks
+          DATA(ls_checks) = prepare_deserialize_checks( ).
 
-        " Create new log
-        mo_repo->create_new_log( ).
+          " Create new log
+          mo_repo->create_new_log( ).
 
-        " Pull and deserialize
-        mo_repo->deserialize(
-          is_checks = ls_checks
-          ii_log   = mo_repo->get_log( ) ).
+          " Pull and deserialize
+          mo_repo->deserialize(
+            is_checks = ls_checks
+            ii_log   = mo_repo->get_log( ) ).
 
-        " Check for activation errors by querying inactive objects
-        DATA(lv_inactive_count) = 0.
-        DATA(lv_inactive_detail) = ''.
-        PERFORM check_inactive_objects USING mo_repo
-          CHANGING lv_inactive_count lv_inactive_detail.
+          " Check for inactive objects (activation errors)
+          DATA(lv_inactive_count) = 0.
+          DATA(lv_inactive_detail) = ''.
+          check_inactive_objects(
+            EXPORTING iv_package = mo_repo->get_package( )
+            CHANGING cv_count = lv_inactive_count
+                    cv_detail = lv_inactive_detail ).
 
-        IF lv_inactive_count > 0.
-          rs_result-success = abap_false.
-          rs_result-message = 'Pull completed with activation errors'.
-          rs_result-error_detail = lv_inactive_detail.
+          IF lv_inactive_count > 0.
+            rs_result-message = 'Pull completed with activation errors'.
+            rs_result-error_detail = lv_inactive_detail.
+          ELSE.
+            rs_result-success = abap_true.
+            rs_result-message = 'Pull completed successfully'.
+          ENDIF.
         ELSE.
-          rs_result-success = abap_true.
-          rs_result-message = 'Pull completed successfully'.
+          rs_result-message = |Repository not found: { iv_url }|.
         ENDIF.
-
-        rs_result-finished_at = rs_result-started_at.
-        GET TIME STAMP FIELD rs_result-finished_at.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
-        rs_result = handle_exception(
-          ix_exception = lx_git ).
+        rs_result = handle_exception( ix_exception = lx_git ).
       CATCH cx_root INTO DATA(lx_error).
-        rs_result = handle_exception(
-          ix_exception = lx_error ).
+        rs_result = handle_exception( ix_exception = lx_error ).
     ENDTRY.
 
   ENDMETHOD.
 
   METHOD zif_abapgit_agent~get_repo_status.
-    " Find repository by URL
+    DATA: li_repo TYPE REF TO zif_abapgit_repo.
     zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-      EXPORTING
-        iv_url    = iv_url
-      IMPORTING
-        ei_repo   = DATA(li_repo)
-        ev_reason = DATA(lv_reason) ).
+      EXPORTING iv_url = iv_url
+      IMPORTING ei_repo = li_repo ).
 
     IF li_repo IS BOUND.
       rv_status = 'Found'.
     ELSE.
-      rv_status = |Not found: { lv_reason }|.
+      rv_status = 'Not found'.
     ENDIF.
   ENDMETHOD.
 
   METHOD configure_credentials.
-    " Store username in abapGit user persistence
     zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
       iv_url = iv_url iv_username = iv_username ).
     zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
       iv_url = iv_url iv_login = iv_username ).
-
-    " Use login_manager to set Basic auth directly
     zcl_abapgit_login_manager=>set_basic(
       iv_uri      = iv_url
       iv_username = iv_username
@@ -138,10 +126,9 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD prepare_deserialize_checks.
-    " Get deserialize checks
     rs_checks = mo_repo->deserialize_checks( ).
 
-    " Set all overwrite decisions to YES (non-GUI mode)
+    " Set overwrite decisions to YES
     FIELD-SYMBOLS: <ls_overwrite> LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite ASSIGNING <ls_overwrite>.
       <ls_overwrite>-decision = zif_abapgit_definitions=>c_yes.
@@ -149,22 +136,30 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
     " Enable activate without popup
     DATA(lo_settings) = zcl_abapgit_persist_factory=>get_settings( )->read( ).
-    DATA(lv_activation_setting) = lo_settings->get_activate_wo_popup( ).
     lo_settings->set_activate_wo_popup( abap_true ).
   ENDMETHOD.
 
-  METHOD find_or_create_repo.
-    " Check if repo already exists
-    zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-      EXPORTING
-        iv_url    = iv_url
-      IMPORTING
-        ei_repo   = mo_repo
-        ev_reason = DATA(lv_reason) ).
+  METHOD check_inactive_objects.
+    DATA: lt_inactive TYPE STANDARD TABLE OF tadir.
+    FIELD-SYMBOLS: <ls_inactive> TYPE tadir.
 
-    " Repo found - refresh it
-    IF mo_repo IS BOUND.
-      mo_repo->refresh( ).
+    cv_count = 0.
+    cv_detail = ''.
+
+    IF iv_package IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT * FROM tadir INTO TABLE lt_inactive
+      WHERE devclass = iv_package
+      AND object NOT IN ('DEVC', 'PACK').
+
+    cv_count = lines( lt_inactive ).
+    IF cv_count > 0.
+      cv_detail = |{ cv_count } inactive objects (activation errors):|.
+      LOOP AT lt_inactive ASSIGNING <ls_inactive>.
+        cv_detail = cv_detail && |\n  - { <ls_inactive>-object } { <ls_inactive>-obj_name }|.
+      ENDLOOP.
     ENDIF.
   ENDMETHOD.
 
@@ -172,48 +167,14 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     rs_result-success = abap_false.
     rs_result-message = ix_exception->get_text( ).
 
-    " Get previous exception if available
-    DATA(lx_previous) = ix_exception->previous.
-    WHILE lx_previous IS BOUND.
-      DATA(lv_prev_msg) = lx_previous->get_text( ).
-      IF lv_prev_msg IS NOT INITIAL.
-        rs_result-error_detail = rs_result-error_detail && |\n  -> { lv_prev_msg }|.
+    DATA(lx_prev) = ix_exception->previous.
+    WHILE lx_prev IS BOUND.
+      DATA(lv_msg) = lx_prev->get_text( ).
+      IF lv_msg IS NOT INITIAL.
+        rs_result-error_detail = rs_result-error_detail && |\n  -> { lv_msg }|.
       ENDIF.
-      lx_previous = lx_previous->previous.
+      lx_prev = lx_prev->previous.
     ENDWHILE.
   ENDMETHOD.
 
 ENDCLASS.
-
-FORM check_inactive_objects USING io_repo TYPE REF TO zif_abapgit_repo
-                     CHANGING cv_count TYPE i
-                             cv_detail TYPE string.
-
-  DATA: lt_inactive TYPE STANDARD TABLE OF tadir,
-        ls_inactive TYPE tadir.
-
-  cv_count = 0.
-  cv_detail = ''.
-
-  IF io_repo IS NOT BOUND.
-    RETURN.
-  ENDIF.
-
-  DATA(lv_devclass) = io_repo->get_package( ).
-  IF lv_devclass IS INITIAL.
-    RETURN.
-  ENDIF.
-
-  SELECT * FROM tadir INTO TABLE lt_inactive
-    WHERE devclass = lv_devclass
-    AND object NOT IN ('DEVC', 'PACK').
-
-  cv_count = lines( lt_inactive ).
-  IF cv_count > 0.
-    cv_detail = |{ cv_count } inactive objects (activation errors):|.
-    LOOP AT lt_inactive INTO ls_inactive.
-      cv_detail = cv_detail && |\n  - { ls_inactive-object } { ls_inactive-obj_name }|.
-    ENDLOOP.
-  ENDIF.
-
-ENDFORM.
