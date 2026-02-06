@@ -49,20 +49,24 @@ FUNCTION zabapgagent_do_pull.
       " Case 1: Repo exists - pull changes
       WRITE: / 'Repository found.'.
       WRITE: / 'Package:', li_repo->get_package( ).
-      lv_key = li_repo->get_key( ).
 
-      PERFORM pull_using_services USING lv_key CHANGING lv_success lv_message.
+      PERFORM pull_repo USING li_repo CHANGING lv_success lv_message.
 
     ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
       " Case 2: Create new repository
       WRITE: / 'Creating new repository...'.
 
-      PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
-                            CHANGING li_repo lv_success lv_message.
+      TRY.
+          PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
+                                CHANGING li_repo lv_success lv_message.
+        CATCH zcx_abapgit_exception INTO DATA(lx_new).
+          lv_success = ' '.
+          lv_message = |Failed to create repo: { lx_new->get_text( ) }|.
+          WRITE: / 'ERROR:', lv_message.
+        ENDTRY.
 
       IF li_repo IS BOUND.
-        lv_key = li_repo->get_key( ).
-        PERFORM pull_using_services USING lv_key CHANGING lv_success lv_message.
+        PERFORM pull_repo USING li_repo CHANGING lv_success lv_message.
       ENDIF.
 
     ELSE.
@@ -80,34 +84,66 @@ FUNCTION zabapgagent_do_pull.
 ENDFUNCTION.
 
 *&---------------------------------------------------------------------*
-*&      Form  PULL_USING_SERVICES
+*&      Form  PULL_REPO
 *&---------------------------------------------------------------------*
-FORM pull_using_services USING iv_key TYPE zif_abapgit_persistence=>ty_repo-key
-                     CHANGING cv_success TYPE char1
-                              cv_message TYPE string.
+FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
+            CHANGING cv_success TYPE char1
+                     cv_message TYPE string.
 
-  DATA: lx_git TYPE REF TO zcx_abapgit_exception.
-  DATA: lx_any TYPE REF TO cx_root.
+  DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+  DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
+  DATA: lv_activation_setting TYPE zif_abapgit_persist_user=>ty_s_user_settings-activate_wo_popup.
+  FIELD-SYMBOLS: <ls_overwrite> LIKE LINE OF ls_checks-overwrite.
 
-  WRITE: / 'Pulling changes using services...'.
+  WRITE: / 'Refreshing repository...'.
+  li_repo->refresh( ).
+
+  WRITE: / 'Getting deserialize checks...'.
+  ls_checks = li_repo->deserialize_checks( ).
+
+  " Set all overwrite decisions to YES (non-GUI mode)
+  LOOP AT ls_checks-overwrite ASSIGNING <ls_overwrite>.
+    <ls_overwrite>-decision = zif_abapgit_definitions=>c_yes.
+  ENDLOOP.
+
+  " Enable activate without popup
+  lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
+  lv_activation_setting = lo_settings->get_activate_wo_popup( ).
+  lo_settings->set_activate_wo_popup( abap_true ).
+
+  WRITE: / 'Pulling changes...'.
+
+  " Create log and deserialize (non-GUI)
+  li_repo->create_new_log( ).
 
   TRY.
-      " Use non-GUI pull method
-      zcl_abapgit_services_git=>pull( iv_key = iv_key ).
+      " Delete unnecessary objects
+      zcl_abapgit_services_repo=>delete_unnecessary_objects(
+        ii_repo   = li_repo
+        is_checks = ls_checks
+        ii_log    = li_repo->get_log( ) ).
+
+      " Deserialize (pull)
+      li_repo->deserialize(
+        is_checks = ls_checks
+        ii_log    = li_repo->get_log( ) ).
 
       cv_success = 'X'.
       cv_message = 'Pull completed successfully'.
       WRITE: / 'Pull completed.'.
 
-    CATCH zcx_abapgit_exception INTO lx_git.
+    CATCH zcx_abapgit_exception INTO DATA(lx_git).
       cv_success = ' '.
       cv_message = |abapGit error: { lx_git->get_text( ) }|.
       WRITE: / 'ERROR:', cv_message.
-    CATCH cx_root INTO lx_any.
+    CATCH cx_root INTO DATA(lx_error).
       cv_success = ' '.
-      cv_message = |Error: { lx_any->get_text( ) }|.
+      cv_message = |Error: { lx_error->get_text( ) }|.
       WRITE: / 'ERROR:', cv_message.
   ENDTRY.
+
+  " Restore setting
+  lo_settings->set_activate_wo_popup( lv_activation_setting ).
 
 ENDFORM.
 
