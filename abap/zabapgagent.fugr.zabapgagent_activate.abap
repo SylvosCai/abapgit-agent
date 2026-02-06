@@ -108,7 +108,7 @@ FUNCTION zabapgagent_activate.
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
-  " Activate objects using standard SAP report
+  " Activate objects synchronously
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
@@ -121,11 +121,17 @@ FUNCTION zabapgagent_activate.
     lv_obj_type = ls_object-object.
     lv_obj_name = ls_object-obj_name.
 
-    SUBMIT rseactiv
-      WITH object   = lv_obj_type
-      WITH obj_name = lv_obj_name
-      WITH toselscr = 'X'
-      AND RETURN.
+    CALL FUNCTION 'RSEACTIV'
+      EXPORTING
+        object        = lv_obj_type
+        obj_name      = lv_obj_name
+        active_ind    = 'A'
+        with_popup    = ' '
+      EXCEPTIONS
+        not_active    = 1
+        no_objects    = 2
+        error_message = 3
+        OTHERS        = 4.
 
     IF sy-subrc = 0.
       lv_act = lv_act + 1.
