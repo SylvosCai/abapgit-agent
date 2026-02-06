@@ -125,8 +125,7 @@ FUNCTION zabapgagent_activate.
       WITH object   = lv_obj_type
       WITH obj_name = lv_obj_name
       WITH toselscr = 'X'
-      VIA JOB 'ACTIVATE'
-      USER sy-uname.
+      AND RETURN.
 
     IF sy-subrc = 0.
       lv_act = lv_act + 1.
