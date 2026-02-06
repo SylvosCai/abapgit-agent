@@ -25,9 +25,9 @@
       </RSIMP>
       <RSIMP>
        <PARAMETER>IV_TEST_RUN</PARAMETER>
-       <DEFAULT>ABAP_FALSE</DEFAULT>
+       <DEFAULT>' '</DEFAULT>
        <OPTIONAL>X</OPTIONAL>
-       <TYP>ABAP_BOOL</TYP>
+       <TYP>CHAR1</TYP>
       </RSIMP>
      </IMPORT>
      <EXPORT>
@@ -67,9 +67,9 @@
       </RSIMP>
       <RSIMP>
        <PARAMETER>IV_TEST_RUN</PARAMETER>
-       <DEFAULT>ABAP_FALSE</DEFAULT>
+       <DEFAULT>' '</DEFAULT>
        <OPTIONAL>X</OPTIONAL>
-       <TYP>ABAP_BOOL</TYP>
+       <TYP>CHAR1</TYP>
       </RSIMP>
       <RSIMP>
        <PARAMETER>IV_JOB_ID</PARAMETER>

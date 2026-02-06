@@ -8,7 +8,7 @@ REPORT zabapgagent_pull_job.
 PARAMETERS:
   p_url    TYPE string LOWER CASE OBLIGATORY,
   p_branch TYPE string LOWER CASE DEFAULT 'main',
-  p_test   TYPE abap_bool AS CHECKBOX DEFAULT abap_false,
+  p_test   TYPE char1 AS CHECKBOX DEFAULT ' ',
   p_job_id TYPE string.
 
 START-OF-SELECTION.
@@ -17,7 +17,7 @@ START-OF-SELECTION.
   WRITE: / 'URL:', p_url.
   WRITE: / 'Branch:', p_branch.
   WRITE: / 'Job ID:', p_job_id.
-  IF p_test = abap_true.
+  IF p_test = 'X'.
     WRITE: / 'TEST MODE - No changes will be made.'.
   ENDIF.
   ULINE.
