@@ -111,14 +111,16 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
 
   METHOD extract_json_value.
     DATA: lv_key TYPE string,
-          lv_pos TYPE i.
+          lv_pos TYPE i,
+          lv_offset TYPE i.
 
     lv_key = '"' && iv_key && '":'.
     lv_pos = strlen( lv_key ).
 
     FIND lv_key IN iv_json.
     IF sy-subrc = 0.
-      DATA(lv_rest) = iv_json+sy-fdpos+lv_pos.
+      lv_offset = sy-fdpos + lv_pos.
+      DATA(lv_rest) = iv_json+lv_offset.
       SHIFT lv_rest LEFT DELETING LEADING SPACE.
       IF lv_rest(1) = '"'.
         SHIFT lv_rest LEFT DELETING LEADING '"'.
