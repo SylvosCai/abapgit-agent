@@ -1,13 +1,10 @@
 *"*"use source
-*"/----------------------------------------------------------------------\
 *"* Local Interface:
 *"  IMPORTING
 *"    REQUEST(If_Http_Request) OPTIONAL
-*"    METHOD(If_Http_Service~Handle_Request)
+*"  METHOD(If_Http_Service~Handle_Request)
 *"  EXPORTING
 *"    RESPONSE(If_Http_Response) OPTIONAL
-*"  EXCEPTIONS
-*"      Invalid_Payload
 *"--------------------------------------------------------------------
 
 CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
@@ -29,9 +26,10 @@ CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
              handle_health
       IMPORTING ir_request  TYPE REF TO if_http_request
                ir_response TYPE REF TO if_http_response,
-             parse_json_to_data
+             extract_json_value
       IMPORTING iv_json TYPE string
-      RETURNING VALUE(rs_data) TYPE string.
+                iv_key TYPE string
+      RETURNING VALUE(rv_value) TYPE string.
 
 ENDCLASS.
 
@@ -54,21 +52,15 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_pull.
-    DATA: lv_url    TYPE string,
-          lv_branch TYPE string.
-
-    " Parse JSON body
     DATA(lv_json) = request->get_cdata( ).
 
-    " Simple JSON parsing (or use /ui2/cl_json)
-    FIND REGEX '"url"\s*:\s*"([^"]+)"' IN lv_json SUBMATCHES lv_url.
-    FIND REGEX '"branch"\s*:\s*"([^"]+)"' IN lv_json SUBMATCHES lv_branch.
+    DATA(lv_url) = extract_json_value( iv_json = lv_json iv_key = 'url' ).
+    DATA(lv_branch) = extract_json_value( iv_json = lv_json iv_key = 'branch' ).
 
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
     ENDIF.
 
-    " Call function module
     DATA: lv_success TYPE char1,
           lv_job_id TYPE string,
           lv_msg    TYPE string.
@@ -82,8 +74,8 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
         ev_job_id  = lv_job_id
         ev_message = lv_msg.
 
-    " Build JSON response
-    DATA(lv_response) = |\{\ "success\": "{ lv_success }", "job_id": "{ lv_job_id }", "message": "{ lv_msg }" \}|.
+    DATA(lv_response) = '{"success":"' && lv_success && '","job_id":"' &&
+                        lv_job_id && '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
     response->set_cdata( lv_response ).
@@ -104,7 +96,9 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
         ev_success = lv_success
         ev_message = lv_msg.
 
-    DATA(lv_response) = |\{\ "job_id": "{ lv_job_id }", "status": "{ lv_status }", "success": "{ lv_success }", "message": "{ lv_msg }" \}|.
+    DATA(lv_response) = '{"job_id":"' && lv_job_id && '","status":"' &&
+                        lv_status && '","success":"' && lv_success &&
+                        '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
     response->set_cdata( lv_response ).
@@ -115,8 +109,24 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
     response->set_cdata( '{"status":"OK","version":"1.0"}' ).
   ENDMETHOD.
 
-  METHOD parse_json_to_data.
-    " Placeholder for JSON parsing
+  METHOD extract_json_value.
+    DATA: lv_key TYPE string,
+          lv_pos TYPE i.
+
+    lv_key = '"' && iv_key && '":'.
+    lv_pos = strlen( lv_key ).
+
+    FIND lv_key IN iv_json.
+    IF sy-subrc = 0.
+      DATA(lv_rest) = iv_json+sy-fdpos+lv_pos.
+      SHIFT lv_rest LEFT DELETING LEADING SPACE.
+      IF lv_rest(1) = '"'.
+        SHIFT lv_rest LEFT DELETING LEADING '"'.
+        rv_value = lv_rest.
+        SHIFT rv_value RIGHT UP TO '"'.
+        SHIFT rv_value LEFT DELETING TRAILING '"'.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.
