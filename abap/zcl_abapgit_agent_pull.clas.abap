@@ -18,6 +18,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     DATA lv_url TYPE string.
     DATA lv_branch TYPE string.
+    DATA lv_username TYPE string.
+    DATA lv_password TYPE string.
 
     " Extract URL from JSON
     FIND REGEX '"url"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_url.
@@ -33,6 +35,20 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       SHIFT lv_branch LEFT DELETING LEADING '"'.
     ENDIF.
 
+    " Extract username from JSON
+    FIND REGEX '"username"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_username.
+    IF lv_username IS INITIAL.
+      FIND REGEX '"username"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_username.
+      SHIFT lv_username LEFT DELETING LEADING '"'.
+    ENDIF.
+
+    " Extract password from JSON
+    FIND REGEX '"password"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_password.
+    IF lv_password IS INITIAL.
+      FIND REGEX '"password"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_password.
+      SHIFT lv_password LEFT DELETING LEADING '"'.
+    ENDIF.
+
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
     ENDIF.
@@ -43,8 +59,10 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     CALL FUNCTION 'ZABAPGAGENT_PULL'
       EXPORTING
-        iv_url    = lv_url
-        iv_branch = lv_branch
+        iv_url      = lv_url
+        iv_branch   = lv_branch
+        iv_username = lv_username
+        iv_password = lv_password
       IMPORTING
         ev_success = lv_success
         ev_job_id  = lv_job_id

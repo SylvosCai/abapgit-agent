@@ -21,13 +21,18 @@ FUNCTION zabapgagent_pull.
 
   lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
 
+  " Pass credentials via memory ID to preserve case
+  EXPORT lv_password FROM iv_password TO MEMORY ID 'ZGIT_PASS'.
+
   SUBMIT zabapgagent_pull_job WITH pv_url = iv_url
     WITH pv_branch = iv_branch
     WITH pv_test = iv_test_run
     WITH pv_username = iv_username
-    WITH pv_password = iv_password
+    " Password not passed directly - use memory ID
     WITH pv_job_id = lv_job_id
     AND RETURN.
+
+  FREE MEMORY ID 'ZGIT_PASS'.
 
   ev_success = 'X'.
   ev_job_id = lv_job_id.
