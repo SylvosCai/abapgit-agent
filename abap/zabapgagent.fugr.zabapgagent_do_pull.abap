@@ -86,6 +86,9 @@ FORM pull_using_services USING iv_key TYPE zif_abapgit_persistence=>ty_repo-key
                      CHANGING cv_success TYPE char1
                               cv_message TYPE string.
 
+  DATA: lx_git TYPE REF TO zcx_abapgit_exception.
+  DATA: lx_any TYPE REF TO cx_root.
+
   WRITE: / 'Pulling changes using services...'.
 
   TRY.
@@ -96,13 +99,13 @@ FORM pull_using_services USING iv_key TYPE zif_abapgit_persistence=>ty_repo-key
       cv_message = 'Pull completed successfully'.
       WRITE: / 'Pull completed.'.
 
-    CATCH zcx_abapgit_exception INTO DATA(lx_error).
+    CATCH zcx_abapgit_exception INTO lx_git.
       cv_success = ' '.
-      cv_message = |abapGit error: { lx_error->get_text( ) }|.
+      cv_message = |abapGit error: { lx_git->get_text( ) }|.
       WRITE: / 'ERROR:', cv_message.
-    CATCH cx_root INTO DATA(lx_error).
+    CATCH cx_root INTO lx_any.
       cv_success = ' '.
-      cv_message = |Error: { lx_error->get_text( ) }|.
+      cv_message = |Error: { lx_any->get_text( ) }|.
       WRITE: / 'ERROR:', cv_message.
   ENDTRY.
 
@@ -117,7 +120,8 @@ FORM create_new_repo USING iv_url TYPE string
                           iv_folder_logic TYPE string
                 CHANGING ci_repo TYPE REF TO zif_abapgit_repo
                          cv_success TYPE char1
-                         cv_message TYPE string.
+                         cv_message TYPE string
+                RAISING zcx_abapgit_exception.
 
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_folder_logic TYPE string.
