@@ -28,41 +28,34 @@ FORM password_popup USING iv_repo_url TYPE string
 ENDFORM.
 
 *&---------------------------------------------------------------------*
-*&      Form  GET_LOG_DETAILS
+*&      Form  BUILD_ERROR_DETAIL
 *&---------------------------------------------------------------------*
-*&      Extract detailed log information from abapGit repo log
+*&      Build detailed error information from exception
 *&---------------------------------------------------------------------*
-FORM get_log_details USING li_repo TYPE REF TO zif_abapgit_repo
-                 RETURNING rv_details TYPE string.
+FORM build_error_detail USING ix_exception TYPE REF TO cx_root
+                              ii_repo TYPE REF TO zif_abapgit_repo
+                    RETURNING rv_detail TYPE string.
 
-  DATA: lo_log TYPE REF TO zif_abapgit_log.
-  DATA: lt_bapiret2 TYPE STANDARD TABLE OF bapiret2.
-  DATA: ls_bapiret2 TYPE bapiret2.
-  DATA: lv_line TYPE string.
+  DATA: lv_devclass TYPE devclass.
+  DATA: lv_prev_text TYPE string.
+  DATA: lv_msg TYPE string.
 
-  rv_details = ''.
+  rv_detail = ix_exception->get_text( ).
 
-  IF li_repo IS NOT BOUND.
-    RETURN.
-  ENDIF.
-
-  " Try to get the log from repo
-  lo_log = li_repo->get_log( ).
-  IF lo_log IS NOT BOUND.
-    RETURN.
-  ENDIF.
-
-  " Get log as BAPIRET2 table
-  lt_bapiret2 = lo_log->get_bapiret2( ).
-
-  " Build detailed string from log entries
-  LOOP AT lt_bapiret2 INTO ls_bapiret2.
-    lv_line = |[{ ls_bapiret2-type }] { ls_bapiret2-id }/{ ls_bapiret2-number }: { ls_bapiret2-message }|.
-    IF rv_details IS INITIAL.
-      rv_details = lv_line.
-    ELSE.
-      rv_details = rv_details && |\\n| && lv_line.
+  " Check for previous exception in chain
+  IF ix_exception->previous IS BOUND.
+    lv_prev_text = ix_exception->previous->get_text( ).
+    IF lv_prev_text IS NOT INITIAL.
+      rv_detail = rv_detail && |\nCaused by: { lv_prev_text }|.
     ENDIF.
-  ENDLOOP.
+  ENDIF.
+
+  " Add repository info
+  IF ii_repo IS BOUND.
+    lv_devclass = ii_repo->get_package( ).
+    IF lv_devclass IS NOT INITIAL.
+      rv_detail = rv_detail && |\nPackage: { lv_devclass }|.
+    ENDIF.
+  ENDIF.
 
 ENDFORM.
