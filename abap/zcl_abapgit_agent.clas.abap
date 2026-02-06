@@ -10,7 +10,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       configure_credentials
         IMPORTING iv_url TYPE string
                   iv_username TYPE string
-                  iv_password TYPE string,
+                  iv_password TYPE string
+        RAISING zcx_abapgit_exception,
 
       prepare_deserialize_checks
         RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks,
@@ -61,7 +62,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             ii_log   = mo_repo->get_log( ) ).
 
           DATA(lv_inactive_count) = 0.
-          DATA(lv_inactive_detail) = ''.
+          DATA(lv_inactive_detail) TYPE string.
+          lv_inactive_detail = ''.
           check_inactive_objects(
             EXPORTING iv_package = mo_repo->get_package( )
             CHANGING cv_count = lv_inactive_count
