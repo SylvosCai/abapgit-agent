@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_FUGR" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -23,12 +23,6 @@
        <OPTIONAL>X</OPTIONAL>
        <TYP>STRING</TYP>
       </RSIMP>
-      <RSIMP>
-       <PARAMETER>IV_ACTIVATE</PARAMETER>
-       <DEFAULT>ABAP_TRUE</DEFAULT>
-       <OPTIONAL>X</OPTIONAL>
-       <TYP>ABAP_BOOL</TYP>
-      </RSIMP>
      </IMPORT>
      <EXPORT>
       <RSEXP>
@@ -43,21 +37,7 @@
        <PARAMETER>EV_MESSAGE</PARAMETER>
        <TYP>STRING</TYP>
       </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_ACTIVATED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_FAILED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
      </EXPORT>
-     <TABLES>
-      <RSTBL>
-       <PARAMETER>ET_ERROR_LOG</PARAMETER>
-       <TYP>STRING_TABLE</TYP>
-      </RSTBL>
-     </TABLES>
      <EXCEPTION>
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
@@ -67,7 +47,7 @@
     <item>
      <FUNCNAME>ZABAPGAGENT_GET_STATUS</FUNCNAME>
      <REMOTE_CALL>R</REMOTE_CALL>
-     <SHORT_TEXT>Get status and result of a pull/activation job</SHORT_TEXT>
+     <SHORT_TEXT>Get status of a pull/activation job</SHORT_TEXT>
      <IMPORT>
       <RSIMP>
        <PARAMETER>IV_JOB_ID</PARAMETER>
@@ -87,29 +67,7 @@
        <PARAMETER>EV_MESSAGE</PARAMETER>
        <TYP>STRING</TYP>
       </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_ACTIVATED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_FAILED_COUNT</PARAMETER>
-       <TYP>I</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_STARTED_AT</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
-      <RSEXP>
-       <PARAMETER>EV_FINISHED_AT</PARAMETER>
-       <TYP>STRING</TYP>
-      </RSEXP>
      </EXPORT>
-     <TABLES>
-      <RSTBL>
-       <PARAMETER>ET_ERROR_LOG</PARAMETER>
-       <TYP>STRING_TABLE</TYP>
-      </RSTBL>
-     </TABLES>
      <EXCEPTION>
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
