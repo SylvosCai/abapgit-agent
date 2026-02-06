@@ -10,8 +10,8 @@ FUNCTION zabapgagent_pull.
 *"    VALUE(EV_MESSAGE) TYPE STRING
 *"----------------------------------------------------------------------
   DATA: lv_job_id TYPE string,
-        lv_jobcount TYPE btcjobcount,
-        lv_jobname TYPE btcjob.
+        lv_jobcount TYPE char12,
+        lv_jobname TYPE char32.
 
   CLEAR: ev_message.
 
