@@ -6,13 +6,13 @@
 REPORT zabapgagent_pull_job.
 
 PARAMETERS:
-  p_url        TYPE string LOWER CASE OBLIGATORY,
-  p_branch     TYPE string LOWER CASE DEFAULT 'main',
-  p_test       TYPE char1 AS CHECKBOX DEFAULT ' ',
-  p_job_id     TYPE string,
-  p_pkg        TYPE devclass,
-  p_folder     TYPE string DEFAULT 'PREFIX',
-  p_create_new TYPE char1 AS CHECKBOX DEFAULT ' '.
+  p_url      TYPE string LOWER CASE OBLIGATORY,
+  p_branch   TYPE string LOWER CASE DEFAULT 'main',
+  p_test     TYPE char1 AS CHECKBOX DEFAULT ' ',
+  p_job_id   TYPE string,
+  p_pkg      TYPE devclass,
+  p_folder   TYPE string DEFAULT 'PREFIX',
+  p_new      TYPE char1 AS CHECKBOX DEFAULT ' '.
 
 START-OF-SELECTION.
 
@@ -22,13 +22,12 @@ START-OF-SELECTION.
   WRITE: / 'Job ID:', p_job_id.
   WRITE: / 'Package:', p_pkg.
   WRITE: / 'Folder Logic:', p_folder.
-  WRITE: / 'Create New:', p_create_new.
+  WRITE: / 'Create New:', p_new.
   IF p_test = 'X'.
     WRITE: / 'TEST MODE - No changes will be made.'.
   ENDIF.
   ULINE.
 
-  " Call the actual function module to do the work
   CALL FUNCTION 'ZABAPGAGENT_DO_PULL'
     EXPORTING
       iv_url         = p_url
@@ -37,6 +36,6 @@ START-OF-SELECTION.
       iv_job_id      = p_job_id
       iv_package     = p_pkg
       iv_folder_logic = p_folder
-      iv_create_new  = p_create_new.
+      iv_create_new  = p_new.
 
 END-OF-SELECTION.
