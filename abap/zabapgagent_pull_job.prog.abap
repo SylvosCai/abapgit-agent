@@ -18,13 +18,6 @@ PARAMETERS:
 
 START-OF-SELECTION.
 
-  " Get password from memory ID (for REST API calls)
-  DATA lv_pass_mem TYPE string.
-  IMPORT lv_pass_mem FROM MEMORY ID 'ZGIT_PASS'.
-  IF lv_pass_mem IS NOT INITIAL.
-    p_pass = lv_pass_mem.
-  ENDIF.
-
   WRITE: / 'ABAP Git Agent - Pull Job'.
   WRITE: / 'URL:', p_url.
   WRITE: / 'Branch:', p_branch.
@@ -54,9 +47,6 @@ START-OF-SELECTION.
       iv_create_new  = p_new
       iv_username    = p_user
       iv_password    = p_pass.
-
-  " Clear password from memory
-  FREE MEMORY ID 'ZGIT_PASS'.
 
 END-OF-SELECTION.
 
