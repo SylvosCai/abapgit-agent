@@ -14,7 +14,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         RAISING zcx_abapgit_exception,
 
       prepare_deserialize_checks
-        RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks,
+        RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
+        RAISING zcx_abapgit_exception,
 
       check_inactive_objects
         IMPORTING iv_package TYPE devclass
@@ -30,7 +31,9 @@ ENDCLASS.
 CLASS zcl_abapgit_agent IMPLEMENTATION.
 
   METHOD zif_abapgit_agent~pull.
-    rs_result-job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
+    DATA: lv_job_id TYPE string.
+    lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
+    rs_result-job_id = lv_job_id.
     rs_result-success = abap_false.
 
     IF iv_url IS INITIAL.
@@ -46,9 +49,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             iv_password = iv_password ).
         ENDIF.
 
+        DATA: li_repo TYPE REF TO zif_abapgit_repo.
         zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
           EXPORTING iv_url = iv_url
-          IMPORTING ei_repo = mo_repo ).
+          IMPORTING ei_repo = li_repo ).
+        mo_repo = li_repo.
 
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
@@ -61,9 +66,9 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             is_checks = ls_checks
             ii_log   = mo_repo->get_log( ) ).
 
-          DATA(lv_inactive_count) TYPE i.
+          DATA: lv_inactive_count TYPE i.
+          DATA: lv_inactive_detail TYPE string.
           lv_inactive_count = 0.
-          DATA(lv_inactive_detail) TYPE string.
           lv_inactive_detail = ''.
           check_inactive_objects(
             EXPORTING iv_package = mo_repo->get_package( )
@@ -116,18 +121,20 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
-    FIELD-SYMBOLS: <ls_overwrite> LIKE LINE OF rs_checks-overwrite.
-    LOOP AT rs_checks-overwrite ASSIGNING <ls_overwrite>.
-      <ls_overwrite>-decision = zif_abapgit_definitions=>c_yes.
+    DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
+    LOOP AT rs_checks-overwrite INTO ls_overwrite.
+      ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+      MODIFY rs_checks-overwrite FROM ls_overwrite.
     ENDLOOP.
 
-    DATA(lo_settings) = zcl_abapgit_persist_factory=>get_settings( )->read( ).
+    DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
+    lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
     lo_settings->set_activate_wo_popup( abap_true ).
   ENDMETHOD.
 
   METHOD check_inactive_objects.
     DATA: lt_inactive TYPE STANDARD TABLE OF tadir.
-    FIELD-SYMBOLS: <ls_inactive> TYPE tadir.
+    DATA: ls_inactive TYPE tadir.
 
     cv_count = 0.
     cv_detail = ''.
@@ -143,8 +150,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     cv_count = lines( lt_inactive ).
     IF cv_count > 0.
       cv_detail = |{ cv_count } inactive objects (activation errors):|.
-      LOOP AT lt_inactive ASSIGNING <ls_inactive>.
-        cv_detail = cv_detail && |\n  - { <ls_inactive>-object } { <ls_inactive>-obj_name }|.
+      LOOP AT lt_inactive INTO ls_inactive.
+        cv_detail = cv_detail && |\n  - { ls_inactive-object } { ls_inactive-obj_name }|.
       ENDLOOP.
     ENDIF.
   ENDMETHOD.
@@ -153,9 +160,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     rs_result-success = abap_false.
     rs_result-message = ix_exception->get_text( ).
 
-    DATA(lx_prev) = ix_exception->previous.
+    DATA: lx_prev TYPE REF TO cx_root.
+    lx_prev = ix_exception->previous.
     WHILE lx_prev IS BOUND.
-      DATA(lv_msg) = lx_prev->get_text( ).
+      DATA: lv_msg TYPE string.
+      lv_msg = lx_prev->get_text( ).
       IF lv_msg IS NOT INITIAL.
         rs_result-error_detail = rs_result-error_detail && |\n  -> { lv_msg }|.
       ENDIF.
