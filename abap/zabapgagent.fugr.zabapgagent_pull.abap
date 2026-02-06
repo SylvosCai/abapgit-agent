@@ -4,6 +4,7 @@ FUNCTION zabapgagent_pull.
 *"  IMPORTING
 *"    VALUE(IV_URL) TYPE STRING
 *"    VALUE(IV_BRANCH) TYPE STRING DEFAULT 'main'
+*"    VALUE(IV_TEST_RUN) TYPE ABAP_BOOL DEFAULT ABAP_FALSE
 *"  EXPORTING
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_JOB_ID) TYPE STRING
@@ -17,6 +18,7 @@ FUNCTION zabapgagent_pull.
 
   SUBMIT zabapgagent_pull_job WITH pv_url = iv_url
     WITH pv_branch = iv_branch
+    WITH pv_test = iv_test_run
     WITH pv_job_id = lv_job_id
     AND RETURN.
 

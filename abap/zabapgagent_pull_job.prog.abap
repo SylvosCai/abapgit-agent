@@ -8,37 +8,19 @@ REPORT zabapgagent_pull_job.
 PARAMETERS:
   p_url    TYPE string LOWER CASE OBLIGATORY,
   p_branch TYPE string LOWER CASE DEFAULT 'main',
-  p_test   TYPE abap_bool AS CHECKBOX DEFAULT abap_false.
-
-DATA:
-  lv_success TYPE abap_bool,
-  lv_job_id  TYPE string,
-  lv_message TYPE string.
+  p_test   TYPE abap_bool AS CHECKBOX DEFAULT abap_false,
+  p_job_id TYPE string.
 
 START-OF-SELECTION.
 
   WRITE: / 'ABAP Git Agent - Pull Job'.
   WRITE: / 'URL:', p_url.
   WRITE: / 'Branch:', p_branch.
+  WRITE: / 'Job ID:', p_job_id.
   IF p_test = abap_true.
     WRITE: / 'TEST MODE - No changes will be made.'.
   ENDIF.
   ULINE.
-
-  CALL FUNCTION 'ZABAPGAGENT_PULL'
-    EXPORTING
-      iv_url      = p_url
-      iv_branch   = p_branch
-      iv_test_run = p_test
-    IMPORTING
-      ev_success  = lv_success
-      ev_job_id   = lv_job_id
-      ev_message  = lv_message.
-
-  WRITE: / 'Result:'.
-  WRITE: / 'Success:', lv_success.
-  WRITE: / 'Job ID:', lv_job_id.
-  WRITE: / 'Message:', lv_message.
 
   IF lv_success = abap_true AND lv_job_id IS NOT INITIAL AND p_test = abap_false.
     ULINE.
