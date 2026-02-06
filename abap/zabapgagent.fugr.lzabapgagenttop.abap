@@ -37,12 +37,10 @@ FORM check_log_for_errors USING li_repo TYPE REF TO zif_abapgit_repo
                               cv_error_detail TYPE string.
 
   DATA: lo_log TYPE REF TO zif_abapgit_log.
-  DATA: lv_devclass TYPE devclass.
-  DATA: lt_inactive TYPE STANDARD TABLE OF tadir.
-  DATA: ls_inactive TYPE tadir.
-  DATA: lv_count TYPE i.
+  DATA: lt_bapiret2 TYPE STANDARD TABLE OF bapiret2.
+  DATA: ls_bapiret2 TYPE bapiret2.
   DATA: lv_line TYPE string.
-  DATA: lv_modified_count TYPE i.
+  DATA: lv_error_count TYPE i.
 
   cv_has_error = abap_false.
   cv_error_detail = ''.
@@ -51,37 +49,33 @@ FORM check_log_for_errors USING li_repo TYPE REF TO zif_abapgit_repo
     RETURN.
   ENDIF.
 
-  " Check for inactive objects (main indicator of activation errors)
-  lv_devclass = li_repo->get_package( ).
-  IF lv_devclass IS NOT INITIAL.
-    SELECT * FROM tadir INTO TABLE lt_inactive
-      WHERE devclass = lv_devclass
-      AND object NOT IN ('DEVC', 'PACK').
+  " Get log entries from abapGit
+  lo_log = li_repo->get_log( ).
+  IF lo_log IS NOT BOUND.
+    RETURN.
+  ENDIF.
 
-    lv_count = lines( lt_inactive ).
-    IF lv_count > 0.
-      " Report objects that failed to activate (likely due to syntax errors)
-      cv_error_detail = |Objects with activation errors in { lv_devclass }:|.
-      lv_modified_count = 0.
-      LOOP AT lt_inactive INTO ls_inactive.
-        " Check if object was modified (only report modified objects with errors)
-        " For now, report all inactive CLASS and INTF objects (likely have syntax errors)
-        IF ls_inactive-object = 'CLAS' OR ls_inactive-object = 'INTF' OR
-           ls_inactive-object = 'FUNC' OR ls_inactive-object = 'PROG'.
-          lv_modified_count = lv_modified_count + 1.
-          lv_line = |  - { ls_inactive-object } { ls_inactive-obj_name }|.
-          cv_error_detail = cv_error_detail && |\n| && lv_line.
-        ENDIF.
-      ENDLOOP.
+  " Get log as BAPIRET2 table
+  lt_bapiret2 = lo_log->get_bapiret2( ).
 
-      " Also show total inactive count
-      IF lv_modified_count > 0.
-        cv_error_detail = cv_error_detail && |\n(Total inactive: { lv_count })|.
-        cv_has_error = abap_true.
+  " Filter for error messages
+  lv_error_count = 0.
+  LOOP AT lt_bapiret2 INTO ls_bapiret2.
+    " Only report E (error) and W (warning) messages
+    IF ls_bapiret2-type = 'E' OR ls_bapiret2-type = 'W'.
+      lv_error_count = lv_error_count + 1.
+      lv_line = |{ ls_bapiret2-type }: { ls_bapiret2-id }/{ ls_bapiret2-number } - { ls_bapiret2-message }|.
+      IF cv_error_detail IS INITIAL.
+        cv_error_detail = lv_line.
       ELSE.
-        cv_error_detail = |{ lv_count } inactive objects (may not have activation errors)|.
+        cv_error_detail = cv_error_detail && |\n| && lv_line.
       ENDIF.
     ENDIF.
+  ENDLOOP.
+
+  IF lv_error_count > 0.
+    cv_has_error = abap_true.
+    cv_error_detail = |{ lv_error_count } activation errors:\n| && cv_error_detail.
   ENDIF.
 
 ENDFORM.
