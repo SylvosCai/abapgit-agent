@@ -1,7 +1,8 @@
-"<!> <class ZCL_ABAPGIT_AGENT
-"!> Purpose: ABAP Git Agent - OO implementation for git pull and activation
-"!> Created by: ABAP AI Bridge
-"!> Date: 2026-02-06
+"!-------------------------------------------------------------------
+"! Purpose: ABAP Git Agent - OO implementation for git pull and activation
+"! Created by: ABAP AI Bridge
+"! Date: 2026-02-06
+"!-------------------------------------------------------------------
 
 CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 

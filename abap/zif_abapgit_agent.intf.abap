@@ -1,7 +1,8 @@
-"<!> <interface ZIF_ABAPGIT_AGENT
-"!> Purpose: Interface for ABAP Git Agent - programmatic git pull and activation
-"!> Created by: ABAP AI Bridge
-"!> Date: 2026-02-05
+"!-------------------------------------------------------------------
+"! Purpose: Interface for ABAP Git Agent - programmatic git pull and activation
+"! Created by: ABAP AI Bridge
+"! Date: 2026-02-05
+"!-------------------------------------------------------------------
 
 INTERFACE zif_abapgit_agent
   PUBLIC .
