@@ -227,11 +227,12 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       IF li_repo IS BOUND.
         DATA(lv_devclass) = li_repo->get_package( ).
         IF lv_devclass IS NOT INITIAL.
-          SELECT COUNT(*) FROM tadir INTO lv_count
+          DATA(lv_inactive_count) = 0.
+          SELECT COUNT(*) FROM tadir INTO lv_inactive_count
             WHERE devclass = lv_devclass
             AND object NOT IN ('DEVC', 'PACK').
-          IF lv_count > 0.
-            cv_error_detail = cv_error_detail && |\nInactive objects in { lv_devclass }: { lv_count }|.
+          IF lv_inactive_count > 0.
+            cv_error_detail = cv_error_detail && |\nInactive objects in { lv_devclass }: { lv_inactive_count }|.
           ENDIF.
         ENDIF.
       ENDIF.
