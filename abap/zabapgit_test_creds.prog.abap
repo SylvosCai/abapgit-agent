@@ -6,7 +6,7 @@
 REPORT zabapgit_test_creds.
 
 PARAMETERS:
-  p_url     TYPE string LOWER CASE DEFAULT 'https://github.tools.sap/I045696/abap-ai-bridge.git',
+  p_url     TYPE string LOWER CASE DEFAULT 'https://github.tools.sap',
   p_user    TYPE string,
   p_pass    TYPE string.
 
@@ -27,7 +27,7 @@ START-OF-SELECTION.
 
   cl_http_client=>create_by_url(
     EXPORTING
-      url    = p_url && '/info/refs'
+      url    = p_url
     IMPORTING
       client = lo_http_client ).
 
@@ -62,17 +62,15 @@ START-OF-SELECTION.
   WRITE: / 'HTTP Status:', lv_code, lv_reason.
 
   IF lv_code = 200.
-    WRITE: / 'SUCCESS: Credentials are valid!' COLOR COL_POSITIVE.
+    WRITE: / 'SUCCESS: Server accessible!' COLOR COL_POSITIVE.
   ELSEIF lv_code = 401.
     WRITE: / 'FAILED: Invalid credentials (HTTP 401)' COLOR COL_NEGATIVE.
   ELSEIF lv_code = 403.
     WRITE: / 'FAILED: Access forbidden (HTTP 403)' COLOR COL_NEGATIVE.
-    WRITE: / 'Note: For github.tools.sap, use a Personal Access Token instead of password'.
   ELSEIF lv_code = 404.
-    WRITE: / 'FAILED: Repository not found (HTTP 404)' COLOR COL_NEGATIVE.
-    WRITE: / 'Check if the URL is correct'.
+    WRITE: / 'FAILED: Not found (HTTP 404)' COLOR COL_NEGATIVE.
   ELSE.
-    WRITE: / 'FAILED: Unexpected status' COLOR COL_NEGATIVE.
+    WRITE: / 'Status:', lv_code COLOR COL_GROUP.
   ENDIF.
 
 END-OF-SELECTION.
