@@ -24,8 +24,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
       check_for_errors
         IMPORTING io_repo TYPE REF TO zif_abapgit_repo
-        RETURNING VALUE(rv_has_error) TYPE abap_bool
-        RETURNING VALUE(rv_error_detail) TYPE string,
+        CHANGING cv_has_error TYPE abap_bool
+                cv_error_detail TYPE string,
 
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
@@ -38,7 +38,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD zif_abapgit_agent~pull.
     " Initialize result
     rs_result-job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
-    rs_result-started_at = |{ sy-datlo }{ sy-timlo }|.
+    GET TIME STAMP FIELD rs_result-started_at.
 
     " Validate URL
     IF iv_url IS INITIAL.
@@ -59,9 +59,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         ENDIF.
 
         " Find or create repository
-        find_or_create_repo(
-          iv_url    = iv_url
-          iv_branch = iv_branch ).
+        find_or_create_repo( iv_url = iv_url ).
 
         " Check if repo was found
         IF mo_repo IS NOT BOUND.
@@ -82,11 +80,12 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           ii_log   = mo_repo->get_log( ) ).
 
         " Check for activation errors
-        DATA(lv_has_error) = abap_false.
-        DATA(lv_error_detail) = check_for_errors(
-          io_repo = mo_repo
-          rv_has_error = lv_has_error
-          rv_error_detail = DATA(lv_detail) ).
+        lv_has_error = abap_false.
+        lv_error_detail = ''.
+        check_for_errors(
+          EXPORTING io_repo = mo_repo
+          CHANGING cv_has_error = lv_has_error
+                  cv_error_detail = lv_error_detail ).
 
         IF lv_has_error = abap_true.
           rs_result-success = abap_false.
@@ -97,7 +96,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           rs_result-message = 'Pull completed successfully'.
         ENDIF.
 
-        rs_result-finished_at = |{ sy-datlo }{ sy-timlo }|.
+        rs_result-finished_at = rs_result-started_at.
+        GET TIME STAMP FIELD rs_result-finished_at.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
         rs_result = handle_exception(
