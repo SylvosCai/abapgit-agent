@@ -19,38 +19,18 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_url TYPE string.
     DATA lv_branch TYPE string.
 
-    FIND '"url"' IN lv_json.
-    IF sy-subrc = 0.
-      DATA lv_pos TYPE i.
-      lv_pos = sy-fdpos + 6.
-      lv_url = lv_json+lv_pos.
+    " Extract URL from JSON
+    FIND REGEX '"url"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_url.
+    IF lv_url IS INITIAL.
+      FIND REGEX '"url"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_url.
       SHIFT lv_url LEFT DELETING LEADING '"'.
-      DATA lv_len TYPE i.
-      lv_len = strlen( lv_url ).
-      DATA lv_i TYPE i.
-      DO lv_len TIMES.
-        IF lv_url+lv_i(1) = '"' AND lv_url+lv_i+1(1) <> '\'.
-          EXIT.
-        ENDIF.
-        lv_i = lv_i + 1.
-      ENDDO.
-      lv_url = lv_url(lv_i).
     ENDIF.
 
-    FIND '"branch"' IN lv_json.
-    IF sy-subrc = 0.
-      lv_pos = sy-fdpos + 10.
-      lv_branch = lv_json+lv_pos.
+    " Extract branch from JSON
+    FIND REGEX '"branch"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_branch.
+    IF lv_branch IS INITIAL.
+      FIND REGEX '"branch"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_branch.
       SHIFT lv_branch LEFT DELETING LEADING '"'.
-      lv_len = strlen( lv_branch ).
-      lv_i = 0.
-      DO lv_len TIMES.
-        IF lv_branch+lv_i(1) = '"' AND lv_branch+lv_i+1(1) <> '\'.
-          EXIT.
-        ENDIF.
-        lv_i = lv_i + 1.
-      ENDDO.
-      lv_branch = lv_branch(lv_i).
     ENDIF.
 
     IF lv_branch IS INITIAL.
