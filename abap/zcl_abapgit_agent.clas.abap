@@ -17,10 +17,9 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
         RAISING zcx_abapgit_exception,
 
-      check_inactive_objects
-        IMPORTING iv_package TYPE devclass
-        CHANGING cv_count TYPE i
-                cv_detail TYPE string,
+      check_log_for_errors
+        EXPORTING ev_has_error TYPE abap_bool
+                  ev_detail TYPE string,
 
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
@@ -66,18 +65,16 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             is_checks = ls_checks
             ii_log   = mo_repo->get_log( ) ).
 
-          DATA: lv_inactive_count TYPE i.
-          DATA: lv_inactive_detail TYPE string.
-          lv_inactive_count = 0.
-          lv_inactive_detail = ''.
-          check_inactive_objects(
-            EXPORTING iv_package = mo_repo->get_package( )
-            CHANGING cv_count = lv_inactive_count
-                    cv_detail = lv_inactive_detail ).
+          " Check the abapGit log for errors
+          DATA: lv_has_error TYPE abap_bool.
+          DATA: lv_error_detail TYPE string.
+          check_log_for_errors(
+            EXPORTING ev_has_error = lv_has_error
+                      ev_detail    = lv_error_detail ).
 
-          IF lv_inactive_count > 0.
-            rs_result-message = 'Pull completed with activation errors'.
-            rs_result-error_detail = lv_inactive_detail.
+          IF lv_has_error = abap_true.
+            rs_result-message = 'Pull completed with errors'.
+            rs_result-error_detail = lv_error_detail.
           ELSE.
             rs_result-success = abap_true.
             rs_result-message = 'Pull completed successfully'.
@@ -132,27 +129,40 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     lo_settings->set_activate_wo_popup( abap_true ).
   ENDMETHOD.
 
-  METHOD check_inactive_objects.
-    DATA: lt_inactive TYPE STANDARD TABLE OF tadir.
-    DATA: ls_inactive TYPE tadir.
+  METHOD check_log_for_errors.
+    DATA: lo_log TYPE REF TO zif_abapgit_log.
 
-    cv_count = 0.
-    cv_detail = ''.
+    ev_has_error = abap_false.
+    ev_detail = ''.
 
-    IF iv_package IS INITIAL.
-      RETURN.
-    ENDIF.
+    lo_log = mo_repo->get_log( ).
+    IF lo_log IS BOUND.
 
-    SELECT * FROM tadir INTO TABLE lt_inactive
-      WHERE devclass = iv_package
-      AND object NOT IN ('DEVC', 'PACK').
+      " Check overall status
+      DATA(lv_status) = lo_log->get_status( ).
+      IF lv_status = zif_abapgit_log=>c_status-error.
+        ev_has_error = abap_true.
+      ENDIF.
 
-    cv_count = lines( lt_inactive ).
-    IF cv_count > 0.
-      cv_detail = |{ cv_count } inactive objects (activation errors):|.
-      LOOP AT lt_inactive INTO ls_inactive.
-        cv_detail = cv_detail && |\n  - { ls_inactive-object } { ls_inactive-obj_name }|.
+      " Get all messages for detail
+      DATA: lt_messages TYPE zif_abapgit_log=>ty_msgs.
+      DATA: ls_msg TYPE zif_abapgit_log=>ty_msg.
+      lt_messages = lo_log->get_messages( ).
+
+      " Build detail string from error/warning messages
+      LOOP AT lt_messages INTO ls_msg.
+        IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
+          IF ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
+            ev_detail = ev_detail && |\n  - { ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
+          ELSE.
+            ev_detail = ev_detail && |\n  - { ls_msg-text }|.
+          ENDIF.
+        ENDIF.
       ENDLOOP.
+
+      IF ev_detail IS NOT INITIAL.
+        ev_detail = |Errors/Warnings:{ ev_detail }|.
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
