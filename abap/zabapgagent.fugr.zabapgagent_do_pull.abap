@@ -224,8 +224,8 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       ENDWHILE.
 
       " Also check for inactive objects
-      IF ii_repo IS BOUND.
-        DATA(lv_devclass) = ii_repo->get_package( ).
+      IF li_repo IS BOUND.
+        DATA(lv_devclass) = li_repo->get_package( ).
         IF lv_devclass IS NOT INITIAL.
           SELECT COUNT(*) FROM tadir INTO lv_count
             WHERE devclass = lv_devclass
