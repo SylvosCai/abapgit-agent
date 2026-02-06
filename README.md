@@ -104,9 +104,6 @@ The agent will start on `http://localhost:3000`.
 # Pull and activate repository
 node scripts/claude-integration.js pull --url <git-url> --branch main
 
-# Check job status
-node scripts/claude-integration.js status <job-id>
-
 # Health check
 node scripts/claude-integration.js health
 ```

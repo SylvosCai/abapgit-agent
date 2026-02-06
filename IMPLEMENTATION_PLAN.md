@@ -126,24 +126,40 @@ abap-ai-bridge/
 - [x] Create HTTP server
 - [x] Add configuration management
 
-### Phase 3: Integration
-- [ ] Claude integration script
-- [ ] Test with real ABAP system
+### Phase 3: Integration (IN PROGRESS)
+
+#### Claude Integration Script
+- [x] Basic CLI structure exists
+- [ ] Update for synchronous API (no polling needed)
+- [ ] Parse `error_detail` from response
+- [ ] Display activation results with proper formatting
+- [ ] Error handling for network failures
+
+#### Node.js Agent Server
+- [ ] Create HTTP server (`src/server.js`)
+- [ ] Load configuration from `.abapGitAgent`
+- [ ] Implement REST client to call ABAP endpoints
+- [ ] Return formatted response to Claude
+
+#### Testing
+- [ ] Test pull with clean activation
+- [ ] Test pull with syntax errors
+- [ ] Test pull with activation errors
+- [ ] Test with authentication errors
 
 ## Communication Flow
 
 ```
 1. Claude pushes code to git
-2. Claude calls: POST /pull { url: "...", branch: "main", username, password }
-3. Local Agent:
-   a. Makes HTTP request to ABAP REST endpoint
-   b. ABAP pulls and deserializes repository
-   c. ABAP checks for inactive objects
-   d. Returns result with job_id
-4. Claude polls: GET /status?job_id=<id>
-5. Returns result with error_detail if activation failed
-6. If errors, Claude fixes and repeats
+2. Claude calls agent: POST /pull { url: "...", branch: "main", username, password }
+3. Agent calls ABAP: POST /sap/bc/z_abapgit_agent/pull
+4. ABAP executes pull synchronously
+5. ABAP returns: { success, job_id, message, error_detail }
+6. Agent returns response to Claude
+7. If errors, Claude fixes and repeats
 ```
+
+**Note:** Unlike original plan, execution is synchronous - no polling needed. The ABAP API returns immediately with the result.
 
 ## ABAP Code Flow
 

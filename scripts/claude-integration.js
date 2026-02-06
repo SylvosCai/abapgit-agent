@@ -2,34 +2,59 @@
  * Claude Integration - Shell script for Claude Code
  *
  * Usage in Claude:
- * 1. Run: node scripts/claude-integration.js --pull <git-url> [--branch <branch>]
- * 2. Poll for results until completion
- * 3. Parse and display errors if any
+ * 1. Run: node scripts/claude-integration.js pull --url <git-url> [--branch <branch>]
+ * 2. Parse response for activation result
+ * 3. Display errors if any
  */
 
-const { execSync, spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 const path = require('path');
-
-const AGENT_URL = process.env.AGENT_URL || 'http://localhost:3000';
+const fs = require('fs');
 
 /**
- * Make HTTP request to agent
+ * Load configuration from .abapGitAgent
+ */
+function loadConfig() {
+  const configPath = path.join(__dirname, '..', '.abapGitAgent');
+
+  if (fs.existsSync(configPath)) {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+
+  // Fallback to environment variables
+  return {
+    host: process.env.ABAP_HOST,
+    sapport: parseInt(process.env.ABAP_PORT, 10) || 443,
+    client: process.env.ABAP_CLIENT || '100',
+    user: process.env.ABAP_USER,
+    password: process.env.ABAP_PASSWORD,
+    language: process.env.ABAP_LANGUAGE || 'EN'
+  };
+}
+
+/**
+ * Make HTTP request to ABAP REST endpoint
  */
 function request(method, path, data = null) {
   return new Promise((resolve, reject) => {
-    const url = new URL(path, AGENT_URL);
+    const config = loadConfig();
+    const url = new URL(path, `https://${config.host}:${config.sapport}`);
+
     const options = {
       hostname: url.hostname,
       port: url.port,
       path: url.pathname,
       method,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'sap-client': config.client,
+        'sap-language': config.language || 'EN'
+      },
+      auth: `${config.user}:${config.password}`
     };
 
-    const req = http.request(options, (res) => {
+    const req = (url.protocol === 'https:' ? https : http).request(options, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
@@ -51,71 +76,40 @@ function request(method, path, data = null) {
 }
 
 /**
- * Poll for job completion
- */
-async function waitForCompletion(jobId, maxWait = 300000, interval = 5000) {
-  const start = Date.now();
-
-  while (Date.now() - start < maxWait) {
-    const result = await request('GET', `/api/jobs/${jobId}`);
-
-    if (result.status !== 'RUNNING') {
-      return result;
-    }
-
-    process.stdout.write('.');
-    await new Promise(r => setTimeout(r, interval));
-  }
-
-  throw new Error('Timeout waiting for job completion');
-}
-
-/**
  * Pull and activate repository
  */
 async function pull(gitUrl, branch = 'main') {
   console.log(`\n🚀 Starting pull for: ${gitUrl}`);
   console.log(`   Branch: ${branch}`);
 
-  // Start pull
-  const startResult = await request('POST', '/api/pull', {
-    url: gitUrl,
-    branch
-  });
+  try {
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', {
+      url: gitUrl,
+      branch: branch
+    });
 
-  if (!startResult.success) {
-    console.error(`\n❌ Failed to start pull: ${startResult.error}`);
+    console.log('\n');
+
+    if (result.success === 'X' || result.success === true) {
+      console.log(`✅ Pull completed successfully!`);
+      console.log(`   Job ID: ${result.job_id}`);
+      console.log(`   Message: ${result.message}`);
+    } else {
+      console.log(`❌ Pull completed with errors!`);
+      console.log(`   Job ID: ${result.job_id}`);
+      console.log(`   Message: ${result.message}`);
+
+      if (result.error_detail) {
+        console.log(`\n📋 Error Details:`);
+        console.log(result.error_detail);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`\n❌ Error: ${error.message}`);
     process.exit(1);
   }
-
-  console.log(`   Job ID: ${startResult.jobId}`);
-  console.log(`   Status: ${startResult.status}`);
-  console.log(`\n⏳ Waiting for completion...`);
-
-  // Wait for completion
-  const result = await waitForCompletion(startResult.jobId);
-
-  console.log('\n');
-
-  // Display results
-  if (result.success) {
-    console.log(`✅ Activation completed successfully!`);
-    console.log(`   Activated: ${result.activatedCount} objects`);
-    console.log(`   Failed: ${result.failedCount} objects`);
-  } else {
-    console.log(`❌ Activation failed!`);
-    console.log(`   Message: ${result.message}`);
-  }
-
-  // Show errors
-  if (result.errorLog && result.errorLog.length > 0) {
-    console.log(`\n📋 Error Log:`);
-    result.errorLog.forEach((err, i) => {
-      console.log(`   ${i + 1}. ${err}`);
-    });
-  }
-
-  return result;
 }
 
 /**
@@ -123,7 +117,7 @@ async function pull(gitUrl, branch = 'main') {
  */
 async function healthCheck() {
   try {
-    const result = await request('GET', '/api/health');
+    const result = await request('GET', '/sap/bc/z_abapgit_agent/health');
     return result;
   } catch (error) {
     return { status: 'unreachable', error: error.message };
@@ -145,21 +139,11 @@ async function main() {
 
         if (!args[urlIndex]) {
           console.error('Error: --url is required');
-          console.error('Usage: node claude-integration.js pull --url <git-url> [--branch <branch>]');
+          console.error('Usage: node scripts/claude-integration.js pull --url <git-url> [--branch <branch>]');
           process.exit(1);
         }
 
         await pull(args[urlIndex], branchIndex !== -1 ? args[branchIndex + 1] : 'main');
-        break;
-
-      case 'status':
-        const jobId = args[1];
-        if (!jobId) {
-          console.error('Error: Job ID required');
-          process.exit(1);
-        }
-        const status = await request('GET', `/api/jobs/${jobId}`);
-        console.log(JSON.stringify(status, null, 2));
         break;
 
       case 'health':
@@ -167,40 +151,23 @@ async function main() {
         console.log(JSON.stringify(health, null, 2));
         break;
 
-      case 'wait':
-        const waitJobId = args[1];
-        if (!waitJobId) {
-          console.error('Error: Job ID required');
-          process.exit(1);
-        }
-        const waitResult = await waitForCompletion(waitJobId);
-        console.log(JSON.stringify(waitResult, null, 2));
-        break;
-
       default:
         console.log(`
 ABAP AI Bridge - Claude Integration
 
 Usage:
-  node claude-integration.js <command> [options]
+  node scripts/claude-integration.js <command> [options]
 
 Commands:
   pull --url <git-url> [--branch <branch>]
     Pull and activate a repository
 
-  status <job-id>
-    Get status of a specific job
-
-  wait <job-id>
-    Wait for job completion and return results
-
   health
-    Check if agent is healthy
+    Check if ABAP REST API is healthy
 
 Examples:
-  node claude-integration.js pull --url https://github.com/example/repo --branch main
-  node claude-integration.js status JOB123
-  node claude-integration.js wait JOB123
+  node scripts/claude-integration.js pull --url https://github.com/example/repo --branch main
+  node scripts/claude-integration.js health
 `);
     }
   } catch (error) {
