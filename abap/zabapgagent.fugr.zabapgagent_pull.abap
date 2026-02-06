@@ -11,11 +11,15 @@ FUNCTION zabapgagent_pull.
 *"----------------------------------------------------------------------
   DATA: lv_job_id TYPE string,
         lv_jobcount TYPE char12,
-        lv_jobname TYPE char32.
+        lv_jobname TYPE char32,
+        lv_datum TYPE d,
+        lv_uzeit TYPE t.
 
   CLEAR: ev_message.
 
-  lv_job_id = |{ sy-uname }_{ sy-datetime }_{ sy-uzeit }|.
+  lv_datum = sy-datum.
+  lv_uzeit = sy-uzeit.
+  lv_job_id = |{ sy-uname }{ lv_datum }{ lv_uzeit }|.
   lv_jobname = |ZABAPG_{ lv_job_id }|.
 
   CALL FUNCTION 'JOB_OPEN'
