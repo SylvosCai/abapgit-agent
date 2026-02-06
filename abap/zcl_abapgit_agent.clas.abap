@@ -61,7 +61,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             is_checks = ls_checks
             ii_log   = mo_repo->get_log( ) ).
 
-          DATA(lv_inactive_count) = 0.
+          DATA(lv_inactive_count) TYPE i.
+          lv_inactive_count = 0.
           DATA(lv_inactive_detail) TYPE string.
           lv_inactive_detail = ''.
           check_inactive_objects(
