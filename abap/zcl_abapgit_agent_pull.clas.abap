@@ -80,7 +80,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_len TYPE i.
     DATA lv_after_len TYPE i.
     DATA lv_after TYPE string.
-    DATA lv_quote TYPE i.
+    DATA lv_skip TYPE i.
+    DATA lv_copy TYPE string.
+    DATA lv_keep TYPE i.
 
     " Build key pattern
     CONCATENATE '"' iv_key '"' ':' INTO lv_key.
@@ -92,9 +94,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     ENDIF.
 
     " Get the part after the key
-    lv_len = strlen( iv_json ).
-    lv_after_len = lv_len - lv_pos.
-    lv_after = iv_json+lv_pos(lv_after_len).
+    lv_after = iv_json+lv_pos.
+    lv_len = strlen( lv_after ).
 
     " Find first quote after key
     FIND '"' IN lv_after MATCH OFFSET lv_pos.
@@ -102,16 +103,23 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get substring after first quote
-    lv_after = lv_after+lv_pos+1.
+    " Get substring after first quote by shifting
+    lv_skip = lv_pos + 1.
+    SHIFT lv_after LEFT BY lv_skip PLACES.
 
     " Find closing quote
-    FIND '"' IN lv_after MATCH OFFSET lv_quote.
+    FIND '"' IN lv_after MATCH OFFSET lv_pos.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    rv_value = lv_after(lv_quote).
+    " Extract value by shifting right then left
+    lv_copy = lv_after.
+    lv_keep = strlen( lv_after ) - lv_pos.
+    SHIFT lv_copy RIGHT BY lv_keep PLACES.
+    SHIFT lv_copy LEFT.
+
+    rv_value = lv_copy.
   ENDMETHOD.
 
 ENDCLASS.
