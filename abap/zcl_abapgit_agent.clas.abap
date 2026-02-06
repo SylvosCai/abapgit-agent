@@ -10,6 +10,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES: zif_abapgit_agent.
 
+    METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
+
   PRIVATE SECTION.
     DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
@@ -196,6 +198,10 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       ENDIF.
       lx_prev = lx_prev->previous.
     ENDWHILE.
+  ENDMETHOD.
+
+  METHOD get_version.
+    rv_version = '1.0.0'.
   ENDMETHOD.
 
 ENDCLASS.
