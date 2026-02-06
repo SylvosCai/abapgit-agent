@@ -9,6 +9,8 @@ FUNCTION zabapgagent_do_pull.
 *"    VALUE(IV_PACKAGE) TYPE DEVCLASS DEFAULT ' '
 *"    VALUE(IV_FOLDER_LOGIC) TYPE STRING DEFAULT 'PREFIX'
 *"    VALUE(IV_CREATE_NEW) TYPE CHAR1 DEFAULT ' '
+*"    VALUE(IV_USERNAME) TYPE STRING OPTIONAL
+*"    VALUE(IV_PASSWORD) TYPE STRING OPTIONAL
 *"  RAISING
 *"    ERROR
 *"    ZCX_ABAPGIT_EXCEPTION
@@ -28,6 +30,9 @@ FUNCTION zabapgagent_do_pull.
   WRITE: / 'Job ID:', iv_job_id.
   WRITE: / 'Package:', iv_package.
   WRITE: / 'Create New:', iv_create_new.
+  IF iv_username IS NOT INITIAL.
+    WRITE: / 'Username provided: Yes'.
+  ENDIF.
   ULINE.
 
   IF iv_test_run = 'X'.
@@ -35,6 +40,15 @@ FUNCTION zabapgagent_do_pull.
     lv_success = 'X'.
     lv_message = 'Test mode - no changes made'.
   ELSE.
+    " Configure credentials if provided
+    IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
+      WRITE: / 'Configuring git credentials...'.
+      zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
+        iv_url = iv_url iv_username = iv_username ).
+      zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
+        iv_url = iv_url iv_login = iv_username ).
+    ENDIF.
+
     " Check if repo already exists
     WRITE: / 'Checking if repository exists...'.
 
@@ -110,7 +124,7 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
   IF lv_login IS INITIAL.
     cv_success = ' '.
     cv_message = |Credentials not configured for { iv_url }| &
-               |. Please configure git credentials in abapGit first.|.
+               |. Please provide IV_USERNAME and IV_PASSWORD parameters.|.
     WRITE: / 'ERROR:', cv_message.
     RETURN.
   ENDIF.

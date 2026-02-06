@@ -29,6 +29,16 @@
        <OPTIONAL>X</OPTIONAL>
        <TYP>CHAR1</TYP>
       </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_USERNAME</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_PASSWORD</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
      </IMPORT>
      <EXPORT>
       <RSEXP>
@@ -95,6 +105,16 @@
        <DEFAULT>' '</DEFAULT>
        <OPTIONAL>X</OPTIONAL>
        <TYP>CHAR1</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_USERNAME</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_PASSWORD</PARAMETER>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
       </RSIMP>
      </IMPORT>
      <EXCEPTION>
