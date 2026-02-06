@@ -18,8 +18,10 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         RAISING zcx_abapgit_exception,
 
       check_log_for_errors
-        EXPORTING ev_has_error TYPE abap_bool
-                  ev_detail TYPE string,
+        RETURNING VALUE(rv_has_error) TYPE abap_bool,
+
+      get_log_detail
+        RETURNING VALUE(rv_detail) TYPE string,
 
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
@@ -66,11 +68,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             ii_log   = mo_repo->get_log( ) ).
 
           " Check the abapGit log for errors
-          DATA: lv_has_error TYPE abap_bool.
-          DATA: lv_error_detail TYPE string.
-          check_log_for_errors(
-            EXPORTING ev_has_error = lv_has_error
-                      ev_detail    = lv_error_detail ).
+          DATA(lv_has_error) = check_log_for_errors( ).
+          DATA(lv_error_detail) = get_log_detail( ).
 
           IF lv_has_error = abap_true.
             rs_result-message = 'Pull completed with errors'.
@@ -132,36 +131,40 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD check_log_for_errors.
     DATA: lo_log TYPE REF TO zif_abapgit_log.
 
-    ev_has_error = abap_false.
-    ev_detail = ''.
+    rv_has_error = abap_false.
 
     lo_log = mo_repo->get_log( ).
     IF lo_log IS BOUND.
-
-      " Check overall status
       DATA(lv_status) = lo_log->get_status( ).
       IF lv_status = zif_abapgit_log=>c_status-error.
-        ev_has_error = abap_true.
+        rv_has_error = abap_true.
       ENDIF.
+    ENDIF.
+  ENDMETHOD.
 
-      " Get all messages for detail
+  METHOD get_log_detail.
+    DATA: lo_log TYPE REF TO zif_abapgit_log.
+
+    rv_detail = ''.
+
+    lo_log = mo_repo->get_log( ).
+    IF lo_log IS BOUND.
       DATA: lt_messages TYPE zif_abapgit_log=>ty_log_outs.
       DATA: ls_msg TYPE zif_abapgit_log=>ty_log_out.
       lt_messages = lo_log->get_messages( ).
 
-      " Build detail string from error/warning messages
       LOOP AT lt_messages INTO ls_msg.
         IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
           IF ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
-            ev_detail = ev_detail && |\n  - { ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
+            rv_detail = rv_detail && |\n  - { ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
           ELSE.
-            ev_detail = ev_detail && |\n  - { ls_msg-text }|.
+            rv_detail = rv_detail && |\n  - { ls_msg-text }|.
           ENDIF.
         ENDIF.
       ENDLOOP.
 
-      IF ev_detail IS NOT INITIAL.
-        ev_detail = |Errors/Warnings:{ ev_detail }|.
+      IF rv_detail IS NOT INITIAL.
+        rv_detail = |Errors/Warnings:{ rv_detail }|.
       ENDIF.
     ENDIF.
   ENDMETHOD.
