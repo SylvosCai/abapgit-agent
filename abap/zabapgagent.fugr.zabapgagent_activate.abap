@@ -13,7 +13,6 @@ FUNCTION zabapgagent_activate.
   DATA: lv_devclass TYPE devclass.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_reason TYPE string.
-  DATA: li_repo_list TYPE REF TO zif_abapgit_repo_srv.
   DATA: li_repo_tmp TYPE REF TO zif_abapgit_repo.
   DATA: lt_objects TYPE STANDARD TABLE OF tadir.
   DATA: ls_object TYPE tadir.
@@ -54,16 +53,11 @@ FUNCTION zabapgagent_activate.
   ELSEIF iv_package IS NOT INITIAL.
     lv_devclass = iv_package.
     WRITE: / 'Finding repository by package...'.
-    TRY.
-        li_repo_list = zcl_abapgit_repo_srv=>get_instance( ).
-        li_repo_list->get_repo_list(
-          IMPORTING
-            rt_repos = DATA(lt_repos) ).
-      CATCH zcx_abapgit_exception.
-        lt_repos = VALUE #( ).
-    ENDTRY.
 
-    LOOP AT lt_repos INTO li_repo_tmp.
+    " Get all repos and find the one with matching package
+    DATA(lt_all_repos) = zcl_abapgit_repo_srv=>get_instance( )->get_repo_list( ).
+
+    LOOP AT lt_all_repos INTO li_repo_tmp.
       IF li_repo_tmp->get_package( ) = lv_devclass.
         li_repo = li_repo_tmp.
         EXIT.
