@@ -21,36 +21,75 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_username TYPE string.
     DATA lv_password TYPE string.
 
-    " Extract URL from JSON
-    FIND REGEX '"url"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_url.
-    IF lv_url IS INITIAL.
-      FIND REGEX '"url"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_url.
-      SHIFT lv_url LEFT DELETING LEADING '"'.
+    " Extract URL from JSON using simple string operations
+    FIND '"url"' IN lv_json MATCH OFFSET DATA(lv_off).
+    IF sy-subrc = 0.
+      DATA(lv_part) = lv_json+lv_off.
+      FIND ':' IN lv_part MATCH OFFSET DATA(lv_col).
+      IF sy-subrc = 0.
+        lv_part = lv_part+lv_col+1.
+        SHIFT lv_part LEFT UP TO '"'.
+        SHIFT lv_part LEFT.
+        FIND '"' IN lv_part MATCH OFFSET DATA(lv_qend).
+        lv_url = lv_part(lv_qend).
+      ENDIF.
     ENDIF.
 
     " Extract branch from JSON
-    FIND REGEX '"branch"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_branch.
-    IF lv_branch IS INITIAL.
-      FIND REGEX '"branch"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_branch.
-      SHIFT lv_branch LEFT DELETING LEADING '"'.
+    FIND '"branch"' IN lv_json MATCH OFFSET lv_off.
+    IF sy-subrc = 0.
+      lv_part = lv_json+lv_off.
+      FIND ':' IN lv_part MATCH OFFSET lv_col.
+      IF sy-subrc = 0.
+        lv_part = lv_part+lv_col+1.
+        SHIFT lv_part LEFT UP TO '"'.
+        SHIFT lv_part LEFT.
+        FIND '"' IN lv_part MATCH OFFSET lv_qend.
+        lv_branch = lv_part(lv_qend).
+      ENDIF.
     ENDIF.
 
     " Extract username from JSON
-    FIND REGEX '"username"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_username.
-    IF lv_username IS INITIAL.
-      FIND REGEX '"username"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_username.
-      SHIFT lv_username LEFT DELETING LEADING '"'.
+    FIND '"username"' IN lv_json MATCH OFFSET lv_off.
+    IF sy-subrc = 0.
+      lv_part = lv_json+lv_off.
+      FIND ':' IN lv_part MATCH OFFSET lv_col.
+      IF sy-subrc = 0.
+        lv_part = lv_part+lv_col+1.
+        SHIFT lv_part LEFT UP TO '"'.
+        SHIFT lv_part LEFT.
+        FIND '"' IN lv_part MATCH OFFSET lv_qend.
+        lv_username = lv_part(lv_qend).
+      ENDIF.
     ENDIF.
 
     " Extract password from JSON
-    FIND REGEX '"password"\s*:\s*"([^"]*)"' IN lv_json SUBMATCHES lv_password.
-    IF lv_password IS INITIAL.
-      FIND REGEX '"password"\s*:\s*([^\s,}]+)' IN lv_json SUBMATCHES lv_password.
-      SHIFT lv_password LEFT DELETING LEADING '"'.
+    FIND '"password"' IN lv_json MATCH OFFSET lv_off.
+    IF sy-subrc = 0.
+      lv_part = lv_json+lv_off.
+      FIND ':' IN lv_part MATCH OFFSET lv_col.
+      IF sy-subrc = 0.
+        lv_part = lv_part+lv_col+1.
+        SHIFT lv_part LEFT UP TO '"'.
+        SHIFT lv_part LEFT.
+        FIND '"' IN lv_part MATCH OFFSET lv_qend.
+        lv_password = lv_part(lv_qend).
+      ENDIF.
     ENDIF.
 
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
+    ENDIF.
+
+    " Validate required fields
+    IF lv_url IS INITIAL.
+      DATA lv_json_resp TYPE string.
+      lv_json_resp = '{"success":"","job_id":"","error":"URL is required"}'.
+      DATA(lo_entity) = mo_response->create_entity( ).
+      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      lo_entity->set_string_data( lv_json_resp ).
+      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
+      RETURN.
     ENDIF.
 
     DATA lv_success TYPE char1.
@@ -68,11 +107,10 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
         ev_job_id  = lv_job_id
         ev_message = lv_msg.
 
-    DATA lv_json_resp TYPE string.
     lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
                  lv_job_id && '","message":"' && lv_msg && '"}'.
 
-    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
