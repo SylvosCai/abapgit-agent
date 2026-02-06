@@ -4,6 +4,7 @@
 CLASS zcl_abapgit_agent_handler DEFINITION PUBLIC INHERITING FROM cl_rest_http_handler CREATE PUBLIC.
 
   PUBLIC SECTION.
+    METHODS: if_rest_application~get_root_handler REDEFINITION.
 
   PRIVATE SECTION.
 
