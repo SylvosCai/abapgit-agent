@@ -1,78 +1,81 @@
+*&---------------------------------------------------------------------*
+*& Report  ZABAPGAGENT_PULL_JOB
+*&---------------------------------------------------------------------*
+*& Standalone program to pull and activate ABAP code from git
+*&---------------------------------------------------------------------*
 REPORT zabapgagent_pull_job.
-PARAMETERS: pv_url TYPE string LOWER CASE.
-PARAMETERS: pv_branch TYPE string DEFAULT 'main'.
-PARAMETERS: pv_job_id TYPE string.
+
+PARAMETERS:
+  p_url    TYPE string LOWER CASE OBLIGATORY,
+  p_branch TYPE string LOWER CASE DEFAULT 'main',
+  p_test   TYPE abap_bool AS CHECKBOX DEFAULT abap_false.
+
+DATA:
+  lv_success TYPE abap_bool,
+  lv_job_id  TYPE string,
+  lv_message TYPE string.
 
 START-OF-SELECTION.
-  DATA: lo_repo TYPE REF TO zcl_abapgit_repo.
-  DATA: lt_objects TYPE zif_abapgit_agent=>ty_object_table.
-  DATA: lt_error_log TYPE string_table.
-  DATA: lv_success TYPE abap_bool.
-  DATA: lv_activated TYPE i.
-  DATA: lv_failed TYPE i.
 
-  DATA(ls_result) = VALUE ZABAPGRES(
-    job_id = pv_job_id
-    status = 'RUNNING'
-    started_at = |{ sy-datum }{ sy-uzeit }|
-  ).
-  MODIFY ZABAPGRES FROM ls_result.
+  WRITE: / 'ABAP Git Agent - Pull Job'.
+  WRITE: / 'URL:', p_url.
+  WRITE: / 'Branch:', p_branch.
+  IF p_test = abap_true.
+    WRITE: / 'TEST MODE - No changes will be made.'.
+  ENDIF.
+  ULINE.
 
-  TRY.
-      lo_repo ?= zcl_abapgit_repo_srv=>get_instance( )->get_by_url( pv_url ).
-      MODIFY ZABAPGLOG FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |Repository found: { pv_url }| ).
-      lo_repo->refresh( ).
-      lo_repo->pull( iv_branch = pv_branch iv_strategy = zif_abapgit_definitions=>c_git_strategy-branch ).
-      DATA(lt_objects_raw) = lo_repo->get_objects_serialized( ).
-      LOOP AT lt_objects_raw ASSIGNING FIELD-SYMBOL(<ls_obj>).
-        APPEND VALUE #( object_type = <ls_obj>-obj_type object_name = <ls_obj>-obj_name devclass = <ls_obj>-devclass ) TO lt_objects.
-      ENDLOOP.
-      MODIFY ZABAPGLOG FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'INFO' message = |{ lines( lt_objects ) } objects to activate| ).
-      IF lt_objects IS NOT INITIAL.
-        PERFORM activate_objects TABLES lt_objects lt_error_log USING lv_activated lv_failed.
-      ELSE.
-        lv_success = abap_true.
-        lv_activated = 0.
-        lv_failed = 0.
+  CALL FUNCTION 'ZABAPGAGENT_PULL'
+    EXPORTING
+      iv_url      = p_url
+      iv_branch   = p_branch
+      iv_test_run = p_test
+    IMPORTING
+      ev_success  = lv_success
+      ev_job_id   = lv_job_id
+      ev_message  = lv_message.
+
+  WRITE: / 'Result:'.
+  WRITE: / 'Success:', lv_success.
+  WRITE: / 'Job ID:', lv_job_id.
+  WRITE: / 'Message:', lv_message.
+
+  IF lv_success = abap_true AND lv_job_id IS NOT INITIAL AND p_test = abap_false.
+    ULINE.
+    WRITE: / 'Checking job status...'.
+
+    DATA lv_status TYPE string.
+    DATA lv_retry TYPE i VALUE 0.
+    DATA lv_max_retry TYPE i VALUE 30.
+
+    WHILE lv_retry < lv_max_retry.
+      CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
+        EXPORTING
+          iv_job_id = lv_job_id
+        IMPORTING
+          ev_status  = lv_status
+          ev_success = lv_success
+          ev_message = lv_message.
+
+      WRITE: / 'Status:', lv_status.
+
+      IF lv_status = 'COMPLETED' OR lv_status = 'FAILED'.
+        EXIT.
       ENDIF.
-      ls_result-success = lv_success.
-      ls_result-message = COND #( WHEN lv_success = abap_true THEN 'Activation completed' ELSE 'Activation failed' ).
-      ls_result-activated_count = lv_activated.
-      ls_result-failed_count = lv_failed.
-      ls_result-finished_at = |{ sy-datum }{ sy-uzeit }|.
-      ls_result-status = COND #( WHEN lv_success = abap_true THEN 'COMPLETED' ELSE 'FAILED' ).
-    MODIFY ZABAPGRES FROM ls_result.
-    MODIFY ZABAPGLOG FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = COND #( WHEN lv_success = abap_true THEN 'SUCCESS' ELSE 'ERROR' ) message = ls_result-message ).
-    LOOP AT lt_error_log ASSIGNING FIELD-SYMBOL(<lv_error>).
-      MODIFY ZABAPGERR FROM VALUE #( job_id = pv_job_id message = <lv_error> ).
-    ENDLOOP.
-  CATCH cx_root INTO DATA(lx_exception).
-    MODIFY ZABAPGLOG FROM VALUE #( job_id = pv_job_id timestamp = |{ sy-datum }{ sy-uzeit }| type = 'ERROR' message = lx_exception->get_text( ) ).
-    ls_result-success = abap_false.
-    ls_result-message = lx_exception->get_text( ).
-    ls_result-status = 'FAILED'.
-    MODIFY ZABAPGRES FROM ls_result.
-ENDTRY.
 
-FORM activate_objects TABLES it_objects TYPE zif_abapgit_agent=>ty_object_table pt_error_log TYPE string_table USING ev_activated TYPE i ev_failed TYPE i.
-  DATA: lt_src TYPE TABLE OF string.
-  CLEAR: ev_activated, ev_failed, pt_error_log[].
-  LOOP AT it_objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
-    TRY.
-        CASE <ls_obj>-object_type.
-          WHEN 'PROG' OR 'CLAS' OR 'FUGR' OR 'INTF'.
-            CALL FUNCTION 'RS_INCL_OBJ' EXPORTING object = <ls_obj>-object_type obj_name = <ls_obj>-object_name devclass = <ls_obj>-devclass TABLES source = lt_src EXCEPTIONS not_done = 1 OTHERS = 2.
-            IF sy-subrc = 0. ev_activated = ev_activated + 1. ELSE. ev_failed = ev_failed + 1. APPEND |Failed to activate { <ls_obj>-object_type } { <ls_obj>-object_name }| TO pt_error_log. ENDIF.
-          WHEN 'DOMA' OR 'DTEL' OR 'TABL'.
-            CALL FUNCTION 'RS_DD_DOMACT' EXPORTING name = <ls_obj>-object_name obj_type = <ls_obj>-object_type EXCEPTIONS illegal_input = 1 not_activation = 2 OTHERS = 3.
-            IF sy-subrc = 0. ev_activated = ev_activated + 1. ELSE. ev_failed = ev_failed + 1. APPEND |Failed to activate { <ls_obj>-object_type } { <ls_obj>-object_name }| TO pt_error_log. ENDIF.
-          WHEN OTHERS.
-            ev_failed = ev_failed + 1.
-            APPEND |Unknown object type: { <ls_obj>-object_type } { <ls_obj>-object_name }| TO pt_error_log.
-        ENDCASE.
-      CATCH cx_root INTO DATA(lx_error).
-        ev_failed = ev_failed + 1.
-        APPEND |Exception: { lx_error->get_text( ) } | TO pt_error_log.
-    ENDTRY.
-  ENDLOOP.
-ENDFORM.
+      lv_retry = lv_retry + 1.
+      WAIT UP TO 2 SECONDS.
+    ENDWHILE.
+
+    IF lv_retry >= lv_max_retry.
+      WRITE: / 'Warning: Polling timed out. Check job status manually.'.
+    ELSE.
+      ULINE.
+      WRITE: / 'Final Result:'.
+      WRITE: / 'Success:', lv_success.
+      WRITE: / 'Status:', lv_status.
+      WRITE: / 'Message:', lv_message.
+    ENDIF.
+  ENDIF.
+
+END-OF-SELECTION.
