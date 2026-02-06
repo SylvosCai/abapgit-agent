@@ -20,8 +20,8 @@ FUNCTION zabapgagent_do_pull.
   DATA: lv_success TYPE char1.
   DATA: lv_message TYPE string.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
-  DATA: lv_key TYPE zif_abapgit_persistence=>ty_repo-key.
   DATA: lv_reason TYPE string.
+  DATA: lv_login TYPE string.
 
   WRITE: / 'Starting pull for URL:', iv_url.
   WRITE: / 'Branch:', iv_branch.
@@ -50,7 +50,7 @@ FUNCTION zabapgagent_do_pull.
       WRITE: / 'Repository found.'.
       WRITE: / 'Package:', li_repo->get_package( ).
 
-      PERFORM pull_repo USING li_repo CHANGING lv_success lv_message.
+      PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
 
     ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
       " Case 2: Create new repository
@@ -63,10 +63,10 @@ FUNCTION zabapgagent_do_pull.
           lv_success = ' '.
           lv_message = |Failed to create repo: { lx_new->get_text( ) }|.
           WRITE: / 'ERROR:', lv_message.
-        ENDTRY.
+      ENDTRY.
 
       IF li_repo IS BOUND.
-        PERFORM pull_repo USING li_repo CHANGING lv_success lv_message.
+        PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
       ENDIF.
 
     ELSE.
@@ -87,16 +87,35 @@ ENDFUNCTION.
 *&      Form  PULL_REPO
 *&---------------------------------------------------------------------*
 FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
+                    iv_url TYPE string
             CHANGING cv_success TYPE char1
                      cv_message TYPE string.
 
   DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
   DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
   DATA: lv_activation_setting TYPE zif_abapgit_persist_user=>ty_s_user_settings-activate_wo_popup.
+  DATA: lv_login TYPE string.
   FIELD-SYMBOLS: <ls_overwrite> LIKE LINE OF ls_checks-overwrite.
 
   WRITE: / 'Refreshing repository...'.
   li_repo->refresh( ).
+
+  " Check if credentials are configured
+  TRY.
+      lv_login = zcl_abapgit_persist_factory=>get_user( )->get_repo_login( iv_url = iv_url ).
+    CATCH zcx_abapgit_exception.
+      lv_login = ''.
+  ENDTRY.
+
+  IF lv_login IS INITIAL.
+    cv_success = ' '.
+    cv_message = |Credentials not configured for { iv_url }| &
+               |. Please configure git credentials in abapGit first.|.
+    WRITE: / 'ERROR:', cv_message.
+    RETURN.
+  ENDIF.
+
+  WRITE: / 'Credentials found for repository.'.
 
   WRITE: / 'Getting deserialize checks...'.
   ls_checks = li_repo->deserialize_checks( ).
