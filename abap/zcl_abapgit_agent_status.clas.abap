@@ -20,9 +20,6 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
     DATA lv_success TYPE char1.
     DATA lv_message TYPE string.
 
-    " TEST SYNTAX ERROR
-    undefined_syntax_error_variable.
-
     CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
       EXPORTING
         iv_job_id = lv_job_id
