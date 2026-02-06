@@ -35,7 +35,8 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
 
   METHOD if_http_service_extension~handle_request.
-    DATA(lv_path) = to_upper( request->get_path( ) ).
+    DATA lv_path TYPE string.
+    lv_path = to_upper( request->get_path( ) ).
 
     CASE lv_path.
       WHEN gc_path_pull.
@@ -51,18 +52,22 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_pull.
-    DATA(lv_json) = request->get_cdata( ).
+    DATA lv_json TYPE string.
+    lv_json = request->get_cdata( ).
 
-    DATA(lv_url) = extract_json_value( iv_json = lv_json iv_key = 'url' ).
-    DATA(lv_branch) = extract_json_value( iv_json = lv_json iv_key = 'branch' ).
+    DATA lv_url TYPE string.
+    lv_url = extract_json_value( iv_json = lv_json iv_key = 'url' ).
+
+    DATA lv_branch TYPE string.
+    lv_branch = extract_json_value( iv_json = lv_json iv_key = 'branch' ).
 
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
     ENDIF.
 
-    DATA: lv_success TYPE char1,
-          lv_job_id TYPE string,
-          lv_msg TYPE string.
+    DATA lv_success TYPE char1.
+    DATA lv_job_id TYPE string.
+    DATA lv_msg TYPE string.
 
     CALL FUNCTION 'ZABAPGAGENT_PULL'
       EXPORTING
@@ -73,19 +78,21 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
         ev_job_id  = lv_job_id
         ev_message = lv_msg.
 
-    DATA(lv_response) = '{"success":"' && lv_success && '","job_id":"' &&
-                        lv_job_id && '","message":"' && lv_msg && '"}'.
+    DATA lv_response TYPE string.
+    lv_response = '{"success":"' && lv_success && '","job_id":"' &&
+                 lv_job_id && '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
     response->set_cdata( lv_response ).
   ENDMETHOD.
 
   METHOD handle_status.
-    DATA(lv_job_id) = request->get_query_string_parameter( 'job_id' ).
+    DATA lv_job_id TYPE string.
+    lv_job_id = request->get_query_string_parameter( 'job_id' ).
 
-    DATA: lv_status TYPE string,
-          lv_success TYPE char1,
-          lv_msg TYPE string.
+    DATA lv_status TYPE string.
+    DATA lv_success TYPE char1.
+    DATA lv_msg TYPE string.
 
     CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
       EXPORTING
@@ -95,9 +102,10 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
         ev_success = lv_success
         ev_message = lv_msg.
 
-    DATA(lv_response) = '{"job_id":"' && lv_job_id && '","status":"' &&
-                        lv_status && '","success":"' && lv_success &&
-                        '","message":"' && lv_msg && '"}'.
+    DATA lv_response TYPE string.
+    lv_response = '{"job_id":"' && lv_job_id && '","status":"' &&
+                 lv_status && '","success":"' && lv_success &&
+                 '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
     response->set_cdata( lv_response ).
@@ -109,22 +117,25 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD extract_json_value.
-    DATA: lv_key TYPE string,
-          lv_pos TYPE i,
-          lv_offset TYPE i,
-          lv_rest TYPE string,
-          lv_end TYPE i.
+    DATA lv_key TYPE string.
+    DATA lv_pos TYPE i.
+    DATA lv_offset TYPE i.
+    DATA lv_rest TYPE string.
+    DATA lv_end_pos TYPE i.
+    DATA lv_len TYPE i.
 
     lv_key = '"' && iv_key && '":'.
     FIND lv_key IN iv_json.
     IF sy-subrc = 0.
-      lv_offset = sy-fdpos + strlen( lv_key ).
+      lv_pos = strlen( lv_key ).
+      lv_offset = sy-fdpos + lv_pos.
       lv_rest = iv_json+lv_offset.
       IF lv_rest(1) = '"'.
         lv_offset = 1.
-        FIND '"' IN lv_rest MATCH OFFSET lv_end.
+        FIND '"' IN lv_rest MATCH OFFSET lv_end_pos.
         IF sy-subrc = 0.
-          rv_value = lv_rest+lv_offset(lv_end-lv_offset).
+          lv_len = lv_end_pos - 1.
+          rv_value = lv_rest+lv_offset(lv_len).
         ENDIF.
       ENDIF.
     ENDIF.
