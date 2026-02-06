@@ -10,13 +10,13 @@ ENDCLASS.
 
 CLASS zcl_ai_test IMPLEMENTATION.
   METHOD do_something.
-    " Intentional syntax error: missing period after IF
-    IF mv_counter > 0
+    " Fixed: Added period after IF statement
+    IF mv_counter > 0.
       rv_result = 'Positive'.
-    ENDIF
+    ENDIF.
 
-    " Intentional error: undefined variable
-    DATA lv_undefined TYPE string.
-    lv_undefined = mv_not_defined.
+    " Fixed: Use defined variable
+    DATA lv_result TYPE string.
+    lv_result = |Counter: { mv_counter }|.
   ENDMETHOD.
 ENDCLASS.
