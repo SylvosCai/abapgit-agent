@@ -108,19 +108,26 @@ FUNCTION zabapgagent_activate.
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
-  DATA: lt_act TYPE STANDARD TABLE OF tadir.
+  " Activate objects using abapGit objects class
+  WRITE: / 'Activating objects...'.
+  lv_act = 0.
 
   LOOP AT lt_objects INTO ls_object.
     WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
-    CALL FUNCTION 'SAPI_DEVELOPER_ACTIVATE'
-      EXPORTING
-        objecttype = ls_object-object
-        objectname = ls_object-obj_name
-        devclass   = ls_object-devclass
-      TABLES
-        obj_to_act = lt_act.
-    lv_act = lv_act + 1.
+    DATA: ls_item TYPE zif_abapgit_definitions=>ty_item.
+    ls_item-obj_type = ls_object-object.
+    ls_item-obj_name = ls_object-obj_name.
+
+    TRY.
+        zcl_abapgit_objects=>activate(
+          is_item = ls_item
+          iv_discard_native_result = abap_false
+          iv_raise_errors = abap_false ).
+        lv_act = lv_act + 1.
+      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+        WRITE: / 'Failed to activate:', ls_object-object, ls_object-obj_name.
+    ENDTRY.
   ENDLOOP.
 
   " Restore setting
