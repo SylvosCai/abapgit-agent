@@ -13,12 +13,12 @@ INTERFACE zif_abapgit_agent PUBLIC.
 
   TYPES: BEGIN OF ty_pull_params,
     url TYPE string,
-    branch TYPE string DEFAULT 'main',
+    branch TYPE string,
     username TYPE string,
     password TYPE string,
     package TYPE devclass,
-    folder_logic TYPE string DEFAULT 'PREFIX',
-    create_new TYPE abap_bool DEFAULT abap_false,
+    folder_logic TYPE string,
+    create_new TYPE abap_bool,
   END OF ty_pull_params.
 
   TYPES: ty_log_table TYPE TABLE OF string.
