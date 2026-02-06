@@ -1,3 +1,10 @@
+" TODO: Implement detailed syntax error parsing
+" When a syntax error occurs, the log shows the affected object name
+" but not the specific line/column. For better error reporting:
+" - Parse the error message to extract object info
+" - For syntax errors, query SEPSA or TRINT_OBJECT_LOG for details
+" - Return structured error with line numbers and fix suggestions
+
 CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -143,6 +150,12 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_log_detail.
+    " TODO: For syntax errors (type 'E'), the message contains "Error updating where-used list"
+    " Enhance to extract:
+    " - Line number from error message
+    " - Column number if available
+    " - Error code (e.g., "ZC123")
+    " - Query SNHI for detailed syntax information
     DATA: lo_log TYPE REF TO zif_abapgit_log.
 
     rv_detail = ''.
