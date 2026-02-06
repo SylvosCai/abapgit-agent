@@ -1,1 +1,79 @@
-CLASS zcl_abapgit_agent_activate DEFINITION PUBLIC FINAL INHERITING FROM cl_rest_resource CREATE PUBLIC. PUBLIC SECTION. METHODS if_rest_resource~post REDEFINITION. ENDCLASS. CLASS zcl_abapgit_agent_activate IMPLEMENTATION. METHOD if_rest_resource~post. DATA lv_json TYPE string. lv_json = mo_request->get_entity( )->get_string_data( ). DATA lv_url TYPE string. DATA lv_pkg TYPE string. DATA lv_pos TYPE i. FIND '"url"' IN lv_json MATCH OFFSET lv_pos. IF sy-subrc = 0. DATA lv_val TYPE string. lv_val = lv_json+lv_pos. SHIFT lv_val BY 6 PLACES. SHIFT lv_val LEFT. FIND '"' IN lv_val MATCH OFFSET lv_pos. IF sy-subrc = 0. DATA lv_tmp TYPE string. lv_tmp = lv_val+lv_pos. FIND '"' IN lv_tmp MATCH OFFSET DATA(lv_q). IF sy-subrc = 0. lv_url = lv_val(lv_q). ENDIF. ENDIF. ENDIF. FIND '"package"' IN lv_json MATCH OFFSET lv_pos. IF sy-subrc = 0. lv_val = lv_json+lv_pos. SHIFT lv_val BY 10 PLACES. SHIFT lv_val LEFT. FIND '"' IN lv_val MATCH OFFSET lv_pos. IF sy-subrc = 0. lv_tmp = lv_val+lv_pos. FIND '"' IN lv_tmp MATCH OFFSET lv_q. IF sy-subrc = 0. lv_pkg = lv_val(lv_q). ENDIF. ENDIF. ENDIF. IF lv_url IS INITIAL AND lv_pkg IS INITIAL. DATA lv_resp TYPE string. lv_resp = '{"success":"","error":"url or package required"}'. DATA lo_ent TYPE REF TO cl_rest_entity. lo_ent = mo_response->create_entity( ). lo_ent->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ). lo_ent->set_string_data( lv_resp ). mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ). RETURN. ENDIF. DATA lv_success TYPE char1. DATA lv_msg TYPE string. CALL FUNCTION 'ZABAPGAGENT_ACTIVATE' EXPORTING iv_url = lv_url iv_package = lv_pkg IMPORTING ev_success = lv_success ev_message = lv_msg. lv_resp = '{"success":"' && lv_success && '","message":"' && lv_msg && '"}'. lo_ent = mo_response->create_entity( ). lo_ent->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ). lo_ent->set_string_data( lv_resp ). mo_response->set_status( cl_rest_status_code=>gc_success_ok ). ENDMETHOD. ENDCLASS.
+*"*"use source
+*"*"Local Interface:
+*"----------------------------------------------------------------------
+CLASS zcl_abapgit_agent_activate DEFINITION PUBLIC FINAL
+                             INHERITING FROM cl_rest_resource
+                             CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    METHODS if_rest_resource~post REDEFINITION.
+
+ENDCLASS.
+
+CLASS zcl_abapgit_agent_activate IMPLEMENTATION.
+
+  METHOD if_rest_resource~post.
+    DATA lv_json TYPE string.
+    lv_json = mo_request->get_entity( )->get_string_data( ).
+
+    DATA lv_url TYPE string.
+    DATA lv_package TYPE string.
+
+    " Parse URL: find "url": "
+    DATA lv_pos TYPE i.
+    FIND '"url":' IN lv_json MATCH OFFSET lv_pos.
+    IF sy-subrc = 0.
+      lv_pos = lv_pos + 6.
+      lv_url = lv_json+lv_pos.
+      SHIFT lv_url LEFT UP TO '"'.
+      SHIFT lv_url LEFT.
+      FIND '"' IN lv_url MATCH OFFSET lv_pos.
+      IF sy-subrc = 0.
+        lv_url = lv_url(lv_pos).
+      ENDIF.
+    ENDIF.
+
+    " Parse package: find "package": "
+    FIND '"package":' IN lv_json MATCH OFFSET lv_pos.
+    IF sy-subrc = 0.
+      lv_pos = lv_pos + 10.
+      lv_package = lv_json+lv_pos.
+      SHIFT lv_package LEFT UP TO '"'.
+      SHIFT lv_package LEFT.
+      FIND '"' IN lv_package MATCH OFFSET lv_pos.
+      IF sy-subrc = 0.
+        lv_package = lv_package(lv_pos).
+      ENDIF.
+    ENDIF.
+
+    " Validate required fields
+    IF lv_url IS INITIAL AND lv_package IS INITIAL.
+      DATA lv_json_resp TYPE string.
+      lv_json_resp = '{"success":"","error":"URL or package is required"}'.
+      DATA(lo_entity) = mo_response->create_entity( ).
+      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      lo_entity->set_string_data( lv_json_resp ).
+      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
+      RETURN.
+    ENDIF.
+
+    DATA lv_success TYPE char1.
+    DATA lv_msg TYPE string.
+
+    CALL FUNCTION 'ZABAPGAGENT_ACTIVATE'
+      EXPORTING
+        iv_url     = lv_url
+        iv_package = lv_package
+      IMPORTING
+        ev_success = lv_success
+        ev_message = lv_msg.
+
+    lv_json_resp = '{"success":"' && lv_success && '","message":"' && lv_msg && '"}'.
+
+    lo_entity = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    lo_entity->set_string_data( lv_json_resp ).
+    mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
+  ENDMETHOD.
+
+ENDCLASS.
