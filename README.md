@@ -26,9 +26,8 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 |--------|------|-------------|
 | `ZIF_ABAPGIT_AGENT` | Interface | Type definitions and method signatures |
 | `ZCL_ABAPGIT_AGENT` | Class | OO implementation with `pull` method |
-| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for all endpoints |
+| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for endpoints |
 | `ZCL_ABAPGIT_AGENT_PULL` | Class | POST /pull handler |
-| `ZCL_ABAPGIT_AGENT_STATUS` | Class | GET /status handler |
 | `ZCL_ABAPGIT_AGENT_HEALTH` | Class | GET /health handler |
 
 **Note:** Error details are returned directly in the REST response via `error_detail` field.
@@ -120,7 +119,6 @@ The ABAP system exposes these endpoints:
 |--------|----------|-------------|
 | GET | `/health` | Health check |
 | POST | `/pull` | Pull and activate |
-| GET | `/status?job_id=<id>` | Get job status |
 
 ### POST /pull
 
@@ -139,18 +137,6 @@ Response (success):
 Response (with activation errors):
 ```json
 {"success":"","job_id":"USER123_20260206_120000","message":"Pull completed with activation errors","error_detail":"3 inactive objects (activation errors):\n  - CLAS ZCL_TEST_CLASS\n  - PROG ZTEST_REPORT\n  - FUGR ZTEST_FUGR"}
-```
-
-### GET /status
-
-```bash
-curl "https://your-system:44300/sap/bc/z_abapgit_agent/status?job_id=..." \
-  -u USER:PASSWORD
-```
-
-Response:
-```json
-{"job_id":"USER123_20260206_120000","status":"COMPLETED","success":"X","message":"..."}
 ```
 
 ### GET /health
