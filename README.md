@@ -20,25 +20,32 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 
 ## Components
 
-### ABAP Side
+### ABAP Side - Main Implementation (OO)
 
 | Object | Type | Description |
 |--------|------|-------------|
 | `ZIF_ABAPGIT_AGENT` | Interface | Type definitions and method signatures |
-| `ZCL_ABAPGIT_AGENT` | Class | OO implementation of pull with activation |
-| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for endpoints |
+| `ZCL_ABAPGIT_AGENT` | Class | OO implementation with `pull` method |
+| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for all endpoints |
 | `ZCL_ABAPGIT_AGENT_PULL` | Class | POST /pull handler |
 | `ZCL_ABAPGIT_AGENT_STATUS` | Class | GET /status handler |
 | `ZCL_ABAPGIT_AGENT_HEALTH` | Class | GET /health handler |
-| `ZABAPGAGENT_PULL` | Function | Simple pull wrapper |
-| `ZABAPGAGENT_GET_STATUS` | Function | Get job status |
-| `ZABAPGAGENT_DO_PULL` | Function | Detailed pull with logging |
-| `ZABAPGAGENT` | Function Group | Helper FORMs |
 
-### Database Tables
-- `ZABAPGLOG` - Job execution log
-- `ZABAPGRES` - Job results
-- `ZABAPGERR` - Error messages
+### ABAP Side - Legacy (Available for RFC Use)
+
+| Object | Type | Description |
+|--------|------|-------------|
+| `ZABAPGAGENT_PULL` | Function | Wrapper, calls ZABAPGAGENT_DO_PULL |
+| `ZABAPGAGENT_GET_STATUS` | Function | Stub for job status |
+| `ZABAPGAGENT_DO_PULL` | Function | Original implementation (uses PERFORM FORMs) |
+| `ZABAPGAGENT` | Function Group | Helper FORMs for legacy FM |
+
+### Database Tables (Available for Future Use)
+- `ZABAPGLOG` - Job execution log (not currently used)
+- `ZABAPGRES` - Job results (not currently used)
+- `ZABAPGERR` - Error messages (not currently used)
+
+**Note:** Error details are returned directly in the REST response via `error_detail` field.
 
 ### Local Agent (Node.js)
 - HTTP server exposing REST API

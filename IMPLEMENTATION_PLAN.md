@@ -84,15 +84,25 @@ ENDINTERFACE.
 - `ZCL_ABAPGIT_AGENT_STATUS` - GET /status endpoint
 - `ZCL_ABAPGIT_AGENT_HEALTH` - GET /health endpoint
 
-#### 1.4 Function Modules (DONE)
-- `ZABAPGAGENT_PULL` - Simple wrapper function
-- `ZABAPGAGENT_GET_STATUS` - Get job status
-- `ZABAPGAGENT_DO_PULL` - Detailed pull with logging
+#### 1.4 Legacy Function Modules
+These function modules exist for potential RFC/Direct use (REST handlers use OO class instead):
 
-#### 1.5 Database Tables (DONE)
-- `ZABAPGLOG` - Job execution log
-- `ZABAPGRES` - Job results
-- `ZABAPGERR` - Error messages
+| Object | Description |
+|--------|-------------|
+| `ZABAPGAGENT_PULL` | Simple wrapper, calls ZABAPGAGENT_DO_PULL |
+| `ZABAPGAGENT_GET_STATUS` | Stub function for status |
+| `ZABAPGAGENT_DO_PULL` | Original implementation using PERFORM FORMs |
+
+**Note:** The REST handlers (`ZCL_ABAPGIT_AGENT_PULL`) use the OO class `ZCL_ABAPGIT_AGENT` directly, not these function modules.
+
+#### 1.5 Database Tables (Available for Future Use)
+| Table | Description |
+|-------|-------------|
+| `ZABAPGLOG` | Job execution log (not currently used) |
+| `ZABAPGRES` | Job results (not currently used) |
+| `ZABAPGERR` | Error messages (not currently used) |
+
+**Note:** Error reporting is done via `error_detail` in the response and TADIR queries.
 
 ### 2. Local Agent (Node.js)
 
