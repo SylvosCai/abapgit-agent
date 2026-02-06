@@ -108,6 +108,8 @@ FUNCTION zabapgagent_activate.
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
+  DATA: lt_act TYPE STANDARD TABLE OF tadir.
+
   LOOP AT lt_objects INTO ls_object.
     WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
@@ -117,7 +119,7 @@ FUNCTION zabapgagent_activate.
         objectname = ls_object-obj_name
         devclass   = ls_object-devclass
       TABLES
-        obj_to_act = DATA(lt_act).
+        obj_to_act = lt_act.
     lv_act = lv_act + 1.
   ENDLOOP.
 
