@@ -28,6 +28,10 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         CHANGING cv_has_error TYPE abap_bool
                 cv_error_detail TYPE string,
 
+      get_inactive_objects
+        IMPORTING iv_devclass TYPE devclass
+        RETURNING VALUE(rt_inactive) TYPE STANDARD TABLE OF tadir,
+
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
         RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result.
@@ -172,24 +176,27 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_for_errors.
-    " Get log entries
-    DATA(lo_log) = io_repo->get_log( ).
-    IF lo_log IS BOUND.
-      DATA(lt_bapiret2) = lo_log->get_bapiret2( ).
+    " Check for inactive objects in the package (indicator of activation errors)
+    DATA(lv_devclass) = io_repo->get_package( ).
+    IF lv_devclass IS NOT INITIAL.
+      DATA(lt_inactive) = get_inactive_objects( lv_devclass ).
+      DATA(lv_count) = lines( lt_inactive ).
 
-      " Filter for error messages
-      LOOP AT lt_bapiret2 ASSIGNING FIELD-SYMBOL(<ls_bapiret2>).
-        IF <ls_bapiret2>-type = 'E' OR <ls_bapiret2>-type = 'W'.
-          rv_has_error = abap_true.
-          DATA(lv_line) = |{ <ls_bapiret2>-type }: { <ls_bapiret2>-id }/{ <ls_bapiret2>-number } - { <ls_bapiret2>-message }|.
-          IF rv_error_detail IS INITIAL.
-            rv_error_detail = lv_line.
-          ELSE.
-            rv_error_detail = rv_error_detail && |\n| && lv_line.
-          ENDIF.
-        ENDIF.
-      ENDLOOP.
+      IF lv_count > 0.
+        rv_has_error = abap_true.
+        rv_error_detail = |{ lv_count } inactive objects (activation errors):|.
+        LOOP AT lt_inactive ASSIGNING FIELD-SYMBOL(<ls_inactive>).
+          DATA(lv_line) = |  - { <ls_inactive>-object } { <ls_inactive>-obj_name }|.
+          rv_error_detail = rv_error_detail && |\n| && lv_line.
+        ENDLOOP.
+      ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+  METHOD get_inactive_objects.
+    SELECT * FROM tadir INTO TABLE rt_inactive
+      WHERE devclass = iv_devclass
+      AND object NOT IN ('DEVC', 'PACK').
   ENDMETHOD.
 
   METHOD handle_exception.
