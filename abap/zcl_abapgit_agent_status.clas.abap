@@ -1,6 +1,6 @@
 *"*"use source
 *"*"Local Interface:
-*"----------------------------------------------------------------------
+*"**********************************************************************
 CLASS zcl_abapgit_agent_status DEFINITION PUBLIC FINAL
                               INHERITING FROM cl_rest_resource
                               CREATE PUBLIC.
@@ -29,9 +29,9 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
         ev_message = lv_message.
 
     DATA lv_json_resp TYPE string.
-    lv_json_resp = '{"job_id":"' && lv_job_id && '","status":"' &&
-                 lv_status && '","success":"' && lv_success &&
-                 '","message":"' && lv_message && '"}'.
+    CONCATENATE '{"job_id":"' lv_job_id '","status":"' lv_status '","success":"'
+                 lv_success '","message":"' lv_message '"}'
+    INTO lv_json_resp.
 
     DATA(lo_entity) = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).

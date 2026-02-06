@@ -21,7 +21,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_username TYPE string.
     DATA lv_password TYPE string.
 
-    FIND '*"url":' IN lv_json MATCH OFFSET DATA(lv_pos).
+    FIND '"url":' IN lv_json MATCH OFFSET DATA(lv_pos).
     IF sy-subrc = 0.
       lv_pos = lv_pos + 6.
       lv_url = lv_json+lv_pos.
@@ -33,7 +33,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    FIND '*"branch":' IN lv_json MATCH OFFSET lv_pos.
+    FIND '"branch":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 9.
       lv_branch = lv_json+lv_pos.
@@ -45,7 +45,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    FIND '*"username":' IN lv_json MATCH OFFSET lv_pos.
+    FIND '"username":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 11.
       lv_username = lv_json+lv_pos.
@@ -57,7 +57,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    FIND '*"password":' IN lv_json MATCH OFFSET lv_pos.
+    FIND '"password":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 11.
       lv_password = lv_json+lv_pos.
@@ -73,9 +73,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       lv_branch = 'main'.
     ENDIF.
 
+    DATA lv_json_resp TYPE string.
     IF lv_url IS INITIAL.
-      DATA lv_json_resp TYPE string.
-      lv_json_resp = '*"success"*"*"*"job_id"*"*"*"error"*"URL is required"*}'.
+      lv_json_resp = '{"success":"","job_id":"","error":"URL is required"}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
@@ -92,12 +92,14 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
     IF ls_result-success = abap_true.
-      lv_json_resp = '*"success"*"*"*"job_id"*"*"*"message"*"*' &&
-                     ls_result-job_id && '*"*"*"message"*"' && ls_result-message && '*"*}'.
+      CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
+                   '","message":"' ls_result-message '"}'
+      INTO lv_json_resp.
     ELSE.
-      lv_json_resp = '*"success"*"*"*"job_id"*"*"*"message"*"*"error_detail"*"*' &&
-                     ls_result-job_id && '*"*"*"message"*"' && ls_result-message &&
-                     '*"*"*"error_detail"*"' && ls_result-error_detail && '*"*}'.
+      CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
+                   '","message":"' ls_result-message
+                   '","error_detail":"' ls_result-error_detail '"}'
+      INTO lv_json_resp.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).

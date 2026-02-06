@@ -1,6 +1,6 @@
 *"*"use source
 *"*"Local Interface:
-*"----------------------------------------------------------------------
+*"**********************************************************************
 CLASS zcl_abapgit_agent_health DEFINITION PUBLIC FINAL
                                INHERITING FROM cl_rest_resource
                                CREATE PUBLIC.
