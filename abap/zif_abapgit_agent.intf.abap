@@ -1,13 +1,5 @@
-"!-------------------------------------------------------------------
-"! Purpose: Interface for ABAP Git Agent - programmatic git pull and activation
-"! Created by: ABAP AI Bridge
-"! Date: 2026-02-05
-"!-------------------------------------------------------------------
+INTERFACE zif_abapgit_agent PUBLIC.
 
-INTERFACE zif_abapgit_agent
-  PUBLIC .
-
-  " Result structure for pull/activate operations
   TYPES:
     BEGIN OF ty_result,
       success         TYPE abap_bool,
@@ -31,18 +23,14 @@ INTERFACE zif_abapgit_agent
     END OF ty_pull_params,
 
     ty_log_table TYPE TABLE OF string,
-
-    " Job status
     ty_job_status TYPE string.
 
-  " Constants
   CONSTANTS:
     gc_status_pending   TYPE ty_job_status VALUE 'PENDING',
     gc_status_running   TYPE ty_job_status VALUE 'RUNNING',
     gc_status_completed TYPE ty_job_status VALUE 'COMPLETED',
     gc_status_failed    TYPE ty_job_status VALUE 'FAILED'.
 
-  " Pull repository and activate objects
   METHODS pull
     IMPORTING
       iv_url        TYPE string
@@ -54,7 +42,6 @@ INTERFACE zif_abapgit_agent
     RAISING
       zcx_abapgit_exception.
 
-  " Get repository status by URL
   METHODS get_repo_status
     IMPORTING
       iv_url        TYPE string
