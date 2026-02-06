@@ -40,6 +40,10 @@ FUNCTION zabapgagent_do_pull.
     lv_success = 'X'.
     lv_message = 'Test mode - no changes made'.
   ELSE.
+    " Set global credentials for password popup
+    gv_auth_user = iv_username.
+    gv_auth_pass = iv_password.
+
     " Configure credentials if provided
     IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
       WRITE: / 'Configuring git credentials...'.
