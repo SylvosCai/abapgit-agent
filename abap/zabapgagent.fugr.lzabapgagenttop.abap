@@ -38,7 +38,10 @@ FORM build_error_detail USING ix_exception TYPE REF TO zcx_abapgit_exception
 
   DATA: lv_devclass TYPE devclass.
   DATA: lv_prev_text TYPE string.
-  DATA: lv_msg TYPE string.
+  DATA: lt_inactive TYPE STANDARD TABLE OF tadir.
+  DATA: ls_inactive TYPE tadir.
+  DATA: lv_count TYPE i.
+  DATA: lv_line TYPE string.
 
   cv_detail = ix_exception->get_text( ).
 
@@ -56,6 +59,20 @@ FORM build_error_detail USING ix_exception TYPE REF TO zcx_abapgit_exception
     lv_devclass = ii_repo->get_package( ).
     IF lv_devclass IS NOT INITIAL.
       cv_detail = cv_detail && |\nPackage: { lv_devclass }|.
+
+      " Check for inactive objects in the package
+      SELECT * FROM tadir INTO TABLE lt_inactive
+        WHERE devclass = lv_devclass
+        AND object NOT IN ('DEVC', 'PACK').
+
+      lv_count = lines( lt_inactive ).
+      IF lv_count > 0.
+        cv_detail = cv_detail && |\nInactive objects ({ lv_count }):|.
+        LOOP AT lt_inactive INTO ls_inactive.
+          lv_line = |  - { ls_inactive-object } { ls_inactive-obj_name }|.
+          cv_detail = cv_detail && |\n| && lv_line.
+        ENDLOOP.
+      ENDIF.
     ENDIF.
   ENDIF.
 

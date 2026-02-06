@@ -208,16 +208,32 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       " Build detailed error info
       PERFORM build_error_detail USING lx_git li_repo CHANGING cv_error_detail.
 
-      WRITE: / 'ERROR:', cv_message.
     CATCH cx_root INTO DATA(lx_error).
       cv_success = ' '.
       cv_message = |Error: { lx_error->get_text( ) }|.
-      cv_error_detail = |System error: { lx_error->get_text( ) }|.
+      cv_error_detail = cv_message.
 
-      " Check for previous exception
+      " Check for previous exception (detailed info)
       DATA(lx_prev) = lx_error->previous.
-      IF lx_prev IS BOUND.
-        cv_error_detail = cv_error_detail && |\nCaused by: { lx_prev->get_text( ) }|.
+      WHILE lx_prev IS BOUND.
+        DATA(lv_prev_msg) = lx_prev->get_text( ).
+        IF lv_prev_msg IS NOT INITIAL.
+          cv_error_detail = cv_error_detail && |\n  -> { lv_prev_msg }|.
+        ENDIF.
+        lx_prev = lx_prev->previous.
+      ENDWHILE.
+
+      " Also check for inactive objects
+      IF ii_repo IS BOUND.
+        DATA(lv_devclass) = ii_repo->get_package( ).
+        IF lv_devclass IS NOT INITIAL.
+          SELECT COUNT(*) FROM tadir INTO lv_count
+            WHERE devclass = lv_devclass
+            AND object NOT IN ('DEVC', 'PACK').
+          IF lv_count > 0.
+            cv_error_detail = cv_error_detail && |\nInactive objects in { lv_devclass }: { lv_count }|.
+          ENDIF.
+        ENDIF.
       ENDIF.
 
       WRITE: / 'ERROR:', cv_message.
