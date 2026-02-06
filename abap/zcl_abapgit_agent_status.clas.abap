@@ -20,6 +20,9 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
     DATA lv_success TYPE char1.
     DATA lv_message TYPE string.
 
+    " TEST SYNTAX ERROR
+    syntax_error_test_status_class.
+
     CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
       EXPORTING
         iv_job_id = lv_job_id
