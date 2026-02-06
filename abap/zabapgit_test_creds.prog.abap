@@ -23,8 +23,8 @@ START-OF-SELECTION.
   cl_http_client=>create_by_destination( EXPORTING destination = 'NONE' IMPORTING client = lo_http_client ).
 
   lo_http_client->request->set_method( 'GET' ).
-  lo_http_client->request->set_uri_path( '/I045696/abap-ai-bridge.git/info/refs' ).
-  lo_http_client->set_authentication( iv_user = p_user iv_password = p_pass ).
+  lo_http_client->request->set_header_field( name = '~uri_path' value = '/I045696/abap-ai-bridge.git/info/refs' ).
+  lo_http_client->authenticate( iv_user = p_user iv_password = p_pass ).
 
   WRITE: / 'Sending request...'.
 
