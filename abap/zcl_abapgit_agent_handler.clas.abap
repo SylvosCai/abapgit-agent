@@ -17,6 +17,7 @@ CLASS zcl_abapgit_agent_handler IMPLEMENTATION.
     CREATE OBJECT lo_router.
 
     lo_router->attach( iv_template = '/pull' iv_handler_class = 'ZCL_ABAPGIT_AGENT_PULL' ).
+    lo_router->attach( iv_template = '/activate' iv_handler_class = 'ZCL_ABAPGIT_AGENT_ACTIVATE' ).
     lo_router->attach( iv_template = '/status' iv_handler_class = 'ZCL_ABAPGIT_AGENT_STATUS' ).
     lo_router->attach( iv_template = '/health' iv_handler_class = 'ZCL_ABAPGIT_AGENT_HEALTH' ).
 
