@@ -52,10 +52,10 @@ class Server {
       }
     });
 
-    // Pull repository
+    // Pull repository (synchronous - returns immediately with result)
     this.app.post('/api/pull', async (req, res) => {
       try {
-        const { url, branch } = req.body;
+        const { url, branch, username, password } = req.body;
 
         if (!url) {
           return res.status(400).json({
@@ -64,59 +64,11 @@ class Server {
           });
         }
 
-        const result = await this.agent.pull(url, branch || 'main');
+        const result = await this.agent.pull(url, branch, username, password);
         res.json(result);
 
       } catch (error) {
         logger.error('Pull failed', { error: error.message });
-        res.status(500).json({
-          success: false,
-          error: error.message
-        });
-      }
-    });
-
-    // Get job status
-    this.app.get('/api/jobs/:jobId', async (req, res) => {
-      try {
-        const { jobId } = req.params;
-        const { wait } = req.query;
-
-        if (wait === 'true' || wait === '1') {
-          // Wait for completion
-          const result = await this.agent.waitForJob(jobId, this.agentConfig.timeout);
-          res.json(result);
-        } else {
-          const result = await this.agent.getJobStatus(jobId);
-          res.json(result);
-        }
-
-      } catch (error) {
-        logger.error('Get job status failed', { error: error.message });
-        res.status(500).json({
-          success: false,
-          error: error.message
-        });
-      }
-    });
-
-    // List all jobs
-    this.app.get('/api/jobs', (req, res) => {
-      const jobs = this.agent.getAllJobs();
-      res.json({
-        count: jobs.length,
-        jobs
-      });
-    });
-
-    // Wait for job completion (shortcut endpoint)
-    this.app.post('/api/wait/:jobId', async (req, res) => {
-      try {
-        const { jobId } = req.params;
-        const result = await this.agent.waitForJob(jobId, this.agentConfig.timeout);
-        res.json(result);
-      } catch (error) {
-        logger.error('Wait for job failed', { error: error.message });
         res.status(500).json({
           success: false,
           error: error.message
@@ -133,10 +85,8 @@ class Server {
       console.log(`\n🚀 ABAP AI Bridge is running!`);
       console.log(`   Health:   http://localhost:${port}/api/health`);
       console.log(`   Pull:     POST http://localhost:${port}/api/pull`);
-      console.log(`   Status:   GET  http://localhost:${port}/api/jobs/:jobId`);
       console.log(`\n📚 API Documentation:`);
       console.log(`   POST /api/pull { "url": "git-url", "branch": "main" }`);
-      console.log(`   GET  /api/jobs/:jobId { "wait": "true" }`);
     });
 
     // Graceful shutdown
