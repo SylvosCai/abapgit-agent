@@ -34,9 +34,8 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
                  '","message":"' && lv_message && '"}'.
 
     DATA(lo_entity) = mo_response->create_entity( ).
-    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_application_json ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
-    mo_response->set_entity( lo_entity ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
