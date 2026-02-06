@@ -1,10 +1,10 @@
 *"*"use source
 *"* Local Interface:
 *"  IMPORTING
-*"    REQUEST TYPE REF TO if_http_request OPTIONAL
+*"    REQUEST TYPE REF TO if_web_http_request OPTIONAL
 *"  METHOD(if_http_service_extension~handle_request)
 *"  EXPORTING
-*"    RESPONSE TYPE REF TO if_http_response OPTIONAL
+*"    RESPONSE TYPE REF TO if_web_http_response OPTIONAL
 *"--------------------------------------------------------------------
 CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
@@ -17,14 +17,14 @@ CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
                gc_path_health TYPE string VALUE '/health'.
 
     METHODS: handle_pull
-      IMPORTING ir_request TYPE REF TO if_http_request
-               ir_response TYPE REF TO if_http_response,
+      IMPORTING ir_request TYPE REF TO if_web_http_request
+               ir_response TYPE REF TO if_web_http_response,
              handle_status
-      IMPORTING ir_request TYPE REF TO if_http_request
-               ir_response TYPE REF TO if_http_response,
+      IMPORTING ir_request TYPE REF TO if_web_http_request
+               ir_response TYPE REF TO if_web_http_response,
              handle_health
-      IMPORTING ir_request TYPE REF TO if_http_request
-               ir_response TYPE REF TO if_http_response,
+      IMPORTING ir_request TYPE REF TO if_web_http_request
+               ir_response TYPE REF TO if_web_http_response,
              extract_json_value
       IMPORTING iv_json TYPE string
                 iv_key TYPE string
@@ -46,8 +46,8 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
       WHEN gc_path_health.
         handle_health( ir_request = request ir_response = response ).
       WHEN OTHERS.
-        response->set_status( code = 404 reason = 'Not Found' ).
-        response->set_cdata( '{"error":"Unknown endpoint"}' ).
+        response->set_status( i_code = 404 i_reason = 'Not Found' ).
+        response->set_text( '{"error":"Unknown endpoint"}' ).
     ENDCASE.
   ENDMETHOD.
 
@@ -83,12 +83,12 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
                  lv_job_id && '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
-    response->set_cdata( lv_response ).
+    response->set_text( lv_response ).
   ENDMETHOD.
 
   METHOD handle_status.
     DATA lv_job_id TYPE string.
-    lv_job_id = request->get_query_string_parameter( 'job_id' ).
+    lv_job_id = request->get_form_field( 'job_id' ).
 
     DATA lv_status TYPE string.
     DATA lv_success TYPE char1.
@@ -108,12 +108,12 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
                  '","message":"' && lv_msg && '"}'.
 
     response->set_content_type( 'application/json' ).
-    response->set_cdata( lv_response ).
+    response->set_text( lv_response ).
   ENDMETHOD.
 
   METHOD handle_health.
     response->set_content_type( 'application/json' ).
-    response->set_cdata( '{"status":"OK","version":"1.0"}' ).
+    response->set_text( '{"status":"OK","version":"1.0"}' ).
   ENDMETHOD.
 
   METHOD extract_json_value.
