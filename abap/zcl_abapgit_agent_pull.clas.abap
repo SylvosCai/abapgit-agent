@@ -80,6 +80,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_len TYPE i.
     DATA lv_after_len TYPE i.
     DATA lv_after TYPE string.
+    DATA lv_quote TYPE i.
 
     " Build key pattern
     CONCATENATE '"' iv_key '"' ':' INTO lv_key.
@@ -105,12 +106,12 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     lv_after = lv_after+lv_pos+1.
 
     " Find closing quote
-    FIND '"' IN lv_after MATCH OFFSET lv_pos.
+    FIND '"' IN lv_after MATCH OFFSET lv_quote.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    rv_value = lv_after(lv_pos).
+    rv_value = lv_after(lv_quote).
   ENDMETHOD.
 
 ENDCLASS.
