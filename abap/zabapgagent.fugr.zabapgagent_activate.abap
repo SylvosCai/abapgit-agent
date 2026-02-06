@@ -104,26 +104,21 @@ FUNCTION zabapgagent_activate.
       WRITE: / 'Warning: Could not change activation setting'.
   ENDTRY.
 
-  " Activate objects using abapGit activation
+  " Activate objects using standard SAP function
   WRITE: / 'Activating objects...'.
   lv_act = 0.
-
-  DATA(lo_activation) = zcl_abapgit_objects_activation=>create( ).
 
   LOOP AT lt_objects INTO ls_object.
     WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
-    DATA(ls_item) = VALUE zif_abapgit_definitions=>ty_item(
-      obj_type = ls_object-object
-      obj_name = ls_object-obj_name
-    ).
-
-    TRY.
-        lo_activation->activate( is_item = ls_item ).
-        lv_act = lv_act + 1.
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
-        WRITE: / 'Failed to activate:', ls_object-object, ls_object-obj_name, lx_error->get_text( ).
-    ENDTRY.
+    CALL FUNCTION 'SAPI_DEVELOPER_ACTIVATE'
+      EXPORTING
+        objecttype = ls_object-object
+        objectname = ls_object-obj_name
+        devclass   = ls_object-devclass
+      TABLES
+        obj_to_act = DATA(lt_act).
+    lv_act = lv_act + 1.
   ENDLOOP.
 
   " Restore setting
