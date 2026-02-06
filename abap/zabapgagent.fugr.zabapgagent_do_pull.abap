@@ -206,9 +206,7 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       cv_message = |abapGit error: { lx_git->get_text( ) }|.
 
       " Build detailed error info
-      cv_error_detail = build_error_detail(
-        ix_exception = lx_git
-        ii_repo = li_repo ).
+      PERFORM build_error_detail USING lx_git li_repo CHANGING cv_error_detail.
 
       WRITE: / 'ERROR:', cv_message.
     CATCH cx_root INTO DATA(lx_error).

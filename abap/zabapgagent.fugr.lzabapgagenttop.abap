@@ -34,19 +34,19 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM build_error_detail USING ix_exception TYPE REF TO cx_root
                               ii_repo TYPE REF TO zif_abapgit_repo
-                    RETURNING rv_detail TYPE string.
+                    CHANGING cv_detail TYPE string.
 
   DATA: lv_devclass TYPE devclass.
   DATA: lv_prev_text TYPE string.
   DATA: lv_msg TYPE string.
 
-  rv_detail = ix_exception->get_text( ).
+  cv_detail = ix_exception->get_text( ).
 
   " Check for previous exception in chain
   IF ix_exception->previous IS BOUND.
     lv_prev_text = ix_exception->previous->get_text( ).
     IF lv_prev_text IS NOT INITIAL.
-      rv_detail = rv_detail && |\nCaused by: { lv_prev_text }|.
+      cv_detail = cv_detail && |\nCaused by: { lv_prev_text }|.
     ENDIF.
   ENDIF.
 
@@ -54,7 +54,7 @@ FORM build_error_detail USING ix_exception TYPE REF TO cx_root
   IF ii_repo IS BOUND.
     lv_devclass = ii_repo->get_package( ).
     IF lv_devclass IS NOT INITIAL.
-      rv_detail = rv_detail && |\nPackage: { lv_devclass }|.
+      cv_detail = cv_detail && |\nPackage: { lv_devclass }|.
     ENDIF.
   ENDIF.
 
