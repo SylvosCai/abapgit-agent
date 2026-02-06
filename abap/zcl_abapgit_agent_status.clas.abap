@@ -14,7 +14,7 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
 
   METHOD if_rest_resource~get.
     DATA lv_job_id TYPE string.
-    lv_job_id = mo_request->get_form_field( 'job_id' ).
+    lv_job_id = mo_request->get_uri_query_parameter( 'job_id' ).
 
     DATA lv_status TYPE string.
     DATA lv_success TYPE char1.
