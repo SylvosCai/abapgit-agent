@@ -48,6 +48,9 @@
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
       </RSEXC>
+      <RSEXC>
+       <EXCEPTION>ZCX_ABAPGIT_EXCEPTION</EXCEPTION>
+      </RSEXC>
      </EXCEPTION>
     </item>
     <item>
@@ -98,6 +101,9 @@
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
       </RSEXC>
+      <RSEXC>
+       <EXCEPTION>ZCX_ABAPGIT_EXCEPTION</EXCEPTION>
+      </RSEXC>
      </EXCEPTION>
     </item>
     <item>
@@ -127,6 +133,9 @@
      <EXCEPTION>
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
+      </RSEXC>
+      <RSEXC>
+       <EXCEPTION>ZCX_ABAPGIT_EXCEPTION</EXCEPTION>
       </RSEXC>
      </EXCEPTION>
     </item>

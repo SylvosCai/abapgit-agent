@@ -9,6 +9,9 @@ FUNCTION zabapgagent_pull.
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_JOB_ID) TYPE STRING
 *"    VALUE(EV_MESSAGE) TYPE STRING
+*"  RAISING
+*"    ERROR
+*"    ZCX_ABAPGIT_EXCEPTION
 *"----------------------------------------------------------------------
   DATA: lv_job_id TYPE string.
 
