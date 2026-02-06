@@ -75,6 +75,24 @@
        <PARAMETER>IV_JOB_ID</PARAMETER>
        <TYP>STRING</TYP>
       </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_PACKAGE</PARAMETER>
+       <DEFAULT>' '</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>DEVCLASS</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_FOLDER_LOGIC</PARAMETER>
+       <DEFAULT>'PREFIX'</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_CREATE_NEW</PARAMETER>
+       <DEFAULT>' '</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>CHAR1</TYP>
+      </RSIMP>
      </IMPORT>
      <EXCEPTION>
       <RSEXC>
