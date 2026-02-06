@@ -198,8 +198,10 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
         ii_log    = li_repo->get_log( ) ).
 
       " Check if there are errors in the log
-      DATA(lv_has_error) = abap_false.
-      DATA(lv_error_detail) = ''.
+      DATA: lv_has_error TYPE abap_bool.
+      DATA: lv_error_detail TYPE string.
+      lv_has_error = abap_false.
+      lv_error_detail = ''.
       PERFORM check_log_for_errors USING li_repo CHANGING lv_has_error lv_error_detail.
 
       IF lv_has_error = abap_true.
