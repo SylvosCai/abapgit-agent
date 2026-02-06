@@ -16,10 +16,11 @@ CLASS zcl_abapgit_agent_health IMPLEMENTATION.
     DATA lv_json TYPE string.
     lv_json = '{"status":"OK","version":"1.0.0"}'.
 
-    mo_response->set_entity( mo_response->create_entity( ) ).
-    mo_response->get_entity( )->set_content_type( 'application/json' ).
-    mo_response->get_entity( )->set_cdata( lv_json ).
-    mo_response->set_status( cl_rest_status_code=>ok ).
+    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_application_json ).
+    lo_entity->set_string_data( lv_json ).
+    mo_response->set_entity( lo_entity ).
+    mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
 ENDCLASS.

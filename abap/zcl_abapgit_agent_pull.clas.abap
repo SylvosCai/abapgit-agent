@@ -14,7 +14,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    lv_json = mo_request->get_entity( )->get_cdata( ).
+    lv_json = mo_request->get_entity( )->get_string_data( ).
 
     DATA lv_url TYPE string.
     DATA lv_branch TYPE string.
@@ -74,10 +74,11 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
                  lv_job_id && '","message":"' && lv_msg && '"}'.
 
-    mo_response->set_entity( mo_response->create_entity( ) ).
-    mo_response->get_entity( )->set_content_type( 'application/json' ).
-    mo_response->get_entity( )->set_cdata( lv_json_resp ).
-    mo_response->set_status( cl_rest_status_code=>ok ).
+    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_application_json ).
+    lo_entity->set_string_data( lv_json_resp ).
+    mo_response->set_entity( lo_entity ).
+    mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
 ENDCLASS.
