@@ -1,12 +1,11 @@
 *"*"use source
 *"* Local Interface:
 *"  IMPORTING
-*"    REQUEST(If_Http_Request) OPTIONAL
-*"  METHOD(If_Http_Service~Handle_Request)
+*"    REQUEST TYPE REF TO if_http_request OPTIONAL
+*"  METHOD(if_http_service_extension~handle_request)
 *"  EXPORTING
-*"    RESPONSE(If_Http_Response) OPTIONAL
+*"    RESPONSE TYPE REF TO if_http_response OPTIONAL
 *"--------------------------------------------------------------------
-
 CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -18,13 +17,13 @@ CLASS zcl_abapgit_agent_rest DEFINITION PUBLIC FINAL CREATE PUBLIC.
                gc_path_health TYPE string VALUE '/health'.
 
     METHODS: handle_pull
-      IMPORTING ir_request  TYPE REF TO if_http_request
+      IMPORTING ir_request TYPE REF TO if_http_request
                ir_response TYPE REF TO if_http_response,
              handle_status
-      IMPORTING ir_request  TYPE REF TO if_http_request
+      IMPORTING ir_request TYPE REF TO if_http_request
                ir_response TYPE REF TO if_http_response,
              handle_health
-      IMPORTING ir_request  TYPE REF TO if_http_request
+      IMPORTING ir_request TYPE REF TO if_http_request
                ir_response TYPE REF TO if_http_response,
              extract_json_value
       IMPORTING iv_json TYPE string
@@ -40,11 +39,11 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
 
     CASE lv_path.
       WHEN gc_path_pull.
-        handle_pull( request = request response = response ).
+        handle_pull( ir_request = request ir_response = response ).
       WHEN gc_path_status.
-        handle_status( request = request response = response ).
+        handle_status( ir_request = request ir_response = response ).
       WHEN gc_path_health.
-        handle_health( request = request response = response ).
+        handle_health( ir_request = request ir_response = response ).
       WHEN OTHERS.
         response->set_status( code = 404 reason = 'Not Found' ).
         response->set_cdata( '{"error":"Unknown endpoint"}' ).
@@ -63,7 +62,7 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
 
     DATA: lv_success TYPE char1,
           lv_job_id TYPE string,
-          lv_msg    TYPE string.
+          lv_msg TYPE string.
 
     CALL FUNCTION 'ZABAPGAGENT_PULL'
       EXPORTING
@@ -86,7 +85,7 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
 
     DATA: lv_status TYPE string,
           lv_success TYPE char1,
-          lv_msg    TYPE string.
+          lv_msg TYPE string.
 
     CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
       EXPORTING
@@ -112,21 +111,21 @@ CLASS zcl_abapgit_agent_rest IMPLEMENTATION.
   METHOD extract_json_value.
     DATA: lv_key TYPE string,
           lv_pos TYPE i,
-          lv_offset TYPE i.
+          lv_offset TYPE i,
+          lv_rest TYPE string,
+          lv_end TYPE i.
 
     lv_key = '"' && iv_key && '":'.
-    lv_pos = strlen( lv_key ).
-
     FIND lv_key IN iv_json.
     IF sy-subrc = 0.
-      lv_offset = sy-fdpos + lv_pos.
-      DATA(lv_rest) = iv_json+lv_offset.
-      SHIFT lv_rest LEFT DELETING LEADING SPACE.
+      lv_offset = sy-fdpos + strlen( lv_key ).
+      lv_rest = iv_json+lv_offset.
       IF lv_rest(1) = '"'.
-        SHIFT lv_rest LEFT DELETING LEADING '"'.
-        rv_value = lv_rest.
-        SHIFT rv_value RIGHT UP TO '"'.
-        SHIFT rv_value LEFT DELETING TRAILING '"'.
+        lv_offset = 1.
+        FIND '"' IN lv_rest MATCH OFFSET lv_end.
+        IF sy-subrc = 0.
+          rv_value = lv_rest+lv_offset(lv_end-lv_offset).
+        ENDIF.
       ENDIF.
     ENDIF.
   ENDMETHOD.
