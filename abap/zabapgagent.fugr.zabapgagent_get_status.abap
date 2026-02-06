@@ -10,6 +10,9 @@ FUNCTION zabapgagent_get_status.
 *"----------------------------------------------------------------------
   CLEAR: ev_status, ev_message.
 
+  " SYNTAX ERROR TEST - undefined variable
+  lv_syntax_error_test = 'This will fail'.
+
   ev_status = 'COMPLETED'.
   ev_success = 'X'.
   ev_message = |Job { iv_job_id } found|.
