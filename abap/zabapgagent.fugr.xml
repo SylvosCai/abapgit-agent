@@ -27,7 +27,7 @@
      <EXPORT>
       <RSEXP>
        <PARAMETER>EV_SUCCESS</PARAMETER>
-       <TYP>ABAP_BOOL</TYP>
+       <TYP>CHAR1</TYP>
       </RSEXP>
       <RSEXP>
        <PARAMETER>EV_JOB_ID</PARAMETER>
@@ -61,7 +61,7 @@
       </RSEXP>
       <RSEXP>
        <PARAMETER>EV_SUCCESS</PARAMETER>
-       <TYP>ABAP_BOOL</TYP>
+       <TYP>CHAR1</TYP>
       </RSEXP>
       <RSEXP>
        <PARAMETER>EV_MESSAGE</PARAMETER>

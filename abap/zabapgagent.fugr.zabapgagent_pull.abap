@@ -5,7 +5,7 @@ FUNCTION zabapgagent_pull.
 *"    VALUE(IV_URL) TYPE STRING
 *"    VALUE(IV_BRANCH) TYPE STRING DEFAULT 'main'
 *"  EXPORTING
-*"    VALUE(EV_SUCCESS) TYPE ABAP_BOOL
+*"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_JOB_ID) TYPE STRING
 *"    VALUE(EV_MESSAGE) TYPE STRING
 *"----------------------------------------------------------------------
@@ -37,7 +37,7 @@ FUNCTION zabapgagent_pull.
       sdlstrtdt = sy-datum
       sdlstrttm = sy-uzeit.
 
-  ev_success = abap_true.
+  ev_success = 'X'.
   ev_job_id = lv_job_id.
   ev_message = |Job started: { lv_jobname }|.
 
