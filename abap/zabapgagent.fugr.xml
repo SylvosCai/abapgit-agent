@@ -182,7 +182,7 @@
       <RSIMP>
        <PARAMETER>IV_PACKAGE</PARAMETER>
        <OPTIONAL>X</OPTIONAL>
-       <TYP>DEVCLASS</TYP>
+       <TYP>STRING</TYP>
       </RSIMP>
      </IMPORT>
      <EXPORT>

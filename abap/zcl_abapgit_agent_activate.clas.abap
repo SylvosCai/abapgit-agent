@@ -17,32 +17,38 @@ CLASS zcl_abapgit_agent_activate IMPLEMENTATION.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
     DATA lv_url TYPE string.
-    DATA lv_package TYPE devclass.
+    DATA lv_package TYPE string.
 
-    " Parse URL: find "url": "
+    " Parse URL from JSON
     DATA lv_pos TYPE i.
     FIND '"url":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 6.
-      lv_url = lv_json+lv_pos.
-      SHIFT lv_url LEFT UP TO '"'.
-      SHIFT lv_url LEFT.
-      FIND '"' IN lv_url MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_url = lv_url(lv_pos).
+      DATA lv_url_part TYPE string.
+      lv_url_part = lv_json+lv_pos.
+      SHIFT lv_url_part LEFT BY 6 PLACES.
+      IF lv_url_part(1) = ' '.
+        SHIFT lv_url_part LEFT.
+      ENDIF.
+      IF lv_url_part(1) = '"'.
+        SHIFT lv_url_part LEFT.
+        FIND '"' IN lv_url_part MATCH OFFSET DATA(lv_q).
+        lv_url = lv_url_part(lv_q).
       ENDIF.
     ENDIF.
 
-    " Parse package: find "package": "
+    " Parse package from JSON
     FIND '"package":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 10.
-      lv_package = lv_json+lv_pos.
-      SHIFT lv_package LEFT UP TO '"'.
-      SHIFT lv_package LEFT.
-      FIND '"' IN lv_package MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_package = lv_package(lv_pos).
+      DATA lv_pkg_part TYPE string.
+      lv_pkg_part = lv_json+lv_pos.
+      SHIFT lv_pkg_part LEFT BY 10 PLACES.
+      IF lv_pkg_part(1) = ' '.
+        SHIFT lv_pkg_part LEFT.
+      ENDIF.
+      IF lv_pkg_part(1) = '"'.
+        SHIFT lv_pkg_part LEFT.
+        FIND '"' IN lv_pkg_part MATCH OFFSET DATA(lv_q2).
+        lv_package = lv_pkg_part(lv_q2).
       ENDIF.
     ENDIF.
 

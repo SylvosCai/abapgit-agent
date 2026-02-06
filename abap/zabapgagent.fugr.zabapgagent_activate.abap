@@ -3,7 +3,7 @@ FUNCTION zabapgagent_activate.
 *"*"Local Interface:
 *"  IMPORTING
 *"    VALUE(IV_URL) TYPE STRING OPTIONAL
-*"    VALUE(IV_PACKAGE) TYPE DEVCLASS OPTIONAL
+*"    VALUE(IV_PACKAGE) TYPE STRING OPTIONAL
 *"  EXPORTING
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_MESSAGE) TYPE STRING
@@ -20,6 +20,7 @@ FUNCTION zabapgagent_activate.
   DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
   DATA: lv_count TYPE i.
   DATA: lv_act TYPE i.
+  DATA: lv_devclass TYPE devclass.
 
   ev_success = ' '.
   ev_message = 'Starting activation...'.
@@ -44,9 +45,10 @@ FUNCTION zabapgagent_activate.
         ev_reason = lv_reason ).
 
     IF li_repo IS BOUND.
-      iv_package = li_repo->get_package( ).
+      lv_devclass = li_repo->get_package( ).
     ENDIF.
   ELSEIF iv_package IS NOT INITIAL.
+    lv_devclass = iv_package.
     WRITE: / 'Finding repository by package...'.
     " Try to find repo by package
     TRY.
@@ -56,7 +58,7 @@ FUNCTION zabapgagent_activate.
     ENDTRY.
 
     LOOP AT li_repo_list INTO DATA(li_repo_tmp).
-      IF li_repo_tmp->get_package( ) = iv_package.
+      IF li_repo_tmp->get_package( ) = lv_devclass.
         li_repo = li_repo_tmp.
         EXIT.
       ENDIF.
@@ -65,7 +67,7 @@ FUNCTION zabapgagent_activate.
 
   IF li_repo IS NOT BOUND.
     ev_success = ' '.
-    ev_message = |Repository not found for package { iv_package }|.
+    ev_message = |Repository not found for package { lv_devclass }|.
     WRITE: / 'ERROR:', ev_message.
     RETURN.
   ENDIF.
