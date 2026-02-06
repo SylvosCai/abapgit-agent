@@ -199,13 +199,13 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
 
       " Check if there are errors in the log
       DATA(lv_has_error) = abap_false.
-      DATA(lv_log_error_detail) = ''.
-      PERFORM check_log_for_errors USING li_repo CHANGING lv_has_error lv_log_error_detail.
+      DATA(lv_error_detail) = ''.
+      PERFORM check_log_for_errors USING li_repo CHANGING lv_has_error lv_error_detail.
 
       IF lv_has_error = abap_true.
         cv_success = ' '.
         cv_message = 'Pull completed with errors - see error_detail for more info'.
-        cv_error_detail = lv_log_error_detail.
+        cv_error_detail = lv_error_detail.
       ELSE.
         cv_success = 'X'.
         cv_message = 'Pull completed successfully'.
