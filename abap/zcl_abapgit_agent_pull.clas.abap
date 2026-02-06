@@ -77,62 +77,46 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
   METHOD extract_json_field.
     DATA lv_search TYPE string.
     DATA lv_pos TYPE i.
-    DATA lv_col TYPE i.
     DATA lv_len TYPE i.
-    DATA lv_start TYPE i.
-    DATA lv_end TYPE i.
-    DATA lv_sub TYPE string.
 
-    " Build search string
-    CONCATENATE '"' iv_field '"' INTO lv_search.
+    " Build search string for field name
+    CONCATENATE '"' iv_field '"' ':' INTO lv_search.
     FIND lv_search IN iv_json MATCH OFFSET lv_pos.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Get substring after field name
-    lv_sub = iv_json+lv_pos.
+    " Get substring after field
+    DATA lv_rest TYPE string.
+    lv_rest = iv_json+lv_pos.
 
-    " Find colon
-    FIND ':' IN lv_sub MATCH OFFSET lv_col.
+    " Find opening quote
+    FIND '"' IN lv_rest MATCH OFFSET lv_pos.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Get value part (after colon)
-    lv_sub = lv_sub+lv_col+1.
-    lv_len = strlen( lv_sub ).
+    " Get length of rest
+    lv_len = strlen( lv_rest ).
+    DATA(lv_skip) = lv_pos + 1.
+    DATA(lv_remaining) = lv_len - lv_skip.
 
-    " Skip whitespace
-    WHILE lv_sub(1) = ' '.
-      lv_sub = lv_sub+1.
-      lv_len = lv_len - 1.
-    ENDWHILE.
+    " Get the part after opening quote
+    DATA lv_after TYPE string.
+    lv_after = lv_rest+lv_skip(lv_remaining).
 
-    " Check if value is quoted
-    IF lv_sub(1) = '"'.
-      " Find closing quote
-      FIND '"' IN lv_sub MATCH OFFSET lv_start.
-      IF sy-subrc <> 0.
-        RETURN.
-      ENDIF.
-      lv_sub = lv_sub+lv_start+1.
-      FIND '"' IN lv_sub MATCH OFFSET lv_end.
-      IF sy-subrc <> 0.
-        RETURN.
-      ENDIF.
-      rv_value = lv_sub(lv_end).
-    ELSE.
-      " Unquoted value - find comma or closing brace
-      FIND ',' IN lv_sub MATCH OFFSET lv_start.
-      FIND '}' IN lv_sub MATCH OFFSET DATA(lv_brace).
-      IF lv_start > lv_brace AND lv_brace > 0.
-        lv_start = lv_brace.
-      ENDIF.
-      IF lv_start > 0.
-        rv_value = lv_sub(lv_start).
-      ENDIF.
+    " Find closing quote
+    FIND '"' IN lv_after MATCH OFFSET lv_pos.
+    IF sy-subrc <> 0.
+      RETURN.
     ENDIF.
+
+    " Extract the value
+    rv_value = lv_after.
+    DATA lv_cut TYPE i.
+    lv_cut = strlen( lv_after ) - lv_pos.
+    SHIFT rv_value RIGHT BY lv_cut PLACES.
+    SHIFT rv_value LEFT.
   ENDMETHOD.
 
 ENDCLASS.
