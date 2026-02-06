@@ -108,36 +108,23 @@ FUNCTION zabapgagent_activate.
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
-  " Activate objects synchronously using DDOK object activation
+  " Activate objects synchronously using RS_CORR_INSERT (same as abapGit)
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
   LOOP AT lt_objects INTO ls_object.
     WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
-    DATA: lv_obj_type TYPE tadir-object,
-          lv_obj_name TYPE tadir-obj_name.
-    lv_obj_type = ls_object-object.
-    lv_obj_name = ls_object-obj_name.
-
-    " Use DDOK_OBJECT_ACTIVATE for table activation
-    IF ls_object-object = 'TABL'.
-      CALL FUNCTION 'DDOK_OBJECT_ACTIVATE'
-        EXPORTING
-          obj_name = lv_obj_name.
-    ELSE.
-      " For other objects, use RSDRC_OBJECT_ACTIVATE or similar
-      CALL FUNCTION 'RS_CORR_INSERT'
-        EXPORTING
-          object              = lv_obj_type
-          obj_name            = lv_obj_name
-          global_lock         = 'X'
-        EXCEPTIONS
-          cancelled           = 1
-          permission_failure  = 2
-          not_executed        = 3
-          OTHERS              = 4.
-    ENDIF.
+    CALL FUNCTION 'RS_CORR_INSERT'
+      EXPORTING
+        object              = ls_object-object
+        obj_name            = ls_object-obj_name
+        global_lock         = 'X'
+      EXCEPTIONS
+        cancelled           = 1
+        permission_failure  = 2
+        not_executed        = 3
+        OTHERS              = 4.
 
     IF sy-subrc = 0.
       lv_act = lv_act + 1.
