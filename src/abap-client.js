@@ -160,15 +160,16 @@ class ABAPClient {
    * Pull repository and activate
    */
   async pull(repoUrl, branch = 'main', username = null, password = null) {
-    // Fetch CSRF token first
+    const cfg = this.getConfig();
     await this.fetchCsrfToken();
 
     const data = {
       url: repoUrl,
       branch: branch
     };
-    if (username) data.username = username;
-    if (password) data.password = password;
+    // Use config credentials if no override provided
+    data.username = username || cfg.username;
+    data.password = password || cfg.password;
 
     return await this.request('POST', '/pull', data);
   }
