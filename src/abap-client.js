@@ -27,10 +27,38 @@ class ABAPClient {
         username: cfg.user,
         password: cfg.password,
         client: cfg.client,
-        language: cfg.language || 'EN'
+        language: cfg.language || 'EN',
+        gitUsername: cfg.gitUsername,
+        gitPassword: cfg.gitPassword
       };
     }
     return this.config;
+  }
+
+  /**
+   * Read cookies from Netscape format cookie file
+   */
+  readNetscapeCookies() {
+    if (!fs.existsSync(this.cookieFile)) return '';
+
+    const content = fs.readFileSync(this.cookieFile, 'utf8');
+    const lines = content.split('\n');
+    const cookies = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Skip empty lines and only the header comments (starting with #)
+      // but NOT HttpOnly cookies which start with #HttpOnly_
+      if (!trimmed || (trimmed.startsWith('#') && !trimmed.startsWith('#HttpOnly'))) continue;
+
+      const parts = trimmed.split('\t');
+      if (parts.length >= 7) {
+        // Format: domain, flag, path, secure, expiration, name, value
+        cookies.push(`${parts[5]}=${parts[6]}`);
+      }
+    }
+
+    return cookies.join('; ');
   }
 
   /**
@@ -58,10 +86,10 @@ class ABAPClient {
         headers['X-CSRF-Token'] = options.csrfToken;
       }
 
-      // Add cookies if available
-      if (fs.existsSync(this.cookieFile)) {
-        const cookies = fs.readFileSync(this.cookieFile, 'utf8');
-        headers['Cookie'] = cookies;
+      // Add cookies if available (handle Netscape format)
+      const cookieHeader = this.readNetscapeCookies();
+      if (cookieHeader) {
+        headers['Cookie'] = cookieHeader;
       }
 
       const reqOptions = {
@@ -124,6 +152,15 @@ class ABAPClient {
     return new Promise((resolve, reject) => {
       const url = new URL(`${cfg.baseUrl}/pull`);
 
+      // Read and save original cookies before making request
+      let originalCookies = '';
+      if (fs.existsSync(this.cookieFile)) {
+        originalCookies = fs.readFileSync(this.cookieFile, 'utf8');
+      }
+
+      // Read cookies for sending (handle Netscape format)
+      const cookieHeader = this.readNetscapeCookies();
+
       const options = {
         hostname: url.hostname,
         port: url.port,
@@ -134,26 +171,27 @@ class ABAPClient {
           'sap-client': cfg.client,
           'sap-language': cfg.language,
           'X-CSRF-Token': 'fetch',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(cookieHeader && { 'Cookie': cookieHeader })
         },
         agent: new https.Agent({ rejectUnauthorized: false })
       };
 
       const req = https.request(options, (res) => {
-        const setCookie = res.headers['set-cookie'];
-        if (setCookie) {
-          const cookies = Array.isArray(setCookie)
-            ? setCookie.map(c => c.split(';')[0]).join('; ')
-            : setCookie.split(';')[0];
-          fs.writeFileSync(this.cookieFile, cookies);
-        }
+        const csrfToken = res.headers['x-csrf-token'];
 
-        this.csrfToken = res.headers['x-csrf-token'];
+        // Restore original cookies - do NOT update cookies from GET response
+        // as this may change the session and invalidate the CSRF token
+        if (originalCookies) {
+          fs.writeFileSync(this.cookieFile, originalCookies);
+        }
 
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
-          resolve({ token: this.csrfToken });
+          // Store token in instance for use by POST
+          this.csrfToken = csrfToken;
+          resolve({ token: csrfToken });
         });
       });
 
@@ -165,7 +203,7 @@ class ABAPClient {
   /**
    * Pull repository and activate
    */
-  async pull(repoUrl, branch = 'main', username = null, password = null) {
+  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null) {
     const cfg = this.getConfig();
 
     // Fetch CSRF token first (using GET /pull with X-CSRF-Token: fetch)
@@ -175,9 +213,11 @@ class ABAPClient {
       url: repoUrl,
       branch: branch
     };
-    // Use config credentials if no override provided
-    data.username = username || cfg.username;
-    data.password = password || cfg.password;
+    // Use config git credentials if no override provided
+    data.username = gitUsername || cfg.gitUsername;
+    data.password = gitPassword || cfg.gitPassword;
+
+    logger.info('Starting pull operation', { repoUrl, branch, service: 'abap-ai-bridge' });
 
     return await this.request('POST', '/pull', data, { csrfToken: this.csrfToken });
   }

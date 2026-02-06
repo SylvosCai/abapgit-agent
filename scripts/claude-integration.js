@@ -51,7 +51,8 @@ function request(method, path, data = null) {
         'sap-client': config.client,
         'sap-language': config.language || 'EN'
       },
-      auth: `${config.user}:${config.password}`
+      auth: `${config.user}:${config.password}`,
+      agent: new https.Agent({ rejectUnauthorized: false })
     };
 
     const req = (url.protocol === 'https:' ? https : http).request(options, (res) => {
