@@ -124,7 +124,8 @@ ENDFUNCTION.
 FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
                     iv_url TYPE string
             CHANGING cv_success TYPE char1
-                     cv_message TYPE string.
+                     cv_message TYPE string
+            RAISING zcx_abapgit_exception.
 
   DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
   DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
