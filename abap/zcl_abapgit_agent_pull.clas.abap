@@ -75,39 +75,64 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD extract_json_field.
+    DATA lv_search TYPE string.
     DATA lv_pos TYPE i.
     DATA lv_col TYPE i.
     DATA lv_len TYPE i.
-    DATA lv_part TYPE string.
+    DATA lv_start TYPE i.
+    DATA lv_end TYPE i.
+    DATA lv_sub TYPE string.
 
-    " Find the field name
-    CONCATENATE '"' iv_field '"' INTO lv_part.
-    FIND lv_part IN iv_json MATCH OFFSET lv_pos.
+    " Build search string
+    CONCATENATE '"' iv_field '"' INTO lv_search.
+    FIND lv_search IN iv_json MATCH OFFSET lv_pos.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Find the colon after field name
-    lv_part = iv_json+lv_pos.
-    FIND ':' IN lv_part MATCH OFFSET lv_col.
+    " Get substring after field name
+    lv_sub = iv_json+lv_pos.
+
+    " Find colon
+    FIND ':' IN lv_sub MATCH OFFSET lv_col.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Get the value part (after colon)
-    lv_part = lv_part+lv_col+1.
-    SHIFT lv_part LEFT UP TO '"'.
-    SHIFT lv_part LEFT.
+    " Get value part (after colon)
+    lv_sub = lv_sub+lv_col+1.
+    lv_len = strlen( lv_sub ).
 
-    " Find the closing quote
-    FIND '"' IN lv_part MATCH OFFSET lv_col.
-    IF sy-subrc <> 0.
-      RETURN.
+    " Skip whitespace
+    WHILE lv_sub(1) = ' '.
+      lv_sub = lv_sub+1.
+      lv_len = lv_len - 1.
+    ENDWHILE.
+
+    " Check if value is quoted
+    IF lv_sub(1) = '"'.
+      " Find closing quote
+      FIND '"' IN lv_sub MATCH OFFSET lv_start.
+      IF sy-subrc <> 0.
+        RETURN.
+      ENDIF.
+      lv_sub = lv_sub+lv_start+1.
+      FIND '"' IN lv_sub MATCH OFFSET lv_end.
+      IF sy-subrc <> 0.
+        RETURN.
+      ENDIF.
+      rv_value = lv_sub(lv_end).
+    ELSE.
+      " Unquoted value - find comma or closing brace
+      FIND ',' IN lv_sub MATCH OFFSET lv_start.
+      FIND '}' IN lv_sub MATCH OFFSET DATA(lv_brace).
+      IF lv_start > lv_brace AND lv_brace > 0.
+        lv_start = lv_brace.
+      ENDIF.
+      IF lv_start > 0.
+        rv_value = lv_sub(lv_start).
+      ENDIF.
     ENDIF.
-
-    " Extract the value
-    lv_len = lv_col.
-    rv_value = lv_part(lv_len).
   ENDMETHOD.
 
 ENDCLASS.
