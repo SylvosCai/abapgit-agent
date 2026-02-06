@@ -11,6 +11,9 @@ FUNCTION zabapgagent_do_pull.
 *"    VALUE(IV_CREATE_NEW) TYPE CHAR1 DEFAULT ' '
 *"    VALUE(IV_USERNAME) TYPE STRING OPTIONAL
 *"    VALUE(IV_PASSWORD) TYPE STRING OPTIONAL
+*"  EXPORTING
+*"    VALUE(EV_SUCCESS) TYPE CHAR1
+*"    VALUE(EV_MESSAGE) TYPE STRING
 *"  RAISING
 *"    ERROR
 *"    ZCX_ABAPGIT_EXCEPTION
@@ -18,12 +21,14 @@ FUNCTION zabapgagent_do_pull.
 *  Case 1: Repository already exists in abapGit
 *  Case 2: Create new repository (requires IV_PACKAGE)
 *"----------------------------------------------------------------------
-
   DATA: lv_success TYPE char1.
   DATA: lv_message TYPE string.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_reason TYPE string.
   DATA: lv_login TYPE string.
+
+  ev_success = ' '.
+  ev_message = 'Starting pull...'.
 
   WRITE: / 'Starting pull for URL:', iv_url.
   WRITE: / 'Branch:', iv_branch.
@@ -39,86 +44,77 @@ FUNCTION zabapgagent_do_pull.
     WRITE: / 'TEST MODE - Skipping actual pull.'.
     lv_success = 'X'.
     lv_message = 'Test mode - no changes made'.
-  ELSE.
-    " Configure credentials if provided
-    IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
-      WRITE: / 'Configuring git credentials...'.
+    ev_success = 'X'.
+    ev_message = lv_message.
+    RETURN.
+  ENDIF.
 
-      " Store username in abapGit user persistence
-      zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
-        iv_url = iv_url iv_username = iv_username ).
-      zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
-        iv_url = iv_url iv_login = iv_username ).
+  " Configure credentials if provided
+  IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
+    WRITE: / 'Configuring git credentials...'.
 
-    ELSEIF iv_username IS NOT INITIAL.
-      " Username provided but password comes from memory ID
-      DATA: lv_pass_mem TYPE string.
-      IMPORT lv_pass_mem FROM MEMORY ID 'ZGIT_PASS'.
-      IF lv_pass_mem IS NOT INITIAL.
-        WRITE: / 'Password retrieved from memory ID (preserves case).'.
+    " Store username in abapGit user persistence
+    zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
+      iv_url = iv_url iv_username = iv_username ).
+    zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
+      iv_url = iv_url iv_login = iv_username ).
 
-        " Store username in abapGit user persistence
-        zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
-          iv_url = iv_url iv_username = iv_username ).
-        zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
-          iv_url = iv_url iv_login = iv_username ).
+    " Use login_manager to set Basic auth directly
+    DATA(lv_auth) = zcl_abapgit_login_manager=>set_basic(
+      iv_uri      = iv_url
+      iv_username = iv_username
+      iv_password = iv_password ).
+    WRITE: / 'Credentials encoded and stored.'.
+  ENDIF.
 
-        " Use login_manager to set Basic auth directly
-        DATA(lv_auth) = zcl_abapgit_login_manager=>set_basic(
-          iv_uri      = iv_url
-          iv_username = iv_username
-          iv_password = lv_pass_mem ).
-        WRITE: / 'Credentials encoded and stored.'.
-      ELSE.
-        WRITE: / 'WARNING: Username provided but password not found in memory ID.'.
-      ENDIF.
-    ENDIF.
+  " Check if repo already exists
+  WRITE: / 'Checking if repository exists...'.
 
-    " Check if repo already exists
-    WRITE: / 'Checking if repository exists...'.
+  zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+    EXPORTING
+      iv_url    = iv_url
+    IMPORTING
+      ei_repo   = li_repo
+      ev_reason = lv_reason ).
 
-    zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-      EXPORTING
-        iv_url    = iv_url
-      IMPORTING
-        ei_repo   = li_repo
-        ev_reason = lv_reason ).
+  IF li_repo IS BOUND.
+    " Case 1: Repo exists - pull changes
+    WRITE: / 'Repository found.'.
+    WRITE: / 'Package:', li_repo->get_package( ).
+
+    PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
+
+  ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
+    " Case 2: Create new repository
+    WRITE: / 'Creating new repository...'.
+
+    TRY.
+        PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
+                              CHANGING li_repo lv_success lv_message.
+      CATCH zcx_abapgit_exception INTO DATA(lx_new).
+        lv_success = ' '.
+        lv_message = |Failed to create repo: { lx_new->get_text( ) }|.
+        WRITE: / 'ERROR:', lv_message.
+    ENDTRY.
 
     IF li_repo IS BOUND.
-      " Case 1: Repo exists - pull changes
-      WRITE: / 'Repository found.'.
-      WRITE: / 'Package:', li_repo->get_package( ).
-
       PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
-
-    ELSEIF iv_create_new = 'X' AND iv_package IS NOT INITIAL.
-      " Case 2: Create new repository
-      WRITE: / 'Creating new repository...'.
-
-      TRY.
-          PERFORM create_new_repo USING iv_url iv_branch iv_package iv_folder_logic
-                                CHANGING li_repo lv_success lv_message.
-        CATCH zcx_abapgit_exception INTO DATA(lx_new).
-          lv_success = ' '.
-          lv_message = |Failed to create repo: { lx_new->get_text( ) }|.
-          WRITE: / 'ERROR:', lv_message.
-      ENDTRY.
-
-      IF li_repo IS BOUND.
-        PERFORM pull_repo USING li_repo iv_url CHANGING lv_success lv_message.
-      ENDIF.
-
-    ELSE.
-      " Repo not found and create_new is not set
-      lv_success = ' '.
-      lv_message = |Repository not found: { iv_url }| &
-                 |. Set IV_CREATE_NEW = 'X' and provide IV_PACKAGE to create new repo.|.
-      WRITE: / 'ERROR:', lv_message.
     ENDIF.
+
+  ELSE.
+    " Repo not found and create_new is not set
+    lv_success = ' '.
+    lv_message = |Repository not found: { iv_url }| &
+               |. Set IV_CREATE_NEW = 'X' and provide IV_PACKAGE to create new repo.|.
+    WRITE: / 'ERROR:', lv_message.
   ENDIF.
 
   ULINE.
   WRITE: / 'Result:', lv_message.
+
+  " Set export parameters
+  ev_success = lv_success.
+  ev_message = lv_message.
 
 ENDFUNCTION.
 

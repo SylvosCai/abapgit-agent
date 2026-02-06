@@ -21,16 +21,19 @@ FUNCTION zabapgagent_pull.
 
   lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
 
-  SUBMIT zabapgagent_pull_job WITH pv_url = iv_url
-    WITH pv_branch = iv_branch
-    WITH pv_test = iv_test_run
-    WITH pv_username = iv_username
-    WITH pv_password = iv_password
-    WITH pv_job_id = lv_job_id
-    AND RETURN.
+  " Call ZABAPGAGENT_DO_PULL directly (synchronous - waits for completion)
+  CALL FUNCTION 'ZABAPGAGENT_DO_PULL'
+    EXPORTING
+      iv_url         = iv_url
+      iv_branch      = iv_branch
+      iv_test_run    = iv_test_run
+      iv_job_id      = lv_job_id
+      iv_username    = iv_username
+      iv_password    = iv_password
+    IMPORTING
+      ev_success     = ev_success
+      ev_message     = ev_message.
 
-  ev_success = 'X'.
   ev_job_id = lv_job_id.
-  ev_message = |Job submitted: { lv_job_id }|.
 
 ENDFUNCTION.
