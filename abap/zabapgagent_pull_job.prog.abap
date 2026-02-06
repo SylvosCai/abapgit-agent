@@ -22,42 +22,12 @@ START-OF-SELECTION.
   ENDIF.
   ULINE.
 
-  IF lv_success = abap_true AND lv_job_id IS NOT INITIAL AND p_test = abap_false.
-    ULINE.
-    WRITE: / 'Checking job status...'.
-
-    DATA lv_status TYPE string.
-    DATA lv_retry TYPE i VALUE 0.
-    DATA lv_max_retry TYPE i VALUE 30.
-
-    WHILE lv_retry < lv_max_retry.
-      CALL FUNCTION 'ZABAPGAGENT_GET_STATUS'
-        EXPORTING
-          iv_job_id = lv_job_id
-        IMPORTING
-          ev_status  = lv_status
-          ev_success = lv_success
-          ev_message = lv_message.
-
-      WRITE: / 'Status:', lv_status.
-
-      IF lv_status = 'COMPLETED' OR lv_status = 'FAILED'.
-        EXIT.
-      ENDIF.
-
-      lv_retry = lv_retry + 1.
-      WAIT UP TO 2 SECONDS.
-    ENDWHILE.
-
-    IF lv_retry >= lv_max_retry.
-      WRITE: / 'Warning: Polling timed out. Check job status manually.'.
-    ELSE.
-      ULINE.
-      WRITE: / 'Final Result:'.
-      WRITE: / 'Success:', lv_success.
-      WRITE: / 'Status:', lv_status.
-      WRITE: / 'Message:', lv_message.
-    ENDIF.
-  ENDIF.
+  " Call the actual function module to do the work
+  CALL FUNCTION 'ZABAPGAGENT_DO_PULL'
+    EXPORTING
+      iv_url      = p_url
+      iv_branch   = p_branch
+      iv_test_run = p_test
+      iv_job_id   = p_job_id.
 
 END-OF-SELECTION.

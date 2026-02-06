@@ -23,6 +23,12 @@
        <OPTIONAL>X</OPTIONAL>
        <TYP>STRING</TYP>
       </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_TEST_RUN</PARAMETER>
+       <DEFAULT>ABAP_FALSE</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>ABAP_BOOL</TYP>
+      </RSIMP>
      </IMPORT>
      <EXPORT>
       <RSEXP>
@@ -38,6 +44,38 @@
        <TYP>STRING</TYP>
       </RSEXP>
      </EXPORT>
+     <EXCEPTION>
+      <RSEXC>
+       <EXCEPTION>ERROR</EXCEPTION>
+      </RSEXC>
+     </EXCEPTION>
+    </item>
+    <item>
+     <FUNCNAME>ZABAPGAGENT_DO_PULL</FUNCNAME>
+     <REMOTE_CALL>R</REMOTE_CALL>
+     <SHORT_TEXT>Execute the actual git pull and activation</SHORT_TEXT>
+     <IMPORT>
+      <RSIMP>
+       <PARAMETER>IV_URL</PARAMETER>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_BRANCH</PARAMETER>
+       <DEFAULT>'main'</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>STRING</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_TEST_RUN</PARAMETER>
+       <DEFAULT>ABAP_FALSE</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>ABAP_BOOL</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>IV_JOB_ID</PARAMETER>
+       <TYP>STRING</TYP>
+      </RSIMP>
+     </IMPORT>
      <EXCEPTION>
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
