@@ -197,9 +197,21 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
         is_checks = ls_checks
         ii_log    = li_repo->get_log( ) ).
 
-      cv_success = 'X'.
-      cv_message = 'Pull completed successfully'.
-      WRITE: / 'Pull completed.'.
+      " Check if there are errors in the log
+      DATA(lv_has_error) = abap_false.
+      DATA(lv_log_error_detail) = ''.
+      PERFORM check_log_for_errors USING li_repo CHANGING lv_has_error lv_log_error_detail.
+
+      IF lv_has_error = abap_true.
+        cv_success = ' '.
+        cv_message = 'Pull completed with errors - see error_detail for more info'.
+        cv_error_detail = lv_log_error_detail.
+      ELSE.
+        cv_success = 'X'.
+        cv_message = 'Pull completed successfully'.
+      ENDIF.
+
+      WRITE: / cv_message.
 
     CATCH zcx_abapgit_exception INTO DATA(lx_git).
       cv_success = ' '.
@@ -207,6 +219,8 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
 
       " Build detailed error info
       PERFORM build_error_detail USING lx_git li_repo CHANGING cv_error_detail.
+
+      WRITE: / 'ERROR:', cv_message.
 
     CATCH cx_root INTO DATA(lx_error).
       cv_success = ' '.
@@ -236,8 +250,6 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
           ENDIF.
         ENDIF.
       ENDIF.
-
-      WRITE: / 'ERROR:', cv_message.
   ENDTRY.
 
   " Restore setting

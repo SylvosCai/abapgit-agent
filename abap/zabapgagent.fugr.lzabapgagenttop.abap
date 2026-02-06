@@ -28,6 +28,57 @@ FORM password_popup USING iv_repo_url TYPE string
 ENDFORM.
 
 *&---------------------------------------------------------------------*
+*&      Form  CHECK_LOG_FOR_ERRORS
+*&---------------------------------------------------------------------*
+*&      Check if the repo log contains errors and return details
+*&---------------------------------------------------------------------*
+FORM check_log_for_errors USING li_repo TYPE REF TO zif_abapgit_repo
+                     CHANGING cv_has_error TYPE abap_bool
+                              cv_error_detail TYPE string.
+
+  DATA: lo_log TYPE REF TO zif_abapgit_log.
+  DATA: lv_msg TYPE string.
+  DATA: lv_devclass TYPE devclass.
+
+  cv_has_error = abap_false.
+  cv_error_detail = ''.
+
+  IF li_repo IS NOT BOUND.
+    RETURN.
+  ENDIF.
+
+  lo_log = li_repo->get_log( ).
+  IF lo_log IS BOUND.
+    lv_msg = lo_log->to_string( ).
+    IF lv_msg IS NOT INITIAL.
+      cv_error_detail = |Log contains errors:\n{ lv_msg }|.
+    ENDIF.
+  ENDIF.
+
+  " Also check for inactive objects
+  lv_devclass = li_repo->get_package( ).
+  IF lv_devclass IS NOT INITIAL.
+    DATA(lv_count) = 0.
+    SELECT COUNT(*) FROM tadir INTO lv_count
+      WHERE devclass = lv_devclass
+      AND object NOT IN ('DEVC', 'PACK').
+    IF lv_count > 0.
+      IF cv_error_detail IS INITIAL.
+        cv_error_detail = |Inactive objects in { lv_devclass }: { lv_count }|.
+      ELSE.
+        cv_error_detail = cv_error_detail && |\nInactive objects in { lv_devclass }: { lv_count }|.
+      ENDIF.
+      cv_has_error = abap_true.
+    ENDIF.
+  ENDIF.
+
+  IF cv_error_detail IS NOT INITIAL.
+    cv_has_error = abap_true.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
 *&      Form  BUILD_ERROR_DETAIL
 *&---------------------------------------------------------------------*
 *&      Build detailed error information from exception
