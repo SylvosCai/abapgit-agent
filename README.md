@@ -15,17 +15,25 @@ This project provides a bridge between AI coding tools and your ABAP system:
 ```
 Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
                                     ↓
-                  Result Polling + Error Feedback
+                  Result + Error Feedback
 ```
 
 ## Components
 
 ### ABAP Side
-- `ZIF_ABAPGIT_AGENT` - Interface definitions
-- `ZABAPGAGENT_PULL` - Function module to trigger pull
-- `ZABAPGAGENT_GET_STATUS` - Function module to get job status
-- `ZABAPGAGENT_PULL_JOB` - Report for pull and activation
-- `ZCL_ABAPGIT_AGENT_REST` - REST API handler (ICF)
+
+| Object | Type | Description |
+|--------|------|-------------|
+| `ZIF_ABAPGIT_AGENT` | Interface | Type definitions and method signatures |
+| `ZCL_ABAPGIT_AGENT` | Class | OO implementation of pull with activation |
+| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for endpoints |
+| `ZCL_ABAPGIT_AGENT_PULL` | Class | POST /pull handler |
+| `ZCL_ABAPGIT_AGENT_STATUS` | Class | GET /status handler |
+| `ZCL_ABAPGIT_AGENT_HEALTH` | Class | GET /health handler |
+| `ZABAPGAGENT_PULL` | Function | Simple pull wrapper |
+| `ZABAPGAGENT_GET_STATUS` | Function | Get job status |
+| `ZABAPGAGENT_DO_PULL` | Function | Detailed pull with logging |
+| `ZABAPGAGENT` | Function Group | Helper FORMs |
 
 ### Database Tables
 - `ZABAPGLOG` - Job execution log
@@ -35,7 +43,8 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 ### Local Agent (Node.js)
 - HTTP server exposing REST API
 - REST client for ABAP communication
-- Claude integration scripts
+- Configuration management
+- Logging
 
 ## Why REST API?
 
@@ -84,7 +93,7 @@ Use abapGit to deploy the ABAP objects in `/abap` folder.
 3. Create if doesn't exist:
    - Right-click on `sap/bc` → **Create Element**
    - **Service Name**: `Z_ABAPGIT_AGENT`
-   - **Handler Class**: `ZCL_ABAPGIT_AGENT_REST`
+   - **Handler Class**: `ZCL_ABAPGIT_AGENT_HANDLER`
 4. Activate the service
 
 ## Usage
@@ -106,9 +115,6 @@ node scripts/claude-integration.js pull --url <git-url> --branch main
 # Check job status
 node scripts/claude-integration.js status <job-id>
 
-# Wait for completion
-node scripts/claude-integration.js wait <job-id>
-
 # Health check
 node scripts/claude-integration.js health
 ```
@@ -120,7 +126,7 @@ The ABAP system exposes these endpoints:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
-| POST | `/pull` | Start pull and activation |
+| POST | `/pull` | Pull and activate |
 | GET | `/status?job_id=<id>` | Get job status |
 
 ### POST /pull
@@ -132,13 +138,14 @@ curl -X POST https://your-system:44300/sap/bc/z_abapgit_agent/pull \
   -d '{"url": "https://github.com/...", "branch": "main"}'
 ```
 
-Response:
+Response (success):
 ```json
-{
-  "success": "X",
-  "job_id": "USER123_20260205_120000",
-  "message": "Job submitted: ..."
-}
+{"success":"X","job_id":"USER123_20260206_120000","message":"Pull completed successfully"}
+```
+
+Response (with activation errors):
+```json
+{"success":"","job_id":"USER123_20260206_120000","message":"Pull completed with activation errors","error_detail":"3 inactive objects (activation errors):\n  - CLAS ZCL_TEST_CLASS\n  - PROG ZTEST_REPORT\n  - FUGR ZTEST_FUGR"}
 ```
 
 ### GET /status
@@ -150,12 +157,7 @@ curl "https://your-system:44300/sap/bc/z_abapgit_agent/status?job_id=..." \
 
 Response:
 ```json
-{
-  "job_id": "USER123_20260205_120000",
-  "status": "COMPLETED",
-  "success": "X",
-  "message": "Job ..."
-}
+{"job_id":"USER123_20260206_120000","status":"COMPLETED","success":"X","message":"..."}
 ```
 
 ### GET /health
@@ -167,7 +169,24 @@ curl "https://your-system:44300/sap/bc/z_abapgit_agent/health" \
 
 Response:
 ```json
-{"status":"OK","version":"1.0"}
+{"status":"OK","version":"1.0.0"}
+```
+
+## API Response Structure
+
+### ty_result Structure
+
+```abap
+TYPES: BEGIN OF ty_result,
+  success TYPE abap_bool,
+  job_id TYPE string,
+  message TYPE string,
+  error_detail TYPE string,  " Contains inactive objects if activation failed
+  activated_count TYPE i,
+  failed_count TYPE i,
+  started_at TYPE timestampl,
+  finished_at TYPE timestampl,
+END OF ty_result.
 ```
 
 ## Workflow with Claude
@@ -186,22 +205,32 @@ Claude: [Generates code and commits to git]
 
 You: "node scripts/claude-integration.js pull --url <repo-url>"
 
-Agent: {"job_id": "...", "message": "Job submitted"}
+Agent: {"success":"X","job_id":"...","message":"Pull completed successfully"}
 
-[After completion]
-Agent: {"status": "COMPLETED", "success": "X", "activated": 5}
+OR (if activation errors)
 
-You: "There's a syntax error in line 15 of the class. Please fix it."
+Agent: {"success":"","job_id":"...","message":"Pull completed with activation errors","error_detail":"..."}
+
+You: "There's a syntax error. Please fix it in the class."
 
 Claude: [Fixes the error and pushes to git]
 ```
+
+## Error Handling
+
+| Error Type | Response | Handling |
+|------------|----------|----------|
+| Syntax Error | `success=""`, `error_detail` contains object names | Claude fixes and repulls |
+| Activation Error | `success=""`, `error_detail` contains inactive objects | Check TADIR for details |
+| Network Timeout | HTTP timeout | Retry request |
+| Repository Not Found | `success=""`, message="Repository not found" | Verify URL |
 
 ## Troubleshooting
 
 ### REST API not accessible
 
 1. Check SICF activation: `sap/bc/z_abapgit_agent`
-2. Verify handler class: `ZCL_ABAPGIT_AGENT_REST`
+2. Verify handler class: `ZCL_ABAPGIT_AGENT_HANDLER`
 3. Check authorization
 
 ### Agent cannot connect to ABAP
@@ -209,6 +238,12 @@ Claude: [Fixes the error and pushes to git]
 1. Verify REST API URL in config.json
 2. Check credentials in config.json
 3. Test REST API directly with curl
+
+### Activation errors not shown
+
+1. Check TADIR for inactive objects in the package
+2. Verify abapGit settings for activation
+3. Check SE80 for object activation status
 
 ## License
 

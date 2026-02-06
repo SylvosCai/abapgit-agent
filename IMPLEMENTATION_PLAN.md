@@ -21,265 +21,208 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 
 ### 1. ABAP System Components
 
-#### 1.1 Main Class: ZCL_ABAPGit_AGENT
+#### 1.1 Main Class: ZCL_ABAPGIT_AGENT (DONE)
 ```abap
-CLASS zcl_abapgit_agent DEFINITION
-  PUBLIC
-  CREATE PUBLIC .
-
+CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
+    INTERFACES: zif_abapgit_agent.
+
+  PRIVATE SECTION.
     METHODS:
-      pull_repo
-        IMPORTING iv_url TYPE string
-                  iv_branch TYPE string DEFAULT 'main'
-        RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result,
-      activate_objects
-        IMPORTING it_objects TYPE zif_abapgit_agent=>ty_object_table
-        RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result,
-      get_status
-        IMPORTING iv_repo_url TYPE string
-        RETURNING VALUE(rs_status) TYPE zif_abapgit_agent=>ty_repo_status,
-      get_activation_log
-        IMPORTING iv_job_id TYPE string
-        RETURNING VALUE(rt_log) TYPE zif_abapgit_agent=>ty_log_table.
+      configure_credentials,
+      prepare_deserialize_checks,
+      check_inactive_objects,
+      handle_exception.
 ENDCLASS.
 ```
+**Features:**
+- Pull repository and activate objects in one operation
+- Check for inactive objects after activation
+- Detailed error reporting with exception chaining
 
-#### 1.2 Interface: ZIF_ABAPGIT_AGENT
+#### 1.2 Interface: ZIF_ABAPGIT_AGENT (DONE)
 ```abap
-INTERFACE zif_abapgit_agent
-  PUBLIC .
+INTERFACE zif_abapgit_agent PUBLIC.
+  TYPES: BEGIN OF ty_result,
+    success TYPE abap_bool,
+    job_id TYPE string,
+    message TYPE string,
+    error_detail TYPE string,
+    activated_count TYPE i,
+    failed_count TYPE i,
+    started_at TYPE timestampl,
+    finished_at TYPE timestampl,
+  END OF ty_result.
 
-  TYPES:
-    BEGIN OF ty_result,
-      success      TYPE abap_bool,
-      job_id       TYPE string,
-      message      TYPE string,
-      error_log    TYPE string_table,
-      activated_count TYPE i,
-      failed_count   TYPE i,
-    END OF ty_result,
+  TYPES: BEGIN OF ty_pull_params,
+    url TYPE string,
+    branch TYPE string,
+    username TYPE string,
+    password TYPE string,
+    package TYPE devclass,
+    folder_logic TYPE string,
+    create_new TYPE abap_bool,
+  END OF ty_pull_params.
 
-    BEGIN OF ty_repo_status,
-      url          TYPE string,
-      branch       TYPE string,
-      commit_sha   TYPE string,
-      last_pull    TYPE timestampl,
-      is_active    TYPE abap_bool,
-    END OF ty_repo_status,
+  METHODS pull
+    IMPORTING iv_url TYPE string
+              iv_branch TYPE string DEFAULT 'main'
+              iv_username TYPE string OPTIONAL
+              iv_password TYPE string OPTIONAL
+    RETURNING VALUE(rs_result) TYPE ty_result
+    RAISING zcx_abapgit_exception.
 
-    ty_object_table TYPE TABLE OF string,
-
-    BEGIN OF ty_log_entry,
-      timestamp   TYPE timestampl,
-      type        TYPE string,
-      message     TYPE string,
-      object      TYPE string,
-    END OF ty_log_entry,
-
-    ty_log_table TYPE TABLE OF ty_log_entry.
-
+  METHODS get_repo_status
+    IMPORTING iv_url TYPE string
+    RETURNING VALUE(rv_status) TYPE string.
 ENDINTERFACE.
 ```
 
-#### 1.3 RFC-Enabled Function Modules
-- `Z_ABAPGIT_AGENT_PULL` - Trigger git pull
-- `Z_ABAPGIT_AGENT_ACTIVATE` - Activate objects
-- `Z_ABAPGIT_AGENT_GET_LOG` - Get activation log
-- `Z_ABAPGIT_AGENT_CHECK_STATUS` - Check repo status
+#### 1.3 REST API Handlers (DONE)
+- `ZCL_ABAPGIT_AGENT_HANDLER` - Router for all endpoints
+- `ZCL_ABAPGIT_AGENT_PULL` - POST /pull endpoint
+- `ZCL_ABAPGIT_AGENT_STATUS` - GET /status endpoint
+- `ZCL_ABAPGIT_AGENT_HEALTH` - GET /health endpoint
 
-#### 1.4 Background Job Class
-```abap
-CLASS zcl_abapgit_job DEFINITION
-  PUBLIC.
-  METHODS:
-    constructor
-      IMPORTING iv_job_id TYPE string.
-    METHODS run
-      IMPORTING iv_repo_url TYPE string
-                iv_branch TYPE string.
-    METHODS get_log
-      RETURNING VALUE(rt_log) TYPE zif_abapgit_agent=>ty_log_table.
-ENDCLASS.
-```
+#### 1.4 Function Modules (DONE)
+- `ZABAPGAGENT_PULL` - Simple wrapper function
+- `ZABAPGAGENT_GET_STATUS` - Get job status
+- `ZABAPGAGENT_DO_PULL` - Detailed pull with logging
+
+#### 1.5 Database Tables (DONE)
+- `ZABAPGLOG` - Job execution log
+- `ZABAPGRES` - Job results
+- `ZABAPGERR` - Error messages
 
 ### 2. Local Agent (Node.js)
 
-#### 2.1 Project Structure
+#### 2.1 Project Structure (DONE)
 ```
 abap-ai-bridge/
 ├── package.json
 ├── src/
 │   ├── agent.js          # Main agent class
-│   ├── abap-client.js    # ABAP connection (RFC/OData)
+│   ├── abap-client.js    # REST client for ABAP
 │   ├── server.js         # HTTP server for Claude
 │   ├── config.js         # Configuration
 │   └── logger.js         # Logging
 ├── abap/
-│   ├── zcl_abapgit_agent.prog.abap
+│   ├── zcl_abapgit_agent.clas.abap
 │   ├── zif_abapgit_agent.intf.abap
-│   └── z_abapgit_agent_pull.fugr.abap
+│   ├── zcl_abapgit_agent_*.clas.abap
+│   └── zabapgagent.fugr.*.abap
 └── README.md
 ```
 
-#### 2.2 Agent API Endpoints
+#### 2.2 REST API Endpoints (DONE)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/pull | Pull and activate repo |
-| POST | /api/activate | Activate specific objects |
-| GET | /api/status/:repoUrl | Get repo status |
-| GET | /api/log/:jobId | Get activation log |
-| GET | /api/health | Health check |
+| POST | `/pull` | Pull and activate repo |
+| GET | `/status?job_id=<id>` | Get job status |
+| GET | `/health` | Health check |
 
-### 3. Implementation Steps
+## Implementation Status
 
-#### Phase 1: ABAP Backend
-- [ ] Create interface `ZIF_ABAPGIT_AGENT`
-- [ ] Create class `ZCL_ABAPGIT_AGENT`
-- [ ] Create function modules (RFC-enabled)
-- [ ] Create background job logic
-- [ ] Create activation log table
+### Phase 1: ABAP Backend
+- [x] Create interface `ZIF_ABAPGIT_AGENT`
+- [x] Create class `ZCL_ABAPGIT_AGENT` with OO implementation
+- [x] Create REST handlers
+- [x] Create function modules
+- [x] Create database tables
 
-#### Phase 2: Local Agent
-- [ ] Initialize Node.js project
-- [ ] Create ABAP client (using `node-rfc` or OData)
-- [ ] Create HTTP server
-- [ ] Implement retry logic
-- [ ] Add result caching
+### Phase 2: Local Agent
+- [x] Initialize Node.js project
+- [x] Create REST client for ABAP communication
+- [x] Create HTTP server
+- [x] Add configuration management
 
-#### Phase 3: Integration
+### Phase 3: Integration
 - [ ] Claude integration script
-- [ ] Error handling workflow
 - [ ] Test with real ABAP system
 
-### 4. Communication Flow
+## Communication Flow
 
 ```
 1. Claude pushes code to git
-2. Claude calls: POST /api/pull { url: "...", branch: "main" }
+2. Claude calls: POST /pull { url: "...", branch: "main", username, password }
 3. Local Agent:
-   a. Calls RFC function Z_ABAPGIT_AGENT_PULL
-   b. Starts async job in ABAP
-   c. Polls for job completion every 5 seconds
-   d. Returns job_id immediately
-4. Claude polls: GET /api/log/:jobId
-5. When job completes, returns full log with errors if any
+   a. Makes HTTP request to ABAP REST endpoint
+   b. ABAP pulls and deserializes repository
+   c. ABAP checks for inactive objects
+   d. Returns result with job_id
+4. Claude polls: GET /status?job_id=<id>
+5. Returns result with error_detail if activation failed
 6. If errors, Claude fixes and repeats
 ```
 
-### 5. ABAP Code Examples
+## ABAP Code Flow
 
-#### 5.1 Pull and Activate Main Logic
 ```abap
-METHOD pull_and_activate.
+" Pull flow in ZCL_ABAPGIT_AGENT
+METHOD pull.
 
-  DATA: lo_repo TYPE REF TO zcl_abapgit_repo,
-        lv_url  TYPE string,
-        ls_log  TYPE zif_abapgit_agent=>ty_log_entry.
+  " Configure credentials if provided
+  configure_credentials( ).
 
-  " 1. Find repo by URL
-  lo_repo = zcl_abapgit_repo_srv=>get_instance( )->get_by_url( iv_url ).
+  " Find repository
+  zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url( ).
 
-  " 2. Pull changes
-  lo_repo->refresh( ).
-  lo_repo->pull( iv_branch = iv_branch ).
+  " Refresh and deserialize
+  mo_repo->refresh( ).
+  mo_repo->deserialize( is_checks = ls_checks ii_log = mo_repo->get_log( ) ).
 
-  " 3. Get changed objects
-  DATA(lt_strict) = lo_repo->get_objects_serialized( ).
-  DATA(lt_objects) = extract_object_names( lt_strict ).
+  " Check for inactive objects
+  check_inactive_objects( IMPORTING iv_package = mo_repo->get_package( ) ).
 
-  " 4. Activate in background
-  DATA(lv_job_id) = create_background_job( it_objects = lt_objects ).
-
-  " 5. Return result
-  rs_result-job_id = lv_job_id.
+  " Return result
   rs_result-success = abap_true.
 ENDMETHOD.
 ```
 
-#### 5.2 Background Activation
-```abap
-METHOD create_background_job.
+## Error Handling
 
-  DATA: lv_jobname TYPE btcjob,
-        lv_jobcount TYPE btcjobcount.
+| Error Type | Handling |
+|------------|----------|
+| Syntax Error | Parse TADIR for inactive objects, return object names |
+| Activation Error | Return detailed error_message with object list |
+| Network Timeout | Handled by local agent retry logic |
+| Git Not Found | Clear error message in response |
 
-  lv_jobname = |ABAPGIT_AGENT_{ sy-uname }|_{ sy-datetime }|.
-
-  CALL FUNCTION 'JOB_OPEN'
-    EXPORTING
-      jobname = lv_jobname
-    IMPORTING
-      jobcount = lv_jobcount.
-
-  SUBMIT z_abapgit_activate_objects VIA JOB lv_jobcount
-    WITH pv_job_id = lv_jobcount
-    WITH pt_objects = it_objects
-    AND RETURN.
-
-  CALL FUNCTION 'JOB_CLOSE'
-    EXPORTING
-      jobcount  = lv_jobcount
-      jobname   = lv_jobname
-      sdlstrtdt = sy-datum
-      sdlstrttm = sy-uzeit.
-ENDMETHOD.
-```
-
-### 6. Configuration
+## Configuration
 
 #### ABAP System
-- RFC destination: `ABAPGIT_AGENT`
-- User with developer rights
-- Access to abapGit repositories
+- REST handler ICF path: `sap/bc/z_abapgit_agent`
+- Handler class: `ZCL_ABAPGIT_AGENT_HANDLER`
 
 #### Local Agent (config.json)
 ```json
 {
-  "abap": {
-    "ashost": "your.sap-system.com",
-    "sysnr": "00",
-    "client": "100",
-    "user": "TECH_USER",
-    "password": "secret",
-    "language": "EN"
-  },
+  "host": "your-sap-system.com",
+  "sapport": 44300,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN",
   "agent": {
     "port": 3000,
-    "pollInterval": 5000,
-    "maxRetries": 3
+    "pollInterval": 5000
   }
 }
 ```
 
-### 7. Error Handling
+## Key Differences from Original Plan
 
-| Error Type | Handling |
-|------------|----------|
-| Syntax Error | Parse error log, return specific object |
-| Activation Error | Log with object name, suggest fix |
-| Network Timeout | Retry with backoff |
-| Git Not Found | Clear error message |
+1. **Simplified Architecture**: Pull and activate combined into single `pull` method
+2. **REST API**: Uses direct ICF REST handlers instead of RFC
+3. **No Background Job**: Synchronous execution with immediate response
+4. **Error Detection**: Uses TADIR query for inactive objects instead of separate log table
+5. **No Separate Activate API**: Pull handles activation automatically via deserialize
 
-### 8. Testing
+## Future Enhancements
 
-- [ ] Pull existing repo without changes
-- [ ] Pull with syntax errors
-- [ ] Pull with successful activation
-- [ ] Concurrent requests
-- [ ] Large object activation
-
-### 9. Security Considerations
-
-- Use technical user (not personal credentials)
-- Network encryption (HTTPS/SNC)
-- Input validation
-- Audit logging
-
-### 10. Future Enhancements
-
-- WebSocket for real-time updates
-- OAuth authentication
-- Multi-system support
-- Repository management UI
+- [ ] Async job processing for large repositories
+- [ ] WebSocket for real-time updates
+- [ ] OAuth authentication
+- [ ] Multi-system support
+- [ ] Repository management UI
