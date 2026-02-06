@@ -176,12 +176,6 @@
      <IMPORT>
       <RSIMP>
        <PARAMETER>IV_URL</PARAMETER>
-       <OPTIONAL>X</OPTIONAL>
-       <TYP>STRING</TYP>
-      </RSIMP>
-      <RSIMP>
-       <PARAMETER>IV_PACKAGE</PARAMETER>
-       <OPTIONAL>X</OPTIONAL>
        <TYP>STRING</TYP>
       </RSIMP>
      </IMPORT>

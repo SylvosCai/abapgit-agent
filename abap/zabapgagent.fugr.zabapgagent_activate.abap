@@ -2,8 +2,7 @@ FUNCTION zabapgagent_activate.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING
-*"    VALUE(IV_URL) TYPE STRING OPTIONAL
-*"    VALUE(IV_PACKAGE) TYPE STRING OPTIONAL
+*"    VALUE(IV_URL) TYPE STRING
 *"  EXPORTING
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_MESSAGE) TYPE STRING
@@ -13,7 +12,6 @@ FUNCTION zabapgagent_activate.
   DATA: lv_devclass TYPE devclass.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_reason TYPE string.
-  DATA: li_repo_tmp TYPE REF TO zif_abapgit_repo.
   DATA: lt_objects TYPE STANDARD TABLE OF tadir.
   DATA: ls_object TYPE tadir.
   DATA: lv_count TYPE i.
@@ -25,17 +23,18 @@ FUNCTION zabapgagent_activate.
   ev_message = 'Starting activation...'.
 
   WRITE: / 'Activation started.'.
-  IF iv_url IS NOT INITIAL.
-    WRITE: / 'URL:', iv_url.
-  ENDIF.
-  IF iv_package IS NOT INITIAL.
-    WRITE: / 'Package:', iv_package.
-  ENDIF.
+  WRITE: / 'URL:', iv_url.
   ULINE.
 
-  " Find repo by URL or package
-  IF iv_url IS NOT INITIAL.
-    WRITE: / 'Finding repository by URL...'.
+  " Find repo by URL
+  IF iv_url IS INITIAL.
+    ev_success = ' '.
+    ev_message = 'URL is required'.
+    WRITE: / 'ERROR:', ev_message.
+    RETURN.
+  ENDIF.
+
+  WRITE: / 'Finding repository by URL...'.
     TRY.
         zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
           EXPORTING
@@ -47,22 +46,8 @@ FUNCTION zabapgagent_activate.
         li_repo = VALUE #( ).
     ENDTRY.
 
-    IF li_repo IS BOUND.
-      lv_devclass = li_repo->get_package( ).
-    ENDIF.
-  ELSEIF iv_package IS NOT INITIAL.
-    lv_devclass = iv_package.
-    WRITE: / 'Finding repository by package...'.
-
-    " Get all repos and find the one with matching package
-    DATA(lt_all_repos) = zcl_abapgit_repo_srv=>get_instance( )->get_repo_list( ).
-
-    LOOP AT lt_all_repos INTO li_repo_tmp.
-      IF li_repo_tmp->get_package( ) = lv_devclass.
-        li_repo = li_repo_tmp.
-        EXIT.
-      ENDIF.
-    ENDLOOP.
+  IF li_repo IS BOUND.
+    lv_devclass = li_repo->get_package( ).
   ENDIF.
 
   IF li_repo IS NOT BOUND.
