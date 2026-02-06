@@ -32,7 +32,7 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *&      Build detailed error information from exception
 *&---------------------------------------------------------------------*
-FORM build_error_detail USING ix_exception TYPE REF TO cx_root
+FORM build_error_detail USING ix_exception TYPE REF TO zcx_abapgit_exception
                               ii_repo TYPE REF TO zif_abapgit_repo
                     CHANGING cv_detail TYPE string.
 
@@ -43,8 +43,9 @@ FORM build_error_detail USING ix_exception TYPE REF TO cx_root
   cv_detail = ix_exception->get_text( ).
 
   " Check for previous exception in chain
-  IF ix_exception->previous IS BOUND.
-    lv_prev_text = ix_exception->previous->get_text( ).
+  DATA(lx_previous) = ix_exception->previous.
+  IF lx_previous IS BOUND.
+    lv_prev_text = lx_previous->get_text( ).
     IF lv_prev_text IS NOT INITIAL.
       cv_detail = cv_detail && |\nCaused by: { lv_prev_text }|.
     ENDIF.

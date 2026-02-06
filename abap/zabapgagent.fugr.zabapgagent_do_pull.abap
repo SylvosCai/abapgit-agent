@@ -214,6 +214,12 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       cv_message = |Error: { lx_error->get_text( ) }|.
       cv_error_detail = |System error: { lx_error->get_text( ) }|.
 
+      " Check for previous exception
+      DATA(lx_prev) = lx_error->previous.
+      IF lx_prev IS BOUND.
+        cv_error_detail = cv_error_detail && |\nCaused by: { lx_prev->get_text( ) }|.
+      ENDIF.
+
       WRITE: / 'ERROR:', cv_message.
   ENDTRY.
 
