@@ -89,31 +89,23 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA lv_success TYPE char1.
-    DATA lv_job_id TYPE string.
-    DATA lv_msg TYPE string.
+    " Use OO implementation
+    DATA(lo_agent) = NEW zcl_abapgit_agent( ).
+    DATA(ls_result) = lo_agent->zif_abapgit_agent~pull(
+      iv_url      = lv_url
+      iv_branch   = lv_branch
+      iv_username = lv_username
+      iv_password = lv_password ).
 
-    DATA lv_error_detail TYPE string.
-
-    CALL FUNCTION 'ZABAPGAGENT_PULL'
-      EXPORTING
-        iv_url      = lv_url
-        iv_branch   = lv_branch
-        iv_username = lv_username
-        iv_password = lv_password
-      IMPORTING
-        ev_success     = lv_success
-        ev_job_id      = lv_job_id
-        ev_message     = lv_msg
-        ev_error_detail = lv_error_detail.
-
-    IF lv_success = 'X'.
+    " Build JSON response
+    DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
+    IF ls_result-success = abap_true.
       lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
-                   lv_job_id && '","message":"' && lv_msg && '"}'.
+                   ls_result-job_id && '","message":"' && ls_result-message && '"}'.
     ELSE.
       lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
-                   lv_job_id && '","message":"' && lv_msg && '","error_detail":"' &&
-                   lv_error_detail && '"}'.
+                   ls_result-job_id && '","message":"' && ls_result-message &&
+                   '","error_detail":"' && ls_result-error_detail && '"}'.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).
