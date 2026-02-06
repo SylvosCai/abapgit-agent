@@ -1,6 +1,6 @@
 # ABAP AI Bridge
 
-A local agent that enables AI coding tools (Claude, Copilot, etc.) to automatically pull and activate ABAP code from git repositories using OData.
+A local agent that enables AI coding tools (Claude, Copilot, etc.) to automatically pull and activate ABAP code from git repositories using REST API.
 
 ## Overview
 
@@ -13,7 +13,7 @@ This project provides a bridge between AI coding tools and your ABAP system:
 ## Architecture
 
 ```
-Claude (VS Code) → Local Agent (Node.js) → ABAP System (OData/HTTP)
+Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
                                     ↓
                   Result Polling + Error Feedback
 ```
@@ -22,28 +22,28 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (OData/HTTP)
 
 ### ABAP Side
 - `ZIF_ABAPGIT_AGENT` - Interface definitions
-- `Z_ABAPGIT_AGENT_PULL` - RFC function to trigger background job
-- `Z_ABAPGIT_AGENT_PULL_JOB` - Background job for pull and activation
-- `ZCL_ABAPGIT_AGENT_ODATA` - OData Model Provider Class (MPC)
-- `ZCL_ABAPGIT_AGENT_DP` - OData Data Provider Class (DPC)
+- `ZABAPGAGENT_PULL` - Function module to trigger pull
+- `ZABAPGAGENT_GET_STATUS` - Function module to get job status
+- `ZABAPGAGENT_PULL_JOB` - Report for pull and activation
+- `ZCL_ABAPGIT_AGENT_REST` - REST API handler (ICF)
 
 ### Database Tables
-- `Z_ABAPGIT_AGENT_LOG` - Job execution log
-- `Z_ABAPGIT_AGENT_RES` - Job results
-- `Z_ABAPGIT_AGENT_ERR` - Error messages
+- `ZABAPGLOG` - Job execution log
+- `ZABAPGRES` - Job results
+- `ZABAPGERR` - Error messages
 
 ### Local Agent (Node.js)
 - HTTP server exposing REST API
-- OData client for ABAP communication (no RFC SDK needed)
+- REST client for ABAP communication
 - Claude integration scripts
 
-## Why OData?
+## Why REST API?
 
-The OData approach provides several advantages:
-- **No native dependencies** - Works on any OS without SAP RFC SDK
+The REST API approach provides several advantages:
+- **No OData/Gateway needed** - Simpler setup
 - **Standard HTTP** - Easy to debug and test
-- **Gateway integration** - Uses standard SAP Gateway infrastructure
-- **Firewall friendly** - Uses standard HTTPS port
+- **No SEGW required** - Direct ICF handler
+- **No native dependencies** - Works on any OS
 
 ## Installation
 
@@ -61,7 +61,7 @@ Copy and edit `config.example.json`:
 ```json
 {
   "host": "your-sap-system.com",
-  "sapport": 443,
+  "sapport": 44300,
   "client": "100",
   "user": "TECH_USER",
   "password": "your-password",
@@ -75,44 +75,17 @@ Copy and edit `config.example.json`:
 
 ### 3. Deploy ABAP Objects
 
-Use abapGit to deploy the ABAP objects in `/abap` folder:
+Use abapGit to deploy the ABAP objects in `/abap` folder.
 
-1. **Create database tables** (SE11):
-   - `Z_ABAPGIT_AGENT_LOG`
-   - `Z_ABAPGIT_AGENT_RES`
-   - `Z_ABAPGIT_AGENT_ERR`
+### 4. Create REST API Handler (SICF)
 
-2. **Create interface**: `ZIF_ABAPGIT_AGENT`
-
-3. **Create function group**: `Z_ABAPGIT_AGENT`
-
-4. **Create function modules**:
-   - `Z_ABAPGIT_AGENT_PULL`
-   - `Z_ABAPGIT_AGENT_GET_STATUS`
-
-5. **Create report**: `Z_ABAPGIT_AGENT_PULL_JOB`
-
-6. **Create OData service** (SEGW):
-   - Create project `Z_ABAPGIT_AGENT`
-   - Import MPC/DPC classes
-   - Entity Types:
-     - `PullCommand` (JobId, Status, Message, StartedAt)
-     - `JobStatus` (JobId, Status, Success, Message, ActivatedCount, FailedCount, StartedAt, FinishedAt)
-     - `LogEntry` (JobId, Timestamp, Type, Message, ObjectType, ObjectName)
-     - `HealthCheck` (Status, Version, Timestamp)
-   - Generate runtime artifacts
-   - Activate and test
-
-7. **Activate OData service** (SICF):
-   - Path: `/sap/opu/odata/sap/Z_ABAPGIT_AGENT_SRV`
-   - Test in browser: `https://your-system/sap/opu/odata/sap/Z_ABAPGIT_AGENT_SRV/$metadata`
-
-### 4. Configure ICF Service
-
-Ensure the OData service is accessible:
-- Transaction: `SICF`
-- Service Path: `/sap/opu/odata/sap/Z_ABAPGIT_AGENT_SRV`
-- Requires authentication
+1. Run transaction `SICF`
+2. Navigate to: `sap/bc/z_abapgit_agent`
+3. Create if doesn't exist:
+   - Right-click on `sap/bc` → **Create Element**
+   - **Service Name**: `Z_ABAPGIT_AGENT`
+   - **Handler Class**: `ZCL_ABAPGIT_AGENT_REST`
+4. Activate the service
 
 ## Usage
 
@@ -125,8 +98,6 @@ npm start
 The agent will start on `http://localhost:3000`.
 
 ### Claude Integration
-
-In Claude Code, you can call the agent:
 
 ```bash
 # Pull and activate repository
@@ -142,70 +113,61 @@ node scripts/claude-integration.js wait <job-id>
 node scripts/claude-integration.js health
 ```
 
-### Direct API Calls
+## REST API
 
-```bash
-# Start pull
-curl -X POST http://localhost:3000/api/pull \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://github.com/...", "branch": "main"}'
-
-# Check status
-curl http://localhost:3000/api/jobs/<job-id>
-
-# Wait for completion
-curl http://localhost:3000/api/jobs/<job-id>?wait=true
-
-# Health check
-curl http://localhost:3000/api/health
-```
-
-## API Reference
+The ABAP system exposes these endpoints:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| POST | `/api/pull` | Start pull and activation |
-| GET | `/api/jobs/:jobId` | Get job status |
-| GET | `/api/jobs` | List all jobs |
+| GET | `/health` | Health check |
+| POST | `/pull` | Start pull and activation |
+| GET | `/status?job_id=<id>` | Get job status |
 
-### POST /api/pull
+### POST /pull
 
-Request:
-```json
-{
-  "url": "https://github.com/user/repo",
-  "branch": "main"
-}
+```bash
+curl -X POST https://your-system:44300/sap/bc/z_abapgit_agent/pull \
+  -H "Content-Type: application/json" \
+  -u USER:PASSWORD \
+  -d '{"url": "https://github.com/...", "branch": "main"}'
 ```
 
 Response:
 ```json
 {
-  "success": true,
-  "jobId": "USER123_20260205_120000",
-  "status": "RUNNING",
-  "message": "Pull job started",
-  "pollUrl": "/api/jobs/USER123_20260205_120000"
+  "success": "X",
+  "job_id": "USER123_20260205_120000",
+  "message": "Job submitted: ..."
 }
 ```
 
-### GET /api/jobs/:jobId
+### GET /status
+
+```bash
+curl "https://your-system:44300/sap/bc/z_abapgit_agent/status?job_id=..." \
+  -u USER:PASSWORD
+```
 
 Response:
 ```json
 {
-  "jobId": "USER123_20260205_120000",
+  "job_id": "USER123_20260205_120000",
   "status": "COMPLETED",
-  "success": true,
-  "activatedCount": 15,
-  "failedCount": 2,
-  "message": "Activation completed",
-  "errorLog": [
-    "Syntax error in ZCL_TEST_PROG: Line 42",
-    "Object Z_TEST not found"
-  ]
+  "success": "X",
+  "message": "Job ..."
 }
+```
+
+### GET /health
+
+```bash
+curl "https://your-system:44300/sap/bc/z_abapgit_agent/health" \
+  -u USER:PASSWORD
+```
+
+Response:
+```json
+{"status":"OK","version":"1.0"}
 ```
 
 ## Workflow with Claude
@@ -224,74 +186,29 @@ Claude: [Generates code and commits to git]
 
 You: "node scripts/claude-integration.js pull --url <repo-url>"
 
-Agent: {"status": "RUNNING", "jobId": "..."}
+Agent: {"job_id": "...", "message": "Job submitted"}
 
 [After completion]
-Agent: {"success": false, "errorLog": ["Syntax error in line 15"]}
+Agent: {"status": "COMPLETED", "success": "X", "activated": 5}
 
 You: "There's a syntax error in line 15 of the class. Please fix it."
 
 Claude: [Fixes the error and pushes to git]
 ```
 
-## Error Handling
-
-| Error Type | Description | Action |
-|------------|-------------|--------|
-| SYNTAX_ERROR | ABAP syntax error | Claude fixes the code |
-| ACTIVATE_FAILED | Activation failed | Check ABAP system |
-| TIMEOUT | Job timeout | Retry or increase timeout |
-| NETWORK | Connection failed | Check OData service URL |
-
-## Security Considerations
-
-- Use a dedicated technical user (not personal credentials)
-- Store passwords in environment variables or `.env` file
-- Restrict network access to ABAP system
-- Consider using OAuth 2.0 for production
-
 ## Troubleshooting
+
+### REST API not accessible
+
+1. Check SICF activation: `sap/bc/z_abapgit_agent`
+2. Verify handler class: `ZCL_ABAPGIT_AGENT_REST`
+3. Check authorization
 
 ### Agent cannot connect to ABAP
 
-1. Verify OData service URL in config.json
+1. Verify REST API URL in config.json
 2. Check credentials in config.json
-3. Test OData service directly in browser
-4. Run `npm start` and check logs
-
-### OData service not accessible
-
-1. Check SICF activation: `/sap/opu/odata/sap/Z_ABAPGIT_AGENT_SRV`
-2. Verify Gateway is running
-3. Check authorization (role: /UI2/AG)
-
-### Job stays in RUNNING status
-
-1. Check background jobs in SM37
-2. Check job log in STMS or ST11
-3. Verify abapGit is installed and working
-4. Check log entries in Z_ABAPGIT_AGENT_LOG
-
-### Activation fails with many errors
-
-1. Check if objects are in transport request
-2. Verify package assignment
-3. Run syntax check in SE80 first
-
-## Environment Variables
-
-Instead of config.json, you can use environment variables:
-
-```bash
-export ABAP_HOST="your-sap-system.com"
-export ABAP_PORT=443
-export ABAP_CLIENT="100"
-export ABAP_USER="TECH_USER"
-export ABAP_PASSWORD="secret"
-export ABAP_LANGUAGE="EN"
-export AGENT_PORT=3000
-export POLL_INTERVAL=5000
-```
+3. Test REST API directly with curl
 
 ## License
 

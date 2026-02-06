@@ -1,5 +1,5 @@
 /**
- * ABAP Client - Connects to SAP ABAP system via OData/HTTP
+ * ABAP Client - Connects to SAP ABAP system via REST/HTTP
  */
 
 const fetch = require('node-fetch');
@@ -18,7 +18,7 @@ class ABAPClient {
     if (!this.config) {
       const cfg = getAbapConfig();
       this.config = {
-        baseUrl: `https://${cfg.host}:${cfg.sapport || 443}/sap/opu/odata/sap/Z_ABAPGIT_AGENT_SRV`,
+        baseUrl: `https://${cfg.host}:${cfg.sapport || 44300}/sap/bc/z_abapgit_agent`,
         username: cfg.user,
         password: cfg.password,
         client: cfg.client,
@@ -29,13 +29,18 @@ class ABAPClient {
   }
 
   /**
-   * Make OData request
+   * Make REST request
    */
-  async request(method, path, data = null) {
+  async request(method, path, data = null, queryParams = {}) {
     const cfg = this.getConfig();
-    const url = `${cfg.baseUrl}/${path}`;
 
-    logger.debug(`OData request: ${method} ${url}`, data);
+    // Build URL with query params
+    const url = new URL(`${cfg.baseUrl}${path}`);
+    for (const [key, value] of Object.entries(queryParams)) {
+      url.searchParams.append(key, value);
+    }
+
+    logger.debug(`REST request: ${method} ${url.toString()}`, data);
 
     const headers = {
       'Accept': 'application/json',
@@ -59,17 +64,17 @@ class ABAPClient {
     }
 
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url.toString(), options);
 
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`OData request failed`, { status: response.status, body: errorText });
-        throw new Error(`OData request failed: ${response.status} ${response.statusText}`);
+        logger.error(`REST request failed`, { status: response.status, body: errorText });
+        throw new Error(`REST request failed: ${response.status} ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
-      logger.error(`OData request error`, { error: error.message, url });
+      logger.error(`REST request error`, { error: error.message, url: url.toString() });
       throw error;
     }
   }
@@ -78,9 +83,9 @@ class ABAPClient {
    * Pull repository and activate
    */
   async pull(repoUrl, branch = 'main') {
-    return await this.request('POST', 'PullCommandSet', {
-      Url: repoUrl,
-      Branch: branch
+    return await this.request('POST', '/pull', {
+      url: repoUrl,
+      branch: branch
     });
   }
 
@@ -88,24 +93,16 @@ class ABAPClient {
    * Get job status
    */
   async getJobStatus(jobId) {
-    return await this.request('GET', `JobStatusSet('${jobId}')`);
+    return await this.request('GET', '/status', null, { job_id: jobId });
   }
 
   /**
-   * Get activation log
-   */
-  async getActivationLog(jobId) {
-    const result = await this.request('GET', `LogEntrySet?$filter=JobId eq '${jobId}'`);
-    return result.d?.results || [];
-  }
-
-  /**
-   * Health check - call ping entity
+   * Health check
    */
   async healthCheck() {
     try {
-      await this.request('GET', 'HealthCheckSet');
-      return { status: 'healthy', abap: 'connected' };
+      const result = await this.request('GET', '/health');
+      return { status: 'healthy', abap: 'connected', ...result };
     } catch (error) {
       return { status: 'unhealthy', abap: 'disconnected', error: error.message };
     }
