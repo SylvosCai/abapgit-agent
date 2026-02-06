@@ -205,28 +205,14 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
       cv_success = ' '.
       cv_message = |abapGit error: { lx_git->get_text( ) }|.
 
-      " Get detailed error info from log
-      DATA(lo_log) = li_repo->get_log( ).
-      IF lo_log IS BOUND.
-        DATA(lv_log_string) = lo_log->to_string( ).
-        IF lv_log_string IS NOT INITIAL.
-          cv_error_detail = lv_log_string.
-        ENDIF.
-      ENDIF.
+      " Get detailed error info from exception
+      cv_error_detail = lx_git->get_text( ).
 
       WRITE: / 'ERROR:', cv_message.
     CATCH cx_root INTO DATA(lx_error).
       cv_success = ' '.
       cv_message = |Error: { lx_error->get_text( ) }|.
-
-      " Get detailed error info from log
-      lo_log = li_repo->get_log( ).
-      IF lo_log IS BOUND.
-        lv_log_string = lo_log->to_string( ).
-        IF lv_log_string IS NOT INITIAL.
-          cv_error_detail = lv_log_string.
-        ENDIF.
-      ENDIF.
+      cv_error_detail = lx_error->get_text( ).
 
       WRITE: / 'ERROR:', cv_message.
   ENDTRY.

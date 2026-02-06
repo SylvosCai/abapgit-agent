@@ -111,16 +111,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
                    lv_job_id && '","message":"' && lv_msg && '"}'.
     ELSE.
-      " Escape special characters in error_detail for JSON
-      DATA(lv_escaped_error) = lv_error_detail.
-      REPLACE ALL OCCURRENCES OF '\' IN lv_escaped_error WITH '\\'.
-      REPLACE ALL OCCURRENCES OF '"' IN lv_escaped_error WITH '\"'.
-      REPLACE ALL OCCURRENCES OF cl_bcs_convert=>c_tab  IN lv_escaped_error WITH '\t'.
-      REPLACE ALL OCCURRENCES OF cl_bcs_convert=>c_crlf IN lv_escaped_error WITH '\n'.
-
       lv_json_resp = '{"success":"' && lv_success && '","job_id":"' &&
                    lv_job_id && '","message":"' && lv_msg && '","error_detail":"' &&
-                   lv_escaped_error && '"}'.
+                   lv_error_detail && '"}'.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).

@@ -131,6 +131,11 @@
        <TYP>STRING</TYP>
       </RSEXP>
      </EXPORT>
+      <RSEXP>
+       <PARAMETER>EV_ERROR_DETAIL</PARAMETER>
+       <TYP>STRING</TYP>
+      </RSEXP>
+     </EXPORT>
      <EXCEPTION>
       <RSEXC>
        <EXCEPTION>ERROR</EXCEPTION>
