@@ -1,21 +1,20 @@
 *"*"use source
-*"* Local Interface:
-*"  IMPORTING
-*"    REQUEST TYPE REF TO if_rest_request
-*"  METHOD(if_rest_handler~handle_request)
+*"*"Local Interface:
 *"----------------------------------------------------------------------
-CLASS zcl_abapgit_agent_status DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abapgit_agent_status DEFINITION PUBLIC FINAL
+                              INHERITING FROM cl_rest_resource
+                              CREATE PUBLIC.
 
   PUBLIC SECTION.
-    INTERFACES: if_rest_handler.
+    METHODS if_rest_resource~get REDEFINITION.
 
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_status IMPLEMENTATION.
 
-  METHOD if_rest_handler~handle_request.
+  METHOD if_rest_resource~get.
     DATA lv_job_id TYPE string.
-    lv_job_id = request->get_form_field( 'job_id' ).
+    lv_job_id = mo_request->get_form_field( 'job_id' ).
 
     DATA lv_status TYPE string.
     DATA lv_success TYPE char1.
@@ -34,10 +33,10 @@ CLASS zcl_abapgit_agent_status IMPLEMENTATION.
                  lv_status && '","success":"' && lv_success &&
                  '","message":"' && lv_message && '"}'.
 
-    response->set_entity( response->create_entity( ) ).
-    response->get_entity( )->set_content_type( 'application/json' ).
-    response->get_entity( )->set_cdata( lv_json_resp ).
-    response->set_status( cl_rest_status_code=>ok ).
+    mo_response->set_entity( mo_response->create_entity( ) ).
+    mo_response->get_entity( )->set_content_type( 'application/json' ).
+    mo_response->get_entity( )->set_cdata( lv_json_resp ).
+    mo_response->set_status( cl_rest_status_code=>ok ).
   ENDMETHOD.
 
 ENDCLASS.
