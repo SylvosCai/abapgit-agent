@@ -1,9 +1,3 @@
-"!-------------------------------------------------------------------
-"! Purpose: ABAP Git Agent - OO implementation for git pull and activation
-"! Created by: ABAP AI Bridge
-"! Date: 2026-02-06
-"!-------------------------------------------------------------------
-
 CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -35,18 +29,15 @@ ENDCLASS.
 CLASS zcl_abapgit_agent IMPLEMENTATION.
 
   METHOD zif_abapgit_agent~pull.
-    " Initialize result
     rs_result-job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
     rs_result-success = abap_false.
 
-    " Validate URL
     IF iv_url IS INITIAL.
       rs_result-message = 'URL is required'.
       RETURN.
     ENDIF.
 
     TRY.
-        " Configure credentials if provided
         IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
           configure_credentials(
             iv_url      = iv_url
@@ -54,27 +45,21 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             iv_password = iv_password ).
         ENDIF.
 
-        " Find repository
         zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
           EXPORTING iv_url = iv_url
           IMPORTING ei_repo = mo_repo ).
 
         IF mo_repo IS BOUND.
-          " Refresh repo
           mo_repo->refresh( ).
 
-          " Get deserialize checks
           DATA(ls_checks) = prepare_deserialize_checks( ).
 
-          " Create new log
           mo_repo->create_new_log( ).
 
-          " Pull and deserialize
           mo_repo->deserialize(
             is_checks = ls_checks
             ii_log   = mo_repo->get_log( ) ).
 
-          " Check for inactive objects (activation errors)
           DATA(lv_inactive_count) = 0.
           DATA(lv_inactive_detail) = ''.
           check_inactive_objects(
@@ -128,13 +113,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
-    " Set overwrite decisions to YES
     FIELD-SYMBOLS: <ls_overwrite> LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite ASSIGNING <ls_overwrite>.
       <ls_overwrite>-decision = zif_abapgit_definitions=>c_yes.
     ENDLOOP.
 
-    " Enable activate without popup
     DATA(lo_settings) = zcl_abapgit_persist_factory=>get_settings( )->read( ).
     lo_settings->set_activate_wo_popup( abap_true ).
   ENDMETHOD.
