@@ -12,7 +12,7 @@ const logger = require('./logger');
 class ABAPClient {
   constructor() {
     this.config = null;
-    this.cookieFile = path.join(__dirname, '..', '.cookies.txt');
+    this.cookieFile = path.join(__dirname, '..', '.abapgit_agent_cookies.txt');
     this.csrfToken = null;
   }
 
@@ -34,60 +34,14 @@ class ABAPClient {
   }
 
   /**
-   * Fetch CSRF token and cookies
-   */
-  async fetchCsrfToken() {
-    const cfg = this.getConfig();
-    const url = new URL(`${cfg.baseUrl}/health`);
-
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${cfg.username}:${cfg.password}`).toString('base64')}`,
-          'sap-client': cfg.client,
-          'sap-language': cfg.language,
-          'X-CSRF-Token': 'fetch'
-        },
-        agent: new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = https.request(options, (res) => {
-        // Store CSRF token
-        this.csrfToken = res.headers['x-csrf-token'];
-
-        // Save cookies
-        const setCookie = res.headers['set-cookie'];
-        if (setCookie) {
-          const cookies = Array.isArray(setCookie)
-            ? setCookie.map(c => c.split(';')[0]).join('; ')
-            : setCookie.split(';')[0];
-          fs.writeFileSync(this.cookieFile, cookies);
-        }
-
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          resolve({ token: this.csrfToken, body: body });
-        });
-      });
-
-      req.on('error', reject);
-      req.end();
-    });
-  }
-
-  /**
    * Make HTTP request
    */
   async request(method, path, data = null, options = {}) {
     const cfg = this.getConfig();
-    const url = new URL(`${cfg.baseUrl}${path}`);
 
     return new Promise((resolve, reject) => {
+      const url = new URL(`${cfg.baseUrl}${path}`);
+
       const headers = {
         'Content-Type': 'application/json',
         'sap-client': cfg.client,
@@ -100,8 +54,8 @@ class ABAPClient {
       }
 
       // Add CSRF token for POST
-      if (method === 'POST' && this.csrfToken) {
-        headers['X-CSRF-Token'] = this.csrfToken;
+      if (method === 'POST' && options.csrfToken) {
+        headers['X-CSRF-Token'] = options.csrfToken;
       }
 
       // Add cookies if available
@@ -129,13 +83,18 @@ class ABAPClient {
           fs.writeFileSync(this.cookieFile, cookies);
         }
 
+        // Get CSRF token from response headers (for GET /pull with fetch)
+        if (res.headers['x-csrf-token'] && !this.csrfToken) {
+          this.csrfToken = res.headers['x-csrf-token'];
+        }
+
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
           try {
             if (res.statusCode >= 400) {
               logger.error(`REST request failed`, { status: res.statusCode, body });
-              reject(new Error(`REST request failed: ${res.statusCode} ${res.statusMessage}`));
+              reject(new Error(`REST request failed: ${res.statusCode}`));
             } else if (body) {
               resolve(JSON.parse(body));
             } else {
@@ -157,10 +116,59 @@ class ABAPClient {
   }
 
   /**
+   * Fetch CSRF token using GET /pull with X-CSRF-Token: fetch
+   */
+  async fetchCsrfToken() {
+    const cfg = this.getConfig();
+
+    return new Promise((resolve, reject) => {
+      const url = new URL(`${cfg.baseUrl}/pull`);
+
+      const options = {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${cfg.username}:${cfg.password}`).toString('base64')}`,
+          'sap-client': cfg.client,
+          'sap-language': cfg.language,
+          'X-CSRF-Token': 'fetch',
+          'Content-Type': 'application/json'
+        },
+        agent: new https.Agent({ rejectUnauthorized: false })
+      };
+
+      const req = https.request(options, (res) => {
+        const setCookie = res.headers['set-cookie'];
+        if (setCookie) {
+          const cookies = Array.isArray(setCookie)
+            ? setCookie.map(c => c.split(';')[0]).join('; ')
+            : setCookie.split(';')[0];
+          fs.writeFileSync(this.cookieFile, cookies);
+        }
+
+        this.csrfToken = res.headers['x-csrf-token'];
+
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          resolve({ token: this.csrfToken });
+        });
+      });
+
+      req.on('error', reject);
+      req.end();
+    });
+  }
+
+  /**
    * Pull repository and activate
    */
   async pull(repoUrl, branch = 'main', username = null, password = null) {
     const cfg = this.getConfig();
+
+    // Fetch CSRF token first (using GET /pull with X-CSRF-Token: fetch)
     await this.fetchCsrfToken();
 
     const data = {
@@ -171,7 +179,7 @@ class ABAPClient {
     data.username = username || cfg.username;
     data.password = password || cfg.password;
 
-    return await this.request('POST', '/pull', data);
+    return await this.request('POST', '/pull', data, { csrfToken: this.csrfToken });
   }
 
   /**
@@ -179,9 +187,6 @@ class ABAPClient {
    */
   async healthCheck() {
     try {
-      // Fetch CSRF token for subsequent requests
-      await this.fetchCsrfToken();
-
       const result = await this.request('GET', '/health');
       return { status: 'healthy', abap: 'connected', ...result };
     } catch (error) {
