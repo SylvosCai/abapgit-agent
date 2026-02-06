@@ -215,3 +215,4 @@ ENDMETHOD.
 - [ ] OAuth authentication
 - [ ] Multi-system support
 - [ ] Repository management UI
+- [ ] **Syntax Error Detail Parsing**: Extract line numbers, error codes from syntax errors. Query SEPSA/TRINT_OBJECT_LOG for detailed error info (line, column, fix suggestions)
