@@ -22,15 +22,20 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_password TYPE string.
 
     " Extract URL from JSON using simple string operations
-    FIND '"url"' IN lv_json MATCH OFFSET DATA(lv_off).
+    DATA lv_off TYPE i.
+    DATA lv_col TYPE i.
+    DATA lv_qend TYPE i.
+    DATA lv_part TYPE string.
+
+    FIND '"url"' IN lv_json MATCH OFFSET lv_off.
     IF sy-subrc = 0.
-      DATA(lv_part) = lv_json+lv_off.
-      FIND ':' IN lv_part MATCH OFFSET DATA(lv_col).
+      lv_part = lv_json+lv_off.
+      FIND ':' IN lv_part MATCH OFFSET lv_col.
       IF sy-subrc = 0.
         lv_part = lv_part+lv_col+1.
         SHIFT lv_part LEFT UP TO '"'.
         SHIFT lv_part LEFT.
-        FIND '"' IN lv_part MATCH OFFSET DATA(lv_qend).
+        FIND '"' IN lv_part MATCH OFFSET lv_qend.
         lv_url = lv_part(lv_qend).
       ENDIF.
     ENDIF.
