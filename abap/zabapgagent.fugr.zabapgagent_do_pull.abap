@@ -40,17 +40,38 @@ FUNCTION zabapgagent_do_pull.
     lv_success = 'X'.
     lv_message = 'Test mode - no changes made'.
   ELSE.
-    " Set global credentials for password popup
-    gv_auth_user = iv_username.
-    gv_auth_pass = iv_password.
-
     " Configure credentials if provided
     IF iv_username IS NOT INITIAL AND iv_password IS NOT INITIAL.
       WRITE: / 'Configuring git credentials...'.
+
+      " Store username in abapGit user persistence
       zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
         iv_url = iv_url iv_username = iv_username ).
       zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
         iv_url = iv_url iv_login = iv_username ).
+
+    ELSEIF iv_username IS NOT INITIAL.
+      " Username provided but password comes from memory ID
+      DATA: lv_pass_mem TYPE string.
+      IMPORT lv_pass_mem FROM MEMORY ID 'ZGIT_PASS'.
+      IF lv_pass_mem IS NOT INITIAL.
+        WRITE: / 'Password retrieved from memory ID (preserves case).'.
+
+        " Store username in abapGit user persistence
+        zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
+          iv_url = iv_url iv_username = iv_username ).
+        zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
+          iv_url = iv_url iv_login = iv_username ).
+
+        " Use login_manager to set Basic auth directly
+        DATA(lv_auth) = zcl_abapgit_login_manager=>set_basic(
+          iv_uri      = iv_url
+          iv_username = iv_username
+          iv_password = lv_pass_mem ).
+        WRITE: / 'Credentials encoded and stored.'.
+      ELSE.
+        WRITE: / 'WARNING: Username provided but password not found in memory ID.'.
+      ENDIF.
     ENDIF.
 
     " Check if repo already exists
@@ -118,12 +139,19 @@ FORM pull_repo USING li_repo TYPE REF TO zif_abapgit_repo
   WRITE: / 'Refreshing repository...'.
   li_repo->refresh( ).
 
-  " Check if credentials are configured
-  TRY.
-      lv_login = zcl_abapgit_persist_factory=>get_user( )->get_repo_login( iv_url = iv_url ).
-    CATCH zcx_abapgit_exception.
-      lv_login = ''.
-  ENDTRY.
+  " Check if credentials are configured via login_manager (in-memory)
+  DATA(lv_auth) = zcl_abapgit_login_manager=>get( iv_url ).
+
+  " Also check persistence
+  IF lv_auth IS INITIAL.
+    TRY.
+        lv_login = zcl_abapgit_persist_factory=>get_user( )->get_repo_login( iv_url = iv_url ).
+      CATCH zcx_abapgit_exception.
+        lv_login = ''.
+    ENDTRY.
+  ELSE.
+    lv_login = 'stored'.
+  ENDIF.
 
   IF lv_login IS INITIAL.
     cv_success = ' '.

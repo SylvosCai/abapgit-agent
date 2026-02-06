@@ -14,7 +14,7 @@ PARAMETERS:
   p_folder   TYPE string DEFAULT 'PREFIX',
   p_new      TYPE char1 AS CHECKBOX DEFAULT ' ',
   p_user     TYPE string,
-  p_pass     TYPE string.
+  p_pass     TYPE string LOWER CASE.
 
 START-OF-SELECTION.
 
