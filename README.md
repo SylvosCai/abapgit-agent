@@ -20,7 +20,7 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 
 ## Components
 
-### ABAP Side - Main Implementation (OO)
+### ABAP Side - REST Implementation
 
 | Object | Type | Description |
 |--------|------|-------------|
@@ -30,20 +30,6 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 | `ZCL_ABAPGIT_AGENT_PULL` | Class | POST /pull handler |
 | `ZCL_ABAPGIT_AGENT_STATUS` | Class | GET /status handler |
 | `ZCL_ABAPGIT_AGENT_HEALTH` | Class | GET /health handler |
-
-### ABAP Side - Legacy (Available for RFC Use)
-
-| Object | Type | Description |
-|--------|------|-------------|
-| `ZABAPGAGENT_PULL` | Function | Wrapper, calls ZABAPGAGENT_DO_PULL |
-| `ZABAPGAGENT_GET_STATUS` | Function | Stub for job status |
-| `ZABAPGAGENT_DO_PULL` | Function | Original implementation (uses PERFORM FORMs) |
-| `ZABAPGAGENT` | Function Group | Helper FORMs for legacy FM |
-
-### Database Tables (Available for Future Use)
-- `ZABAPGLOG` - Job execution log (not currently used)
-- `ZABAPGRES` - Job results (not currently used)
-- `ZABAPGERR` - Error messages (not currently used)
 
 **Note:** Error details are returned directly in the REST response via `error_detail` field.
 
