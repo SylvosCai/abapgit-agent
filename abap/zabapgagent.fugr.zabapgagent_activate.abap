@@ -7,20 +7,20 @@ FUNCTION zabapgagent_activate.
 *"  EXPORTING
 *"    VALUE(EV_SUCCESS) TYPE CHAR1
 *"    VALUE(EV_MESSAGE) TYPE STRING
-*"  RAISING
-*"    ERROR
-*"    ZCX_ABAPGIT_EXCEPTION
 *"----------------------------------------------------------------------
   DATA: lv_success TYPE char1.
   DATA: lv_message TYPE string.
+  DATA: lv_devclass TYPE devclass.
   DATA: li_repo TYPE REF TO zif_abapgit_repo.
   DATA: lv_reason TYPE string.
-  DATA: lt_tadir TYPE STANDARD TABLE OF tadir.
-  DATA: ls_tadir TYPE tadir.
-  DATA: ls_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+  DATA: li_repo_list TYPE REF TO zif_abapgit_repo_srv.
+  DATA: li_repo_tmp TYPE REF TO zif_abapgit_repo.
+  DATA: lt_objects TYPE STANDARD TABLE OF tadir.
+  DATA: ls_object TYPE tadir.
   DATA: lv_count TYPE i.
   DATA: lv_act TYPE i.
-  DATA: lv_devclass TYPE devclass.
+  DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
+  DATA: lv_activation_setting TYPE zif_abapgit_persist_user=>ty_s_user_settings-activate_wo_popup.
 
   ev_success = ' '.
   ev_message = 'Starting activation...'.
@@ -37,12 +37,16 @@ FUNCTION zabapgagent_activate.
   " Find repo by URL or package
   IF iv_url IS NOT INITIAL.
     WRITE: / 'Finding repository by URL...'.
-    zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-      EXPORTING
-        iv_url    = iv_url
-      IMPORTING
-        ei_repo   = li_repo
-        ev_reason = lv_reason ).
+    TRY.
+        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+          EXPORTING
+            iv_url    = iv_url
+          IMPORTING
+            ei_repo   = li_repo
+            ev_reason = lv_reason ).
+      CATCH zcx_abapgit_exception.
+        li_repo = VALUE #( ).
+    ENDTRY.
 
     IF li_repo IS BOUND.
       lv_devclass = li_repo->get_package( ).
@@ -50,14 +54,16 @@ FUNCTION zabapgagent_activate.
   ELSEIF iv_package IS NOT INITIAL.
     lv_devclass = iv_package.
     WRITE: / 'Finding repository by package...'.
-    " Try to find repo by package
     TRY.
-        DATA(li_repo_list) = zcl_abapgit_repo_srv=>get_instance( )->list( ).
+        li_repo_list = zcl_abapgit_repo_srv=>get_instance( ).
+        li_repo_list->get_repo_list(
+          IMPORTING
+            rt_repos = DATA(lt_repos) ).
       CATCH zcx_abapgit_exception.
-        li_repo_list = VALUE #( ).
+        lt_repos = VALUE #( ).
     ENDTRY.
 
-    LOOP AT li_repo_list INTO DATA(li_repo_tmp).
+    LOOP AT lt_repos INTO li_repo_tmp.
       IF li_repo_tmp->get_package( ) = lv_devclass.
         li_repo = li_repo_tmp.
         EXIT.
@@ -77,56 +83,69 @@ FUNCTION zabapgagent_activate.
 
   " Get objects to activate
   WRITE: / 'Getting objects to activate...'.
+  ULINE.
 
-  " Refresh repo to get latest
-  li_repo->refresh( ).
+  " Refresh repo
+  TRY.
+      li_repo->refresh( ).
+    CATCH zcx_abapgit_exception.
+      WRITE: / 'Warning: Could not refresh repo'.
+  ENDTRY.
 
-  " Get deserialize checks (includes objects)
-  ls_checks = li_repo->deserialize_checks( ).
+  " Get objects from TADIR for this package
+  TRY.
+      SELECT * FROM tadir
+        INTO TABLE lt_objects
+        WHERE devclass = lv_devclass
+        AND object NOT IN ('DEVC', 'PACK', 'TABL', 'VIEW', 'DOMA', 'DTEL', 'TTYP').
+    CATCH zcx_abapgit_exception.
+      ev_success = ' '.
+      ev_message = 'Error reading objects from TADIR'.
+      WRITE: / 'ERROR:', ev_message.
+      RETURN.
+  ENDTRY.
 
-  " Get list of objects
-  DATA(lt_objects) = ls_checks-overwrite.
   lv_count = lines( lt_objects ).
 
   IF lv_count = 0.
     ev_success = 'X'.
     ev_message = 'No objects to activate'.
     WRITE: / 'No objects to activate.'.
-    ev_message = |No objects to activate|.
     RETURN.
   ENDIF.
 
   WRITE: / 'Found', lv_count, 'objects to activate.'.
 
   " Enable activate without popup
-  DATA(lo_settings) = zcl_abapgit_persist_factory=>get_settings( )->read( ).
-  DATA(lv_activation_setting) = lo_settings->get_activate_wo_popup( ).
-  lo_settings->set_activate_wo_popup( abap_true ).
+  TRY.
+      lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
+      lv_activation_setting = lo_settings->get_activate_wo_popup( ).
+      lo_settings->set_activate_wo_popup( abap_true ).
+    CATCH zcx_abapgit_exception.
+      WRITE: / 'Warning: Could not change activation setting'.
+  ENDTRY.
 
   " Activate objects
   WRITE: / 'Activating objects...'.
   lv_act = 0.
 
-  LOOP AT lt_objects INTO DATA(ls_object).
-    DATA(ls_object_key) = ls_object-obj_type.
-    DATA(ls_object_name) = ls_object-obj_name.
+  LOOP AT lt_objects INTO ls_object.
+    WRITE: / 'Activating:', ls_object-object, ls_object-obj_name.
 
-    WRITE: / 'Activating:', ls_object_key, ls_object_name.
-
-    TRY.
-        zcl_abapgit_objects_activation=>activate(
-          iv_object = ls_object_key
-          iv_object_name = ls_object_name ).
-        lv_act = lv_act + 1.
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
-        WRITE: / 'ERROR activating:', lx_error->get_text( ).
-      CATCH cx_root INTO DATA(lx_root).
-        WRITE: / 'ERROR:', lx_root->get_text( ).
-    ENDTRY.
+    CALL FUNCTION 'RS_OBJECT_ACTIVE'
+      EXPORTING
+        objecttype = ls_object-object
+        objectname = ls_object-obj_name
+        devclass   = ls_object-devclass.
+    lv_act = lv_act + 1.
   ENDLOOP.
 
   " Restore setting
-  lo_settings->set_activate_wo_popup( lv_activation_setting ).
+  TRY.
+      lo_settings->set_activate_wo_popup( lv_activation_setting ).
+    CATCH zcx_abapgit_exception.
+      WRITE: / 'Warning: Could not restore activation setting'.
+  ENDTRY.
 
   ULINE.
   WRITE: / 'Activation completed.'.
