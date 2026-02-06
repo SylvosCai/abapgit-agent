@@ -19,12 +19,17 @@ START-OF-SELECTION.
   DATA: lo_http_client TYPE REF TO if_http_client.
   DATA: lv_code TYPE i.
   DATA: lv_reason TYPE string.
+  DATA: lv_auth TYPE string.
+
+  " Create Basic Auth header
+  lv_auth = p_user && ':' && p_pass.
+  DATA(lv_encoded) = cl_http_utility=>encode_base64( lv_auth ).
 
   cl_http_client=>create_by_destination( EXPORTING destination = 'NONE' IMPORTING client = lo_http_client ).
 
   lo_http_client->request->set_method( 'GET' ).
   lo_http_client->request->set_header_field( name = '~uri_path' value = '/I045696/abap-ai-bridge.git/info/refs' ).
-  lo_http_client->set_basic_auth( username = p_user password = p_pass ).
+  lo_http_client->request->set_header_field( name = 'Authorization' value = 'Basic ' && lv_encoded ).
 
   WRITE: / 'Sending request...'.
 
