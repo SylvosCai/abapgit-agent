@@ -17,14 +17,16 @@ class ABAPGitAgent {
    * Pull repository and activate objects
    * @param {string} repoUrl - Git repository URL
    * @param {string} branch - Branch name (default: main)
+   * @param {string} username - Git username (optional)
+   * @param {string} password - Git password/token (optional)
    * @returns {object} Job information
    */
-  async pull(repoUrl, branch = 'main') {
-    logger.info('Starting pull operation', { repoUrl, branch });
+  async pull(repoUrl, branch = 'main', username = null, password = null) {
+    logger.info('Starting pull operation', { repoUrl, branch, username: !!username });
 
     try {
-      // Call OData to start background job
-      const result = await this.abap.pull(repoUrl, branch);
+      // Call REST API to start background job
+      const result = await this.abap.pull(repoUrl, branch, username, password);
 
       // Handle OData response format
       const responseData = result.d || result;

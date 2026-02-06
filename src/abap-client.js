@@ -82,11 +82,14 @@ class ABAPClient {
   /**
    * Pull repository and activate
    */
-  async pull(repoUrl, branch = 'main') {
-    return await this.request('POST', '/pull', {
+  async pull(repoUrl, branch = 'main', username = null, password = null) {
+    const data = {
       url: repoUrl,
       branch: branch
-    });
+    };
+    if (username) data.username = username;
+    if (password) data.password = password;
+    return await this.request('POST', '/pull', data);
   }
 
   /**
