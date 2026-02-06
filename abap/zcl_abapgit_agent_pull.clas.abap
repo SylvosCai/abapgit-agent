@@ -8,6 +8,14 @@ CLASS zcl_abapgit_agent_pull DEFINITION PUBLIC FINAL
   PUBLIC SECTION.
     METHODS if_rest_resource~post REDEFINITION.
 
+  PRIVATE SECTION.
+    METHODS extract_json_field
+      IMPORTING
+        iv_json TYPE string
+        iv_field TYPE string
+      RETURNING
+        VALUE(rv_value) TYPE string.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
@@ -21,66 +29,11 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_username TYPE string.
     DATA lv_password TYPE string.
 
-    " Extract URL from JSON using simple string operations
-    DATA lv_off TYPE i.
-    DATA lv_col TYPE i.
-    DATA lv_qend TYPE i.
-    DATA lv_part TYPE string.
-
-    FIND '"url"' IN lv_json MATCH OFFSET lv_off.
-    IF sy-subrc = 0.
-      lv_part = lv_json+lv_off.
-      FIND ':' IN lv_part MATCH OFFSET lv_col.
-      IF sy-subrc = 0.
-        lv_part = lv_part+lv_col+1.
-        SHIFT lv_part LEFT UP TO '"'.
-        SHIFT lv_part LEFT.
-        FIND '"' IN lv_part MATCH OFFSET lv_qend.
-        lv_url = lv_part(lv_qend).
-      ENDIF.
-    ENDIF.
-
-    " Extract branch from JSON
-    FIND '"branch"' IN lv_json MATCH OFFSET lv_off.
-    IF sy-subrc = 0.
-      lv_part = lv_json+lv_off.
-      FIND ':' IN lv_part MATCH OFFSET lv_col.
-      IF sy-subrc = 0.
-        lv_part = lv_part+lv_col+1.
-        SHIFT lv_part LEFT UP TO '"'.
-        SHIFT lv_part LEFT.
-        FIND '"' IN lv_part MATCH OFFSET lv_qend.
-        lv_branch = lv_part(lv_qend).
-      ENDIF.
-    ENDIF.
-
-    " Extract username from JSON
-    FIND '"username"' IN lv_json MATCH OFFSET lv_off.
-    IF sy-subrc = 0.
-      lv_part = lv_json+lv_off.
-      FIND ':' IN lv_part MATCH OFFSET lv_col.
-      IF sy-subrc = 0.
-        lv_part = lv_part+lv_col+1.
-        SHIFT lv_part LEFT UP TO '"'.
-        SHIFT lv_part LEFT.
-        FIND '"' IN lv_part MATCH OFFSET lv_qend.
-        lv_username = lv_part(lv_qend).
-      ENDIF.
-    ENDIF.
-
-    " Extract password from JSON
-    FIND '"password"' IN lv_json MATCH OFFSET lv_off.
-    IF sy-subrc = 0.
-      lv_part = lv_json+lv_off.
-      FIND ':' IN lv_part MATCH OFFSET lv_col.
-      IF sy-subrc = 0.
-        lv_part = lv_part+lv_col+1.
-        SHIFT lv_part LEFT UP TO '"'.
-        SHIFT lv_part LEFT.
-        FIND '"' IN lv_part MATCH OFFSET lv_qend.
-        lv_password = lv_part(lv_qend).
-      ENDIF.
-    ENDIF.
+    " Extract fields from JSON
+    lv_url = extract_json_field( iv_json = lv_json iv_field = 'url' ).
+    lv_branch = extract_json_field( iv_json = lv_json iv_field = 'branch' ).
+    lv_username = extract_json_field( iv_json = lv_json iv_field = 'username' ).
+    lv_password = extract_json_field( iv_json = lv_json iv_field = 'password' ).
 
     IF lv_branch IS INITIAL.
       lv_branch = 'main'.
@@ -119,6 +72,42 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
+  ENDMETHOD.
+
+  METHOD extract_json_field.
+    DATA lv_pos TYPE i.
+    DATA lv_col TYPE i.
+    DATA lv_len TYPE i.
+    DATA lv_part TYPE string.
+
+    " Find the field name
+    CONCATENATE '"' iv_field '"' INTO lv_part.
+    FIND lv_part IN iv_json MATCH OFFSET lv_pos.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " Find the colon after field name
+    lv_part = iv_json+lv_pos.
+    FIND ':' IN lv_part MATCH OFFSET lv_col.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " Get the value part (after colon)
+    lv_part = lv_part+lv_col+1.
+    SHIFT lv_part LEFT UP TO '"'.
+    SHIFT lv_part LEFT.
+
+    " Find the closing quote
+    FIND '"' IN lv_part MATCH OFFSET lv_col.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " Extract the value
+    lv_len = lv_col.
+    rv_value = lv_part(lv_len).
   ENDMETHOD.
 
 ENDCLASS.
