@@ -23,15 +23,6 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       prepare_deserialize_checks
         RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks,
 
-      check_for_errors
-        IMPORTING io_repo TYPE REF TO zif_abapgit_repo
-        CHANGING cv_has_error TYPE abap_bool
-                cv_error_detail TYPE string,
-
-      get_inactive_objects
-        IMPORTING iv_devclass TYPE devclass
-        RETURNING VALUE(rt_inactive) TYPE STANDARD TABLE OF tadir,
-
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
         RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result.
@@ -53,6 +44,10 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     ENDIF.
 
     mv_url = iv_url.
+
+    " Declare local variables
+    DATA: lv_has_error TYPE abap_bool,
+          lv_error_detail TYPE string.
 
     TRY.
         " Configure credentials if provided
@@ -84,18 +79,16 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           is_checks = ls_checks
           ii_log   = mo_repo->get_log( ) ).
 
-        " Check for activation errors
-        lv_has_error = abap_false.
-        lv_error_detail = ''.
-        check_for_errors(
-          EXPORTING io_repo = mo_repo
-          CHANGING cv_has_error = lv_has_error
-                  cv_error_detail = lv_error_detail ).
+        " Check for activation errors by querying inactive objects
+        DATA(lv_inactive_count) = 0.
+        DATA(lv_inactive_detail) = ''.
+        PERFORM check_inactive_objects USING mo_repo
+          CHANGING lv_inactive_count lv_inactive_detail.
 
-        IF lv_has_error = abap_true.
+        IF lv_inactive_count > 0.
           rs_result-success = abap_false.
           rs_result-message = 'Pull completed with activation errors'.
-          rs_result-error_detail = lv_error_detail.
+          rs_result-error_detail = lv_inactive_detail.
         ELSE.
           rs_result-success = abap_true.
           rs_result-message = 'Pull completed successfully'.
@@ -175,30 +168,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD check_for_errors.
-    " Check for inactive objects in the package (indicator of activation errors)
-    DATA(lv_devclass) = io_repo->get_package( ).
-    IF lv_devclass IS NOT INITIAL.
-      DATA(lt_inactive) = get_inactive_objects( lv_devclass ).
-      DATA(lv_count) = lines( lt_inactive ).
-
-      IF lv_count > 0.
-        rv_has_error = abap_true.
-        rv_error_detail = |{ lv_count } inactive objects (activation errors):|.
-        LOOP AT lt_inactive ASSIGNING FIELD-SYMBOL(<ls_inactive>).
-          DATA(lv_line) = |  - { <ls_inactive>-object } { <ls_inactive>-obj_name }|.
-          rv_error_detail = rv_error_detail && |\n| && lv_line.
-        ENDLOOP.
-      ENDIF.
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD get_inactive_objects.
-    SELECT * FROM tadir INTO TABLE rt_inactive
-      WHERE devclass = iv_devclass
-      AND object NOT IN ('DEVC', 'PACK').
-  ENDMETHOD.
-
   METHOD handle_exception.
     rs_result-success = abap_false.
     rs_result-message = ix_exception->get_text( ).
@@ -215,3 +184,36 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
 ENDCLASS.
+
+FORM check_inactive_objects USING io_repo TYPE REF TO zif_abapgit_repo
+                     CHANGING cv_count TYPE i
+                             cv_detail TYPE string.
+
+  DATA: lt_inactive TYPE STANDARD TABLE OF tadir,
+        ls_inactive TYPE tadir.
+
+  cv_count = 0.
+  cv_detail = ''.
+
+  IF io_repo IS NOT BOUND.
+    RETURN.
+  ENDIF.
+
+  DATA(lv_devclass) = io_repo->get_package( ).
+  IF lv_devclass IS INITIAL.
+    RETURN.
+  ENDIF.
+
+  SELECT * FROM tadir INTO TABLE lt_inactive
+    WHERE devclass = lv_devclass
+    AND object NOT IN ('DEVC', 'PACK').
+
+  cv_count = lines( lt_inactive ).
+  IF cv_count > 0.
+    cv_detail = |{ cv_count } inactive objects (activation errors):|.
+    LOOP AT lt_inactive INTO ls_inactive.
+      cv_detail = cv_detail && |\n  - { ls_inactive-object } { ls_inactive-obj_name }|.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
