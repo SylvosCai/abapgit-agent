@@ -6,24 +6,16 @@
 REPORT zabapgit_test_creds.
 
 PARAMETERS:
-  p_url     TYPE string LOWER CASE DEFAULT 'https://github.tools.sap',
-  p_user    TYPE string,
-  p_pass    TYPE string.
+  p_url TYPE string LOWER CASE DEFAULT 'https://www.google.com'.
 
 START-OF-SELECTION.
-  WRITE: / 'Testing git credentials'.
+  WRITE: / 'Testing HTTP access'.
   WRITE: / 'URL:', p_url.
-  WRITE: / 'User:', p_user.
   ULINE.
 
   DATA: lo_http_client TYPE REF TO if_http_client.
   DATA: lv_code TYPE i.
   DATA: lv_reason TYPE string.
-  DATA: lv_auth TYPE string.
-
-  " Create Basic Auth header
-  lv_auth = p_user && ':' && p_pass.
-  DATA(lv_encoded) = cl_http_utility=>encode_base64( lv_auth ).
 
   cl_http_client=>create_by_url(
     EXPORTING
@@ -32,7 +24,6 @@ START-OF-SELECTION.
       client = lo_http_client ).
 
   lo_http_client->request->set_method( 'GET' ).
-  lo_http_client->request->set_header_field( name = 'Authorization' value = 'Basic ' && lv_encoded ).
 
   WRITE: / 'Sending request...'.
 
@@ -42,9 +33,12 @@ START-OF-SELECTION.
       http_invalid_state = 2 ).
 
   IF sy-subrc <> 0.
-    WRITE: / 'Communication error!' COLOR COL_NEGATIVE.
+    WRITE: / 'SEND ERROR: Communication failed!' COLOR COL_NEGATIVE.
+    WRITE: / 'sy-subrc:', sy-subrc.
     RETURN.
   ENDIF.
+
+  WRITE: / 'Send successful, waiting for response...'.
 
   lo_http_client->receive(
     EXCEPTIONS
@@ -52,7 +46,12 @@ START-OF-SELECTION.
       http_invalid_state = 2 ).
 
   IF sy-subrc <> 0.
-    WRITE: / 'Receive error!' COLOR COL_NEGATIVE.
+    WRITE: / 'RECEIVE ERROR!' COLOR COL_NEGATIVE.
+    WRITE: / 'This means SAP cannot connect to the URL.'.
+    WRITE: / 'Check:'.
+    WRITE: / '1. Firewall/proxy settings'.
+    WRITE: / '2. SICF transaction - internet HTTP access may be blocked'.
+    WRITE: / '3. SM59 - RFC destination for HTTP'.
     RETURN.
   ENDIF.
 
@@ -62,15 +61,9 @@ START-OF-SELECTION.
   WRITE: / 'HTTP Status:', lv_code, lv_reason.
 
   IF lv_code = 200.
-    WRITE: / 'SUCCESS: Server accessible!' COLOR COL_POSITIVE.
-  ELSEIF lv_code = 401.
-    WRITE: / 'FAILED: Invalid credentials (HTTP 401)' COLOR COL_NEGATIVE.
-  ELSEIF lv_code = 403.
-    WRITE: / 'FAILED: Access forbidden (HTTP 403)' COLOR COL_NEGATIVE.
-  ELSEIF lv_code = 404.
-    WRITE: / 'FAILED: Not found (HTTP 404)' COLOR COL_NEGATIVE.
+    WRITE: / 'SUCCESS: URL is accessible!' COLOR COL_POSITIVE.
   ELSE.
-    WRITE: / 'Status:', lv_code COLOR COL_GROUP.
+    WRITE: / 'Response received but status is:', lv_code COLOR COL_GROUP.
   ENDIF.
 
 END-OF-SELECTION.
