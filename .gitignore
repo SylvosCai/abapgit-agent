@@ -5,4 +5,4 @@ logs/
 .DS_Store
 dist/
 coverage/
-config.json
+.abapGitAgent

@@ -184,7 +184,7 @@ ENDMETHOD.
 - REST handler ICF path: `sap/bc/z_abapgit_agent`
 - Handler class: `ZCL_ABAPGIT_AGENT_HANDLER`
 
-#### Local Agent (config.json)
+#### Local Agent (.abapGitAgent)
 ```json
 {
   "host": "your-sap-system.com",

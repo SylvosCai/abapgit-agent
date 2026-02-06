@@ -1,6 +1,6 @@
 /**
  * Configuration loader
- * Loads config from config.json or environment variables
+ * Loads config from .abapGitAgent or environment variables
  */
 
 const fs = require('fs');
@@ -11,7 +11,7 @@ let config = null;
 function loadConfig() {
   if (config) return config;
 
-  const configPath = process.env.CONFIG_PATH || path.join(__dirname, '..', 'config.json');
+  const configPath = process.env.CONFIG_PATH || path.join(__dirname, '..', '.abapGitAgent');
 
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));

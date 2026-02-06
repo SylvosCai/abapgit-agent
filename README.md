@@ -228,8 +228,8 @@ Claude: [Fixes the error and pushes to git]
 
 ### Agent cannot connect to ABAP
 
-1. Verify REST API URL in config.json
-2. Check credentials in config.json
+1. Verify REST API URL in .abapGitAgent
+2. Check credentials in .abapGitAgent
 3. Test REST API directly with curl
 
 ### Activation errors not shown
