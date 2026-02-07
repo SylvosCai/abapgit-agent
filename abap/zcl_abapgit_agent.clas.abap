@@ -89,14 +89,14 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           rs_result-activated_objects = ls_obj_result-activated_objects.
           rs_result-failed_objects = ls_obj_result-failed_objects.
 
-          " Count using LOOP COUNT since LINES() doesn't work with all table types
+          " Count objects
           rs_result-activated_count = 0.
-          LOOP AT rs_result-activated_objects TRANSPORTING NO FIELDS.
+          LOOP AT rs_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
             rs_result-activated_count = rs_result-activated_count + 1.
           ENDLOOP.
 
           rs_result-failed_count = 0.
-          LOOP AT rs_result-failed_objects TRANSPORTING NO FIELDS.
+          LOOP AT rs_result-failed_objects ASSIGNING FIELD-SYMBOL(<ls_fail>).
             rs_result-failed_count = rs_result-failed_count + 1.
           ENDLOOP.
 
@@ -121,9 +121,14 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
   METHOD zif_abapgit_agent~get_repo_status.
     DATA: li_repo TYPE REF TO zif_abapgit_repo.
-    zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-      EXPORTING iv_url = iv_url
-      IMPORTING ei_repo = li_repo ).
+    TRY.
+        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+          EXPORTING iv_url = iv_url
+          IMPORTING ei_repo = li_repo ).
+      CATCH zcx_abapgit_exception.
+        rv_status = 'Not found'.
+        RETURN.
+    ENDTRY.
 
     IF li_repo IS BOUND.
       rv_status = 'Found'.
