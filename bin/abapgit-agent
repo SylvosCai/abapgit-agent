@@ -306,34 +306,20 @@ async function pull(gitUrl, branch = 'main') {
     }
 
     // Display activated objects
-    if (result.activated_objects && result.activated_objects.length > 0) {
+    if (result.activated_list && result.activated_list.length > 0) {
       console.log(`\n📦 Activated Objects (${result.activated_count}):`);
-      for (const obj of result.activated_objects) {
-        const objKey = obj.obj_type && obj.obj_name ? `${obj.obj_type} ${obj.obj_name}` : '';
-        if (objKey && obj.text) {
-          console.log(`   ✓ ${objKey}: ${obj.text}`);
-        } else if (objKey) {
-          console.log(`   ✓ ${objKey}`);
-        } else if (obj.text) {
-          console.log(`   ✓ ${obj.text}`);
-        }
+      for (const item of result.activated_list) {
+        console.log(`   ✓ ${item}`);
       }
     } else if (result.activated_count > 0) {
       console.log(`\n📦 Activated Objects (${result.activated_count})`);
     }
 
     // Display failed objects
-    if (result.failed_objects && result.failed_objects.length > 0) {
+    if (result.failed_list && result.failed_list.length > 0) {
       console.log(`\n⚠️  Failed Objects (${result.failed_count}):`);
-      for (const obj of result.failed_objects) {
-        const objKey = obj.obj_type && obj.obj_name ? `${obj.obj_type} ${obj.obj_name}` : '';
-        if (objKey && obj.text) {
-          console.log(`   ✗ ${objKey}: ${obj.text}`);
-        } else if (objKey) {
-          console.log(`   ✗ ${objKey}`);
-        } else if (obj.text) {
-          console.log(`   ✗ ${obj.text}`);
-        }
+      for (const item of result.failed_list) {
+        console.log(`   ✗ ${item}`);
       }
     } else if (result.failed_count > 0) {
       console.log(`\n⚠️  Failed Objects (${result.failed_count})`);

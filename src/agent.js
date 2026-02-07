@@ -32,8 +32,8 @@ class ABAPGitAgent {
         error_detail: result.error_detail || null,
         activated_count: result.activated_count || 0,
         failed_count: result.failed_count || 0,
-        activated_objects: result.activated_objects || [],
-        failed_objects: result.failed_objects || []
+        activated_list: result.activated_list ? result.activated_list.split('|').filter(Boolean) : [],
+        failed_list: result.failed_list ? result.failed_list.split('|').filter(Boolean) : []
       };
 
     } catch (error) {
