@@ -115,20 +115,24 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " Convert counts to string using template
-    DATA(lv_count_val) = |{ ls_result-activated_count }|.
-    DATA(lv_failed_val) = |{ ls_result-failed_count }|.
-
     " Build JSON response
     IF ls_result-success = abap_true.
-      lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
-        `","activated_count":` && lv_count_val && `,"failed_count":` && lv_failed_val &&
-        `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
+      CONCATENATE
+        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
+        '","activated_count":' ls_result-activated_count ','
+        '"failed_count":' ls_result-failed_count ','
+        '"activated_list":"' lv_activated_list '",'
+        '"failed_list":"' lv_failed_list '"}'
+      INTO lv_json_resp.
     ELSE.
-      lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
-        `","error_detail":"` && ls_result-error_detail &&
-        `","activated_count":` && lv_count_val && `,"failed_count":` && lv_failed_val &&
-        `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
+      CONCATENATE
+        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
+        '","error_detail":"' ls_result-error_detail
+        '","activated_count":' ls_result-activated_count ','
+        '"failed_count":' ls_result-failed_count ','
+        '"activated_list":"' lv_activated_list '",'
+        '"failed_list":"' lv_failed_list '"}'
+      INTO lv_json_resp.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).
