@@ -48,7 +48,6 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA ls_request TYPE ty_request.
     DATA ls_response TYPE ty_response.
     DATA lv_json_resp TYPE string.
-    DATA lo_response_entity TYPE REF TO cl_rest_entity.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
