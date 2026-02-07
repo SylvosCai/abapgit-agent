@@ -315,12 +315,17 @@ async function pull(gitUrl, branch = 'main') {
       console.log(`   Message: ${message || 'N/A'}`);
     }
 
-    // Display activated objects
+    // Display activated objects (filter out step messages with empty type/name)
     if (activatedObjects && activatedObjects.length > 0) {
-      console.log(`\n📦 Activated Objects (${activatedCount}):`);
-      for (const obj of activatedObjects) {
-        const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
-        console.log(`   ✓ ${objKey}`);
+      const validObjects = activatedObjects.filter(obj => obj.OBJ_TYPE && obj.OBJ_NAME);
+      if (validObjects.length > 0) {
+        console.log(`\n📦 Activated Objects (${validObjects.length}):`);
+        for (const obj of validObjects) {
+          const objKey = `${obj.OBJ_TYPE} ${obj.OBJ_NAME}`;
+          console.log(`   ✓ ${objKey}`);
+        }
+      } else {
+        console.log(`\n📦 Activated Objects (0)`);
       }
     } else if (activatedCount > 0) {
       console.log(`\n📦 Activated Objects (${activatedCount})`);
@@ -328,7 +333,7 @@ async function pull(gitUrl, branch = 'main') {
 
     // Display failed objects
     if (failedObjects && failedObjects.length > 0) {
-      console.log(`\n⚠️  Failed Objects (${failedCount}):`);
+      console.log(`\n⚠️  Failed Objects (${failedObjects.length}):`);
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
         const text = obj.TEXT ? `: ${obj.TEXT}` : '';
