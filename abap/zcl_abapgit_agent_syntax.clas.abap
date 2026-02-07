@@ -6,11 +6,18 @@ CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
                              CREATE PUBLIC.
 
   PUBLIC SECTION.
-    METHODS if_rest_resource~post REDEFINITION.
+    METHODS: if_rest_resource~post REDEFINITION.
+
+  PRIVATE SECTION.
+    DATA mo_agent TYPE REF TO zcl_abapgit_agent_syntax_agent.
 
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
+
+  METHOD constructor.
+    CREATE OBJECT mo_agent.
+  ENDMETHOD.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
@@ -54,11 +61,8 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA lo_agent TYPE REF TO zcl_abapgit_agent.
-    CREATE OBJECT lo_agent.
-
     DATA ls_result TYPE zif_abapgit_agent=>ty_syntax_result.
-    ls_result = lo_agent->zif_abapgit_agent~syntax_check(
+    ls_result = mo_agent->syntax_check(
       iv_object_type = lv_object_type
       iv_object_name = lv_object_name ).
 
@@ -69,7 +73,6 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       lv_success = ''.
     ENDIF.
 
-    " Build response structure for JSON
     DATA: BEGIN OF ls_response,
             success TYPE string,
             object_type TYPE string,
@@ -79,18 +82,16 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
           END OF ls_response.
 
     ls_response-success = lv_success.
-    ls_response-object_type = lv_object_type.
-    ls_response-object_name = lv_object_name.
+    ls_response-object_type = ls_result-object_type.
+    ls_response-object_name = ls_result-object_name.
     ls_response-error_count = ls_result-error_count.
     ls_response-errors = ls_result-errors.
 
-    " Use /UI2/CL_JSON for proper JSON serialization
     lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
 
-    DATA lo_response_entity TYPE REF TO if_rest_entity.
-    lo_response_entity = mo_response->create_entity( ).
-    lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_response_entity->set_string_data( lv_json_resp ).
+    lo_entity = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
