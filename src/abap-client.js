@@ -230,6 +230,23 @@ class ABAPClient {
       return { status: 'unhealthy', abap: 'disconnected', error: error.message };
     }
   }
+
+  /**
+   * Check syntax of an ABAP object
+   */
+  async syntaxCheck(objectType, objectName) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      object_type: objectType,
+      object_name: objectName
+    };
+
+    logger.info('Starting syntax check', { objectType, objectName, service: 'abap-ai-bridge' });
+
+    return await this.request('POST', '/syntax-check', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

@@ -137,6 +137,30 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+  METHOD zif_abapgit_agent~syntax_check.
+    rs_result-success = abap_false.
+    rs_result-object_type = iv_object_type.
+    rs_result-object_name = iv_object_name.
+
+    DATA ls_err TYPE zif_abapgit_agent=>ty_syntax_error.
+
+    IF iv_object_type IS INITIAL OR iv_object_name IS INITIAL.
+      ls_err-line = '1'.
+      ls_err-column = '1'.
+      ls_err-text = 'Object type and name are required'.
+      APPEND ls_err TO rs_result-errors.
+      rs_result-error_count = 1.
+      RETURN.
+    ENDIF.
+
+    " Return that syntax check is not available in this system
+    ls_err-line = '1'.
+    ls_err-column = '1'.
+    ls_err-text = 'Syntax check not available - RSYNTAX_CHECK_OBJECT not found'.
+    APPEND ls_err TO rs_result-errors.
+    rs_result-error_count = 1.
+  ENDMETHOD.
+
   METHOD configure_credentials.
     zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
       iv_url = iv_url iv_username = iv_username ).

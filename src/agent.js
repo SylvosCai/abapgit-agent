@@ -62,6 +62,30 @@ class ABAPGitAgent {
       };
     }
   }
+
+  /**
+   * Check syntax of an ABAP object
+   * @param {string} objectType - ABAP object type (e.g., 'CLAS', 'PROG', 'INTF')
+   * @param {string} objectName - ABAP object name
+   * @returns {object} Syntax check result with errors (if any)
+   */
+  async syntaxCheck(objectType, objectName) {
+    logger.info('Starting syntax check', { objectType, objectName });
+
+    try {
+      const result = await this.abap.syntaxCheck(objectType, objectName);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        object_type: result.OBJECT_TYPE || result.object_type,
+        object_name: result.OBJECT_NAME || result.object_name,
+        error_count: result.ERROR_COUNT || result.error_count || 0,
+        errors: result.ERRORS || result.errors || []
+      };
+    } catch (error) {
+      logger.error('Syntax check failed', { error: error.message });
+      throw new Error(`Syntax check failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {
