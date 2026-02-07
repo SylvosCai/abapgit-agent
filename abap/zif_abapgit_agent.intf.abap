@@ -6,7 +6,7 @@ INTERFACE zif_abapgit_agent PUBLIC.
     text TYPE string,
   END OF ty_object.
 
-  TYPES: ty_object_list TYPE TABLE OF ty_object.
+  TYPES: ty_object_list TYPE STANDARD TABLE OF ty_object WITH DEFAULT KEY.
 
   TYPES: BEGIN OF ty_result,
     success TYPE abap_bool,
