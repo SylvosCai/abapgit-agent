@@ -16,18 +16,34 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_json TYPE string.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON using /UI2/CL_JSON
-    DATA: BEGIN OF ls_request,
-            object_type TYPE string,
-            object_name TYPE string,
-          END OF ls_request.
-
-    /ui2/cl_json=>deserialize( EXPORTING json = lv_json CHANGING data = ls_request ).
-
     DATA lv_object_type TYPE string.
     DATA lv_object_name TYPE string.
-    lv_object_type = ls_request-object_type.
-    lv_object_name = ls_request-object_name.
+
+    " Parse object_type from JSON
+    FIND '"object_type":' IN lv_json MATCH OFFSET DATA(lv_pos).
+    IF sy-subrc = 0.
+      lv_pos = lv_pos + 14.
+      lv_object_type = lv_json+lv_pos.
+      SHIFT lv_object_type LEFT UP TO '"'.
+      SHIFT lv_object_type LEFT.
+      FIND '"' IN lv_object_type MATCH OFFSET lv_pos.
+      IF sy-subrc = 0.
+        lv_object_type = lv_object_type(lv_pos).
+      ENDIF.
+    ENDIF.
+
+    " Parse object_name from JSON
+    FIND '"object_name":' IN lv_json MATCH OFFSET lv_pos.
+    IF sy-subrc = 0.
+      lv_pos = lv_pos + 13.
+      lv_object_name = lv_json+lv_pos.
+      SHIFT lv_object_name LEFT UP TO '"'.
+      SHIFT lv_object_name LEFT.
+      FIND '"' IN lv_object_name MATCH OFFSET lv_pos.
+      IF sy-subrc = 0.
+        lv_object_name = lv_object_name(lv_pos).
+      ENDIF.
+    ENDIF.
 
     DATA lv_json_resp TYPE string.
     IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
@@ -47,22 +63,21 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
     DATA(lv_error_count) = ls_result-error_count.
 
-    " Build JSON response manually for reliability
-    lv_json_resp = |{ "success": "{ lv_success }", |.
-    lv_json_resp = |{ lv_json_resp } "object_type": "{ ls_result-object_type }", |.
-    lv_json_resp = |{ lv_json_resp } "object_name": "{ ls_result-object_name }", |.
-    lv_json_resp = |{ lv_json_resp } "error_count": { lv_error_count }, "errors": [ |.
+    " Build JSON response manually
+    CONCATENATE '{"success":"' lv_success '","object_type":"' ls_result-object_type '","object_name":"' ls_result-object_name '","error_count":' lv_error_count ',"errors":[' INTO lv_json_resp.
 
     DATA lv_first TYPE abap_bool VALUE abap_true.
     LOOP AT ls_result-errors ASSIGNING FIELD-SYMBOL(<ls_err>).
       IF lv_first = abap_false.
-        lv_json_resp = lv_json_resp && ', '.
+        CONCATENATE lv_json_resp ',' INTO lv_json_resp.
       ENDIF.
       lv_first = abap_false.
-      lv_json_resp = |{ lv_json_resp }{ "line": "{ <ls_err>-line }", "column": "{ <ls_err>-column }", "text": "{ <ls_err>-text }", "word": "{ <ls_err>-word }" }|.
+      DATA lv_err_json TYPE string.
+      CONCATENATE '{"line":"' <ls_err>-line '","column":"' <ls_err>-column '","text":"' <ls_err>-text '","word":"' <ls_err>-word '"}' INTO lv_err_json.
+      CONCATENATE lv_json_resp lv_err_json INTO lv_json_resp.
     ENDLOOP.
 
-    lv_json_resp = lv_json_resp && ']}'.
+    CONCATENATE lv_json_resp ']}' INTO lv_json_resp.
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
