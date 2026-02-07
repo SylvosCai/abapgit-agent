@@ -98,7 +98,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       DATA: ls_act TYPE zif_abapgit_agent=>ty_object.
       DATA(lv_activated_items) = ''.
       LOOP AT ls_result-activated_objects INTO ls_act.
-        DATA(lv_item) = |{{"obj_type":"{ ls_act-obj_type }","obj_name":"{ ls_act-obj_name }","text":"{ ls_act-text }"}}|.
+        CONCATENATE '{"obj_type":"' ls_act-obj_type '","obj_name":"' ls_act-obj_name '","text":"' ls_act-text '"}'
+          INTO DATA(lv_item) RESPECTING BLANKS.
         IF lv_activated_items IS INITIAL.
           lv_activated_items = lv_item.
         ELSE.
@@ -114,7 +115,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       DATA: ls_fail TYPE zif_abapgit_agent=>ty_object.
       DATA(lv_failed_items) = ''.
       LOOP AT ls_result-failed_objects INTO ls_fail.
-        DATA(lv_fail_item) = |{{"obj_type":"{ ls_fail-obj_type }","obj_name":"{ ls_fail-obj_name }","text":"{ ls_fail-text }"}}|.
+        CONCATENATE '{"obj_type":"' ls_fail-obj_type '","obj_name":"' ls_fail-obj_name '","text":"' ls_fail-text '"}'
+          INTO DATA(lv_fail_item) RESPECTING BLANKS.
         IF lv_failed_items IS INITIAL.
           lv_failed_items = lv_fail_item.
         ELSE.
