@@ -29,27 +29,33 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_object_name TYPE string.
     DATA lv_pos TYPE i.
 
-    FIND 'object_type' IN lv_json MATCH OFFSET lv_pos.
+    " Parse object_type from JSON: "object_type":"<value>"
+    FIND '"object_type":"' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 14.
+      lv_pos = lv_pos + 15.
       lv_object_type = lv_json+lv_pos.
       SHIFT lv_object_type LEFT UP TO '"'.
-      SHIFT lv_object_type LEFT.
-      FIND '"' IN lv_object_type MATCH OFFSET lv_pos.
       IF sy-subrc = 0.
-        lv_object_type = lv_object_type(lv_pos).
+        lv_object_type = lv_object_type+1.
+        FIND '"' IN lv_object_type MATCH OFFSET lv_pos.
+        IF sy-subrc = 0.
+          lv_object_type = lv_object_type(lv_pos).
+        ENDIF.
       ENDIF.
     ENDIF.
 
-    FIND 'object_name' IN lv_json MATCH OFFSET lv_pos.
+    " Parse object_name from JSON: "object_name":"<value>"
+    FIND '"object_name":"' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 13.
+      lv_pos = lv_pos + 14.
       lv_object_name = lv_json+lv_pos.
       SHIFT lv_object_name LEFT UP TO '"'.
-      SHIFT lv_object_name LEFT.
-      FIND '"' IN lv_object_name MATCH OFFSET lv_pos.
       IF sy-subrc = 0.
-        lv_object_name = lv_object_name(lv_pos).
+        lv_object_name = lv_object_name+1.
+        FIND '"' IN lv_object_name MATCH OFFSET lv_pos.
+        IF sy-subrc = 0.
+          lv_object_name = lv_object_name(lv_pos).
+        ENDIF.
       ENDIF.
     ENDIF.
 
