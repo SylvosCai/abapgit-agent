@@ -127,22 +127,23 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     ENDIF.
 
     " Build complete JSON response
+    DATA: lv_count_str TYPE string.
+    lv_count_str = ls_result-activated_count.
+    DATA: lv_failed_str TYPE string.
+    lv_failed_str = ls_result-failed_count.
+
     IF ls_result-success = abap_true.
-      CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
-                   '","message":"' ls_result-message
-                   '","activated_count":' ls_result-activated_count
-                   ',"failed_count":' ls_result-failed_count
-                   ',"activated_objects":' lv_activated_json
-                   ',"failed_objects":' lv_failed_json '}'
+      CONCATENATE
+        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
+        '","activated_count":' lv_count_str ',"failed_count":' lv_failed_str
+        ',"activated_objects":' lv_activated_json ',"failed_objects":' lv_failed_json '}'
       INTO lv_json_resp.
     ELSE.
-      CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
-                   '","message":"' ls_result-message
-                   '","error_detail":"' ls_result-error_detail
-                   '","activated_count":' ls_result-activated_count
-                   ',"failed_count":' ls_result-failed_count
-                   ',"activated_objects":' lv_activated_json
-                   ',"failed_objects":' lv_failed_json '}'
+      CONCATENATE
+        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
+        '","error_detail":"' ls_result-error_detail
+        '","activated_count":' lv_count_str ',"failed_count":' lv_failed_str
+        ',"activated_objects":' lv_activated_json ',"failed_objects":' lv_failed_json '}'
       INTO lv_json_resp.
     ENDIF.
 
