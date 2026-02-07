@@ -54,3 +54,10 @@ lv_json = /ui2/cl_json=>serialize( data = ls_response ).
 ```
 
 Do NOT use manual string operations (FIND, SHIFT, etc.) for JSON parsing.
+
+## Development Workflow
+
+1. After `abapgit-agent pull`, check for any failed objects
+2. If there are failed objects, fix the syntax errors first before proceeding
+3. Commit and push the fix, then pull again to verify
+4. Only after all objects activate successfully, proceed with testing
