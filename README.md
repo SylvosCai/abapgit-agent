@@ -98,6 +98,8 @@ Example configuration:
   "user": "TECH_USER",
   "password": "your-password",
   "language": "EN",
+  "gitUsername": "github-username",
+  "gitPassword": "github-token",
   "agent": {
     "port": 3000,
     "pollInterval": 5000,
