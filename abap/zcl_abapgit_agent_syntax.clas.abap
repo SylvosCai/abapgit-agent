@@ -6,6 +6,7 @@ CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
                              CREATE PUBLIC.
 
   PUBLIC SECTION.
+    METHODS: constructor.
     METHODS: if_rest_resource~post REDEFINITION.
 
   PRIVATE SECTION.
