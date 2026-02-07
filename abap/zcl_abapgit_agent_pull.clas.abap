@@ -103,31 +103,37 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     " Build simple object lists (obj_type obj_name: text)
     LOOP AT ls_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
+      DATA(lv_act_item) = <ls_act>-obj_type && ` ` && <ls_act>-obj_name.
       IF lv_activated_list IS INITIAL.
-        lv_activated_list = <ls_act>-obj_type && ' ' && <ls_act>-obj_name.
+        lv_activated_list = lv_act_item.
       ELSE.
-        lv_activated_list = lv_activated_list && '|' && <ls_act>-obj_type && ' ' && <ls_act>-obj_name.
+        lv_activated_list = lv_activated_list && '|' && lv_act_item.
       ENDIF.
     ENDLOOP.
 
     LOOP AT ls_result-failed_objects ASSIGNING FIELD-SYMBOL(<ls_fail>).
+      DATA(lv_fail_item) = <ls_fail>-obj_type && ` ` && <ls_fail>-obj_name && `: ` && <ls_fail>-text.
       IF lv_failed_list IS INITIAL.
-        lv_failed_list = <ls_fail>-obj_type && ' ' && <ls_fail>-obj_name && ': ' && <ls_fail>-text.
+        lv_failed_list = lv_fail_item.
       ELSE.
-        lv_failed_list = lv_failed_list && '|' && <ls_fail>-obj_type && ' ' && <ls_fail>-obj_name && ': ' && <ls_fail>-text.
+        lv_failed_list = lv_failed_list && '|' && lv_fail_item.
       ENDIF.
     ENDLOOP.
 
+    " Convert counts to string without trailing spaces
+    lv_count_str = |{ ls_result-activated_count }|.
+    lv_failed_str = |{ ls_result-failed_count }|.
+
     " Build JSON response
     IF ls_result-success = abap_true.
-      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' && ls_result-job_id && '","message":"' && ls_result-message &&
-        '","activated_count":' && lv_count_str && ',"failed_count":' && lv_failed_str &&
-        '","activated_list":"' && lv_activated_list && '","failed_list":"' && lv_failed_list && '"}'.
+      lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
+        `","activated_count":` && lv_count_str && `,"failed_count":` && lv_failed_str &&
+        `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
     ELSE.
-      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' && ls_result-job_id && '","message":"' && ls_result-message &&
-        '","error_detail":"' && ls_result-error_detail &&
-        '","activated_count":' && lv_count_str && ',"failed_count":' && lv_failed_str &&
-        '","activated_list":"' && lv_activated_list && '","failed_list":"' && lv_failed_list && '"}'.
+      lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
+        `","error_detail":"` && ls_result-error_detail &&
+        `","activated_count":` && lv_count_str && `,"failed_count":` && lv_failed_str &&
+        `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).
