@@ -92,7 +92,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
 
-    " Build response structure
+    " Build response structure with internal tables
     DATA: BEGIN OF ls_response,
             success TYPE string,
             job_id TYPE string,
@@ -100,8 +100,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
             error_detail TYPE string,
             activated_count TYPE i,
             failed_count TYPE i,
-            activated_list TYPE string,
-            failed_list TYPE string,
+            activated_objects TYPE zif_abapgit_agent=>ty_object_list,
+            failed_objects TYPE zif_abapgit_agent=>ty_object_list,
           END OF ls_response.
 
     ls_response-success = lv_success.
@@ -110,25 +110,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     ls_response-error_detail = ls_result-error_detail.
     ls_response-activated_count = ls_result-activated_count.
     ls_response-failed_count = ls_result-failed_count.
-
-    " Build simple object lists (pipe-separated)
-    LOOP AT ls_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
-      DATA(lv_act_item) = <ls_act>-obj_type && ` ` && <ls_act>-obj_name.
-      IF ls_response-activated_list IS INITIAL.
-        ls_response-activated_list = lv_act_item.
-      ELSE.
-        ls_response-activated_list = ls_response-activated_list && '|' && lv_act_item.
-      ENDIF.
-    ENDLOOP.
-
-    LOOP AT ls_result-failed_objects ASSIGNING FIELD-SYMBOL(<ls_fail>).
-      DATA(lv_fail_item) = <ls_fail>-obj_type && ` ` && <ls_fail>-obj_name && `: ` && <ls_fail>-text.
-      IF ls_response-failed_list IS INITIAL.
-        ls_response-failed_list = lv_fail_item.
-      ELSE.
-        ls_response-failed_list = ls_response-failed_list && '|' && lv_fail_item.
-      ENDIF.
-    ENDLOOP.
+    ls_response-activated_objects = ls_result-activated_objects.
+    ls_response-failed_objects = ls_result-failed_objects.
 
     " Use /UI2/CL_JSON for proper JSON serialization
     lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
