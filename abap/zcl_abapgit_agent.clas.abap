@@ -149,63 +149,12 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Local structure for syntax errors
-    DATA: BEGIN OF ls_error,
-            line TYPE string,
-            column TYPE string,
-            text TYPE string,
-            word TYPE string,
-          END OF ls_error.
-    DATA lt_errors LIKE TABLE OF ls_error.
-
-    " Call syntax check function module dynamically
-    DATA lv_func_name TYPE string.
-    lv_func_name = 'RSYNTAX_CHECK_OBJECT'.
-    TRY.
-        CALL FUNCTION lv_func_name
-          EXPORTING
-            object_name = iv_object_name
-            object_type = iv_object_type
-          TABLES
-            error_table = lt_errors
-          EXCEPTIONS
-            object_not_found = 1
-            OTHERS = 2.
-      CATCH cx_sy_dyn_call_uncallable.
-        " Function does not exist
-        rs_result-error_count = 1.
-        ls_err-line = '1'.
-        ls_err-column = '1'.
-        ls_err-text = 'Syntax check not available in this system'.
-        APPEND ls_err TO rs_result-errors.
-        RETURN.
-    ENDTRY.
-
-    IF sy-subrc <> 0.
-      rs_result-error_count = 1.
-      ls_err-line = '1'.
-      ls_err-column = '1'.
-      ls_err-text = |Syntax check failed (RC: { sy-subrc })|.
-      APPEND ls_err TO rs_result-errors.
-      RETURN.
-    ENDIF.
-
-    " Process errors
-    DATA lv_error_count TYPE i.
-    lv_error_count = lines( lt_errors ).
-    rs_result-error_count = lv_error_count.
-
-    LOOP AT lt_errors INTO ls_error.
-      ls_err-line = ls_error-line.
-      ls_err-column = ls_error-column.
-      ls_err-text = ls_error-text.
-      ls_err-word = ls_error-word.
-      APPEND ls_err TO rs_result-errors.
-    ENDLOOP.
-
-    IF lv_error_count = 0.
-      rs_result-success = abap_true.
-    ENDIF.
+    " Return that syntax check is not available
+    rs_result-error_count = 1.
+    ls_err-line = '1'.
+    ls_err-column = '1'.
+    ls_err-text = 'Syntax check not available in this ABAP system'.
+    APPEND ls_err TO rs_result-errors.
   ENDMETHOD.
 
   METHOD configure_credentials.
