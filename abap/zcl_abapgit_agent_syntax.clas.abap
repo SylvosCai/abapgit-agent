@@ -17,6 +17,7 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
   METHOD constructor.
+    super->constructor( ).
     CREATE OBJECT mo_agent.
   ENDMETHOD.
 
