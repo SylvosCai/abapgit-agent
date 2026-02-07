@@ -149,6 +149,22 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " Check if function module exists
+    DATA lv_func_exists TYPE abap_bool.
+    lv_func_exists = abap_false.
+    FUNCTION EXISTS RSYNTAX_CHECK_OBJECT.
+      lv_func_exists = abap_true.
+    ENDFUNCTION.
+
+    IF lv_func_exists = abap_false.
+      rs_result-error_count = 1.
+      ls_err-line = '1'.
+      ls_err-column = '1'.
+      ls_err-text = 'Syntax check not available in this system'.
+      APPEND ls_err TO rs_result-errors.
+      RETURN.
+    ENDIF.
+
     " Local structure for syntax errors
     DATA: BEGIN OF ls_error,
             line TYPE string,
