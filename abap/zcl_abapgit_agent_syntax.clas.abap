@@ -56,7 +56,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_json_resp TYPE string.
     IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
-      lo_entity = mo_response->create_entity( ).
+      DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
@@ -68,9 +68,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       iv_object_type = lv_object_type
       iv_object_name = lv_object_name ).
 
-    lo_entity = mo_response->create_entity( ).
-    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_entity->set_string_data( lv_json_resp ).
+    DATA(lo_response_entity) = mo_response->create_entity( ).
+    lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    lo_response_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
