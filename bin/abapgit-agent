@@ -5,6 +5,7 @@
  * Usage:
  *   abapgit-agent pull [--branch <branch>]
  *   abapgit-agent pull --url <git-url> [--branch <branch>]
+ *   abapgit-agent syntax-check <object_type> <object_name>
  *   abapgit-agent health
  *   abapgit-agent status
  *
@@ -266,6 +267,63 @@ function request(method, path, data = null, options = {}) {
 }
 
 /**
+ * Syntax check for ABAP object
+ */
+async function syntaxCheck(objectType, objectName) {
+  console.log(`\n  Syntax check for ${objectType} ${objectName}`);
+
+  try {
+    const config = loadConfig();
+
+    // Fetch CSRF token first
+    const csrfToken = await fetchCsrfToken(config);
+
+    const data = {
+      object_type: objectType,
+      object_name: objectName
+    };
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken });
+
+    // Handle uppercase keys from ABAP
+    const success = result.SUCCESS || result.success;
+    const objType = result.OBJECT_TYPE || result.object_type;
+    const objName = result.OBJECT_NAME || result.object_name;
+    const errorCount = result.ERROR_COUNT || result.error_count || 0;
+    const errors = result.ERRORS || result.errors || [];
+
+    console.log('\n');
+
+    if (success === 'X' || success === true) {
+      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
+    } else {
+      console.log(`❌ ${objType} ${objName} - ${errorCount} syntax error(s) found:`);
+      console.log('\nSyntax Errors:');
+      console.log('─'.repeat(60));
+
+      for (const err of errors) {
+        const line = err.LINE || err.line || '?';
+        const column = err.COLUMN || err.column || '?';
+        const text = err.TEXT || err.text || 'Unknown error';
+        const word = err.WORD || err.word;
+
+        console.log(`  Line ${line}, Column ${column}:`);
+        console.log(`    ${text}`);
+        if (word) {
+          console.log(`    Problematic token: "${word}"`);
+        }
+        console.log('');
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`\n  Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+/**
  * Pull and activate repository
  */
 async function pull(gitUrl, branch = 'main') {
@@ -437,6 +495,25 @@ To enable integration:
         }
         break;
 
+      case 'syntax-check':
+        const typeArgIndex = args.indexOf('--type');
+        const typePos = typeArgIndex !== -1 ? typeArgIndex + 1 : args[1];
+        const namePos = typeArgIndex !== -1 ? args[typeArgIndex + 2] : args[2];
+
+        const objectType = typeArgIndex !== -1 ? args[typeArgIndex + 1] : args[1];
+        const objectName = typeArgIndex !== -1 ? args[typeArgIndex + 2] : args[2];
+
+        if (!objectType || !objectName) {
+          console.error('Error: syntax-check requires object_type and object_name');
+          console.error('Usage: abapgit-agent syntax-check <object_type> <object_name>');
+          console.error('Example: abapgit-agent syntax-check CLAS ZCL_MY_CLASS');
+          console.error('   Or: abapgit-agent syntax-check --type CLAS ZCL_MY_CLASS');
+          process.exit(1);
+        }
+
+        await syntaxCheck(objectType, objectName);
+        break;
+
       case 'help':
       case '--help':
       case '-h':
@@ -451,6 +528,10 @@ Commands:
     Pull and activate repository in ABAP system.
     Auto-detects git remote and branch from current directory.
 
+  syntax-check <object_type> <object_name>
+    Check syntax of an ABAP object and display detailed errors.
+    Example: abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+
   health
     Check if ABAP REST API is healthy
 
@@ -461,6 +542,8 @@ Examples:
   abapgit-agent pull                       # Auto-detect from git repo
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --url <git-url>       # Override remote URL
+  abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+  abapgit-agent syntax-check PROG ZMY_PROGRAM
   abapgit-agent health
   abapgit-agent status
 `);

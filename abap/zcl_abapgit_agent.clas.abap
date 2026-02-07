@@ -137,6 +137,60 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+  METHOD zif_abapgit_agent~syntax_check.
+    rs_result-success = abap_false.
+    rs_result-object_type = iv_object_type.
+    rs_result-object_name = iv_object_name.
+
+    IF iv_object_type IS INITIAL OR iv_object_name IS INITIAL.
+      rs_result-error_count = 1.
+      DATA(ls_err) = VALUE zif_abapgit_agent=>ty_syntax_error( line = '1' column = '1' text = 'Object type and name are required' ).
+      APPEND ls_err TO rs_result-errors.
+      RETURN.
+    ENDIF.
+
+    DATA: lt_errors TYPE TABLE OF rslinemsg.
+    DATA: lt_source TYPE TABLE OF string.
+
+    " Call syntax check function module
+    CALL FUNCTION 'RSYNTAX_CHECK_OBJECT'
+      EXPORTING
+        object_name = iv_object_name
+        object_type = iv_object_type
+      TABLES
+        error_table = lt_errors
+        source_table = lt_source
+      EXCEPTIONS
+        object_not_found = 1
+        OTHERS = 2.
+
+    IF sy-subrc <> 0.
+      rs_result-error_count = 1.
+      ls_err-line = '1'.
+      ls_err-column = '1'.
+      ls_err-text = |Syntax check failed (RC: { sy-subrc })|.
+      APPEND ls_err TO rs_result-errors.
+      RETURN.
+    ENDIF.
+
+    " Process errors
+    DATA lv_error_count TYPE i.
+    lv_error_count = lines( lt_errors ).
+    rs_result-error_count = lv_error_count.
+
+    LOOP AT lt_errors INTO DATA(ls_error).
+      ls_err-line = ls_error-line.
+      ls_err-column = ls_error-column.
+      ls_err-text = ls_error-text.
+      ls_err-word = ls_error-word.
+      APPEND ls_err TO rs_result-errors.
+    ENDLOOP.
+
+    IF lv_error_count = 0.
+      rs_result-success = abap_true.
+    ENDIF.
+  ENDMETHOD.
+
   METHOD configure_credentials.
     zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
       iv_url = iv_url iv_username = iv_username ).
