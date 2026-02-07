@@ -196,15 +196,15 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       LOOP AT lt_messages INTO ls_msg.
         IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
           IF ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
-            rv_detail = rv_detail && |\n  - { ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
+            rv_detail = rv_detail && '\n  - ' && ls_msg-obj_type && ' ' && ls_msg-obj_name && ': ' && ls_msg-text.
           ELSE.
-            rv_detail = rv_detail && |\n  - { ls_msg-text }|.
+            rv_detail = rv_detail && '\n  - ' && ls_msg-text.
           ENDIF.
         ENDIF.
       ENDLOOP.
 
       IF rv_detail IS NOT INITIAL.
-        rv_detail = |Errors/Warnings:{ rv_detail }|.
+        rv_detail = 'Errors/Warnings:' && rv_detail.
       ENDIF.
     ENDIF.
   ENDMETHOD.
@@ -248,7 +248,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       DATA: lv_msg TYPE string.
       lv_msg = lx_prev->get_text( ).
       IF lv_msg IS NOT INITIAL.
-        rs_result-error_detail = rs_result-error_detail && |\n  -> { lv_msg }|.
+        rs_result-error_detail = rs_result-error_detail && '\n  -> ' && lv_msg.
       ENDIF.
       lx_prev = lx_prev->previous.
     ENDWHILE.
