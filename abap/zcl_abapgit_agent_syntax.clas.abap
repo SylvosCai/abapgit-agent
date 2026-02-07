@@ -70,9 +70,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       ls_error-word = ''.
       APPEND ls_error TO ls_response-errors.
       lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
-      lo_entity = mo_response->create_entity( ).
-      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-      lo_entity->set_string_data( lv_json_resp ).
+      io_entity = mo_response->create_entity( ).
+      io_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      io_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
       RETURN.
     ENDIF.
@@ -82,9 +82,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       iv_object_type = ls_request-object_type
       iv_object_name = ls_request-object_name ).
 
-    lo_entity = mo_response->create_entity( ).
-    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_entity->set_string_data( lv_json_resp ).
+    io_entity = mo_response->create_entity( ).
+    io_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    io_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
