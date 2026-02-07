@@ -17,6 +17,23 @@ CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
              object_name TYPE string,
            END OF ty_request.
 
+    TYPES: BEGIN OF ty_error,
+             line TYPE string,
+             column TYPE string,
+             text TYPE string,
+             word TYPE string,
+           END OF ty_error.
+
+    TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_response,
+             success TYPE string,
+             object_type TYPE string,
+             object_name TYPE string,
+             error_count TYPE i,
+             errors TYPE ty_errors,
+           END OF ty_response.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
@@ -29,6 +46,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
     DATA ls_request TYPE ty_request.
+    DATA ls_response TYPE ty_response.
     DATA lv_json_resp TYPE string.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
@@ -41,7 +59,17 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
         data = ls_request ).
 
     IF ls_request-object_type IS INITIAL OR ls_request-object_name IS INITIAL.
-      lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
+      ls_response-success = ''.
+      ls_response-object_type = ls_request-object_type.
+      ls_response-object_name = ls_request-object_name.
+      ls_response-error_count = 1.
+      DATA ls_error TYPE ty_error.
+      ls_error-line = '1'.
+      ls_error-column = '1'.
+      ls_error-text = 'Object type and name are required'.
+      ls_error-word = ''.
+      APPEND ls_error TO ls_response-errors.
+      lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
