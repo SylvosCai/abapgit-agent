@@ -12,6 +12,11 @@ CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
   PRIVATE SECTION.
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_syntax_agent.
 
+    TYPES: BEGIN OF ty_request,
+             object_type TYPE string,
+             object_name TYPE string,
+           END OF ty_request.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
@@ -25,44 +30,12 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_json TYPE string.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    DATA lv_object_type TYPE string.
-    DATA lv_object_name TYPE string.
-    DATA lv_pos TYPE i.
-    DATA lv_len TYPE i.
-    DATA lv_end TYPE i.
+    " Parse JSON using /UI2/CL_JSON
+    DATA ls_request TYPE ty_request.
+    ls_request = /ui2/cl_json=>deserialize( json = lv_json ).
 
-    " Parse object_type from JSON: "object_type":"<value>"
-    FIND '"object_type":"' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 15.
-      lv_len = strlen( lv_json ).
-      IF lv_pos < lv_len.
-        lv_object_type = lv_json+lv_pos.
-        " Find end quote"
-        FIND '"' IN lv_object_type MATCH OFFSET lv_end.
-        IF sy-subrc = 0.
-          lv_object_type = lv_object_type(lv_end).
-        ENDIF.
-      ENDIF.
-    ENDIF.
-
-    " Parse object_name from JSON: "object_name":"<value>"
-    FIND '"object_name":"' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 14.
-      lv_len = strlen( lv_json ).
-      IF lv_pos < lv_len.
-        lv_object_name = lv_json+lv_pos.
-        " Find end quote"
-        FIND '"' IN lv_object_name MATCH OFFSET lv_end.
-        IF sy-subrc = 0.
-          lv_object_name = lv_object_name(lv_end).
-        ENDIF.
-      ENDIF.
-    ENDIF.
-
-    DATA lv_json_resp TYPE string.
-    IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
+    IF ls_request-object_type IS INITIAL OR ls_request-object_name IS INITIAL.
+      DATA lv_json_resp TYPE string.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
@@ -73,8 +46,8 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
     " Call syntax check agent - returns JSON string directly
     lv_json_resp = mo_agent->syntax_check(
-      iv_object_type = lv_object_type
-      iv_object_name = lv_object_name ).
+      iv_object_type = ls_request-object_type
+      iv_object_name = ls_request-object_name ).
 
     DATA(lo_response_entity) = mo_response->create_entity( ).
     lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
