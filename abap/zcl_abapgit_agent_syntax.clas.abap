@@ -13,14 +13,15 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
-    DATA lv_json TYPE string.
+    DATA: lv_json TYPE string,
+          lv_pos TYPE i,
+          lv_object_type TYPE string,
+          lv_object_name TYPE string.
+
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    DATA lv_object_type TYPE string.
-    DATA lv_object_name TYPE string.
-
     " Parse object_type from JSON
-    FIND '"object_type":' IN lv_json MATCH OFFSET DATA(lv_pos).
+    FIND '"object_type":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 14.
       lv_object_type = lv_json+lv_pos.
@@ -45,7 +46,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    DATA lv_json_resp TYPE string.
+    DATA: lv_json_resp TYPE string.
     IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
