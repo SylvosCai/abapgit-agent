@@ -149,22 +149,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Check if function module exists
-    DATA lv_func_exists TYPE abap_bool.
-    lv_func_exists = abap_false.
-    FUNCTION EXISTS RSYNTAX_CHECK_OBJECT.
-      lv_func_exists = abap_true.
-    ENDFUNCTION.
-
-    IF lv_func_exists = abap_false.
-      rs_result-error_count = 1.
-      ls_err-line = '1'.
-      ls_err-column = '1'.
-      ls_err-text = 'Syntax check not available in this system'.
-      APPEND ls_err TO rs_result-errors.
-      RETURN.
-    ENDIF.
-
     " Local structure for syntax errors
     DATA: BEGIN OF ls_error,
             line TYPE string,
@@ -175,15 +159,25 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     DATA lt_errors LIKE TABLE OF ls_error.
 
     " Call syntax check function module
-    CALL FUNCTION 'RSYNTAX_CHECK_OBJECT'
-      EXPORTING
-        object_name = iv_object_name
-        object_type = iv_object_type
-      TABLES
-        error_table = lt_errors
-      EXCEPTIONS
-        object_not_found = 1
-        OTHERS = 2.
+    TRY.
+        CALL FUNCTION 'RSYNTAX_CHECK_OBJECT'
+          EXPORTING
+            object_name = iv_object_name
+            object_type = iv_object_type
+          TABLES
+            error_table = lt_errors
+          EXCEPTIONS
+            object_not_found = 1
+            OTHERS = 2.
+      CATCH cx_sy_dyn_call_uncallable.
+        " Function does not exist
+        rs_result-error_count = 1.
+        ls_err-line = '1'.
+        ls_err-column = '1'.
+        ls_err-text = 'Syntax check not available in this system'.
+        APPEND ls_err TO rs_result-errors.
+        RETURN.
+    ENDTRY.
 
     IF sy-subrc <> 0.
       rs_result-error_count = 1.
