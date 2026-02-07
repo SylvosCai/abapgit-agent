@@ -40,13 +40,32 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
     rs_result-object_name = iv_object_name.
 
     TRY.
-        " Build object structure
+        " Find the package (devclass) for the object
+        DATA lv_devclass TYPE devclass.
+        SELECT SINGLE devclass FROM tadir
+          INTO lv_devclass
+          WHERE pgmid = 'R3TR'
+            AND object = iv_object_type
+            AND obj_name = iv_object_name.
+
+        IF lv_devclass IS INITIAL.
+          rs_result-success = abap_false.
+          rs_result-error_count = 1.
+          ls_error-line = '1'.
+          ls_error-column = '1'.
+          ls_error-text = |Object { iv_object_type } { iv_object_name } not found in TADIR|.
+          ls_error-word = ''.
+          APPEND ls_error TO rs_result-errors.
+          RETURN.
+        ENDIF.
+
+        " Create object structure for the package
         DATA: BEGIN OF ls_obj,
                 objtype TYPE trobjtype,
                 objname TYPE sobj_name,
               END OF ls_obj.
-        ls_obj-objtype = iv_object_type.
-        ls_obj-objname = iv_object_name.
+        ls_obj-objtype = 'DEVC'.
+        ls_obj-objname = lv_devclass.
 
         DATA lt_objects TYPE scit_objs.
         APPEND ls_obj TO lt_objects.
