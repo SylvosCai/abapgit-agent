@@ -60,10 +60,7 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
         ENDIF.
 
         " Create object structure for the package
-        DATA: BEGIN OF ls_obj,
-                objtype TYPE trobjtype,
-                objname TYPE sobj_name,
-              END OF ls_obj.
+        DATA ls_obj TYPE scir_objs.
         ls_obj-objtype = 'DEVC'.
         ls_obj-objname = lv_devclass.
 
