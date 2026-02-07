@@ -16,32 +16,18 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_json TYPE string.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
+    " Parse JSON using /UI2/CL_JSON
+    DATA: BEGIN OF ls_request,
+            object_type TYPE string,
+            object_name TYPE string,
+          END OF ls_request.
+
+    /ui2/cl_json=>deserialize( EXPORTING json = lv_json CHANGING data = ls_request ).
+
     DATA lv_object_type TYPE string.
     DATA lv_object_name TYPE string.
-
-    FIND '"object_type":' IN lv_json MATCH OFFSET DATA(lv_pos).
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 14.  " length of "object_type":
-      lv_object_type = lv_json+lv_pos.
-      SHIFT lv_object_type LEFT UP TO '"'.
-      SHIFT lv_object_type LEFT.
-      FIND '"' IN lv_object_type MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_object_type = lv_object_type(lv_pos).
-      ENDIF.
-    ENDIF.
-
-    FIND '"object_name":' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 13.  " length of "object_name":
-      lv_object_name = lv_json+lv_pos.
-      SHIFT lv_object_name LEFT UP TO '"'.
-      SHIFT lv_object_name LEFT.
-      FIND '"' IN lv_object_name MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_object_name = lv_object_name(lv_pos).
-      ENDIF.
-    ENDIF.
+    lv_object_type = ls_request-object_type.
+    lv_object_name = ls_request-object_name.
 
     DATA lv_json_resp TYPE string.
     IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
