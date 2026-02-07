@@ -40,7 +40,7 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
     rs_result-object_name = iv_object_name.
 
     TRY.
-        " Find the package (devclass) for the object
+        " Check if object exists in TADIR
         DATA lv_devclass TYPE devclass.
         SELECT SINGLE devclass FROM tadir
           INTO lv_devclass
@@ -53,16 +53,16 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
           rs_result-error_count = 1.
           ls_error-line = '1'.
           ls_error-column = '1'.
-          ls_error-text = |Object { iv_object_type } { iv_object_name } not found in TADIR|.
+          ls_error-text = |Object { iv_object_type } { iv_object_name } does not exist|.
           ls_error-word = ''.
           APPEND ls_error TO rs_result-errors.
           RETURN.
         ENDIF.
 
-        " Create object structure for the package
+        " Create object structure for the specific object
         DATA ls_obj TYPE scir_objs.
-        ls_obj-objtype = 'DEVC'.
-        ls_obj-objname = lv_devclass.
+        ls_obj-objtype = iv_object_type.
+        ls_obj-objname = iv_object_name.
 
         DATA lt_objects TYPE scit_objs.
         APPEND ls_obj TO lt_objects.
