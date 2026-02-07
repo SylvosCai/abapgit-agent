@@ -81,8 +81,8 @@ ENDINTERFACE.
 #### 1.3 REST API Handlers (DONE)
 - `ZCL_ABAPGIT_AGENT_HANDLER` - Router for all endpoints
 - `ZCL_ABAPGIT_AGENT_PULL` - POST /pull endpoint
-- `ZCL_ABAPGIT_AGENT_STATUS` - GET /status endpoint
 - `ZCL_ABAPGIT_AGENT_HEALTH` - GET /health endpoint
+- `ZCL_ABAPGIT_AGENT_SYNTAX` - POST /syntax-check endpoint
 
 ### 2. Local Agent (Node.js)
 
@@ -107,9 +107,10 @@ abap-ai-bridge/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/pull` | Pull and activate repo |
-| GET | `/status?job_id=<id>` | Get job status |
-| GET | `/health` | Health check |
+| GET | `/health` | Health check (also fetches CSRF token) |
+| POST | `/pull` | Pull and activate repository |
+| POST | `/syntax-check` | Check syntax of specific ABAP object |
+| POST | `/unit` | **TODO** - Execute unit tests for package or objects |
 
 ## Implementation Status
 
@@ -230,4 +231,63 @@ ENDMETHOD.
 - [ ] OAuth authentication
 - [ ] Multi-system support
 - [ ] Repository management UI
-- [ ] **Syntax Error Detail Parsing**: Extract line numbers, error codes from syntax errors. Query SEPSA/TRINT_OBJECT_LOG for detailed error info (line, column, fix suggestions)
+- [x] **Syntax Error Detail Parsing**: Extract line numbers, error codes from syntax errors (DONE via `/syntax-check`)
+
+## TODO: Unit Test Endpoint (`/unit`)
+
+### Overview
+Add a new REST endpoint to execute ABAP unit tests for:
+- All tests in a package
+- Specific test objects (classes, function groups)
+
+### API Design
+
+**POST /unit**
+
+Request body:
+```json
+{
+  "package": "ZMY_PACKAGE",           // Optional: run all tests in package
+  "objects": [                        // Optional: specific objects
+    {"object_type": "CLAS", "object_name": "ZCL_TEST"}
+  ]
+}
+```
+
+Response:
+```json
+{
+  "success": "X",
+  "test_count": 5,
+  "passed_count": 4,
+  "failed_count": 1,
+  "results": [
+    {"object_type": "CLAS", "object_name": "ZCL_TEST", "method": "TEST_METHOD", "passed": true},
+    {"object_type": "CLAS", "object_name": "ZCL_TEST", "method": "FAILING_TEST", "passed": false, "error": "Assertion failed"}
+  ]
+}
+```
+
+### Implementation Tasks
+
+#### ABAP Side
+- [ ] Create `ZCL_ABAPGIT_AGENT_UNIT_AGENT` - Unit test execution logic
+  - Query SEU_OBJ for test objects in package
+  - Use `CL_AUNIT_ASSERT` or `CL_AUNIT_PROGRESS` for test execution
+  - Parse test results into structured format
+- [ ] Create `ZCL_ABAPGIT_AGENT_UNIT` - REST handler for POST /unit
+  - Accept package or object list in request body
+  - Call unit agent and format response
+
+#### CLI Side
+- [ ] Add `unitTest()` method to `src/abap-client.js`
+- [ ] Add `unitCheck()` method to `src/agent.js`
+- [ ] Add `unit` command to `bin/abapgit-agent`
+  - `--package <pkg>` - Run all tests in package
+  - `--object <type> <name>` - Run tests for specific object
+
+### ABAP APIs for Unit Testing
+- `CL_AUNIT_TEST_RUNNER` - Execute unit tests
+- `CL_AUNIT_ASSERT` - Assertions for tests
+- `SE24` - Test class execution
+- `SUTD` - Test suite definitions

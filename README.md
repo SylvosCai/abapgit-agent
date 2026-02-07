@@ -212,11 +212,20 @@ abapgit-agent pull --branch develop
 # Override git URL if needed
 abapgit-agent pull --url https://github.tools.sap/user/repo --branch main
 
+# Syntax check for specific object
+abapgit-agent syntax-check <object_type> <object_name>
+
 # Health check
 abapgit-agent health
 
 # Check integration status
 abapgit-agent status
+
+# Run unit tests for a package (planned)
+abapgit-agent unit --package <package>
+
+# Run unit tests for specific objects (planned)
+abapgit-agent unit --object <type> <name>
 ```
 
 ### Local Development
@@ -240,7 +249,9 @@ The ABAP system exposes these endpoints:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
-| POST | `/pull` | Pull and activate (requires CSRF token) |
+| POST | `/pull` | Pull and activate repository |
+| POST | `/syntax-check` | Check syntax of specific ABAP object |
+| POST | `/unit` | Execute unit tests (planned) |
 
 ### POST /pull
 
@@ -299,6 +310,38 @@ Response:
 {"status":"OK","version":"1.0.0"}
 ```
 
+### POST /syntax-check
+
+Check syntax of a specific ABAP object:
+
+```bash
+curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/syntax-check" \
+  -H "Content-Type: application/json" \
+  -H "sap-client: 100" \
+  -H "X-CSRF-Token: $CSRF" \
+  -b cookies.txt \
+  -u USER:PASSWORD \
+  -d '{"object_type": "CLAS", "object_name": "ZCL_MY_CLASS"}'
+```
+
+Request body:
+```json
+{
+  "object_type": "CLAS",
+  "object_name": "ZCL_MY_CLASS"
+}
+```
+
+Response (success):
+```json
+{"success":"X","object_type":"CLAS","object_name":"ZCL_MY_CLASS","error_count":0,"errors":[]}
+```
+
+Response (with errors):
+```json
+{"success":"","object_type":"CLAS","object_name":"ZCL_MY_CLASS","error_count":2,"errors":[{"line":"15","column":"12","text":"\"MESSAGE\" is not a declaration"},{"line":"20","column":"5","text\":\"Variable \"LV_TEST\" not found\"}]}
+```
+
 ## API Response Structure
 
 ### Pull Response Fields
@@ -309,6 +352,16 @@ Response:
 | `job_id` | String | Job identifier |
 | `message` | String | Status message |
 | `error_detail` | String | Error details (if any) |
+
+### Syntax Check Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | String | 'X' for no errors, '' for errors |
+| `object_type` | String | ABAP object type (e.g., 'CLAS', 'PROG') |
+| `object_name` | String | ABAP object name |
+| `error_count` | Integer | Number of syntax errors found |
+| `errors` | Array | List of errors with line, column, text |
 
 ## Workflow with Claude Code
 

@@ -10,6 +10,7 @@ This is an ABAP project. **Do not attempt local syntax validation** - ABAP code 
 2. Run `abapgit-agent pull` to pull and activate in ABAP system
 3. Review activation results for errors
 4. If errors exist, fix them and repeat
+5. Use `abapgit-agent syntax-check <type> <name>` for detailed syntax errors
 
 ```bash
 # After making changes to ABAP files
@@ -19,6 +20,12 @@ git push
 
 # Validate in ABAP system
 abapgit-agent pull
+
+# Check specific object for syntax errors
+abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+
+# Run unit tests (planned)
+abapgit-agent unit --package ZMY_PACKAGE
 ```
 
 ## ABAP Reference
