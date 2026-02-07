@@ -21,7 +21,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
     FIND '"object_type":' IN lv_json MATCH OFFSET DATA(lv_pos).
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 15.
+      lv_pos = lv_pos + 14.  " length of "object_type":
       lv_object_type = lv_json+lv_pos.
       SHIFT lv_object_type LEFT UP TO '"'.
       SHIFT lv_object_type LEFT.
@@ -33,7 +33,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
     FIND '"object_name":' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
-      lv_pos = lv_pos + 14.
+      lv_pos = lv_pos + 13.  " length of "object_name":
       lv_object_name = lv_json+lv_pos.
       SHIFT lv_object_name LEFT UP TO '"'.
       SHIFT lv_object_name LEFT.
