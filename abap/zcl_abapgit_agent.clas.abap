@@ -149,8 +149,14 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA: lt_errors TYPE TABLE OF rslinemsg.
-    DATA: lt_source TYPE TABLE OF string.
+    " Local structure for syntax errors
+    DATA: BEGIN OF ls_error,
+            line TYPE string,
+            column TYPE string,
+            text TYPE string,
+            word TYPE string,
+          END OF ls_error.
+    DATA lt_errors LIKE TABLE OF ls_error.
 
     " Call syntax check function module
     CALL FUNCTION 'RSYNTAX_CHECK_OBJECT'
@@ -159,7 +165,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         object_type = iv_object_type
       TABLES
         error_table = lt_errors
-        source_table = lt_source
       EXCEPTIONS
         object_not_found = 1
         OTHERS = 2.
@@ -178,7 +183,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     lv_error_count = lines( lt_errors ).
     rs_result-error_count = lv_error_count.
 
-    LOOP AT lt_errors INTO DATA(ls_error).
+    LOOP AT lt_errors INTO ls_error.
       ls_err-line = ls_error-line.
       ls_err-column = ls_error-column.
       ls_err-text = ls_error-text.
