@@ -12,7 +12,7 @@ This project provides a bridge between AI coding tools and your ABAP system:
 
 ## Quick Start
 
-1. **Install CLI**: `npm install -g abap-ai-bridge`
+1. **Install CLI**: From this repo, run `sudo npm link`
 2. **Configure repo**: Add `.abapGitAgent` with SAP credentials
 3. **Validate code**: Run `abapgit-agent pull` after pushing
 
@@ -22,7 +22,7 @@ See [Creating New ABAP Projects](#creating-new-abap-projects) to set up a new AB
 
 This package supports **system-level integration**, meaning any ABAP git repository can use it without cloning this repository:
 
-1. **Install globally**: `npm install -g abap-ai-bridge`
+1. **Install globally**: `sudo npm link`
 2. **Configure**: Add `.abapGitAgent` to your ABAP repo
 3. **Use**: Run `abapgit-agent` from your repo directory
 
@@ -82,7 +82,7 @@ Deploy ABAP objects using abapGit:
 
 ```bash
 # Option A: Install globally for system-level integration
-npm install -g abap-ai-bridge
+sudo npm link
 
 # Option B: Use from cloned repo
 cd abap-ai-bridge
@@ -178,7 +178,7 @@ See `abap/CLAUDE.md` for detailed ABAP project guidelines.
 
 1. **Install globally** (optional, for system-level integration):
    ```bash
-   npm install -g abap-ai-bridge
+   sudo npm link
    ```
 
 2. **Configure your repository** - Create `.abapGitAgent` in repo root:
