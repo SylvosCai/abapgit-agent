@@ -19,7 +19,12 @@
       "Bash(node:*)",
       "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 node:*)",
       "Bash(export NODE_TLS_REJECT_UNAUTHORIZED=0)",
-      "Bash(__NEW_LINE_2af078e9a9e1dd23__ node -e \"\nconst { ABAPGitAgent } = require\\(''./src/agent''\\);\nconst agent = new ABAPGitAgent\\(\\);\n\nagent.pull\\(''https://github.tools.sap/I045696/abap-ai-bridge.git'', ''main''\\)\n  .then\\(result => {\n    console.log\\(JSON.stringify\\(result, null, 2\\)\\);\n  }\\)\n  .catch\\(err => {\n    console.error\\(''Error:'', err.message\\);\n  }\\);\n\")"
+      "Bash(__NEW_LINE_2af078e9a9e1dd23__ node -e \"\nconst { ABAPGitAgent } = require\\(''./src/agent''\\);\nconst agent = new ABAPGitAgent\\(\\);\n\nagent.pull\\(''https://github.tools.sap/I045696/abap-ai-bridge.git'', ''main''\\)\n  .then\\(result => {\n    console.log\\(JSON.stringify\\(result, null, 2\\)\\);\n  }\\)\n  .catch\\(err => {\n    console.error\\(''Error:'', err.message\\);\n  }\\);\n\")",
+      "Bash(npm view:*)",
+      "Bash(npm search:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)"
     ]
   }
 }
