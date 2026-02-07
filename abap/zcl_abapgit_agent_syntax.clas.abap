@@ -72,7 +72,24 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_error_count TYPE string.
     lv_error_count = ls_result-error_count.
 
-    CONCATENATE '{"success":"' lv_success '","object_type":"' lv_object_type '","object_name":"' lv_object_name '","error_count":' lv_error_count ',"errors":[]}' INTO lv_json_resp.
+    " Build JSON response with errors
+    DATA lv_errors_json TYPE string.
+    lv_errors_json = '['.
+
+    DATA lv_first TYPE abap_bool VALUE abap_true.
+    LOOP AT ls_result-errors ASSIGNING FIELD-SYMBOL(<ls_err>).
+      IF lv_first = abap_false.
+        CONCATENATE lv_errors_json ',' INTO lv_errors_json.
+      ENDIF.
+      lv_first = abap_false.
+      DATA lv_err_json TYPE string.
+      CONCATENATE '{"line":"' <ls_err>-line '","column":"' <ls_err>-column '","text":"' <ls_err>-text '","word":"' <ls_err>-word '"}' INTO lv_err_json.
+      CONCATENATE lv_errors_json lv_err_json INTO lv_errors_json.
+    ENDLOOP.
+
+    CONCATENATE lv_errors_json ']' INTO lv_errors_json.
+
+    CONCATENATE '{"success":"' lv_success '","object_type":"' lv_object_type '","object_name":"' lv_object_name '","error_count":' lv_error_count ',"errors":' lv_errors_json '}' INTO lv_json_resp.
 
     DATA lo_response_entity TYPE REF TO if_rest_entity.
     lo_response_entity = mo_response->create_entity( ).
