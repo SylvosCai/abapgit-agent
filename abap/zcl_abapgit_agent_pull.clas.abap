@@ -96,34 +96,34 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA(lv_activated_json) = '[]'.
     IF ls_result-activated_objects IS NOT INITIAL.
       DATA: ls_act TYPE zif_abapgit_agent=>ty_object.
-      DATA(lv_activated_items) = ''.
+      DATA(lv_activated_items) TYPE string.
+      CLEAR lv_activated_items.
       LOOP AT ls_result-activated_objects INTO ls_act.
-        CONCATENATE '{"obj_type":"' ls_act-obj_type '","obj_name":"' ls_act-obj_name '","text":"' ls_act-text '"}'
-          INTO DATA(lv_item) RESPECTING BLANKS.
+        DATA(lv_item) = '{"obj_type":"' && ls_act-obj_type && '","obj_name":"' && ls_act-obj_name && '","text":"' && ls_act-text && '"}'.
         IF lv_activated_items IS INITIAL.
           lv_activated_items = lv_item.
         ELSE.
           lv_activated_items = lv_activated_items && ',' && lv_item.
         ENDIF.
       ENDLOOP.
-      CONCATENATE '[' lv_activated_items ']' INTO lv_activated_json.
+      lv_activated_json = '[' && lv_activated_items && ']'.
     ENDIF.
 
     " Build failed objects JSON array
     DATA(lv_failed_json) = '[]'.
     IF ls_result-failed_objects IS NOT INITIAL.
       DATA: ls_fail TYPE zif_abapgit_agent=>ty_object.
-      DATA(lv_failed_items) = ''.
+      DATA(lv_failed_items) TYPE string.
+      CLEAR lv_failed_items.
       LOOP AT ls_result-failed_objects INTO ls_fail.
-        CONCATENATE '{"obj_type":"' ls_fail-obj_type '","obj_name":"' ls_fail-obj_name '","text":"' ls_fail-text '"}'
-          INTO DATA(lv_fail_item) RESPECTING BLANKS.
+        DATA(lv_fail_item) = '{"obj_type":"' && ls_fail-obj_type && '","obj_name":"' && ls_fail-obj_name && '","text":"' && ls_fail-text && '"}'.
         IF lv_failed_items IS INITIAL.
           lv_failed_items = lv_fail_item.
         ELSE.
           lv_failed_items = lv_failed_items && ',' && lv_fail_item.
         ENDIF.
       ENDLOOP.
-      CONCATENATE '[' lv_failed_items ']' INTO lv_failed_json.
+      lv_failed_json = '[' && lv_failed_items && ']'.
     ENDIF.
 
     " Build complete JSON response
@@ -133,18 +133,14 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     lv_failed_str = ls_result-failed_count.
 
     IF ls_result-success = abap_true.
-      CONCATENATE
-        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
-        '","activated_count":' lv_count_str ',"failed_count":' lv_failed_str
-        ',"activated_objects":' lv_activated_json ',"failed_objects":' lv_failed_json '}'
-      INTO lv_json_resp.
+      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' && ls_result-job_id && '","message":"' && ls_result-message &&
+        '","activated_count":' && lv_count_str && ',"failed_count":' && lv_failed_str &&
+        ',"activated_objects":' && lv_activated_json && ',"failed_objects":' && lv_failed_json && '}'.
     ELSE.
-      CONCATENATE
-        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
-        '","error_detail":"' ls_result-error_detail
-        '","activated_count":' lv_count_str ',"failed_count":' lv_failed_str
-        ',"activated_objects":' lv_activated_json ',"failed_objects":' lv_failed_json '}'
-      INTO lv_json_resp.
+      lv_json_resp = '{"success":"' && lv_success && '","job_id":"' && ls_result-job_id && '","message":"' && ls_result-message &&
+        '","error_detail":"' && ls_result-error_detail &&
+        '","activated_count":' && lv_count_str && ',"failed_count":' && lv_failed_str &&
+        '","activated_objects":' && lv_activated_json && ',"failed_objects":' && lv_failed_json && '}'.
     ENDIF.
 
     lo_entity = mo_response->create_entity( ).
