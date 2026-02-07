@@ -91,14 +91,56 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       iv_password = lv_password ).
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
+
+    " Build activated objects JSON array
+    DATA(lv_activated_json) = '[]'.
+    IF ls_result-activated_objects IS NOT INITIAL.
+      DATA: ls_act TYPE zif_abapgit_agent=>ty_object.
+      DATA(lv_activated_items) = ''.
+      LOOP AT ls_result-activated_objects INTO ls_act.
+        DATA(lv_item) = |{{"obj_type":"{ ls_act-obj_type }","obj_name":"{ ls_act-obj_name }","text":"{ ls_act-text }"}}|.
+        IF lv_activated_items IS INITIAL.
+          lv_activated_items = lv_item.
+        ELSE.
+          lv_activated_items = lv_activated_items && ',' && lv_item.
+        ENDIF.
+      ENDLOOP.
+      CONCATENATE '[' lv_activated_items ']' INTO lv_activated_json.
+    ENDIF.
+
+    " Build failed objects JSON array
+    DATA(lv_failed_json) = '[]'.
+    IF ls_result-failed_objects IS NOT INITIAL.
+      DATA: ls_fail TYPE zif_abapgit_agent=>ty_object.
+      DATA(lv_failed_items) = ''.
+      LOOP AT ls_result-failed_objects INTO ls_fail.
+        DATA(lv_fail_item) = |{{"obj_type":"{ ls_fail-obj_type }","obj_name":"{ ls_fail-obj_name }","text":"{ ls_fail-text }"}}|.
+        IF lv_failed_items IS INITIAL.
+          lv_failed_items = lv_fail_item.
+        ELSE.
+          lv_failed_items = lv_failed_items && ',' && lv_fail_item.
+        ENDIF.
+      ENDLOOP.
+      CONCATENATE '[' lv_failed_items ']' INTO lv_failed_json.
+    ENDIF.
+
+    " Build complete JSON response
     IF ls_result-success = abap_true.
       CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
-                   '","message":"' ls_result-message '"}'
+                   '","message":"' ls_result-message
+                   '","activated_count":' ls_result-activated_count
+                   ',"failed_count":' ls_result-failed_count
+                   ',"activated_objects":' lv_activated_json
+                   ',"failed_objects":' lv_failed_json '}'
       INTO lv_json_resp.
     ELSE.
       CONCATENATE '{"success":"' lv_success '","job_id":"' ls_result-job_id
                    '","message":"' ls_result-message
-                   '","error_detail":"' ls_result-error_detail '"}'
+                   '","error_detail":"' ls_result-error_detail
+                   '","activated_count":' ls_result-activated_count
+                   ',"failed_count":' ls_result-failed_count
+                   ',"activated_objects":' lv_activated_json
+                   ',"failed_objects":' lv_failed_json '}'
       INTO lv_json_resp.
     ENDIF.
 

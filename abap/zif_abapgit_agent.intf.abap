@@ -1,5 +1,13 @@
 INTERFACE zif_abapgit_agent PUBLIC.
 
+  TYPES: BEGIN OF ty_object,
+    obj_type TYPE string,
+    obj_name TYPE string,
+    text TYPE string,
+  END OF ty_object.
+
+  TYPES: ty_object_list TYPE TABLE OF ty_object.
+
   TYPES: BEGIN OF ty_result,
     success TYPE abap_bool,
     job_id TYPE string,
@@ -7,6 +15,8 @@ INTERFACE zif_abapgit_agent PUBLIC.
     error_detail TYPE string,
     activated_count TYPE i,
     failed_count TYPE i,
+    activated_objects TYPE ty_object_list,
+    failed_objects TYPE ty_object_list,
     started_at TYPE timestampl,
     finished_at TYPE timestampl,
   END OF ty_result.

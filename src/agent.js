@@ -29,7 +29,11 @@ class ABAPGitAgent {
         success: result.success === 'X' || result.success === true,
         job_id: result.job_id,
         message: result.message,
-        error_detail: result.error_detail || null
+        error_detail: result.error_detail || null,
+        activated_count: result.activated_count || 0,
+        failed_count: result.failed_count || 0,
+        activated_objects: result.activated_objects || [],
+        failed_objects: result.failed_objects || []
       };
 
     } catch (error) {

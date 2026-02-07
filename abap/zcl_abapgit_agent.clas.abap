@@ -32,6 +32,9 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       get_log_detail
         RETURNING VALUE(rv_detail) TYPE string,
 
+      get_object_lists
+        RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result,
+
       handle_exception
         IMPORTING ix_exception TYPE REF TO cx_root
         RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result.
@@ -76,9 +79,17 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             is_checks = ls_checks
             ii_log   = mo_repo->get_log( ) ).
 
-          " Check the abapGit log for errors
+          " Check the abapGit log for errors and extract object lists
           DATA(lv_has_error) = check_log_for_errors( ).
           DATA(lv_error_detail) = get_log_detail( ).
+
+          " Extract activated and failed objects from the log
+          DATA(ls_obj_result) = get_object_lists( ).
+
+          rs_result-activated_objects = ls_obj_result-activated_objects.
+          rs_result-failed_objects = ls_obj_result-failed_objects.
+          rs_result-activated_count = lines( ls_obj_result-activated_objects ).
+          rs_result-failed_count = lines( ls_obj_result-failed_objects ).
 
           IF lv_has_error = abap_true.
             rs_result-message = 'Pull completed with errors'.
@@ -181,6 +192,35 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       IF rv_detail IS NOT INITIAL.
         rv_detail = |Errors/Warnings:{ rv_detail }|.
       ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_object_lists.
+    " Extract activated and failed objects from the log
+    DATA: lo_log TYPE REF TO zif_abapgit_log.
+
+    CLEAR: rs_result-activated_objects, rs_result-failed_objects.
+
+    lo_log = mo_repo->get_log( ).
+    IF lo_log IS BOUND.
+      DATA: lt_messages TYPE zif_abapgit_log=>ty_log_outs.
+      DATA: ls_msg TYPE zif_abapgit_log=>ty_log_out.
+      lt_messages = lo_log->get_messages( ).
+
+      LOOP AT lt_messages INTO ls_msg.
+        DATA: ls_object TYPE zif_abapgit_agent=>ty_object.
+        ls_object-obj_type = ls_msg-obj_type.
+        ls_object-obj_name = ls_msg-obj_name.
+        ls_object-text = ls_msg-text.
+
+        " Success messages (type 'S') - activated objects
+        IF ls_msg-type = 'S'.
+          APPEND ls_object TO rs_result-activated_objects.
+        " Error/Abort/Warning messages - failed objects
+        ELSEIF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
+          APPEND ls_object TO rs_result-failed_objects.
+        ENDIF.
+      ENDLOOP.
     ENDIF.
   ENDMETHOD.
 
