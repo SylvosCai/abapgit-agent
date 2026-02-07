@@ -92,54 +92,47 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
 
-    " Build activated objects list as simple text
-    DATA: lv_activated_list TYPE string.
-    DATA: lv_failed_list TYPE string.
+    " Build response structure
+    DATA: BEGIN OF ls_response,
+            success TYPE string,
+            job_id TYPE string,
+            message TYPE string,
+            error_detail TYPE string,
+            activated_count TYPE i,
+            failed_count TYPE i,
+            activated_list TYPE string,
+            failed_list TYPE string,
+          END OF ls_response.
 
-    " Build simple object lists (obj_type obj_name: text)
+    ls_response-success = lv_success.
+    ls_response-job_id = ls_result-job_id.
+    ls_response-message = ls_result-message.
+    ls_response-error_detail = ls_result-error_detail.
+    ls_response-activated_count = ls_result-activated_count.
+    ls_response-failed_count = ls_result-failed_count.
+
+    " Build simple object lists (pipe-separated)
     LOOP AT ls_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
       DATA(lv_act_item) = <ls_act>-obj_type && ` ` && <ls_act>-obj_name.
-      IF lv_activated_list IS INITIAL.
-        lv_activated_list = lv_act_item.
+      IF ls_response-activated_list IS INITIAL.
+        ls_response-activated_list = lv_act_item.
       ELSE.
-        lv_activated_list = lv_activated_list && '|' && lv_act_item.
+        ls_response-activated_list = ls_response-activated_list && '|' && lv_act_item.
       ENDIF.
     ENDLOOP.
 
     LOOP AT ls_result-failed_objects ASSIGNING FIELD-SYMBOL(<ls_fail>).
       DATA(lv_fail_item) = <ls_fail>-obj_type && ` ` && <ls_fail>-obj_name && `: ` && <ls_fail>-text.
-      IF lv_failed_list IS INITIAL.
-        lv_failed_list = lv_fail_item.
+      IF ls_response-failed_list IS INITIAL.
+        ls_response-failed_list = lv_fail_item.
       ELSE.
-        lv_failed_list = lv_failed_list && '|' && lv_fail_item.
+        ls_response-failed_list = ls_response-failed_list && '|' && lv_fail_item.
       ENDIF.
     ENDLOOP.
 
-    " Convert counts to string
-    DATA: lv_act_count TYPE string.
-    DATA: lv_fail_count TYPE string.
-    lv_act_count = ls_result-activated_count.
-    lv_fail_count = ls_result-failed_count.
+    " Use /UI2/CL_JSON for proper JSON serialization
+    lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
 
-    " Build JSON response
-    IF ls_result-success = abap_true.
-      CONCATENATE
-        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
-        '","activated_count":' lv_act_count ','
-        '"failed_count":' lv_fail_count ','
-        '"activated_list":"' lv_activated_list '",'
-        '"failed_list":"' lv_failed_list '"}'
-      INTO lv_json_resp.
-    ELSE.
-      CONCATENATE
-        '{"success":"' lv_success '","job_id":"' ls_result-job_id '","message":"' ls_result-message
-        '","error_detail":"' ls_result-error_detail
-        '","activated_count":' lv_act_count ','
-        '"failed_count":' lv_fail_count ','
-        '"activated_list":"' lv_activated_list '",'
-        '"failed_list":"' lv_failed_list '"}'
-      INTO lv_json_resp.
-    ENDIF.
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
