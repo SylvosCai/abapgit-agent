@@ -1,0 +1,37 @@
+# npm ignore
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test files
+tests/
+*.test.js
+coverage/
+
+# Development files
+IMPLEMENTATION_PLAN.md
+.claude/
+.gitignore
+.gitattributes
+
+# Local files (not needed in package)
+cookies.txt
+.abapGitAgent
+.abapgit_agent_cookies.txt
+.abapgit.xml
+O

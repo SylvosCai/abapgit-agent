@@ -285,6 +285,8 @@ async function syntaxCheck(objectType, objectName) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken });
 
+    console.log('Raw result:', JSON.stringify(result, null, 2));
+
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
     const objType = result.OBJECT_TYPE || result.object_type;

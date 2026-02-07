@@ -4,7 +4,7 @@
   "description": "ABAP AI Bridge - Pull and activate ABAP code via abapGit from any git repository",
   "main": "src/index.js",
   "bin": {
-    "abapgit-agent": "./bin/abapgit-agent"
+    "abapgit-agent": "bin/abapgit-agent"
   },
   "scripts": {
     "start": "node src/server.js",

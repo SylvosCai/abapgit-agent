@@ -24,7 +24,8 @@
       "Bash(npm search:*)",
       "Bash(git branch:*)",
       "Bash(git checkout:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(abapgit-agent pull:*)"
     ]
   }
 }
