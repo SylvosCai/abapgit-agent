@@ -236,7 +236,6 @@ function request(method, path, data = null, options = {}) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
-        console.log('ABAP Response:', body);
         try {
           // Handle unescaped newlines from ABAP - replace actual newlines with \n
           const cleanedBody = body.replace(/\n/g, '\\n');
