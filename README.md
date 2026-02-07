@@ -30,13 +30,13 @@ Claude (VS Code) → CLI Tool → ABAP System (REST/HTTP)
 
 ### ABAP Side - REST Implementation
 
-| Object | Type | Description |
-|--------|------|-------------|
-| `ZIF_ABAPGIT_AGENT` | Interface | Type definitions and method signatures |
-| `ZCL_ABAPGIT_AGENT` | Class | OO implementation with `pull` method |
-| `ZCL_ABAPGIT_AGENT_HANDLER` | Class | REST router for endpoints |
-| `ZCL_ABAPGIT_AGENT_PULL` | Class | POST /pull handler |
-| `ZCL_ABAPGIT_AGENT_HEALTH` | Class | GET /health handler |
+| File | Type | Description |
+|------|------|-------------|
+| `zif_abapgit_agent.intf.abap` | Interface | Type definitions and method signatures |
+| `zcl_abapgit_agent.clas.abap` | Class | OO implementation with `pull` method |
+| `zcl_abapgit_agent_handler.clas.abap` | Class | REST router for endpoints |
+| `zcl_abapgit_agent_pull.clas.abap` | Class | POST /pull handler |
+| `zcl_abapgit_agent_health.clas.abap` | Class | GET /health handler |
 
 **Note:** Error details are returned directly in the REST response via `error_detail` field.
 
@@ -83,8 +83,13 @@ npm install
 
 ### 3. Configure Repository
 
-Create `.abapGitAgent` in your ABAP repository root:
+Copy `.abapGitAgent.example` to `.abapGitAgent` in your repository root and edit:
 
+```bash
+cp .abapGitAgent.example .abapGitAgent
+```
+
+Example configuration:
 ```json
 {
   "host": "your-sap-system.com",
@@ -92,7 +97,17 @@ Create `.abapGitAgent` in your ABAP repository root:
   "client": "100",
   "user": "TECH_USER",
   "password": "your-password",
-  "language": "EN"
+  "language": "EN",
+  "agent": {
+    "port": 3000,
+    "pollInterval": 5000,
+    "maxRetries": 3,
+    "timeout": 300000
+  },
+  "log": {
+    "level": "info",
+    "file": "./logs/agent.log"
+  }
 }
 ```
 
@@ -166,16 +181,41 @@ The ABAP system exposes these endpoints:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/pull` | Pull and activate |
+| GET | `/health` | Health check (also fetches CSRF token) |
+| POST | `/pull` | Pull and activate (requires CSRF token) |
 
 ### POST /pull
 
+Requires CSRF token. First fetch it from `/health`:
+
 ```bash
-curl -X POST https://your-system:44300/sap/bc/z_abapgit_agent/pull \
-  -H "Content-Type: application/json" \
+# 1. Get CSRF token and cookies
+curl -c cookies.txt -D headers.txt -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/health" \
   -u USER:PASSWORD \
-  -d '{"url": "https://github.com/...", "branch": "main"}'
+  -H "sap-client: 100" \
+  -H "X-CSRF-Token: fetch"
+
+# 2. Extract CSRF token from headers
+CSRF=$(grep -i "x-csrf-token" headers.txt | awk '{print $2}' | tr -d '\r')
+
+# 3. Pull repository
+curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/pull" \
+  -H "Content-Type: application/json" \
+  -H "sap-client: 100" \
+  -H "X-CSRF-Token: $CSRF" \
+  -b cookies.txt \
+  -u USER:PASSWORD \
+  -d '{"url": "https://github.tools.sap/user/repo.git", "branch": "main"}'
+```
+
+Request body:
+```json
+{
+  "url": "https://github.tools.sap/user/repo.git",
+  "branch": "main",
+  "username": "git-username",
+  "password": "git-token"
+}
 ```
 
 Response (success):
@@ -185,14 +225,15 @@ Response (success):
 
 Response (with activation errors):
 ```json
-{"success":"","job_id":"USER123_20260206_120000","message":"Pull completed with activation errors","error_detail":"3 inactive objects (activation errors):\n  - CLAS ZCL_TEST_CLASS\n  - PROG ZTEST_REPORT\n  - FUGR ZTEST_FUGR"}
+{"success":"","job_id":"USER123_20260206_120000","message":"Pull completed with activation errors","error_detail":"Errors/Warnings:\n  - CLAS ZCL_TEST_CLASS: syntax error"}
 ```
 
 ### GET /health
 
 ```bash
 curl "https://your-system:44300/sap/bc/z_abapgit_agent/health" \
-  -u USER:PASSWORD
+  -u USER:PASSWORD \
+  -H "sap-client: 100"
 ```
 
 Response:
@@ -202,57 +243,57 @@ Response:
 
 ## API Response Structure
 
-### ty_result Structure
+### Pull Response Fields
 
-```abap
-TYPES: BEGIN OF ty_result,
-  success TYPE abap_bool,
-  job_id TYPE string,
-  message TYPE string,
-  error_detail TYPE string,  " Contains inactive objects if activation failed
-  activated_count TYPE i,
-  failed_count TYPE i,
-  started_at TYPE timestampl,
-  finished_at TYPE timestampl,
-END OF ty_result.
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | String | 'X' for success, '' for errors |
+| `job_id` | String | Job identifier |
+| `message` | String | Status message |
+| `error_detail` | String | Error details (if any) |
+
+## Workflow with Claude Code
+
+1. **Generate code**: Ask Claude Code to write ABAP code
+2. **Push to git**: Claude Code commits and pushes to repository
+3. **Pull & activate**: Run `abapgit-agent pull` to pull and activate in ABAP
+4. **Check results**: Review activation results
+5. **Fix errors**: If errors, ask Claude Code to fix them
+
+Example in Claude Code:
 ```
+User: "Create a class ZCL_AI_HELPER with a method HELLO"
 
-## Workflow with Claude
+Claude Code: [Generates ABAP code and commits to git]
 
-1. **Generate code**: Ask Claude to write ABAP code
-2. **Push to git**: Claude pushes code to repository
-3. **Pull & activate**: Run agent to pull and activate
-4. **Check results**: Get activation results
-5. **Fix errors**: If errors, ask Claude to fix
+User: Run: abapgit-agent pull
 
-Example:
-```
-You: "Create a class ZCL_AI_HELPER with a method HELLO"
+Claude Code terminal: $ abapgit-agent pull
+📌 Auto-detected git remote: https://github.tools.sap/I045696/abap-ai-test.git
+🚀 Starting pull for: https://github.tools.sap/I045696/abap-ai-test.git
+   Branch: main
 
-Claude: [Generates code and commits to git]
-
-You: "abapgit-agent pull"
-
-Agent: 📌 Auto-detected git remote: https://github.tools.sap/...
-🚀 Starting pull for: https://github.tools.sap/...
 ✅ Pull completed successfully!
+   Job ID: CAIS20260207044507
 
 OR (if activation errors)
 
-Agent: ❌ Pull completed with errors!
-   Job ID: ...
+Claude Code terminal: $ abapgit-agent pull
+❌ Pull completed with errors!
+   Job ID: CAIS20260207044507
    Message: Pull completed with activation errors
 
 📋 Error Details:
-   - CLAS ZCL_TEST_CLASS (syntax error)
+   - CLAS ZCL_AI_SAMPLE: Error updating where-used list...
 
-You: "There's a syntax error. Please fix it in the class."
+User: "There's a syntax error. Please fix it in the class."
 
-Claude: [Fixes the error and pushes to git]
+Claude Code: [Fixes the syntax error and pushes to git]
 
-You: "abapgit-agent pull"
+User: Run: abapgit-agent pull
 
-Agent: ✅ Pull completed successfully!
+Claude Code terminal: $ abapgit-agent pull
+✅ Pull completed successfully!
 ```
 
 ## Error Handling
