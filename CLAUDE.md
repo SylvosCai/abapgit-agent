@@ -57,9 +57,10 @@ Do NOT use manual string operations (FIND, SHIFT, etc.) for JSON parsing.
 
 ## Development Workflow
 
-1. After `abapgit-agent pull`, check for any failed objects
-2. If there are failed objects, fix the syntax errors first before proceeding
-3. Use the syntax-check API to get detailed error information
-4. "Error updating where-used list" means there are syntax errors in the object - this is why syntax-check API exists
-5. Commit and push the fix, then pull again to verify
-6. Only after all objects activate successfully, proceed with testing
+1. After `abapgit-agent pull`, check the output carefully
+2. If "Pull completed with errors" or "Failed Objects" > 0, there are syntax errors
+3. "Error updating where-used list" means the object has syntax errors
+4. Use the syntax-check API to get detailed error information
+5. Fix all syntax errors before proceeding - all objects must show with checkmark
+6. Only proceed with testing when "Failed Objects (0)" is shown
+7. Commit and push the fix, then pull again to verify

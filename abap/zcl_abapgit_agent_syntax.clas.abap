@@ -49,6 +49,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA ls_response TYPE ty_response.
     DATA lv_json_resp TYPE string.
     DATA lo_response_entity TYPE REF TO cl_rest_entity.
+    DATA ls_error TYPE ty_error.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
@@ -64,7 +65,6 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       ls_response-object_type = ls_request-object_type.
       ls_response-object_name = ls_request-object_name.
       ls_response-error_count = 1.
-      DATA ls_error TYPE ty_error.
       ls_error-line = '1'.
       ls_error-column = '1'.
       ls_error-text = 'Object type and name are required'.
