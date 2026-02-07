@@ -15,13 +15,40 @@ const fs = require('fs');
 const COOKIE_FILE = path.join(__dirname, '..', '.abapgit_agent_cookies.txt');
 
 /**
+ * Check if ABAP AI integration is configured for this repo
+ * Looks for .abapGitAgent in current working directory
+ */
+function isAbapIntegrationEnabled() {
+  // Check in current working directory (repo root)
+  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  if (fs.existsSync(repoConfigPath)) {
+    return true;
+  }
+  // Also check if repo has abap/ folder with ABAP objects
+  const abapFolder = path.join(process.cwd(), 'abap');
+  if (fs.existsSync(abapFolder)) {
+    const files = fs.readdirSync(abapFolder);
+    return files.some(f => f.endsWith('.abap') || f.endsWith('.clas.abap') || f.endsWith('.fugr.abap'));
+  }
+  return false;
+}
+
+/**
  * Load configuration from .abapGitAgent
  */
 function loadConfig() {
-  const configPath = path.join(__dirname, '..', '.abapGitAgent');
+  // First check current working directory (repo root)
+  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
 
-  if (fs.existsSync(configPath)) {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (fs.existsSync(repoConfigPath)) {
+    console.log(`📁 Found .abapGitAgent in: ${repoConfigPath}`);
+    return JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
+  }
+
+  // Fallback to abap-ai-bridge parent directory
+  const bridgeConfigPath = path.join(__dirname, '..', '.abapGitAgent');
+  if (fs.existsSync(bridgeConfigPath)) {
+    return JSON.parse(fs.readFileSync(bridgeConfigPath, 'utf8'));
   }
 
   // Fallback to environment variables
@@ -235,6 +262,30 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
+  // Check if ABAP integration is enabled for this repo
+  if (!isAbapIntegrationEnabled()) {
+    console.log(`
+⚠️  ABAP AI Integration not configured for this repository.
+
+To enable integration:
+1. Create a .abapGitAgent file in the repo root with ABAP connection details:
+{
+  "host": "your-sap-system.com",
+  "sapport": 443,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN"
+}
+
+2. Or set environment variables:
+   - ABAP_HOST, ABAP_PORT, ABAP_CLIENT, ABAP_USER, ABAP_PASSWORD
+`);
+    if (command !== 'help' && command !== '--help' && command !== '-h') {
+      process.exit(1);
+    }
+  }
+
   try {
     switch (command) {
       case 'pull':
@@ -255,6 +306,15 @@ async function main() {
         console.log(JSON.stringify(health, null, 2));
         break;
 
+      case 'status':
+        if (isAbapIntegrationEnabled()) {
+          console.log('✅ ABAP AI Integration is ENABLED');
+          console.log('   Config location:', path.join(process.cwd(), '.abapGitAgent'));
+        } else {
+          console.log('❌ ABAP AI Integration is NOT configured');
+        }
+        break;
+
       default:
         console.log(`
 ABAP AI Bridge - Claude Integration
@@ -264,13 +324,16 @@ Usage:
 
 Commands:
   pull --url <git-url> [--branch <branch>]
-    Pull and activate a repository
+    Pull and activate a repository in ABAP system
 
   health
     Check if ABAP REST API is healthy
 
+  status
+    Check if ABAP integration is configured for this repo
+
 Examples:
-  node scripts/claude-integration.js pull --url https://github.com/example/repo --branch main
+  node scripts/claude-integration.js pull --url https://github.tools.sap/user/repo --branch main
   node scripts/claude-integration.js health
 `);
     }

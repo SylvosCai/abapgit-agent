@@ -109,7 +109,7 @@ async function pull() {
   };
 
   const postData = JSON.stringify({
-    url: 'https://github.tools.sap/I045696/abap-ai-bridge.git',
+    url: 'https://github.tools.sap/I045696/abap-ai-test.git',
     branch: 'main'
   });
 
