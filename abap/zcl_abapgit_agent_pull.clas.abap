@@ -95,11 +95,6 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     " Build activated objects list as simple text
     DATA: lv_activated_list TYPE string.
     DATA: lv_failed_list TYPE string.
-    DATA: lv_count_str TYPE string.
-    DATA: lv_failed_str TYPE string.
-
-    lv_count_str = ls_result-activated_count.
-    lv_failed_str = ls_result-failed_count.
 
     " Build simple object lists (obj_type obj_name: text)
     LOOP AT ls_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
@@ -120,19 +115,19 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " Convert counts to string without trailing spaces
-    lv_count_str = |{ ls_result-activated_count }|.
-    lv_failed_str = |{ ls_result-failed_count }|.
+    " Convert counts to string using template
+    DATA(lv_count_val) = |{ ls_result-activated_count }|.
+    DATA(lv_failed_val) = |{ ls_result-failed_count }|.
 
     " Build JSON response
     IF ls_result-success = abap_true.
       lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
-        `","activated_count":` && lv_count_str && `,"failed_count":` && lv_failed_str &&
+        `","activated_count":` && lv_count_val && `,"failed_count":` && lv_failed_val &&
         `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
     ELSE.
       lv_json_resp = `{"success":"` && lv_success && `","job_id":"` && ls_result-job_id && `","message":"` && ls_result-message &&
         `","error_detail":"` && ls_result-error_detail &&
-        `","activated_count":` && lv_count_str && `,"failed_count":` && lv_failed_str &&
+        `","activated_count":` && lv_count_val && `,"failed_count":` && lv_failed_val &&
         `","activated_list":"` && lv_activated_list && `","failed_list":"` && lv_failed_list && `"}`.
     ENDIF.
 
