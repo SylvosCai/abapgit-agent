@@ -10,6 +10,14 @@ This project provides a bridge between AI coding tools and your ABAP system:
 2. **Local agent pulls from git** → Activates in ABAP system
 3. **Returns activation results** → Claude fixes errors if any
 
+## Quick Start
+
+1. **Install CLI**: `npm install -g abap-ai-bridge`
+2. **Configure repo**: Add `.abapGitAgent` with SAP credentials
+3. **Validate code**: Run `abapgit-agent pull` after pushing
+
+See [Creating New ABAP Projects](#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.
+
 ## System-Level Integration
 
 This package supports **system-level integration**, meaning any ABAP git repository can use it without cloning this repository:
@@ -105,6 +113,64 @@ Example configuration:
 
 Or set environment variables:
 - `ABAP_HOST`, `ABAP_PORT`, `ABAP_CLIENT`, `ABAP_USER`, `ABAP_PASSWORD`
+
+## Creating New ABAP Projects
+
+### 1. Create Project Structure
+
+```bash
+# Create new ABAP repository
+mkdir my-abap-repo
+cd my-abap-repo
+
+# Copy CLAUDE.md (tells Claude how to work with ABAP)
+cp /path/to/abap-ai-bridge/abap/CLAUDE.md .
+
+# Initialize git
+git init
+```
+
+### 2. Add ABAP Objects
+
+Copy your ABAP objects to the repo:
+
+```bash
+# Copy individual objects
+cp /path/to/abap-ai-bridge/abap/zcl_*.abap ./
+
+# Or create new objects following abapGit format
+# See: https://github.com/abapGit/abapGit
+```
+
+### 3. Configure and Push
+
+```bash
+# Create .abapGitAgent config
+cp .abapGitAgent.example .abapGitAgent
+# Edit .abapGitAgent with your SAP system details
+
+# Initial commit
+git add .
+git commit -m "Initial ABAP project"
+
+# Add remote and push
+git remote add origin https://github.tools.sap/user/my-abap-repo.git
+git push -u origin main
+```
+
+### 4. Deploy ABAP Objects to SAP
+
+Use abapGit in your SAP system to pull the repository.
+
+## Claude Code Integration
+
+Claude Code automatically reads `CLAUDE.md` in your project root for context:
+
+1. **No local syntax validation** - Claude knows ABAP needs SAP system
+2. **Use `abapgit-agent pull`** - For validation after code generation
+3. **Reference abapGit docs** - For ABAP syntax and object conventions
+
+See `abap/CLAUDE.md` for detailed ABAP project guidelines.
 
 ## Usage
 
