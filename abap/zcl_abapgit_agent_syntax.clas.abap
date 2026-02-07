@@ -48,18 +48,18 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA(lv_error_count) = ls_result-error_count.
 
     " Build JSON response manually for reliability
-    lv_json_resp = |{{"success":"{ lv_success }",|.
-    lv_json_resp = |"object_type":"{ ls_result-object_type }",|.
-    lv_json_resp = |"object_name":"{ ls_result-object_name }",|.
-    lv_json_resp = |"error_count":{ lv_error_count },"errors":[|.
+    lv_json_resp = |{ "success": "{ lv_success }", |.
+    lv_json_resp = |{ lv_json_resp } "object_type": "{ ls_result-object_type }", |.
+    lv_json_resp = |{ lv_json_resp } "object_name": "{ ls_result-object_name }", |.
+    lv_json_resp = |{ lv_json_resp } "error_count": { lv_error_count }, "errors": [ |.
 
     DATA lv_first TYPE abap_bool VALUE abap_true.
     LOOP AT ls_result-errors ASSIGNING FIELD-SYMBOL(<ls_err>).
       IF lv_first = abap_false.
-        lv_json_resp = lv_json_resp && ','.
+        lv_json_resp = lv_json_resp && ', '.
       ENDIF.
       lv_first = abap_false.
-      lv_json_resp = lv_json_resp && |{{"line":"{ <ls_err>-line }","column":"{ <ls_err>-column }","text":"{ <ls_err>-text }","word":"{ <ls_err>-word }"}}}|.
+      lv_json_resp = |{ lv_json_resp }{ "line": "{ <ls_err>-line }", "column": "{ <ls_err>-column }", "text": "{ <ls_err>-text }", "word": "{ <ls_err>-word }" }|.
     ENDLOOP.
 
     lv_json_resp = lv_json_resp && ']}'.
