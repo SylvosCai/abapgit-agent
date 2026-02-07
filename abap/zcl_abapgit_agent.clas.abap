@@ -158,9 +158,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           END OF ls_error.
     DATA lt_errors LIKE TABLE OF ls_error.
 
-    " Call syntax check function module
+    " Call syntax check function module dynamically
+    DATA lv_func_name TYPE string.
+    lv_func_name = 'RSYNTAX_CHECK_OBJECT'.
     TRY.
-        CALL FUNCTION 'RSYNTAX_CHECK_OBJECT'
+        CALL FUNCTION lv_func_name
           EXPORTING
             object_name = iv_object_name
             object_type = iv_object_type
