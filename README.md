@@ -99,17 +99,7 @@ Example configuration:
   "password": "your-password",
   "language": "EN",
   "gitUsername": "github-username",
-  "gitPassword": "github-token",
-  "agent": {
-    "port": 3000,
-    "pollInterval": 5000,
-    "maxRetries": 3,
-    "timeout": 300000
-  },
-  "log": {
-    "level": "info",
-    "file": "./logs/agent.log"
-  }
+  "gitPassword": "github-token"
 }
 ```
 

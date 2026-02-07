@@ -32,12 +32,8 @@ function loadConfig() {
       user: process.env.ABAP_USER,
       password: process.env.ABAP_PASSWORD,
       language: process.env.ABAP_LANGUAGE || 'EN',
-      agent: {
-        port: parseInt(process.env.AGENT_PORT, 10) || 3000,
-        pollInterval: parseInt(process.env.POLL_INTERVAL, 10) || 5000,
-        maxRetries: parseInt(process.env.MAX_RETRIES, 10) || 3,
-        timeout: parseInt(process.env.TIMEOUT, 10) || 300000
-      }
+      gitUsername: process.env.GIT_USERNAME,
+      gitPassword: process.env.GIT_PASSWORD
     };
   }
 
