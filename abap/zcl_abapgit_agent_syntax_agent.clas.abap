@@ -79,7 +79,7 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
         " Get check variant for syntax check
         DATA(lo_variant) = cl_ci_checkvariant=>get_ref(
           p_user = ''
-          p_name = 'SYNTAX' ).
+          p_name = 'SYNTAX_CHECK' ).
 
         " Create inspection
         cl_ci_inspection=>create(
