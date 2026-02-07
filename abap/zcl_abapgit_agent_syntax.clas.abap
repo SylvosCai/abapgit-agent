@@ -48,8 +48,6 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA ls_request TYPE ty_request.
     DATA ls_response TYPE ty_response.
     DATA lv_json_resp TYPE string.
-    DATA lo_response_entity TYPE REF TO cl_rest_entity.
-    DATA ls_error TYPE ty_error.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
@@ -65,15 +63,16 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       ls_response-object_type = ls_request-object_type.
       ls_response-object_name = ls_request-object_name.
       ls_response-error_count = 1.
+      DATA ls_error TYPE ty_error.
       ls_error-line = '1'.
       ls_error-column = '1'.
       ls_error-text = 'Object type and name are required'.
       ls_error-word = ''.
       APPEND ls_error TO ls_response-errors.
       lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
-      lo_response_entity = mo_response->create_entity( ).
-      lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-      lo_response_entity->set_string_data( lv_json_resp ).
+      DATA(lo_entity) = mo_response->create_entity( ).
+      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      lo_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
       RETURN.
     ENDIF.
@@ -83,9 +82,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       iv_object_type = ls_request-object_type
       iv_object_name = ls_request-object_name ).
 
-    lo_response_entity = mo_response->create_entity( ).
-    lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_response_entity->set_string_data( lv_json_resp ).
+    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
