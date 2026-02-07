@@ -94,9 +94,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     " Build activated objects JSON array
     DATA(lv_activated_json) = '[]'.
+    DATA: lv_activated_items TYPE string.
     IF ls_result-activated_objects IS NOT INITIAL.
       DATA: ls_act TYPE zif_abapgit_agent=>ty_object.
-      DATA(lv_activated_items) TYPE string.
       CLEAR lv_activated_items.
       LOOP AT ls_result-activated_objects INTO ls_act.
         DATA(lv_item) = '{"obj_type":"' && ls_act-obj_type && '","obj_name":"' && ls_act-obj_name && '","text":"' && ls_act-text && '"}'.
@@ -111,9 +111,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     " Build failed objects JSON array
     DATA(lv_failed_json) = '[]'.
+    DATA: lv_failed_items TYPE string.
     IF ls_result-failed_objects IS NOT INITIAL.
       DATA: ls_fail TYPE zif_abapgit_agent=>ty_object.
-      DATA(lv_failed_items) TYPE string.
       CLEAR lv_failed_items.
       LOOP AT ls_result-failed_objects INTO ls_fail.
         DATA(lv_fail_item) = '{"obj_type":"' && ls_fail-obj_type && '","obj_name":"' && ls_fail-obj_name && '","text":"' && ls_fail-text && '"}'.
