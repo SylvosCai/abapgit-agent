@@ -28,16 +28,19 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
+    DATA ls_request TYPE ty_request.
+    DATA lv_json_resp TYPE string.
+    DATA lo_response_entity TYPE REF TO cl_rest_entity.
+    DATA lo_entity TYPE REF TO cl_rest_entity.
+
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
     " Parse JSON using /UI2/CL_JSON
-    DATA ls_request TYPE ty_request.
     ls_request = /ui2/cl_json=>deserialize( json = lv_json ).
 
     IF ls_request-object_type IS INITIAL OR ls_request-object_name IS INITIAL.
-      DATA lv_json_resp TYPE string.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
-      DATA(lo_entity) = mo_response->create_entity( ).
+      lo_entity = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
@@ -49,7 +52,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       iv_object_type = ls_request-object_type
       iv_object_name = ls_request-object_name ).
 
-    DATA(lo_response_entity) = mo_response->create_entity( ).
+    lo_response_entity = mo_response->create_entity( ).
     lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_response_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
