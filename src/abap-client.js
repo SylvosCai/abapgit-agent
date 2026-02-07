@@ -152,12 +152,6 @@ class ABAPClient {
     return new Promise((resolve, reject) => {
       const url = new URL(`${cfg.baseUrl}/pull`);
 
-      // Read and save original cookies before making request
-      let originalCookies = '';
-      if (fs.existsSync(this.cookieFile)) {
-        originalCookies = fs.readFileSync(this.cookieFile, 'utf8');
-      }
-
       // Read cookies for sending (handle Netscape format)
       const cookieHeader = this.readNetscapeCookies();
 
@@ -180,10 +174,13 @@ class ABAPClient {
       const req = https.request(options, (res) => {
         const csrfToken = res.headers['x-csrf-token'];
 
-        // Restore original cookies - do NOT update cookies from GET response
-        // as this may change the session and invalidate the CSRF token
-        if (originalCookies) {
-          fs.writeFileSync(this.cookieFile, originalCookies);
+        // Save new cookies from response - the CSRF token is tied to this new session!
+        const setCookie = res.headers['set-cookie'];
+        if (setCookie) {
+          const cookies = Array.isArray(setCookie)
+            ? setCookie.map(c => c.split(';')[0]).join('; ')
+            : setCookie.split(';')[0];
+          fs.writeFileSync(this.cookieFile, cookies);
         }
 
         let body = '';

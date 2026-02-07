@@ -12,6 +12,8 @@ const https = require('https');
 const path = require('path');
 const fs = require('fs');
 
+const COOKIE_FILE = path.join(__dirname, '..', '.abapgit_agent_cookies.txt');
+
 /**
  * Load configuration from .abapGitAgent
  */
@@ -29,33 +31,124 @@ function loadConfig() {
     client: process.env.ABAP_CLIENT || '100',
     user: process.env.ABAP_USER,
     password: process.env.ABAP_PASSWORD,
-    language: process.env.ABAP_LANGUAGE || 'EN'
+    language: process.env.ABAP_LANGUAGE || 'EN',
+    gitUsername: process.env.GIT_USERNAME,
+    gitPassword: process.env.GIT_PASSWORD
   };
 }
 
 /**
- * Make HTTP request to ABAP REST endpoint
+ * Read cookies from Netscape format cookie file
  */
-function request(method, path, data = null) {
+function readNetscapeCookies() {
+  if (!fs.existsSync(COOKIE_FILE)) return '';
+
+  const content = fs.readFileSync(COOKIE_FILE, 'utf8');
+  const lines = content.split('\n');
+  const cookies = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip empty lines and header comments but NOT HttpOnly cookies
+    if (!trimmed || (trimmed.startsWith('#') && !trimmed.startsWith('#HttpOnly'))) continue;
+
+    const parts = trimmed.split('\t');
+    if (parts.length >= 7) {
+      cookies.push(`${parts[5]}=${parts[6]}`);
+    }
+  }
+
+  return cookies.join('; ');
+}
+
+/**
+ * Fetch CSRF token using GET /pull with X-CSRF-Token: fetch
+ */
+async function fetchCsrfToken(config) {
+  const url = new URL(`/sap/bc/z_abapgit_agent/pull`, `https://${config.host}:${config.sapport}`);
+
   return new Promise((resolve, reject) => {
-    const config = loadConfig();
-    const url = new URL(path, `https://${config.host}:${config.sapport}`);
+    const cookieHeader = readNetscapeCookies();
 
     const options = {
       hostname: url.hostname,
       port: url.port,
       path: url.pathname,
-      method,
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`,
         'sap-client': config.client,
-        'sap-language': config.language || 'EN'
+        'sap-language': config.language || 'EN',
+        'X-CSRF-Token': 'fetch',
+        'Content-Type': 'application/json',
+        ...(cookieHeader && { 'Cookie': cookieHeader })
       },
-      auth: `${config.user}:${config.password}`,
       agent: new https.Agent({ rejectUnauthorized: false })
     };
 
-    const req = (url.protocol === 'https:' ? https : http).request(options, (res) => {
+    const req = https.request(options, (res) => {
+      const csrfToken = res.headers['x-csrf-token'];
+
+      // Save new cookies from response - the CSRF token is tied to this new session!
+      const setCookie = res.headers['set-cookie'];
+      if (setCookie) {
+        const cookies = Array.isArray(setCookie)
+          ? setCookie.map(c => c.split(';')[0]).join('; ')
+          : setCookie.split(';')[0];
+        fs.writeFileSync(COOKIE_FILE, cookies);
+      }
+
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        resolve(csrfToken);
+      });
+    });
+
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+/**
+ * Make HTTP request to ABAP REST endpoint
+ */
+function request(method, path, data = null, options = {}) {
+  return new Promise((resolve, reject) => {
+    const config = loadConfig();
+    const url = new URL(path, `https://${config.host}:${config.sapport}`);
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'sap-client': config.client,
+      'sap-language': config.language || 'EN',
+      ...options.headers
+    };
+
+    // Add authorization
+    headers['Authorization'] = `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`;
+
+    // Add CSRF token for POST
+    if (method === 'POST' && options.csrfToken) {
+      headers['X-CSRF-Token'] = options.csrfToken;
+    }
+
+    // Add cookies if available
+    const cookieHeader = readNetscapeCookies();
+    if (cookieHeader) {
+      headers['Cookie'] = cookieHeader;
+    }
+
+    const reqOptions = {
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method,
+      headers,
+      agent: new https.Agent({ rejectUnauthorized: false })
+    };
+
+    const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
@@ -84,10 +177,20 @@ async function pull(gitUrl, branch = 'main') {
   console.log(`   Branch: ${branch}`);
 
   try {
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', {
+    const config = loadConfig();
+
+    // Fetch CSRF token first
+    const csrfToken = await fetchCsrfToken(config);
+
+    // Prepare request data with git credentials
+    const data = {
       url: gitUrl,
-      branch: branch
-    });
+      branch: branch,
+      username: config.gitUsername,
+      password: config.gitPassword
+    };
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
     console.log('\n');
 

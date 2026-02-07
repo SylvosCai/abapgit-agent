@@ -65,30 +65,48 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           IMPORTING ei_repo = li_repo ).
         mo_repo = li_repo.
 
-        IF mo_repo IS BOUND.
-          mo_repo->refresh( ).
-
-          DATA(ls_checks) = prepare_deserialize_checks( ).
-
-          mo_repo->create_new_log( ).
-
-          mo_repo->deserialize(
-            is_checks = ls_checks
-            ii_log   = mo_repo->get_log( ) ).
-
-          " Check the abapGit log for errors
-          DATA(lv_has_error) = check_log_for_errors( ).
-          DATA(lv_error_detail) = get_log_detail( ).
-
-          IF lv_has_error = abap_true.
-            rs_result-message = 'Pull completed with errors'.
-            rs_result-error_detail = lv_error_detail.
-          ELSE.
-            rs_result-success = abap_true.
-            rs_result-message = 'Pull completed successfully'.
+        " If repository doesn't exist, create a new one
+        IF mo_repo IS NOT BOUND.
+          DATA: lo_new_repo TYPE REF TO zcl_abapgit_repo_online.
+          DATA: lv_branch TYPE string.
+          lv_branch = iv_branch.
+          IF lv_branch IS INITIAL.
+            lv_branch = 'refs/heads/main'.
           ENDIF.
+
+          CREATE OBJECT lo_new_repo
+            EXPORTING
+              iv_url    = iv_url
+              iv_branch = lv_branch.
+
+          mo_repo = lo_new_repo.
+
+          " Persist the new repository
+          DATA: lo_persist TYPE REF TO zcl_abapgit_persist_repo.
+          lo_persist = zcl_abapgit_persist_factory=>get_repo( ).
+          lo_persist->add( mo_repo ).
+        ENDIF.
+
+        mo_repo->refresh( ).
+
+        DATA(ls_checks) = prepare_deserialize_checks( ).
+
+        mo_repo->create_new_log( ).
+
+        mo_repo->deserialize(
+          is_checks = ls_checks
+          ii_log   = mo_repo->get_log( ) ).
+
+        " Check the abapGit log for errors
+        DATA(lv_has_error) = check_log_for_errors( ).
+        DATA(lv_error_detail) = get_log_detail( ).
+
+        IF lv_has_error = abap_true.
+          rs_result-message = 'Pull completed with errors'.
+          rs_result-error_detail = lv_error_detail.
         ELSE.
-          rs_result-message = |Repository not found: { iv_url }|.
+          rs_result-success = abap_true.
+          rs_result-message = 'Pull completed successfully'.
         ENDIF.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
