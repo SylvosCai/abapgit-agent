@@ -62,7 +62,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA ls_result TYPE zif_abapgit_agent=>ty_syntax_result.
+    DATA ls_result TYPE zcl_abapgit_agent_syntax_agent=>ty_syntax_result.
     ls_result = mo_agent->syntax_check(
       iv_object_type = lv_object_type
       iv_object_name = lv_object_name ).
@@ -79,7 +79,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
             object_type TYPE string,
             object_name TYPE string,
             error_count TYPE i,
-            errors TYPE zif_abapgit_agent=>ty_syntax_errors,
+            errors TYPE zcl_abapgit_agent_syntax_agent=>ty_syntax_errors,
           END OF ls_response.
 
     ls_response-success = lv_success.

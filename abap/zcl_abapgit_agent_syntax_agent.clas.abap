@@ -4,12 +4,29 @@
 CLASS zcl_abapgit_agent_syntax_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
+    TYPES: BEGIN OF ty_syntax_error,
+      line TYPE string,
+      column TYPE string,
+      text TYPE string,
+      word TYPE string,
+    END OF ty_syntax_error.
+
+    TYPES: ty_syntax_errors TYPE STANDARD TABLE OF ty_syntax_error WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_syntax_result,
+      success TYPE abap_bool,
+      object_type TYPE string,
+      object_name TYPE string,
+      error_count TYPE i,
+      errors TYPE ty_syntax_errors,
+    END OF ty_syntax_result.
+
     METHODS syntax_check
       IMPORTING
         iv_object_type TYPE string
         iv_object_name TYPE string
       RETURNING
-        VALUE(rs_result) TYPE zif_abapgit_agent=>ty_syntax_result.
+        VALUE(rs_result) TYPE ty_syntax_result.
 
 ENDCLASS.
 
