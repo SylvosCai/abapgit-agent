@@ -32,11 +32,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 15.
       lv_object_type = lv_json+lv_pos.
-      SHIFT lv_object_type LEFT UP TO '"'.
-      SHIFT lv_object_type LEFT.
-      FIND '"' IN lv_object_type MATCH OFFSET lv_pos.
+      FIND '"' IN lv_object_type MATCH OFFSET DATA(lv_end).
       IF sy-subrc = 0.
-        lv_object_type = lv_object_type(lv_pos).
+        lv_object_type = lv_object_type(lv_end).
       ENDIF.
     ENDIF.
 
@@ -44,11 +42,9 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 14.
       lv_object_name = lv_json+lv_pos.
-      SHIFT lv_object_name LEFT UP TO '"'.
-      SHIFT lv_object_name LEFT.
-      FIND '"' IN lv_object_name MATCH OFFSET lv_pos.
+      FIND '"' IN lv_object_name MATCH OFFSET lv_end.
       IF sy-subrc = 0.
-        lv_object_name = lv_object_name(lv_pos).
+        lv_object_name = lv_object_name(lv_end).
       ENDIF.
     ENDIF.
 
@@ -62,10 +58,35 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call syntax check agent - returns JSON string directly
-    lv_json_resp = mo_agent->syntax_check(
+    " Call syntax check agent - returns structure
+    DATA ls_result TYPE zcl_abapgit_agent_syntax_agent=>ty_result.
+    ls_result = mo_agent->syntax_check(
       iv_object_type = lv_object_type
       iv_object_name = lv_object_name ).
+
+    " Convert success to 'X' or '' for JSON
+    DATA lv_success TYPE string.
+    IF ls_result-success = abap_true.
+      lv_success = 'X'.
+    ENDIF.
+
+    " Build response structure
+    DATA: BEGIN OF ls_response,
+            success TYPE string,
+            object_type TYPE string,
+            object_name TYPE string,
+            error_count TYPE i,
+            errors TYPE zcl_abapgit_agent_syntax_agent=>ty_errors,
+          END OF ls_response.
+
+    ls_response-success = lv_success.
+    ls_response-object_type = ls_result-object_type.
+    ls_response-object_name = ls_result-object_name.
+    ls_response-error_count = ls_result-error_count.
+    ls_response-errors = ls_result-errors.
+
+    " Serialize to JSON using /UI2/CL_JSON
+    lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
