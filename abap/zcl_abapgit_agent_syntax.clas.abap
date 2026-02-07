@@ -71,7 +71,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       ls_error-word = ''.
       APPEND ls_error TO ls_response-errors.
       lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
-      DATA(lo_response_entity) = mo_response->create_entity( ).
+      lo_response_entity = mo_response->create_entity( ).
       lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_response_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
