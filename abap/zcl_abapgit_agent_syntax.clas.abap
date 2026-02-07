@@ -29,6 +29,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
     DATA lv_object_name TYPE string.
     DATA lv_pos TYPE i.
     DATA lv_len TYPE i.
+    DATA lv_end TYPE i.
 
     " Parse object_type from JSON: "object_type":"<value>"
     FIND '"object_type":"' IN lv_json MATCH OFFSET lv_pos.
@@ -38,7 +39,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       IF lv_pos < lv_len.
         lv_object_type = lv_json+lv_pos.
         " Find end quote"
-        FIND '"' IN lv_object_type MATCH OFFSET DATA(lv_end).
+        FIND '"' IN lv_object_type MATCH OFFSET lv_end.
         IF sy-subrc = 0.
           lv_object_type = lv_object_type(lv_end).
         ENDIF.
@@ -53,7 +54,7 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       IF lv_pos < lv_len.
         lv_object_name = lv_json+lv_pos.
         " Find end quote"
-        FIND '"' IN lv_object_name MATCH OFFSET DATA(lv_end).
+        FIND '"' IN lv_object_name MATCH OFFSET lv_end.
         IF sy-subrc = 0.
           lv_object_name = lv_object_name(lv_end).
         ENDIF.
