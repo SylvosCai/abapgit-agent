@@ -153,12 +153,59 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Return that syntax check is not available in this system
-    ls_err-line = '1'.
-    ls_err-column = '1'.
-    ls_err-text = 'Syntax check not available - RSYNTAX_CHECK_OBJECT not found'.
-    APPEND ls_err TO rs_result-errors.
-    rs_result-error_count = 1.
+    " Try to use CL_CI_INSPECTION for syntax check
+    TRY.
+        DATA lo_inspection TYPE REF TO cl_ci_inspection.
+
+        CREATE OBJECT lo_inspection.
+
+        lo_inspection->set_object(
+          EXPORTING
+            p_obj_type = iv_object_type
+            p_obj_name = iv_object_name ).
+
+        lo_inspection->run(
+          EXPORTING
+            p_variant = 'SYNTAX_CHECK'
+            p_mode    = 'B'  " Background mode
+          EXCEPTIONS
+            invalid_object_type = 1
+            OTHERS             = 2 ).
+
+        IF sy-subrc <> 0.
+          ls_err-line = '1'.
+          ls_err-column = '1'.
+          ls_err-text = |Inspection failed (RC: { sy-subrc })|.
+          APPEND ls_err TO rs_result-errors.
+          rs_result-error_count = 1.
+          RETURN.
+        ENDIF.
+
+        " Get results
+        DATA lt_messages TYPE cl_ci_inspection=>ty_obj_messages.
+        lo_inspection->get_results( IMPORTING p_messages = lt_messages ).
+
+        IF lt_messages IS INITIAL.
+          rs_result-success = abap_true.
+          rs_result-error_count = 0.
+        ELSE.
+          rs_result-error_count = lines( lt_messages ).
+          LOOP AT lt_messages INTO DATA(ls_msg).
+            ls_err-line = ls_msg-line.
+            ls_err-column = ls_msg-column.
+            ls_err-text = ls_msg-message.
+            ls_err-word = ls_msg-word.
+            APPEND ls_err TO rs_result-errors.
+          ENDLOOP.
+        ENDIF.
+
+      CATCH cx_root INTO DATA(lx_error).
+        ls_err-line = '1'.
+        ls_err-column = '1'.
+        ls_err-text = lx_error->get_text( ).
+        APPEND ls_err TO rs_result-errors.
+        rs_result-error_count = 1.
+    ENDTRY.
   ENDMETHOD.
 
   METHOD configure_credentials.
