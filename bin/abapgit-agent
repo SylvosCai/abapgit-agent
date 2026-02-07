@@ -295,43 +295,53 @@ async function pull(gitUrl, branch = 'main') {
       console.log('Raw result:', JSON.stringify(result, null, 2));
     }
 
-    if (result.success === 'X' || result.success === true) {
+    // Handle uppercase keys from ABAP
+    const success = result.SUCCESS || result.success;
+    const jobId = result.JOB_ID || result.job_id;
+    const message = result.MESSAGE || result.message;
+    const errorDetail = result.ERROR_DETAIL || result.error_detail;
+    const activatedCount = result.ACTIVATED_COUNT || result.activated_count || 0;
+    const failedCount = result.FAILED_COUNT || result.failed_count || 0;
+    const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
+    const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
+
+    if (success === 'X' || success === true) {
       console.log(`✅ Pull completed successfully!`);
-      console.log(`   Job ID: ${result.job_id || 'N/A'}`);
-      console.log(`   Message: ${result.message || 'N/A'}`);
+      console.log(`   Job ID: ${jobId || 'N/A'}`);
+      console.log(`   Message: ${message || 'N/A'}`);
     } else {
       console.log(`❌ Pull completed with errors!`);
-      console.log(`   Job ID: ${result.job_id || 'N/A'}`);
-      console.log(`   Message: ${result.message || 'N/A'}`);
+      console.log(`   Job ID: ${jobId || 'N/A'}`);
+      console.log(`   Message: ${message || 'N/A'}`);
     }
 
     // Display activated objects
-    if (result.activated_objects && result.activated_objects.length > 0) {
-      console.log(`\n📦 Activated Objects (${result.activated_count}):`);
-      for (const obj of result.activated_objects) {
-        const objKey = obj.obj_type && obj.obj_name ? `${obj.obj_type} ${obj.obj_name}` : '';
+    if (activatedObjects && activatedObjects.length > 0) {
+      console.log(`\n📦 Activated Objects (${activatedCount}):`);
+      for (const obj of activatedObjects) {
+        const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
         console.log(`   ✓ ${objKey}`);
       }
-    } else if (result.activated_count > 0) {
-      console.log(`\n📦 Activated Objects (${result.activated_count})`);
+    } else if (activatedCount > 0) {
+      console.log(`\n📦 Activated Objects (${activatedCount})`);
     }
 
     // Display failed objects
-    if (result.failed_objects && result.failed_objects.length > 0) {
-      console.log(`\n⚠️  Failed Objects (${result.failed_count}):`);
-      for (const obj of result.failed_objects) {
-        const objKey = obj.obj_type && obj.obj_name ? `${obj.obj_type} ${obj.obj_name}` : '';
-        const text = obj.text ? `: ${obj.text}` : '';
+    if (failedObjects && failedObjects.length > 0) {
+      console.log(`\n⚠️  Failed Objects (${failedCount}):`);
+      for (const obj of failedObjects) {
+        const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
+        const text = obj.TEXT ? `: ${obj.TEXT}` : '';
         console.log(`   ✗ ${objKey}${text}`);
       }
-    } else if (result.failed_count > 0) {
-      console.log(`\n⚠️  Failed Objects (${result.failed_count})`);
+    } else if (failedCount > 0) {
+      console.log(`\n⚠️  Failed Objects (${failedCount})`);
     }
 
     // Show error details if any
-    if (result.error_detail) {
+    if (errorDetail) {
       console.log(`\n📋 Error Details:`);
-      console.log(result.error_detail);
+      console.log(errorDetail);
     }
 
     return result;
