@@ -88,8 +88,17 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
           rs_result-activated_objects = ls_obj_result-activated_objects.
           rs_result-failed_objects = ls_obj_result-failed_objects.
-          rs_result-activated_count = lines( ls_obj_result-activated_objects ).
-          rs_result-failed_count = lines( ls_obj_result-failed_objects ).
+
+          " Count using LOOP COUNT since LINES() doesn't work with all table types
+          rs_result-activated_count = 0.
+          LOOP AT rs_result-activated_objects TRANSPORTING NO FIELDS.
+            rs_result-activated_count = rs_result-activated_count + 1.
+          ENDLOOP.
+
+          rs_result-failed_count = 0.
+          LOOP AT rs_result-failed_objects TRANSPORTING NO FIELDS.
+            rs_result-failed_count = rs_result-failed_count + 1.
+          ENDLOOP.
 
           IF lv_has_error = abap_true.
             rs_result-message = 'Pull completed with errors'.
