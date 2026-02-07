@@ -23,21 +23,25 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    lv_json = mo_request->get_entity( )->get_string_data( ).
-
+    DATA lv_pos TYPE i.
+    DATA lv_end TYPE i.
     DATA lv_object_type TYPE string.
     DATA lv_object_name TYPE string.
 
-    FIND '"object_type":"' IN lv_json MATCH OFFSET DATA(lv_pos).
+    lv_json = mo_request->get_entity( )->get_string_data( ).
+
+    " Parse object_type
+    FIND '"object_type":"' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 15.
       lv_object_type = lv_json+lv_pos.
-      FIND '"' IN lv_object_type MATCH OFFSET DATA(lv_end).
+      FIND '"' IN lv_object_type MATCH OFFSET lv_end.
       IF sy-subrc = 0.
         lv_object_type = lv_object_type(lv_end).
       ENDIF.
     ENDIF.
 
+    " Parse object_name
     FIND '"object_name":"' IN lv_json MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_pos = lv_pos + 14.
