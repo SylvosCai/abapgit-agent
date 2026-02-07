@@ -10,12 +10,20 @@ This project provides a bridge between AI coding tools and your ABAP system:
 2. **Local agent pulls from git** → Activates in ABAP system
 3. **Returns activation results** → Claude fixes errors if any
 
+## System-Level Integration
+
+This package supports **system-level integration**, meaning any ABAP git repository can use it without cloning this repository:
+
+1. **Install globally**: `npm install -g abap-ai-bridge`
+2. **Configure**: Add `.abapGitAgent` to your ABAP repo
+3. **Use**: Run `abapgit-agent` from your repo directory
+
 ## Architecture
 
 ```
-Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
-                                    ↓
-                  Result + Error Feedback
+Claude (VS Code) → CLI Tool → ABAP System (REST/HTTP)
+                                  ↓
+                    Result + Error Feedback
 ```
 
 ## Components
@@ -32,11 +40,11 @@ Claude (VS Code) → Local Agent (Node.js) → ABAP System (REST/HTTP)
 
 **Note:** Error details are returned directly in the REST response via `error_detail` field.
 
-### Local Agent (Node.js)
-- HTTP server exposing REST API
+### CLI Tool (Node.js)
 - REST client for ABAP communication
-- Configuration management
-- Logging
+- Configuration management (reads from cwd/.abapGitAgent)
+- Auto-detects git remote URL and branch from current directory
+- Cookie-based session management
 
 ## Why REST API?
 
@@ -48,64 +56,108 @@ The REST API approach provides several advantages:
 
 ## Installation
 
-### 1. Install Node.js Dependencies
+### 1. ABAP System Setup
+
+Deploy ABAP objects using abapGit:
+
+1. Use abapGit to deploy the ABAP objects in `/abap` folder
+2. Create SICF handler:
+   - Run transaction `SICF`
+   - Navigate to: `sap/bc/z_abapgit_agent`
+   - Create if doesn't exist:
+     - Right-click on `sap/bc` → **Create Element**
+     - **Service Name**: `Z_ABAPGIT_AGENT`
+     - **Handler Class**: `ZCL_ABAPGIT_AGENT_HANDLER`
+   - Activate the service
+
+### 2. Install CLI Tool
 
 ```bash
+# Option A: Install globally for system-level integration
+npm install -g abap-ai-bridge
+
+# Option B: Use from cloned repo
 cd abap-ai-bridge
 npm install
 ```
 
-### 2. Configure ABAP Connection
+### 3. Configure Repository
 
-Copy and edit `config.example.json`:
+Create `.abapGitAgent` in your ABAP repository root:
 
 ```json
 {
   "host": "your-sap-system.com",
-  "sapport": 44300,
+  "sapport": 443,
   "client": "100",
   "user": "TECH_USER",
   "password": "your-password",
-  "language": "EN",
-  "agent": {
-    "port": 3000,
-    "pollInterval": 5000
-  }
+  "language": "EN"
 }
 ```
 
-### 3. Deploy ABAP Objects
-
-Use abapGit to deploy the ABAP objects in `/abap` folder.
-
-### 4. Create REST API Handler (SICF)
-
-1. Run transaction `SICF`
-2. Navigate to: `sap/bc/z_abapgit_agent`
-3. Create if doesn't exist:
-   - Right-click on `sap/bc` → **Create Element**
-   - **Service Name**: `Z_ABAPGIT_AGENT`
-   - **Handler Class**: `ZCL_ABAPGIT_AGENT_HANDLER`
-4. Activate the service
+Or set environment variables:
+- `ABAP_HOST`, `ABAP_PORT`, `ABAP_CLIENT`, `ABAP_USER`, `ABAP_PASSWORD`
 
 ## Usage
 
-### Start the Agent
+### From Any ABAP Git Repository
+
+1. **Install globally** (optional, for system-level integration):
+   ```bash
+   npm install -g abap-ai-bridge
+   ```
+
+2. **Configure your repository** - Create `.abapGitAgent` in repo root:
+   ```json
+   {
+     "host": "your-sap-system.com",
+     "sapport": 443,
+     "client": "100",
+     "user": "TECH_USER",
+     "password": "your-password",
+     "language": "EN"
+   }
+   ```
+
+3. **Run from your ABAP repo directory**:
+   ```bash
+   cd /path/to/your-abap-repo
+   abapgit-agent pull
+   ```
+   The CLI auto-detects the git remote URL and current branch.
+
+### CLI Commands
 
 ```bash
-npm start
-```
+# Pull and activate (auto-detects git remote and branch)
+abapgit-agent pull
 
-The agent will start on `http://localhost:3000`.
+# Pull with specific branch
+abapgit-agent pull --branch develop
 
-### Claude Integration
-
-```bash
-# Pull and activate repository
-node scripts/claude-integration.js pull --url <git-url> --branch main
+# Override git URL if needed
+abapgit-agent pull --url https://github.tools.sap/user/repo --branch main
 
 # Health check
-node scripts/claude-integration.js health
+abapgit-agent health
+
+# Check integration status
+abapgit-agent status
+```
+
+### Local Development
+
+```bash
+# Install dependencies
+cd abap-ai-bridge
+npm install
+
+# Run from package directory (auto-detects from git)
+node bin/abapgit-agent pull
+
+# Or use npm script
+npm run pull -- --url <git-url> --branch main
 ```
 
 ## REST API
@@ -179,17 +231,28 @@ You: "Create a class ZCL_AI_HELPER with a method HELLO"
 
 Claude: [Generates code and commits to git]
 
-You: "node scripts/claude-integration.js pull --url <repo-url>"
+You: "abapgit-agent pull"
 
-Agent: {"success":"X","job_id":"...","message":"Pull completed successfully"}
+Agent: 📌 Auto-detected git remote: https://github.tools.sap/...
+🚀 Starting pull for: https://github.tools.sap/...
+✅ Pull completed successfully!
 
 OR (if activation errors)
 
-Agent: {"success":"","job_id":"...","message":"Pull completed with activation errors","error_detail":"..."}
+Agent: ❌ Pull completed with errors!
+   Job ID: ...
+   Message: Pull completed with activation errors
+
+📋 Error Details:
+   - CLAS ZCL_TEST_CLASS (syntax error)
 
 You: "There's a syntax error. Please fix it in the class."
 
 Claude: [Fixes the error and pushes to git]
+
+You: "abapgit-agent pull"
+
+Agent: ✅ Pull completed successfully!
 ```
 
 ## Error Handling

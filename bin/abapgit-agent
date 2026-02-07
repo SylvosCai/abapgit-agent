@@ -1,59 +1,29 @@
+#!/usr/bin/env node
 /**
- * Claude Integration - Shell script for Claude Code
+ * ABAP Git Agent - CLI Tool
  *
- * This script can be run from any ABAP git repo with .abapGitAgent config.
+ * Usage:
+ *   abapgit-agent pull [--branch <branch>]
+ *   abapgit-agent pull --url <git-url> [--branch <branch>]
+ *   abapgit-agent health
+ *   abapgit-agent status
  *
- * Usage in Claude:
- * 1. Run: node scripts/claude-integration.js pull --url <git-url> [--branch <branch>]
- * 2. Parse response for activation result
- * 3. Display errors if any
- *
- * Alternatively, use the CLI directly:
- *   ./bin/abapgit-agent pull [--branch <branch>]
+ * Auto-detects git remote URL and branch from current directory.
  */
 
-const http = require('http');
-const https = require('https');
 const path = require('path');
 const fs = require('fs');
 
-const COOKIE_FILE = path.join(__dirname, '..', '.abapgit_agent_cookies.txt');
+const COOKIE_FILE = '.abapgit_agent_cookies.txt';
 
 /**
- * Check if ABAP AI integration is configured for this repo
- * Looks for .abapGitAgent in current working directory
- */
-function isAbapIntegrationEnabled() {
-  // Check in current working directory (repo root)
-  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
-  if (fs.existsSync(repoConfigPath)) {
-    return true;
-  }
-  // Also check if repo has abap/ folder with ABAP objects
-  const abapFolder = path.join(process.cwd(), 'abap');
-  if (fs.existsSync(abapFolder)) {
-    const files = fs.readdirSync(abapFolder);
-    return files.some(f => f.endsWith('.abap') || f.endsWith('.clas.abap') || f.endsWith('.fugr.abap'));
-  }
-  return false;
-}
-
-/**
- * Load configuration from .abapGitAgent
+ * Load configuration from .abapGitAgent in current working directory
  */
 function loadConfig() {
-  // First check current working directory (repo root)
   const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
 
   if (fs.existsSync(repoConfigPath)) {
-    console.log(`📁 Found .abapGitAgent in: ${repoConfigPath}`);
     return JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
-  }
-
-  // Fallback to abap-ai-bridge parent directory
-  const bridgeConfigPath = path.join(__dirname, '..', '.abapGitAgent');
-  if (fs.existsSync(bridgeConfigPath)) {
-    return JSON.parse(fs.readFileSync(bridgeConfigPath, 'utf8'));
   }
 
   // Fallback to environment variables
@@ -70,34 +40,114 @@ function loadConfig() {
 }
 
 /**
- * Read cookies from Netscape format cookie file
+ * Check if ABAP integration is configured for this repo
  */
-function readNetscapeCookies() {
-  if (!fs.existsSync(COOKIE_FILE)) return '';
+function isAbapIntegrationEnabled() {
+  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  return fs.existsSync(repoConfigPath);
+}
 
-  const content = fs.readFileSync(COOKIE_FILE, 'utf8');
-  const lines = content.split('\n');
-  const cookies = [];
+/**
+ * Get git remote URL from .git/config
+ */
+function getGitRemoteUrl() {
+  const gitConfigPath = path.join(process.cwd(), '.git', 'config');
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Skip empty lines and header comments but NOT HttpOnly cookies
-    if (!trimmed || (trimmed.startsWith('#') && !trimmed.startsWith('#HttpOnly'))) continue;
-
-    const parts = trimmed.split('\t');
-    if (parts.length >= 7) {
-      cookies.push(`${parts[5]}=${parts[6]}`);
-    }
+  if (!fs.existsSync(gitConfigPath)) {
+    return null;
   }
 
-  return cookies.join('; ');
+  const content = fs.readFileSync(gitConfigPath, 'utf8');
+  const remoteMatch = content.match(/\[remote "origin"\]/);
+
+  if (!remoteMatch) {
+    return null;
+  }
+
+  const urlMatch = content.match(/	url = (.+)/);
+  return urlMatch ? urlMatch[1].trim() : null;
+}
+
+/**
+ * Get current git branch
+ */
+function getGitBranch() {
+  const headPath = path.join(process.cwd(), '.git', 'HEAD');
+
+  if (!fs.existsSync(headPath)) {
+    return 'main';
+  }
+
+  const content = fs.readFileSync(headPath, 'utf8').trim();
+  const match = content.match(/ref: refs\/heads\/(.+)/);
+  return match ? match[1] : 'main';
+}
+
+/**
+ * Read cookies from file
+ * Supports both Netscape format and simple cookie string format
+ */
+function readNetscapeCookies() {
+  const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+  if (!fs.existsSync(cookiePath)) return '';
+
+  const content = fs.readFileSync(cookiePath, 'utf8').trim();
+  if (!content) return '';
+
+  // Check if it's Netscape format (has tabs)
+  if (content.includes('\t')) {
+    const lines = content.split('\n');
+    const cookies = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || (trimmed.startsWith('#') && !trimmed.startsWith('#HttpOnly'))) continue;
+
+      const parts = trimmed.split('\t');
+      if (parts.length >= 7) {
+        cookies.push(`${parts[5]}=${parts[6]}`);
+      }
+    }
+
+    return cookies.join('; ');
+  }
+
+  // Simple format - just return as-is
+  return content;
+}
+
+/**
+ * Save cookies to Netscape format cookie file
+ */
+function saveCookies(cookies, host) {
+  const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+
+  // Parse cookies and convert to Netscape format
+  const cookieList = cookies.split(';').map(c => c.trim()).filter(Boolean);
+  const lines = ['# Netscape HTTP Cookie File', '# https://curl.se/docs/http-cookies.html', '# This file was generated by libcurl! Edit at your own risk.'];
+
+  for (const cookie of cookieList) {
+    const [name, ...valueParts] = cookie.split('=');
+    const value = valueParts.join('=');
+
+    // HttpOnly cookies get #HttpOnly_ prefix
+    const domain = name.includes('SAP') || name.includes('MYSAP') || name.includes('SAPLOGON')
+      ? `#HttpOnly_${host}`
+      : host;
+
+    // Format: domain, flag, path, secure, expiration, name, value
+    lines.push(`${domain}\tFALSE\t/\tFALSE\t0\t${name.trim()}\t${value}`);
+  }
+
+  fs.writeFileSync(cookiePath, lines.join('\n'));
 }
 
 /**
  * Fetch CSRF token using GET /pull with X-CSRF-Token: fetch
  */
 async function fetchCsrfToken(config) {
-  const url = new URL(`/sap/bc/z_abapgit_agent/pull`, `https://${config.host}:${config.sapport}`);
+  const https = require('https');
+  const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${config.host}:${config.sapport}`);
 
   return new Promise((resolve, reject) => {
     const cookieHeader = readNetscapeCookies();
@@ -121,13 +171,13 @@ async function fetchCsrfToken(config) {
     const req = https.request(options, (res) => {
       const csrfToken = res.headers['x-csrf-token'];
 
-      // Save new cookies from response - the CSRF token is tied to this new session!
+      // Save new cookies from response
       const setCookie = res.headers['set-cookie'];
       if (setCookie) {
         const cookies = Array.isArray(setCookie)
           ? setCookie.map(c => c.split(';')[0]).join('; ')
           : setCookie.split(';')[0];
-        fs.writeFileSync(COOKIE_FILE, cookies);
+        saveCookies(cookies, config.host);
       }
 
       let body = '';
@@ -147,6 +197,8 @@ async function fetchCsrfToken(config) {
  */
 function request(method, path, data = null, options = {}) {
   return new Promise((resolve, reject) => {
+    const https = require('https');
+    const http = require('http');
     const config = loadConfig();
     const url = new URL(path, `https://${config.host}:${config.sapport}`);
 
@@ -185,9 +237,21 @@ function request(method, path, data = null, options = {}) {
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
         try {
-          resolve(JSON.parse(body));
+          // Handle unescaped newlines from ABAP - replace actual newlines with \n
+          const cleanedBody = body.replace(/\n/g, '\\n');
+          resolve(JSON.parse(cleanedBody));
         } catch (e) {
-          resolve(body);
+          // Fallback: try to extract JSON from response
+          const jsonMatch = body.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              resolve(JSON.parse(jsonMatch[0].replace(/\n/g, '\\n')));
+            } catch (e2) {
+              resolve({ raw: body, error: e2.message });
+            }
+          } else {
+            resolve({ raw: body, error: e.message });
+          }
         }
       });
     });
@@ -254,9 +318,11 @@ async function pull(gitUrl, branch = 'main') {
 async function healthCheck() {
   try {
     const result = await request('GET', '/sap/bc/z_abapgit_agent/health');
+    console.log(JSON.stringify(result, null, 2));
     return result;
   } catch (error) {
-    return { status: 'unreachable', error: error.message };
+    console.error(`Health check failed: ${error.message}`);
+    process.exit(1);
   }
 }
 
@@ -270,7 +336,7 @@ async function main() {
   // Check if ABAP integration is enabled for this repo
   if (!isAbapIntegrationEnabled()) {
     console.log(`
-⚠️  ABAP AI Integration not configured for this repository.
+⚠️  ABAP Git Agent not configured for this repository.
 
 To enable integration:
 1. Create a .abapGitAgent file in the repo root with ABAP connection details:
@@ -294,42 +360,52 @@ To enable integration:
   try {
     switch (command) {
       case 'pull':
-        const urlIndex = args.indexOf('--url') !== -1 ? args.indexOf('--url') + 1 : 1;
-        const branchIndex = args.indexOf('--branch');
+        const urlArgIndex = args.indexOf('--url');
+        const branchArgIndex = args.indexOf('--branch');
 
-        if (!args[urlIndex]) {
-          console.error('Error: --url is required');
-          console.error('Usage: node scripts/claude-integration.js pull --url <git-url> [--branch <branch>]');
-          process.exit(1);
+        // Auto-detect git remote URL if not provided
+        let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
+        let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : getGitBranch();
+
+        if (!gitUrl) {
+          gitUrl = getGitRemoteUrl();
+          if (!gitUrl) {
+            console.error('Error: Not in a git repository or no remote configured.');
+            console.error('Either run from a git repo, or specify --url <git-url>');
+            process.exit(1);
+          }
+          console.log(`📌 Auto-detected git remote: ${gitUrl}`);
         }
 
-        await pull(args[urlIndex], branchIndex !== -1 ? args[branchIndex + 1] : 'main');
+        await pull(gitUrl, branch);
         break;
 
       case 'health':
-        const health = await healthCheck();
-        console.log(JSON.stringify(health, null, 2));
+        await healthCheck();
         break;
 
       case 'status':
         if (isAbapIntegrationEnabled()) {
-          console.log('✅ ABAP AI Integration is ENABLED');
+          console.log('✅ ABAP Git Agent is ENABLED');
           console.log('   Config location:', path.join(process.cwd(), '.abapGitAgent'));
         } else {
-          console.log('❌ ABAP AI Integration is NOT configured');
+          console.log('❌ ABAP Git Agent is NOT configured');
         }
         break;
 
-      default:
+      case 'help':
+      case '--help':
+      case '-h':
         console.log(`
-ABAP AI Bridge - Claude Integration
+ABAP Git Agent
 
 Usage:
-  node scripts/claude-integration.js <command> [options]
+  abapgit-agent <command> [options]
 
 Commands:
-  pull --url <git-url> [--branch <branch>]
-    Pull and activate a repository in ABAP system
+  pull [--url <git-url>] [--branch <branch>]
+    Pull and activate repository in ABAP system.
+    Auto-detects git remote and branch from current directory.
 
   health
     Check if ABAP REST API is healthy
@@ -338,9 +414,18 @@ Commands:
     Check if ABAP integration is configured for this repo
 
 Examples:
-  node scripts/claude-integration.js pull --url https://github.tools.sap/user/repo --branch main
-  node scripts/claude-integration.js health
+  abapgit-agent pull                       # Auto-detect from git repo
+  abapgit-agent pull --branch develop      # Use specific branch
+  abapgit-agent pull --url <git-url>       # Override remote URL
+  abapgit-agent health
+  abapgit-agent status
 `);
+        break;
+
+      default:
+        console.error(`Unknown command: ${command}`);
+        console.error('Use: abapgit-agent help');
+        process.exit(1);
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);

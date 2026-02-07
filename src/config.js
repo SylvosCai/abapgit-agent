@@ -11,6 +11,14 @@ let config = null;
 function loadConfig() {
   if (config) return config;
 
+  // First check current working directory (repo root) - for system-level integration
+  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  if (fs.existsSync(repoConfigPath)) {
+    config = JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
+    return config;
+  }
+
+  // Fallback to package directory (for legacy/compatibility)
   const configPath = process.env.CONFIG_PATH || path.join(__dirname, '..', '.abapGitAgent');
 
   if (fs.existsSync(configPath)) {

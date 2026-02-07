@@ -1,12 +1,16 @@
 {
   "name": "abap-ai-bridge",
-  "version": "2.0.0",
-  "description": "Local agent to pull and activate ABAP code via abapGit using OData",
-  "main": "src/server.js",
+  "version": "2.1.0",
+  "description": "ABAP AI Bridge - Pull and activate ABAP code via abapGit from any git repository",
+  "main": "src/index.js",
+  "bin": {
+    "abapgit-agent": "./bin/abapgit-agent"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest"
+    "test": "jest",
+    "pull": "node bin/abapgit-agent"
   },
   "dependencies": {
     "cors": "^2.8.5",
