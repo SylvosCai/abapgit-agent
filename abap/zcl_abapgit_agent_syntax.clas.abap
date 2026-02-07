@@ -45,24 +45,24 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       iv_object_name = lv_object_name ).
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
+    DATA(lv_error_count) = ls_result-error_count.
 
-    " Build response structure
-    DATA: BEGIN OF ls_response,
-            success TYPE string,
-            object_type TYPE string,
-            object_name TYPE string,
-            error_count TYPE i,
-            errors TYPE zif_abapgit_agent=>ty_syntax_errors,
-          END OF ls_response.
+    " Build JSON response manually for reliability
+    lv_json_resp = |{{"success":"{ lv_success }",|.
+    lv_json_resp = |"object_type":"{ ls_result-object_type }",|.
+    lv_json_resp = |"object_name":"{ ls_result-object_name }",|.
+    lv_json_resp = |"error_count":{ lv_error_count },"errors":[|.
 
-    ls_response-success = lv_success.
-    ls_response-object_type = ls_result-object_type.
-    ls_response-object_name = ls_result-object_name.
-    ls_response-error_count = ls_result-error_count.
-    ls_response-errors = ls_result-errors.
+    DATA lv_first TYPE abap_bool VALUE abap_true.
+    LOOP AT ls_result-errors ASSIGNING FIELD-SYMBOL(<ls_err>).
+      IF lv_first = abap_false.
+        lv_json_resp = lv_json_resp && ','.
+      ENDIF.
+      lv_first = abap_false.
+      lv_json_resp = lv_json_resp && |{{"line":"{ <ls_err>-line }","column":"{ <ls_err>-column }","text":"{ <ls_err>-text }","word":"{ <ls_err>-word }"}}}|.
+    ENDLOOP.
 
-    " Use /UI2/CL_JSON for proper JSON serialization
-    lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
+    lv_json_resp = lv_json_resp && ']}'.
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
