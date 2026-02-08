@@ -10,7 +10,7 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
     METHODS: if_rest_resource~post REDEFINITION.
 
   PRIVATE SECTION.
-    DATA mo_agent TYPE REF TO zcl_abapgit_agent_syntax_src_agent.
+    DATA mo_agent TYPE REF TO zcl_abapgit_agent_src_agent.
 
     TYPES: BEGIN OF ty_request,
              source_code TYPE string_table,
@@ -49,7 +49,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
     ENDIF.
 
     " Call syntax check agent - returns structure
-    DATA ls_result TYPE zcl_abapgit_agent_syntax_src_agent=>ty_result.
+    DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
     ls_result = mo_agent->syntax_check_source( it_source_code = ls_request-source_code ).
 
     " Convert success to 'X' or '' for JSON
@@ -62,7 +62,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
     DATA: BEGIN OF ls_response,
             success TYPE string,
             error_count TYPE i,
-            errors TYPE zcl_abapgit_agent_syntax_src_agent=>ty_errors,
+            errors TYPE zcl_abapgit_agent_src_agent=>ty_errors,
           END OF ls_response.
 
     ls_response-success = lv_success.

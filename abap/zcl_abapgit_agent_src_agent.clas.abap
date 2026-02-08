@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abapgit_agent_syntax_src_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abapgit_agent_src_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
     TYPES: BEGIN OF ty_error,
@@ -26,7 +26,7 @@ CLASS zcl_abapgit_agent_syntax_src_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-CLASS zcl_abapgit_agent_syntax_src_agent IMPLEMENTATION.
+CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
     DATA: lv_word     TYPE string,
