@@ -18,5 +18,9 @@ CLASS zcl_ai_test IMPLEMENTATION.
     " Fixed: Use defined variable
     DATA lv_result TYPE string.
     lv_result = |Counter: { mv_counter }|.
+
+    " Intentional syntax error for testing
+    DATA lv_undefined.
+    lv_undefined = undefined_variable.
   ENDMETHOD.
 ENDCLASS.
