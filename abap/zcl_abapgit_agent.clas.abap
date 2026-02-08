@@ -195,9 +195,9 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
                                              obj_name = ls_overwrite-obj_name
                                       TRANSPORTING NO FIELDS.
         IF sy-subrc = 0.
-          ls_overwrite-decision = '1'.
+          ls_overwrite-decision = '1'.  " Overwrite = deserialize
         ELSE.
-          ls_overwrite-decision = 'S'.  " Skip other files
+          ls_overwrite-decision = '2'.  " Skip = do not deserialize
         ENDIF.
       ELSE.
         " No files specified, deserialize all
