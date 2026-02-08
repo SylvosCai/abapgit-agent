@@ -52,3 +52,19 @@ Common object types in this project:
 - Interface names: `ZIF_<NAME>`
 - Programs: `Z<NAME>`
 - Package: `$<PROJECT_NAME>`
+
+## Handling Persistent Syntax Errors
+
+When fixing ABAP syntax errors using the commit-pull-commit loop:
+
+1. **First 2-3 attempts**: Analyze the error message and try to fix based on the error details
+2. **If errors persist after 2-3 iterations**:
+   - Stop repeating the same fix attempts
+   - Search the web for the specific ABAP error message or syntax issue
+   - Use keywords like "ABAP", the error code, and relevant context
+   - Examples: "ABAP error 'XXXX' CLAS", "ABAP syntax MESSAGE is not a declaration"
+3. **After finding information**:
+   - Apply the correct fix based on documentation
+   - Test again with `abapgit-agent pull`
+
+**Never guess** - ABAP syntax is strict. If you're unsure, search first.
