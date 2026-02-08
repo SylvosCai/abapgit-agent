@@ -115,9 +115,18 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " Wrap source code in FORM block for GENERATE SUBROUTINE POOL
+    DATA lt_wrapped_code TYPE string_table.
+    APPEND 'FORM check_syntax.' TO lt_wrapped_code.
+    APPEND '  DATA lv_result TYPE abap_bool.' TO lt_wrapped_code.
+    LOOP AT lt_source_code INTO DATA(lv_line).
+      APPEND lv_line TO lt_wrapped_code.
+    ENDLOOP.
+    APPEND 'ENDFORM.' TO lt_wrapped_code.
+
     " Call syntax check agent - returns structure
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
-    ls_result = mo_agent->syntax_check_source( it_source_code = lt_source_code ).
+    ls_result = mo_agent->syntax_check_source( it_source_code = lt_wrapped_code ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.
