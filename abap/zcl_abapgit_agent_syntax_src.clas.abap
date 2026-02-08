@@ -115,14 +115,21 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Wrap source code in FORM block for GENERATE SUBROUTINE POOL
+    " Build source code for syntax check
+    " Add PROGRAM statement if not present
     DATA lt_wrapped_code TYPE string_table.
-    APPEND 'FORM check_syntax.' TO lt_wrapped_code.
-    APPEND '  DATA lv_result TYPE abap_bool.' TO lt_wrapped_code.
-    LOOP AT lt_source_code INTO DATA(lv_line).
-      APPEND lv_line TO lt_wrapped_code.
-    ENDLOOP.
-    APPEND 'ENDFORM.' TO lt_wrapped_code.
+    DATA lv_first_line TYPE string.
+    READ TABLE lt_source_code INDEX 1 INTO lv_first_line.
+    IF lv_first_line CS 'PROGRAM' OR lv_first_line CS 'REPORT'.
+      " Already has program statement
+      lt_wrapped_code = lt_source_code.
+    ELSE.
+      " Add program statement at the beginning
+      APPEND 'PROGRAM z_syntax_check.' TO lt_wrapped_code.
+      LOOP AT lt_source_code INTO DATA(lv_line).
+        APPEND lv_line TO lt_wrapped_code.
+      ENDLOOP.
+    ENDIF.
 
     " Call syntax check agent - returns structure
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
