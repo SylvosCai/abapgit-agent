@@ -45,7 +45,7 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_classes) TYPE ty_object_list.
 
-    METHODS run_aunit_tests
+    METHODS run_local_tests
       IMPORTING
         it_classes TYPE ty_object_list
       RETURNING
@@ -80,8 +80,8 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     rs_result-message = |Found { lines( lt_test_classes ) } test class(es)|.
 
-    " Run AUnit tests using CL_SUT_AUNIT_RUNNER
-    rs_result-results = run_aunit_tests( lt_test_classes ).
+    " Run local tests using ABAP Unit framework
+    rs_result-results = run_local_tests( lt_test_classes ).
 
     IF rs_result-results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
@@ -138,106 +138,49 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD run_aunit_tests.
-    " Run unit tests using CL_SUT_AUNIT_RUNNER
-    DATA: lo_runner TYPE REF TO cl_sut_aunit_runner,
-          lv_exc_text TYPE string,
-          lv_stats TYPE string,
-          lv_result TYPE string.
+  METHOD run_local_tests.
+    " Run unit tests locally using ABAP Unit framework
+    DATA: lv_class_name TYPE seoclsname,
+          lv_method_name TYPE seocpdname.
 
-    DATA: BEGIN OF ls_aunit_result,
-            type TYPE c LENGTH 1,
-            sep TYPE c,
-            text TYPE string,
-          END OF ls_aunit_result.
+    DATA: lo_test_class TYPE REF TO cl_aunit_test,
+          lt_results TYPE abap_list.
 
-    DATA lt_aunit_results LIKE TABLE OF ls_aunit_result.
-
-    " Create runner instance
-    CREATE OBJECT lo_runner.
+    FIELD-SYMBOLS: <ls_result> LIKE LINE OF lt_results.
 
     TRY.
-        " Build test class string (space-separated)
-        DATA(lv_test_classes).
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
-          IF lv_test_classes IS INITIAL.
-            lv_test_classes = <ls_class>-object_name.
-          ELSE.
-            lv_test_classes = |{ lv_test_classes } { <ls_class>-object_name }|.
-          ENDIF.
-        ENDLOOP.
+          lv_class_name = <ls_class>-object_name.
 
-        " Run tests
-        lo_runner->run_as_rfc_system(
-          EXPORTING
-            p_testclasses = lv_test_classes
-            p_env         = 'ABAP'
-          RECEIVING
-            p_result      = lv_result
-          EXCEPTIONS
-            system_failure = 1
-            communication_failure = 2
-            OTHERS = 3 ).
+          " Create test class instance
+          CREATE OBJECT lo_test_class TYPE (lv_class_name).
 
-        IF sy-subrc <> 0.
-          " Get exception text
-          lv_exc_text = lo_runner->get_raised_exc_text( ).
-          RETURN.
-        ENDIF.
+          " Get test methods
+          DATA(lt_methods) = lo_test_class->if_aunit_test~get_test_methods( ).
 
-        " Get test statistics
-        lv_stats = lo_runner->get_test_stats( ).
+          " Run each test method
+          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<lv_method>).
+            lv_method_name = <lv_method>.
 
-        " Parse the result - format: P|ClassName.MethodName;...
-        DATA lv_off TYPE i.
-        DATA lv_len TYPE i.
-        DATA lv_line TYPE string.
-        DATA lv_rem TYPE string.
+            " Execute test method
+            lo_test_class->if_aunit_test~execute(
+              EXPORTING
+                p_method_name = lv_method_name
+              RECEIVING
+                p_result      = DATA(lo_result) ).
 
-        lv_rem = lv_result.
-
-        WHILE lv_rem IS NOT INITIAL.
-          " Find separator
-          FIND '|' IN lv_rem MATCH OFFSET DATA(lv_pos).
-          IF sy-subrc = 0.
-            " Get type
-            DATA(lv_type) = lv_rem(lv_pos).
-            lv_rem = lv_rem+lv_pos+1.
-
-            " Find next separator or end
-            FIND ';' IN lv_rem MATCH OFFSET DATA(lv_pos2).
-            IF sy-subrc = 0.
-              lv_line = lv_rem(lv_pos2).
-              lv_rem = lv_rem+lv_pos2+1.
-            ELSE.
-              lv_line = lv_rem.
-              CLEAR lv_rem.
-            ENDIF.
-
-            " Parse class and method
-            FIND '=' IN lv_line MATCH OFFSET DATA(lv_eq_pos).
-            IF sy-subrc = 0.
-              DATA(lv_class) = lv_line(lv_eq_pos).
-              DATA(lv_method) = lv_line+lv_eq_pos+1.
-            ELSE.
-              lv_class = lv_line.
-              lv_method = ''.
-            ENDIF.
-
-            " Add to results
+            " Convert result
             DATA(ls_result) = VALUE ty_test_result(
               object_type = 'CLAS'
-              object_name = lv_class
-              test_method = lv_method
-              status = lv_type
-              message = lv_line
-              line = ''
+              object_name = lv_class_name
+              test_method = lv_method_name
+              status = lo_result->severity
+              message = lo_result->message
+              line = lo_result->source
             ).
             APPEND ls_result TO rt_results.
-          ELSE.
-            CLEAR lv_rem.
-          ENDIF.
-        ENDWHILE.
+          ENDLOOP.
+        ENDLOOP.
 
       CATCH cx_root INTO DATA(lx_error).
         " Return empty on error
@@ -253,9 +196,9 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     LOOP AT it_results ASSIGNING FIELD-SYMBOL(<ls_result>).
       CASE <ls_result>-status.
-        WHEN 'P'.  " Passed
+        WHEN 'S' OR 'P' OR 'PASSED'.  " Success or Passed
           rs_stats-passed_count = rs_stats-passed_count + 1.
-        WHEN 'F' OR 'E' OR 'A'.  " Failed, Error, or Abort
+        WHEN 'A' OR 'E' OR 'F' OR 'FAILED' OR 'ERROR'.  " Abort, Error, or Failed
           rs_stats-failed_count = rs_stats-failed_count + 1.
         WHEN OTHERS.
           " Check message for pass/fail
