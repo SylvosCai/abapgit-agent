@@ -188,7 +188,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     " Process results - structure: OBJECT-TAB_TESTCLASSES-TAB_METHODS
     LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
-      DATA(lv_obj_name) = <ls_object>-object_name.
+      DATA(lv_obj_name) = <ls_object>-obj_name.
 
       " Loop through test classes
       LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
