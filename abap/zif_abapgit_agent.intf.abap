@@ -34,6 +34,7 @@ INTERFACE zif_abapgit_agent PUBLIC.
     package TYPE devclass,
     folder_logic TYPE string,
     create_new TYPE abap_bool,
+    files TYPE string_table,  " Specific files to pull
   END OF ty_pull_params.
 
   TYPES: ty_log_table TYPE TABLE OF string.
@@ -51,6 +52,7 @@ INTERFACE zif_abapgit_agent PUBLIC.
       iv_branch TYPE string DEFAULT 'main'
       iv_username TYPE string OPTIONAL
       iv_password TYPE string OPTIONAL
+      it_files TYPE string_table OPTIONAL  " Specific files to pull
     RETURNING
       VALUE(rs_result) TYPE ty_result
     RAISING

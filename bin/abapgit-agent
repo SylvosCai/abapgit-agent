@@ -323,83 +323,6 @@ async function syntaxCheck(objectType, objectName) {
 }
 
 /**
- * Syntax check for ABAP source file
- * Reads file content and sends to /syntax-check-source
- */
-async function syntaxCheckSource(sourceFile) {
-  console.log(`\n  Syntax check for file: ${sourceFile}`);
-
-  try {
-    // Read file content
-    const absolutePath = path.isAbsolute(sourceFile)
-      ? sourceFile
-      : path.join(process.cwd(), sourceFile);
-
-    if (!fs.existsSync(absolutePath)) {
-      console.error(`\n  Error: File not found: ${absolutePath}`);
-      process.exit(1);
-    }
-
-    const fileContent = fs.readFileSync(absolutePath, 'utf8');
-
-    // Split into lines array
-    const sourceLines = fileContent.split('\n');
-
-    // Extract source name from file path
-    // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
-    // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
-    let sourceName = path.basename(sourceFile);
-    sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
-    sourceName = sourceName.toUpperCase();
-
-    const config = loadConfig();
-
-    // Fetch CSRF token first
-    const csrfToken = await fetchCsrfToken(config);
-
-    // Send source code lines and name to /syntax-check-source
-    const data = {
-      source_name: sourceName,
-      source_code: sourceLines
-    };
-
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
-
-    // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
-    const errorCount = result.ERROR_COUNT || result.error_count || 0;
-    const errors = result.ERRORS || result.errors || [];
-
-    console.log('\n');
-
-    if (errorCount > 0) {
-      console.log(`❌ Syntax check failed (${errorCount} error(s)):`);
-      console.log('\nErrors:');
-      console.log('─'.repeat(60));
-
-      for (const err of errors) {
-        const line = err.LINE || err.line || '?';
-        const column = err.COLUMN || err.column || '?';
-        const text = err.TEXT || err.text || 'Unknown error';
-
-        console.log(`  Line ${line}, Column ${column}:`);
-        console.log(`    ${text}`);
-        console.log('');
-      }
-    } else if (success === 'X' || success === true) {
-      console.log(`✅ ${path.basename(sourceFile)} - Syntax check passed (0 errors)`);
-    } else {
-      console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
-    }
-
-    return result;
-  } catch (error) {
-    console.error(`\n  Error: ${error.message}`);
-    process.exit(1);
-  }
-}
-
-/**
  * Run unit tests for package or objects
  */
 async function runUnitTests(options) {
@@ -472,11 +395,15 @@ async function runUnitTests(options) {
 }
 
 /**
- * Pull and activate repository
+ * Pull and activate repository, optionally specific files
  */
-async function pull(gitUrl, branch = 'main') {
+async function pull(gitUrl, branch = 'main', files = null) {
   console.log(`\n🚀 Starting pull for: ${gitUrl}`);
   console.log(`   Branch: ${branch}`);
+
+  if (files && files.length > 0) {
+    console.log(`   Files: ${files.join(', ')}`);
+  }
 
   try {
     const config = loadConfig();
@@ -491,6 +418,11 @@ async function pull(gitUrl, branch = 'main') {
       username: config.gitUsername,
       password: config.gitPassword
     };
+
+    // Add files if specified (for single file syntax check)
+    if (files && files.length > 0) {
+      data.files = files;
+    }
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
@@ -647,10 +579,16 @@ To enable integration:
       case 'pull':
         const urlArgIndex = args.indexOf('--url');
         const branchArgIndex = args.indexOf('--branch');
+        const filesArgIndex = args.indexOf('--files');
 
         // Auto-detect git remote URL if not provided
         let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
         let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : getGitBranch();
+        let files = null;
+
+        if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
+          files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+        }
 
         if (!gitUrl) {
           gitUrl = getGitRemoteUrl();
@@ -662,7 +600,7 @@ To enable integration:
           console.log(`📌 Auto-detected git remote: ${gitUrl}`);
         }
 
-        await pull(gitUrl, branch);
+        await pull(gitUrl, branch, files);
         break;
 
       case 'health':
@@ -690,18 +628,6 @@ To enable integration:
         }
 
         await syntaxCheck(objectType, objectName);
-        break;
-
-      case 'syntax-check-source':
-        const fileIndex = args.indexOf('--file');
-        if (fileIndex === -1 || fileIndex + 1 >= args.length) {
-          console.error('Error: --file parameter required');
-          console.error('Usage: abapgit-agent syntax-check-source --file <source_file>');
-          console.error('Example: abapgit-agent syntax-check-source --file zcl_my_class.clas.abap');
-          process.exit(1);
-        }
-        const sourceFile = args[fileIndex + 1];
-        await syntaxCheckSource(sourceFile);
         break;
 
       case 'unit':
@@ -743,15 +669,12 @@ Usage:
   abapgit-agent <command> [options]
 
 Commands:
-  pull [--url <git-url>] [--branch <branch>]
+  pull [--url <git-url>] [--branch <branch>] [--files <files>]
     Pull and activate repository in ABAP system.
-    Auto-detects git remote and branch from current directory.
+    Use --files to pull and syntax-check specific files (comma-separated).
 
   syntax-check <object_type> <object_name>
     Check syntax of an ABAP object (Code Inspector).
-
-  syntax-check-source --file <source_file>
-    Check syntax of ABAP source file (.clas.abap, .prog.abap).
 
   unit --package <package>
     Run unit tests for all objects in a package.
@@ -768,9 +691,9 @@ Commands:
 Examples:
   abapgit-agent pull                       # Auto-detect from git repo
   abapgit-agent pull --branch develop      # Use specific branch
+  abapgit-agent pull --files "abap/zcl_my_class.clas.abap"  # Pull & check single file
   abapgit-agent pull --url <git-url>       # Override remote URL
   abapgit-agent syntax-check CLAS ZCL_MY_CLASS
-  abapgit-agent syntax-check-source --file zcl_my_class.clas.abap
   abapgit-agent unit --package ZMY_PACKAGE
   abapgit-agent unit --object CLAS ZCL_TEST
   abapgit-agent health

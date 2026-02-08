@@ -16,65 +16,27 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     DATA lv_json TYPE string.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    DATA lv_url TYPE string.
-    DATA lv_branch TYPE string.
-    DATA lv_username TYPE string.
-    DATA lv_password TYPE string.
+    " Parse JSON using /ui2/cl_json
+    DATA: BEGIN OF ls_request,
+            url TYPE string,
+            branch TYPE string,
+            username TYPE string,
+            password TYPE string,
+            files TYPE string_table,
+          END OF ls_request.
 
-    FIND '"url":' IN lv_json MATCH OFFSET DATA(lv_pos).
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 6.
-      lv_url = lv_json+lv_pos.
-      SHIFT lv_url LEFT UP TO '"'.
-      SHIFT lv_url LEFT.
-      FIND '"' IN lv_url MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_url = lv_url(lv_pos).
-      ENDIF.
-    ENDIF.
+    /ui2/cl_json=>deserialize(
+      EXPORTING
+        json = lv_json
+      CHANGING
+        data = ls_request ).
 
-    FIND '"branch":' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 9.
-      lv_branch = lv_json+lv_pos.
-      SHIFT lv_branch LEFT UP TO '"'.
-      SHIFT lv_branch LEFT.
-      FIND '"' IN lv_branch MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_branch = lv_branch(lv_pos).
-      ENDIF.
-    ENDIF.
-
-    FIND '"username":' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 11.
-      lv_username = lv_json+lv_pos.
-      SHIFT lv_username LEFT UP TO '"'.
-      SHIFT lv_username LEFT.
-      FIND '"' IN lv_username MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_username = lv_username(lv_pos).
-      ENDIF.
-    ENDIF.
-
-    FIND '"password":' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_pos = lv_pos + 11.
-      lv_password = lv_json+lv_pos.
-      SHIFT lv_password LEFT UP TO '"'.
-      SHIFT lv_password LEFT.
-      FIND '"' IN lv_password MATCH OFFSET lv_pos.
-      IF sy-subrc = 0.
-        lv_password = lv_password(lv_pos).
-      ENDIF.
-    ENDIF.
-
-    IF lv_branch IS INITIAL.
-      lv_branch = 'main'.
+    IF ls_request-branch IS INITIAL.
+      ls_request-branch = 'main'.
     ENDIF.
 
     DATA lv_json_resp TYPE string.
-    IF lv_url IS INITIAL.
+    IF ls_request-url IS INITIAL.
       lv_json_resp = '{"success":"","job_id":"","error":"URL is required"}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
@@ -85,10 +47,11 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
 
     DATA(lo_agent) = NEW zcl_abapgit_agent( ).
     DATA(ls_result) = lo_agent->zif_abapgit_agent~pull(
-      iv_url      = lv_url
-      iv_branch   = lv_branch
-      iv_username = lv_username
-      iv_password = lv_password ).
+      iv_url      = ls_request-url
+      iv_branch   = ls_request-branch
+      iv_username = ls_request-username
+      iv_password = ls_request-password
+      it_files    = ls_request-files ).
 
     DATA(lv_success) = COND string( WHEN ls_result-success = abap_true THEN 'X' ELSE '' ).
 
