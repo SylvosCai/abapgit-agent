@@ -206,10 +206,16 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
             rv_detail = lv_msg.
             lv_first = abap_true.
           ELSE.
-            rv_detail = |{ rv_detail }\n  - { lv_msg }|.
+            rv_detail = |{ rv_detail }&&&{ lv_msg }|.
           ENDIF.
         ENDIF.
       ENDLOOP.
+
+      " Replace marker with newline for display
+      IF rv_detail IS NOT INITIAL.
+        rv_detail = replace( val = rv_detail sub = '&&&' with = cl_abap_char_utilities=>newline ).
+        rv_detail = |Error Details:{ cl_abap_char_utilities=>newline }{ rv_detail }|.
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
@@ -233,9 +239,17 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         ls_object-text = ls_msg-text.
         ls_object-obj_type = ls_msg-obj_type.
         ls_object-obj_name = ls_msg-obj_name.
+
         " Exception is a REF, need to convert to string
+        " Also append exception text to the message for better error reporting
         IF ls_msg-exception IS BOUND.
-          ls_object-exception = ls_msg-exception->get_text( ).
+          DATA: lv_exc_text TYPE string.
+          lv_exc_text = ls_msg-exception->get_text( ).
+          ls_object-exception = lv_exc_text.
+          " Append exception text to the main text if it's not already there
+          IF lv_exc_text IS NOT INITIAL AND ls_msg-text NA lv_exc_text.
+            ls_object-text = |{ ls_msg-text }\nException: { lv_exc_text }|.
+          ENDIF.
         ENDIF.
 
         " Success messages (type 'S') - activated objects
