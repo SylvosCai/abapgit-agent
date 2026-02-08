@@ -40,75 +40,65 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     ENDLOOP.
 
     IF lv_has_class = abap_true.
-      " For CLASS files, use INSERT REPORT + SYNTAX-CHECK
-      lv_prog_name = |Z_SYNTAX_CHECK_{ sy-uname }|.
-      INSERT REPORT lv_prog_name FROM it_source_code STATE 'A'.
-
-      IF sy-subrc <> 0.
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
-        rs_result-line = '1'.
-        rs_result-text = 'Failed to insert source code for syntax check'.
-        RETURN.
-      ENDIF.
-
-      " Read back and check
-      DATA lt_source TYPE STANDARD TABLE OF STRING.
-      READ REPORT lv_prog_name INTO lt_source.
-
-      IF sy-subrc <> 0.
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
-        rs_result-line = '1'.
-        rs_result-text = 'Failed to read inserted source'.
-        RETURN.
-      ENDIF.
-
-      " Get TRDIR properties
-      DATA ls_dir TYPE trdir.
-      SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
-
-      IF sy-subrc <> 0.
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
-        rs_result-line = '1'.
-        rs_result-text = 'Failed to get TRDIR properties'.
-        RETURN.
-      ENDIF.
-
-      " Perform syntax check
-      SYNTAX-CHECK FOR lt_source
-        MESSAGE lv_word
-        LINE lv_line
-        DIRECTORY ENTRY ls_dir.
-
-      " Cleanup - ignore result
-      DELETE REPORT lv_prog_name.       "# EC NOTEXT
-    ELSE.
-      " For non-CLASS files (PROG, etc.), use subroutine pool
-      " Strip REPORT/PROGRAM statement
-      DATA lt_subpool TYPE string_table.
+      " For CLASS files, extract method implementations for checking
+      " Strip CLASS DEFINITION/IMPLEMENTATION and check only method bodies
+      DATA lt_methods TYPE string_table.
+      DATA lv_in_method TYPE abap_bool.
 
       LOOP AT it_source_code ASSIGNING <ls_line>.
         DATA(lv_line_text) = <ls_line>.
         CONDENSE lv_line_text.
 
-        " Skip REPORT, PROGRAM, or FUNCTION-POOL statements
+        " Skip CLASS statements
+        IF lv_line_text CP 'CLASS * DEFINITION*' OR lv_line_text CP 'ENDCLASS*' OR
+           lv_line_text CP 'PUBLIC SECTION*' OR lv_line_text CP 'PRIVATE SECTION*' OR
+           lv_line_text CP 'PROTECTED SECTION*' OR lv_line_text CP 'METHODS*' OR
+           lv_line_text CP 'CLASS-METHODS*' OR lv_line_text CP 'DATA*' OR
+           lv_line_text CP 'CLASS-DATA*' OR lv_line_text CP 'CONSTANTS*'.
+          CONTINUE.
+        ENDIF.
+
+        " Track if we're inside a method implementation
+        IF lv_line_text CP 'METHOD *'.
+          lv_in_method = abap_true.
+          APPEND <ls_line> TO lt_methods.
+        ELSEIF lv_line_text CP 'ENDMETHOD*'.
+          lv_in_method = abap_false.
+        ELSEIF lv_in_method = abap_true.
+          APPEND <ls_line> TO lt_methods.
+        ENDIF.
+      ENDLOOP.
+
+      " Add dummy FORM structure for syntax check
+      INSERT 'FORM check.' INTO lt_methods INDEX 1.
+      APPEND 'ENDFORM.' TO lt_methods.
+
+      lv_prog_name = |Z_SUBPOOL_{ sy-uname }|.
+      GENERATE SUBROUTINE POOL lt_methods
+        NAME lv_prog_name
+        MESSAGE lv_word
+        LINE lv_line.
+    ELSE.
+      " For non-CLASS files, strip REPORT/PROGRAM
+      DATA lt_source TYPE string_table.
+
+      LOOP AT it_source_code ASSIGNING <ls_line>.
+        DATA(lv_line_text) = <ls_line>.
+        CONDENSE lv_line_text.
+
         IF lv_line_text CP 'REPORT*' OR lv_line_text CP 'PROGRAM*' OR lv_line_text CP 'FUNCTION-POOL*'.
           CONTINUE.
         ENDIF.
 
-        APPEND <ls_line> TO lt_subpool.
+        APPEND <ls_line> TO lt_source.
       ENDLOOP.
 
-      " Wrap in subroutine pool structure
-      INSERT 'PROGRAM SUBPOOL.' INTO lt_subpool INDEX 1.
-      INSERT 'FORM check_syntax.' INTO lt_subpool INDEX 2.
-      APPEND 'ENDFORM.' TO lt_subpool.
+      INSERT 'PROGRAM SUBPOOL.' INTO lt_source INDEX 1.
+      INSERT 'FORM check_syntax.' INTO lt_source INDEX 2.
+      APPEND 'ENDFORM.' TO lt_source.
 
-      " Generate subroutine pool for syntax checking
       lv_prog_name = |Z_SUBPOOL_{ sy-uname }|.
-      GENERATE SUBROUTINE POOL lt_subpool
+      GENERATE SUBROUTINE POOL lt_source
         NAME lv_prog_name
         MESSAGE lv_word
         LINE lv_line.
