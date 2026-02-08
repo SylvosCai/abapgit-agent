@@ -1,5 +1,5 @@
 " Unit test for syntax agent
-CLASS zcl_ai_syntax_agent_test DEFINITION
+CLASS zcl_ai_syntax_agent_test DEFINITION PUBLIC FINAL
   FOR TESTING
   RISK LEVEL HARMLESS
   DURATION SHORT.
