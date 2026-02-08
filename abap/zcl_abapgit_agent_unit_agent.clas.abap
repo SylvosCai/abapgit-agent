@@ -40,6 +40,39 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rs_result) TYPE ty_result.
 
+  PRIVATE SECTION.
+    METHODS get_test_classes
+      IMPORTING
+        iv_package TYPE devclass OPTIONAL
+        it_objects TYPE ty_object_list OPTIONAL
+      RETURNING
+        VALUE(rt_classes) TYPE ty_object_list.
+
+    METHODS build_object_set
+      IMPORTING
+        it_classes TYPE ty_object_list
+      RETURNING
+        VALUE(rt_objects) TYPE scit_objs.
+
+    METHODS run_inspection
+      IMPORTING
+        it_objects TYPE scit_objs
+        iv_name TYPE string
+      RETURNING
+        VALUE(rt_results) TYPE scit_alvlist.
+
+    METHODS convert_results
+      IMPORTING
+        it_alv TYPE scit_alvlist
+      RETURNING
+        VALUE(rt_results) TYPE ty_test_results.
+
+    METHODS count_results
+      IMPORTING
+        it_results TYPE ty_test_results
+      CHANGING
+        rs_stats TYPE ty_result.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
@@ -83,7 +116,9 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     " Convert and count results
     rs_result-results = convert_results( lt_results ).
-    count_results( EXPORTING it_results = rs_result-results CHANGING rs_stats = rs_result ).
+    count_results(
+      EXPORTING it_results = rs_result-results
+      CHANGING rs_stats = rs_result ).
 
     IF rs_result-failed_count = 0.
       rs_result-success = abap_true.
