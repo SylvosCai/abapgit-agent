@@ -16,6 +16,14 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
              source_code TYPE string_table,
            END OF ty_request.
 
+    TYPES: BEGIN OF ty_error,
+             line TYPE string,
+             column TYPE string,
+             text TYPE string,
+           END OF ty_error.
+
+    TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
@@ -62,12 +70,16 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
     DATA: BEGIN OF ls_response,
             success TYPE string,
             error_count TYPE i,
-            errors TYPE zcl_abapgit_agent_src_agent=>ty_errors,
+            errors TYPE ty_errors,
           END OF ls_response.
 
     ls_response-success = lv_success.
     ls_response-error_count = ls_result-error_count.
-    ls_response-errors = ls_result-errors.
+    IF ls_result-error_count > 0.
+      APPEND VALUE #( line = ls_result-line
+                      column = ls_result-column
+                      text = ls_result-text ) TO ls_response-errors.
+    ENDIF.
 
     " Serialize to JSON using /ui2/cl_json
     lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
