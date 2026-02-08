@@ -139,11 +139,18 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_local_tests.
-    " Run unit tests locally using ABAP Unit framework
+    " Run unit tests locally by querying SE24 for test methods
     DATA: lv_class_name TYPE seoclsname,
           lv_method_name TYPE seocpdname.
 
     DATA: lo_test_class TYPE REF TO object.
+
+    DATA: BEGIN OF ls_method,
+            clsname TYPE seoclsname,
+            cmpname TYPE seocpdname,
+          END OF ls_method.
+
+    DATA lt_methods LIKE TABLE OF ls_method.
 
     FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
 
@@ -151,25 +158,41 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
           lv_class_name = <ls_class>-object_name.
 
+          " Query SE24 for test methods (FOR TESTING)
+          SELECT cmpname INTO TABLE lt_methods
+            FROM seocompdir
+            WHERE clsname = lv_class_name
+              AND cmptype = 0  " Method
+              AND cmpname LIKE 'TEST%'
+            ORDER BY cmpname.
+
+          IF lt_methods IS INITIAL.
+            " Try also methods ending with _TEST
+            SELECT cmpname INTO TABLE lt_methods
+              FROM seocompdir
+              WHERE clsname = lv_class_name
+                AND cmptype = 0
+                AND cmpname LIKE '%_TEST'
+              ORDER BY cmpname.
+          ENDIF.
+
+          IF lt_methods IS INITIAL.
+            " No test methods found - continue
+            CONTINUE.
+          ENDIF.
+
           " Create test class instance dynamically
           CREATE OBJECT lo_test_class TYPE (lv_class_name).
 
-          " Get test methods using reflection
-          CALL METHOD cl_aunit_utility=>get_test_methods
-            EXPORTING
-              p_test_class = lv_class_name
-            RECEIVING
-              p_test_methods = DATA(lt_methods).
-
           " Run each test method
-          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<lv_method>).
-            lv_method_name = <lv_method>.
+          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<ls_meth>).
+            lv_method_name = <ls_meth>-cmpname.
+
+            " Call setup method if exists
+            CALL METHOD lo_test_class->setup
+              EXCEPTIONS OTHERS = 0.
 
             " Execute test method and catch exceptions
-            DATA(lv_exc) = ''.
-            DATA(lv_msg) = ''.
-
-            " Call test method dynamically and capture result
             CALL METHOD lo_test_class->(lv_method_name)
               EXCEPTIONS
                 method_not_found = 1
