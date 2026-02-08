@@ -188,6 +188,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       DATA: ls_msg TYPE zif_abapgit_log=>ty_log_out.
       lt_messages = lo_log->get_messages( ).
 
+      DATA lv_first TYPE abap_bool VALUE abap_false.
+
       LOOP AT lt_messages INTO ls_msg.
         IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
           DATA: lv_msg TYPE string.
@@ -198,15 +200,16 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           ENDIF.
           " Add exception text if available
           IF ls_msg-exception IS BOUND.
-            lv_msg = |{ lv_msg }\n    Exception: { ls_msg-exception->get_text( ) }|.
+            lv_msg = |{ lv_msg }\nException: { ls_msg-exception->get_text( ) }|.
           ENDIF.
-          rv_detail = rv_detail && |{ cl_abap_char_utilities=>newline }  - { lv_msg }|.
+          IF lv_first = abap_false.
+            rv_detail = lv_msg.
+            lv_first = abap_true.
+          ELSE.
+            rv_detail = |{ rv_detail }\n  - { lv_msg }|.
+          ENDIF.
         ENDIF.
       ENDLOOP.
-
-      IF rv_detail IS NOT INITIAL.
-        rv_detail = |Error Details:{ rv_detail }|.
-      ENDIF.
     ENDIF.
   ENDMETHOD.
 
