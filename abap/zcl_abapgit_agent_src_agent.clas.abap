@@ -25,12 +25,13 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
-          lv_word TYPE string.
+          lv_word TYPE string,
+          lv_prog_name TYPE progname,     " For INSERT REPORT
+          lv_has_class TYPE abap_bool.
 
     rs_result-success = abap_true.
 
     " Check if source contains CLASS DEFINITION
-    DATA(lv_has_class) = abap_false.
     LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
       IF <ls_line> CP 'CLASS * DEFINITION*'.
         lv_has_class = abap_true.
@@ -40,8 +41,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     IF lv_has_class = abap_true.
       " For CLASS files, use INSERT REPORT + SYNTAX-CHECK
-      " INSERT REPORT saves source without activation
-      DATA(lv_prog_name) = |Z_SYNTAX_CHECK_{ sy-uname }|.
+      lv_prog_name = |Z_SYNTAX_CHECK_{ sy-uname }|.
       INSERT REPORT lv_prog_name FROM it_source_code STATE 'A'.
 
       IF sy-subrc <> 0.
@@ -96,8 +96,9 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       APPEND 'ENDFORM.' TO lt_source.
 
       " Generate subroutine pool for syntax checking
+      lv_prog_name = |Z_SUBPOOL_{ sy-uname }|.
       GENERATE SUBROUTINE POOL lt_source
-        NAME DATA(lv_prog_name)
+        NAME lv_prog_name
         MESSAGE lv_word
         LINE lv_line.
     ENDIF.
