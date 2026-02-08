@@ -27,7 +27,8 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
           lv_prog_name TYPE progname,     " For INSERT REPORT
-          lv_has_class TYPE abap_bool.
+          lv_has_class TYPE abap_bool,
+          lt_read_source TYPE STANDARD TABLE OF STRING.  " For reading inserted source
 
     rs_result-success = abap_true.
 
@@ -53,8 +54,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       ENDIF.
 
       " Read back and check
-      DATA lt_source TYPE STANDARD TABLE OF STRING.
-      READ REPORT lv_prog_name INTO lt_source.
+      READ REPORT lv_prog_name INTO lt_read_source.
 
       IF sy-subrc = 0.
         " Get TRDIR properties
@@ -63,7 +63,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
         IF sy-subrc = 0.
           " Perform syntax check
-          SYNTAX-CHECK FOR lt_source
+          SYNTAX-CHECK FOR lt_read_source
             MESSAGE lv_word
             LINE lv_line
             DIRECTORY ENTRY ls_dir.
