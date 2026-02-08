@@ -139,12 +139,24 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_aunit_tests.
-    " Run unit tests using RAISE EVENT mechanism
-    " Create a local class that implements the event handler
+    " Run unit tests using CL_SUT_AUNIT_RUNNER
+    DATA: lo_runner TYPE REF TO cl_sut_aunit_runner.
 
-    DATA: lv_test_classes TYPE string.
+    " Create runner using s_create
+    cl_sut_aunit_runner=>s_create(
+      EXPORTING
+        p_cov       = abap_false
+        i_flg_api   = abap_true
+      RECEIVING
+        r_ref_runner = lo_runner ).
 
-    " Build space-separated list of test classes
+    " Configure runner
+    lo_runner->p_disp = abap_false.    " Don't show results UI
+    lo_runner->p_save = abap_true.      " Save values
+    lo_runner->p_runmd = 'E'.           " Execute only (not plan)
+
+    " Set test classes
+    DATA lv_test_classes TYPE string.
     LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
       IF lv_test_classes IS INITIAL.
         lv_test_classes = <ls_class>-object_name.
@@ -153,67 +165,48 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " Use CL_AUNIT_ENGINE for execution
-    DATA: lo_engine TYPE REF TO if_aunit_engine.
-
-    lo_engine = cl_aunit_engine=>create( ).
-
-    " Add test classes
-    LOOP AT it_classes ASSIGNING <ls_class>.
-      lo_engine->add_test_class(
-        EXPORTING
-          p_name = <ls_class>-object_name ).
-    ENDLOOP.
+    " Pass test class names via RFC enablement
+    " The runner will execute the tests
 
     " Run tests
-    lo_engine->run(
+    lo_runner->run(
       EXPORTING
-        p_howtorun = 'S'  " Short
+        i_flg_select_only = abap_false
       EXCEPTIONS
-        OTHERS = 4 ).
+        OTHERS = 1 ).
 
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Get results
-    DATA(lo_result) = lo_engine->get_result( ).
+    " Get results from tab_objects
+    DATA(lt_objects) = lo_runner->tab_objects.
 
-    " Get plain list
-    DATA: lt_alv TYPE scit_alvlist.
-    lo_result->get_plain_list(
-      EXPORTING
-        p_max_lines = 1000000
-      IMPORTING
-        p_list = lt_alv ).
+    IF lt_objects IS INITIAL.
+      RETURN.
+    ENDIF.
 
-    " Convert to our format
-    LOOP AT lt_alv ASSIGNING FIELD-SYMBOL(<ls_alv>).
-      DATA: lv_text TYPE string.
-      lv_text = <ls_alv>-text.
+    " Process results - structure: OBJECT-TAB_TESTCLASSES-TAB_METHODS
+    LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
+      DATA(lv_obj_name) = <ls_object>-object_name.
 
-      " Extract method name from text (format: CLASS=>METHOD)
-      DATA: lv_class TYPE string,
-            lv_method TYPE string.
+      " Loop through test classes
+      LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
+        DATA(lv_tcl_name) = <ls_tcl>-testclass.
 
-      IF lv_text CS '=>'.
-        DATA(lv_pos) = sy-fdpos.
-        lv_class = lv_text(lv_pos).
-        lv_method = lv_text+lv_pos+2.
-      ELSE.
-        lv_class = lv_text.
-        lv_method = ''.
-      ENDIF.
-
-      DATA(ls_result) = VALUE ty_test_result(
-        object_type = <ls_alv>-objtyp
-        object_name = lv_class
-        test_method = lv_method
-        status = <ls_alv>-kind
-        message = <ls_alv>-text
-        line = <ls_alv>-line
-      ).
-      APPEND ls_result TO rt_results.
+        " Loop through test methods
+        LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
+          DATA(ls_result) = VALUE ty_test_result(
+            object_type = 'CLAS'
+            object_name = lv_obj_name
+            test_method = <ls_method>-methodname
+            status = <ls_method>-kind
+            message = <ls_method>-description
+            line = <ls_method>-source
+          ).
+          APPEND ls_result TO rt_results.
+        ENDLOOP.
+      ENDLOOP.
     ENDLOOP.
 
   ENDMETHOD.
