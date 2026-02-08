@@ -14,7 +14,7 @@ CLASS zcl_abapgit_agent_src_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS syntax_check_source
       IMPORTING
-        iv_program_name TYPE clike
+        iv_program_name TYPE trobjname
       RETURNING
         VALUE(rs_result) TYPE ty_result.
 
