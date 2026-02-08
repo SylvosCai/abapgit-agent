@@ -25,32 +25,42 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS:
       configure_credentials
-        IMPORTING iv_url TYPE string
-                  iv_username TYPE string
-                  iv_password TYPE string
+        IMPORTING
+          iv_url TYPE string
+          iv_username TYPE string
+          iv_password TYPE string
         RAISING zcx_abapgit_exception,
 
       prepare_deserialize_checks
-        IMPORTING it_files TYPE string_table OPTIONAL
-        RETURNING VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
+        IMPORTING
+          it_files TYPE string_table OPTIONAL
+        RETURNING
+          VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
         RAISING zcx_abapgit_exception,
 
       convert_file_to_object
-        IMPORTING iv_file TYPE string
-        RETURNING VALUE(rs_sig) TYPE ty_item_signature,
+        IMPORTING
+          iv_file TYPE string
+        RETURNING
+          VALUE(rs_sig) TYPE ty_item_signature,
 
       check_log_for_errors
-        RETURNING VALUE(rv_has_error) TYPE abap_bool,
+        RETURNING
+          VALUE(rv_has_error) TYPE abap_bool,
 
       get_log_detail
-        RETURNING VALUE(rv_detail) TYPE string,
+        RETURNING
+          VALUE(rv_detail) TYPE string,
 
       get_object_lists
-        RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result,
+        RETURNING
+          VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result,
 
       handle_exception
-        IMPORTING ix_exception TYPE REF TO cx_root
-        RETURNING VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result.
+        IMPORTING
+          ix_exception TYPE REF TO cx_root
+        RETURNING
+          VALUE(rs_result) TYPE zif_abapgit_agent=>ty_result.
 
 ENDCLASS.
 
