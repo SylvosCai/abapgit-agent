@@ -431,6 +431,7 @@ async function pull(gitUrl, branch = 'main') {
     const errorDetail = result.ERROR_DETAIL || result.error_detail;
     const activatedCount = result.ACTIVATED_COUNT || result.activated_count || 0;
     const failedCount = result.FAILED_COUNT || result.failed_count || 0;
+    const logMessages = result.LOG_MESSAGES || result.log_messages || [];
     const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
     const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
 
@@ -464,14 +465,14 @@ async function pull(gitUrl, branch = 'main') {
       console.log(formattedDetail);
     }
 
-    // Display all messages as table
-    if (activatedObjects && activatedObjects.length > 0) {
-      console.log(`\n📋 Pull Log (${activatedObjects.length} messages):`);
+    // Display all messages as table (from log_messages)
+    if (logMessages && logMessages.length > 0) {
+      console.log(`\n📋 Pull Log (${logMessages.length} messages):`);
       console.log('───────────────────────────────────────────────────────────────────────────────');
       console.log('Icon │ Object                      │ Message');
       console.log('──────┼────────────────────────────┼───────────────────────────────────────');
 
-      for (const msg of activatedObjects) {
+      for (const msg of logMessages) {
         const icon = getIcon(msg.TYPE);
         const objType = msg.OBJ_TYPE || '';
         const objName = msg.OBJ_NAME || '';
@@ -486,23 +487,11 @@ async function pull(gitUrl, branch = 'main') {
       }
     }
 
-    // Get unique activated objects (filter by TYPE='S' and non-empty OBJ_TYPE/OBJ_NAME)
-    const uniqueActivated = new Map();
+    // Display unique activated objects (already deduped from API)
     if (activatedObjects && activatedObjects.length > 0) {
-      for (const obj of activatedObjects) {
-        if (obj.TYPE === 'S' && obj.OBJ_TYPE && obj.OBJ_NAME) {
-          const key = `${obj.OBJ_TYPE}-${obj.OBJ_NAME}`;
-          if (!uniqueActivated.has(key)) {
-            uniqueActivated.set(key, obj);
-          }
-        }
-      }
-    }
-
-    if (uniqueActivated.size > 0) {
-      console.log(`\n📦 Activated Objects (${uniqueActivated.size} unique):`);
+      console.log(`\n📦 Activated Objects (${activatedObjects.length} unique):`);
       console.log('───────────────────────────────────────────────────────────────────────────────');
-      for (const [key, obj] of uniqueActivated) {
+      for (const obj of activatedObjects) {
         console.log(`✅ ${obj.OBJ_TYPE} ${obj.OBJ_NAME}`);
       }
     }
