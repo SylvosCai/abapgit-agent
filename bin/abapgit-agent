@@ -323,22 +323,46 @@ async function syntaxCheck(objectType, objectName) {
 }
 
 /**
- * Syntax check for ABAP program (READ REPORT + SYNTAX-CHECK)
+ * Syntax check for ABAP source file (READ REPORT + SYNTAX-CHECK)
  */
-async function syntaxCheckSource(programName) {
-  console.log(`\n  Syntax check for program: ${programName}`);
+async function syntaxCheckSource(sourceFile) {
+  console.log(`\n  Syntax check for file: ${sourceFile}`);
 
   try {
+    // Extract program name from file path
+    // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
+    // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
+    let programName = path.basename(sourceFile);
+    programName = programName.replace('.clas.abap', '').replace('.prog.abap', '');
+    programName = programName.toUpperCase();
+
     const config = loadConfig();
 
     // Fetch CSRF token first
     const csrfToken = await fetchCsrfToken(config);
 
-    const data = {
-      program_name: programName
-    };
+    let data;
+    let endpoint;
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
+    // For CLAS files, use the Code Inspector (existing endpoint)
+    if (sourceFile.endsWith('.clas.abap')) {
+      console.log(`  Using Code Inspector for CLAS object`);
+      endpoint = '/sap/bc/z_abapgit_agent/syntax-check';
+      data = {
+        object_type: 'CLAS',
+        object_name: programName
+      };
+    } else {
+      // For other files (PROG), use READ REPORT + SYNTAX-CHECK
+      endpoint = '/sap/bc/z_abapgit_agent/syntax-check-source';
+      data = {
+        program_name: programName
+      };
+    }
+
+    const result = await request('POST', endpoint, data, { csrfToken: csrfToken });
+
+    console.log('Debug - Raw result:', JSON.stringify(result, null, 2));
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
@@ -668,15 +692,15 @@ To enable integration:
         break;
 
       case 'syntax-check-source':
-        const progIndex = args.indexOf('--program');
-        if (progIndex === -1 || progIndex + 1 >= args.length) {
-          console.error('Error: --program parameter required');
-          console.error('Usage: abapgit-agent syntax-check-source --program <program_name>');
-          console.error('Example: abapgit-agent syntax-check-source --program Z_MY_PROGRAM');
+        const fileIndex = args.indexOf('--file');
+        if (fileIndex === -1 || fileIndex + 1 >= args.length) {
+          console.error('Error: --file parameter required');
+          console.error('Usage: abapgit-agent syntax-check-source --file <source_file>');
+          console.error('Example: abapgit-agent syntax-check-source --file zcl_my_class.clas.abap');
           process.exit(1);
         }
-        const programName = args[progIndex + 1];
-        await syntaxCheckSource(programName);
+        const sourceFile = args[fileIndex + 1];
+        await syntaxCheckSource(sourceFile);
         break;
 
       case 'unit':

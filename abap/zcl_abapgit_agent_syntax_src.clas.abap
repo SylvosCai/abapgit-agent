@@ -38,9 +38,10 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON to extract program_name
+    " Parse JSON to extract program_name using PCRE regex
     FIND REGEX '"program_name"\s*:\s*"([^"]+)"' IN lv_json
-      MATCH OFFSET DATA(lv_off) SUBMATCHES lv_match.
+      MATCH OFFSET DATA(lv_off) SUBMATCHES lv_match
+      PCRE.
 
     IF sy-subrc <> 0 OR lv_match IS INITIAL.
       CLEAR lv_program_name.
