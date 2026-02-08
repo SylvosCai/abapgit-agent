@@ -57,7 +57,7 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS run_inspection
       IMPORTING
         it_objects TYPE scit_objs
-        iv_name TYPE string
+        iv_name TYPE c LENGTH 30
       RETURNING
         VALUE(rt_results) TYPE scit_alvlist.
 
@@ -105,9 +105,11 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     ENDIF.
 
     " Run inspection with SWF_ABAP_UNIT variant
+    DATA(lv_name) = |UNIT_{ sy-uname }_{ sy-datum }_{ sy-uzeit }|.
+    DATA(lv_name_30) = lv_name(30).
     DATA(lt_results) = run_inspection(
       it_objects = lt_objects
-      iv_name    = |UNIT_{ sy-uname }_{ sy-datum }_{ sy-uzeit }| ).
+      iv_name    = lv_name_30 ).
 
     IF lt_results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
