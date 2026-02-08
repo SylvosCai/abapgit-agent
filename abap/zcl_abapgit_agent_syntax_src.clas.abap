@@ -12,6 +12,10 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
   PRIVATE SECTION.
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_src_agent.
 
+    TYPES: BEGIN OF ty_request,
+             source_code TYPE string,
+           END OF ty_request.
+
     TYPES: BEGIN OF ty_error,
              line TYPE string,
              column TYPE string,
@@ -31,7 +35,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA lv_source_code TYPE string.
+    DATA ls_request TYPE ty_request.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
@@ -40,13 +44,15 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       EXPORTING
         json = lv_json
       CHANGING
-        data = lv_source_code ).
+        data = ls_request ).
 
     DATA lv_json_resp TYPE string.
+    DATA lv_source_code TYPE string.
+    lv_source_code = ls_request-source_code.
     CONDENSE lv_source_code.
 
     IF lv_source_code IS INITIAL.
-      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source code name is required"}]}'.
+      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
