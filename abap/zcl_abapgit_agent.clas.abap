@@ -190,16 +190,22 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
       LOOP AT lt_messages INTO ls_msg.
         IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
+          DATA: lv_msg TYPE string.
           IF ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
-            rv_detail = rv_detail && '\n  - ' && ls_msg-obj_type && ' ' && ls_msg-obj_name && ': ' && ls_msg-text.
+            lv_msg = |{ ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
           ELSE.
-            rv_detail = rv_detail && '\n  - ' && ls_msg-text.
+            lv_msg = ls_msg-text.
           ENDIF.
+          " Add exception text if available
+          IF ls_msg-exception IS BOUND.
+            lv_msg = |{ lv_msg }\n    Exception: { ls_msg-exception->get_text( ) }|.
+          ENDIF.
+          rv_detail = rv_detail && '\n  - ' && lv_msg.
         ENDIF.
       ENDLOOP.
 
       IF rv_detail IS NOT INITIAL.
-        rv_detail = 'Errors/Warnings:' && rv_detail.
+        rv_detail = 'Error Details:' && rv_detail.
       ENDIF.
     ENDIF.
   ENDMETHOD.

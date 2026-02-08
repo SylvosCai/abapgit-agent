@@ -24,6 +24,16 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
              objects TYPE ty_object_list,
            END OF ty_request.
 
+    TYPES: BEGIN OF ty_result_item,
+             object_name TYPE string,
+             test_method TYPE string,
+             status TYPE string,
+             message TYPE string,
+             passed TYPE abap_bool,
+           END OF ty_result_item.
+
+    TYPES ty_results TYPE STANDARD TABLE OF ty_result_item WITH NON-UNIQUE DEFAULT KEY.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
@@ -57,33 +67,45 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
     ENDIF.
 
     " Call unit test agent
-    DATA ls_result TYPE zcl_abapgit_agent_unit_agent=>ty_result.
-    ls_result = mo_agent->run_tests(
+    DATA ls_agent_result TYPE zcl_abapgit_agent_unit_agent=>ty_result.
+    ls_agent_result = mo_agent->run_tests(
       iv_package = ls_request-package
       it_objects = ls_request-objects ).
 
-    " Convert success
-    DATA lv_success TYPE string.
-    IF ls_result-success = abap_true.
-      lv_success = 'X'.
-    ENDIF.
-
-    " Build response
+    " Build response matching CLI expectations
     DATA: BEGIN OF ls_response,
             success TYPE string,
             test_count TYPE i,
             passed_count TYPE i,
             failed_count TYPE i,
             message TYPE string,
-            results TYPE zcl_abapgit_agent_unit_agent=>ty_test_results,
+            results TYPE ty_results,
           END OF ls_response.
 
-    ls_response-success = lv_success.
-    ls_response-test_count = ls_result-test_count.
-    ls_response-passed_count = ls_result-passed_count.
-    ls_response-failed_count = ls_result-failed_count.
-    ls_response-message = ls_result-message.
-    ls_response-results = ls_result-results.
+    " Convert success
+    IF ls_agent_result-success = abap_true.
+      ls_response-success = 'X'.
+    ENDIF.
+
+    ls_response-test_count = ls_agent_result-test_count.
+    ls_response-passed_count = ls_agent_result-passed_count.
+    ls_response-failed_count = ls_agent_result-failed_count.
+    ls_response-message = ls_agent_result-message.
+
+    " Convert results
+    LOOP AT ls_agent_result-results ASSIGNING FIELD-SYMBOL(<ls_result>).
+      DATA ls_item TYPE ty_result_item.
+      ls_item-object_name = <ls_result>-object_name.
+      ls_item-test_method = <ls_result>-test_method.
+      ls_item-status = <ls_result>-status.
+      ls_item-message = <ls_result>-message.
+      IF <ls_result>-status = 'PASSED'.
+        ls_item-passed = abap_true.
+      ELSE.
+        ls_item-passed = abap_false.
+      ENDIF.
+      APPEND ls_item TO ls_response-results.
+    ENDLOOP.
 
     lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
 

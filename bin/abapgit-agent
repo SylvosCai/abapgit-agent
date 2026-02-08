@@ -450,6 +450,13 @@ async function pull(gitUrl, branch = 'main') {
       console.log(`   Message: ${message || 'N/A'}`);
     }
 
+    // Display error detail if available
+    if (errorDetail && errorDetail.trim()) {
+      console.log(`\n📋 Error Details:`);
+      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log(errorDetail);
+    }
+
     // Display all messages as table
     if (activatedObjects && activatedObjects.length > 0) {
       console.log(`\n📋 Pull Log (${activatedObjects.length} messages):`);
