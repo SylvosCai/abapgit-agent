@@ -429,6 +429,17 @@ async function pull(gitUrl, branch = 'main') {
     const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
     const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
 
+    // Icon mapping for message types
+    const getIcon = (type) => {
+      const icons = {
+        'S': '✅',  // Success
+        'E': '❌',  // Error
+        'W': '⚠️',  // Warning
+        'A': '🛑'   // Abort
+      };
+      return icons[type] || '  ';
+    };
+
     if (success === 'X' || success === true) {
       console.log(`✅ Pull completed successfully!`);
       console.log(`   Job ID: ${jobId || 'N/A'}`);
@@ -439,38 +450,60 @@ async function pull(gitUrl, branch = 'main') {
       console.log(`   Message: ${message || 'N/A'}`);
     }
 
-    // Display activated objects (filter out step messages with empty type/name)
+    // Display all messages as table
     if (activatedObjects && activatedObjects.length > 0) {
-      const validObjects = activatedObjects.filter(obj => obj.OBJ_TYPE && obj.OBJ_NAME);
-      if (validObjects.length > 0) {
-        console.log(`\n📦 Activated Objects (${validObjects.length}):`);
-        for (const obj of validObjects) {
-          const objKey = `${obj.OBJ_TYPE} ${obj.OBJ_NAME}`;
-          console.log(`   ✓ ${objKey}`);
-        }
-      } else {
-        console.log(`\n📦 Activated Objects (0)`);
+      console.log(`\n📋 Pull Log (${activatedObjects.length} messages):`);
+      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log('Icon │ Object                      │ Message');
+      console.log('──────┼────────────────────────────┼───────────────────────────────────────');
+
+      for (const msg of activatedObjects) {
+        const icon = getIcon(msg.TYPE);
+        const objType = msg.OBJ_TYPE || '';
+        const objName = msg.OBJ_NAME || '';
+        const obj = objType && objName ? `${objType} ${objName}` : '';
+        const text = msg.TEXT || '';
+
+        // Truncate long text
+        const maxTextLen = 50;
+        const displayText = text.length > maxTextLen ? text.substring(0, maxTextLen) + '...' : text;
+
+        console.log(`${icon} │ ${obj.padEnd(28)} │ ${displayText}`);
       }
-    } else if (activatedCount > 0) {
-      console.log(`\n📦 Activated Objects (${activatedCount})`);
     }
 
-    // Display failed objects
+    // Get unique activated objects (filter by TYPE='S' and non-empty OBJ_TYPE/OBJ_NAME)
+    const uniqueActivated = new Map();
+    if (activatedObjects && activatedObjects.length > 0) {
+      for (const obj of activatedObjects) {
+        if (obj.TYPE === 'S' && obj.OBJ_TYPE && obj.OBJ_NAME) {
+          const key = `${obj.OBJ_TYPE}-${obj.OBJ_NAME}`;
+          if (!uniqueActivated.has(key)) {
+            uniqueActivated.set(key, obj);
+          }
+        }
+      }
+    }
+
+    if (uniqueActivated.size > 0) {
+      console.log(`\n📦 Activated Objects (${uniqueActivated.size} unique):`);
+      console.log('───────────────────────────────────────────────────────────────────────────────');
+      for (const [key, obj] of uniqueActivated) {
+        console.log(`✅ ${obj.OBJ_TYPE} ${obj.OBJ_NAME}`);
+      }
+    }
+
+    // Display failed objects (already unique from API)
     if (failedObjects && failedObjects.length > 0) {
       console.log(`\n❌ Failed Objects (${failedObjects.length}):`);
+      console.log('───────────────────────────────────────────────────────────────────────────────');
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
-        const text = obj.TEXT ? `: ${obj.TEXT}` : ' - Activation failed';
-        console.log(`   ✗ ${objKey}${text}`);
+        const text = obj.TEXT || 'Activation failed';
+        console.log(`❌ ${objKey}: ${text}`);
       }
     } else if (failedCount > 0) {
       console.log(`\n❌ Failed Objects (${failedCount})`);
-    }
-
-    // Show error details if any
-    if (errorDetail) {
-      console.log(`\n📋 Error Details:`);
-      console.log(errorDetail);
     }
 
     return result;
