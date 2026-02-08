@@ -29,14 +29,16 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " Read program properties from TRDIR for proper syntax check
-    " Using DIRECTORY ENTRY instead of PROGRAM for full property support
-    SELECT SINGLE * FROM trdir
-      WHERE name = @sy-repid
-      INTO @ls_dir.
+    " Initialize directory entry with default values for a report program
+    " Program type '1' = executable report program
+    CLEAR ls_dir.
+    ls_dir-name = 'ZSYNTAX_CHECK'.
+    ls_dir-type = '1'.        " Report program
+    ls_dir-subc = '1'.         " Executable program
+    ls_dir-uccheck = 'X'.      " Unicode check active
 
     " Perform syntax check using SYNTAX-CHECK FOR ITAB with DIRECTORY ENTRY
-    " sy-subrc = 0: no errors, 4: syntax error found
+    " sy-subrc = 0: no errors, 4: syntax error found, 8: runtime error
     SYNTAX-CHECK FOR it_source_code
       MESSAGE lv_word
       LINE lv_line
