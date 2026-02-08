@@ -338,12 +338,13 @@ async function syntaxCheckSource(sourceFile) {
     }
 
     const fileContent = fs.readFileSync(sourceFile, 'utf8');
+    const sourceLines = fileContent.split('\n');
 
     // Fetch CSRF token first
     const csrfToken = await fetchCsrfToken(config);
 
     const data = {
-      source_code: fileContent
+      source_code: sourceLines
     };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
