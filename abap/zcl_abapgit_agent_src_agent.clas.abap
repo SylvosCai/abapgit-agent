@@ -26,13 +26,14 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
-          ls_dir TYPE trdir.
+          ls_dir TYPE trdir,
+          lv_prog_name TYPE progname.  " Must be character-like for INSERT REPORT
 
     rs_result-success = abap_true.
 
     " Step 1: INSERT REPORT - saves source to TRDIR without activation
     " Use a temporary program name for syntax check
-    DATA(lv_prog_name) = |Z_SYNTAX_CHECK_{ sy-uname }|.
+    lv_prog_name = |Z_SYNTAX_CHECK_{ sy-uname }|.
     INSERT REPORT lv_prog_name FROM it_source_code.
 
     IF sy-subrc <> 0.
