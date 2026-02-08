@@ -72,137 +72,38 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
 
-          " If specific files are requested, deserialize only those files
-          IF it_files IS NOT INITIAL AND lines( it_files ) > 0.
-            " Deserialize specific files only
-            DATA(lv_file_count) = lines( it_files ).
+          DATA(ls_checks) = prepare_deserialize_checks( ).
 
-            " Create a log for file operations
-            mo_repo->create_new_log( ).
+          mo_repo->create_new_log( ).
 
-            " Process each file
-            LOOP AT it_files INTO DATA(lv_file).
-              " Parse file name to get object type and name
-              DATA: lv_obj_type TYPE string.
-              DATA: lv_obj_name TYPE string.
-              DATA: lv_file_name TYPE string.
+          mo_repo->deserialize(
+            is_checks = ls_checks
+            ii_log   = mo_repo->get_log( ) ).
 
-              lv_file_name = lv_file.
+          " Check the abapGit log for errors and extract object lists
+          DATA(lv_has_error) = check_log_for_errors( ).
+          DATA(lv_error_detail) = get_log_detail( ).
 
-              " Parse file name: e.g., "zcl_my_class.clas.abap" -> CLAS / ZCL_MY_CLASS
-              IF lv_file_name CP '*.clas.abap'.
-                lv_obj_type = 'CLAS'.
-                lv_obj_name = to_upper( lv_file_name ).
-                REPLACE ALL OCCURRENCES OF '.CLAS.ABAP' IN lv_obj_name WITH ''.
-              ELSEIF lv_file_name CP '*.prog.abap'.
-                lv_obj_type = 'PROG'.
-                lv_obj_name = to_upper( lv_file_name ).
-                REPLACE ALL OCCURRENCES OF '.PROG.ABAP' IN lv_obj_name WITH ''.
-              ELSEIF lv_file_name CP '*.intf.abap'.
-                lv_obj_type = 'INTF'.
-                lv_obj_name = to_upper( lv_file_name ).
-                REPLACE ALL OCCURRENCES OF '.INTF.ABAP' IN lv_obj_name WITH ''.
-              ELSE.
-                " Try to determine from folder structure or use default
-                CONTINUE.
-              ENDIF.
+          " Extract activated and failed objects from the log
+          DATA(ls_obj_result) = get_object_lists( ).
 
-              " Get file object from repo
-              DATA: li_file TYPE REF TO zif_abapgit_repo_file.
-              DATA: lv_path TYPE string.
+          rs_result-log_messages = ls_obj_result-log_messages.
+          rs_result-activated_objects = ls_obj_result-activated_objects.
+          rs_result-failed_objects = ls_obj_result-failed_objects.
 
-              lv_path = lv_file.
-
-              " Get file from repo
-              li_file = mo_repo->get_file( iv_path = lv_path ).
-
-              IF li_file IS BOUND.
-                " Deserialize single file using file logic
-                DATA: li_file_logic TYPE REF TO zcl_abapgit_file_logic.
-                CREATE OBJECT li_file_logic.
-
-                DATA: ls_file TYPE zif_abapgit_types=>ty_file.
-                ls_file-path = li_file->get_path( ).
-                ls_file-filename = li_file->get_filename( ).
-                ls_file-data = li_file->get_data( ).
-
-                " Deserialize the file
-                li_file_logic->deserialize(
-                  EXPORTING
-                    is_file = ls_file
-                    iv_dot_abapgit = abap_true
-                    ii_log = mo_repo->get_log( ) ).
-
-                " Check for errors in the log
-                DATA(lv_has_error) = check_log_for_errors( ).
-
-                " Record the result
-                DATA: ls_object TYPE zif_abapgit_agent=>ty_object.
-                ls_object-obj_type = lv_obj_type.
-                ls_object-obj_name = lv_obj_name.
-                IF lv_has_error = abap_true.
-                  ls_object-type = 'E'.
-                  ls_object-text = |File { lv_file } activation failed|.
-                  APPEND ls_object TO rs_result-failed_objects.
-                ELSE.
-                  ls_object-type = 'S'.
-                  ls_object-text = |File { lv_file } activated|.
-                  APPEND ls_object TO rs_result-activated_objects.
-                ENDIF.
-              ENDIF.
-            ENDLOOP.
-
-            rs_result-activated_count = lines( rs_result-activated_objects ).
-            rs_result-failed_count = lines( rs_result-failed_objects ).
-            rs_result-log_messages = rs_result-failed_objects.
-            APPEND LINES OF rs_result-activated_objects TO rs_result-log_messages.
-
-            IF rs_result-failed_count > 0.
-              rs_result-message = |Pull completed with { rs_result-failed_count } file(s) failed|.
-              rs_result-error_detail = get_log_detail( ).
-            ELSE.
-              rs_result-success = abap_true.
-              rs_result-message = |Pull completed successfully ({ lv_file_count } file(s))|.
-            ENDIF.
-
-          ELSE.
-            " Full repo pull (original behavior)
-            DATA(ls_checks) = prepare_deserialize_checks( ).
-
-            mo_repo->create_new_log( ).
-
-            mo_repo->deserialize(
-              is_checks = ls_checks
-              ii_log   = mo_repo->get_log( ) ).
-
-            " Check the abapGit log for errors and extract object lists
-            DATA(lv_has_error) = check_log_for_errors( ).
-            DATA(lv_error_detail) = get_log_detail( ).
-
-            " Extract activated and failed objects from the log
-            DATA(ls_obj_result) = get_object_lists( ).
-
-            rs_result-log_messages = ls_obj_result-log_messages.
-            rs_result-activated_objects = ls_obj_result-activated_objects.
-            rs_result-failed_objects = ls_obj_result-failed_objects.
-
-            " Count objects
-            rs_result-activated_count = lines( rs_result-activated_objects ).
-            rs_result-failed_count = lines( rs_result-failed_objects ).
-
-            GET TIME STAMP FIELD rs_result-finished_at.
-
-            IF lv_has_error = abap_true.
-              rs_result-message = 'Pull completed with errors'.
-              rs_result-error_detail = lv_error_detail.
-            ELSE.
-              rs_result-success = abap_true.
-              rs_result-message = 'Pull completed successfully'.
-            ENDIF.
-          ENDIF.
+          " Count objects
+          rs_result-activated_count = lines( rs_result-activated_objects ).
+          rs_result-failed_count = lines( rs_result-failed_objects ).
 
           GET TIME STAMP FIELD rs_result-finished_at.
 
+          IF lv_has_error = abap_true.
+            rs_result-message = 'Pull completed with errors'.
+            rs_result-error_detail = lv_error_detail.
+          ELSE.
+            rs_result-success = abap_true.
+            rs_result-message = 'Pull completed successfully'.
+          ENDIF.
         ELSE.
           rs_result-message = |Repository not found: { iv_url }|.
           GET TIME STAMP FIELD rs_result-finished_at.
