@@ -253,7 +253,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
           EXPORTING
             p_max_lines = 1000000
           IMPORTING
-            p_scirest_ps = DATA(lt_rest) ).
+            p_scirest_ps = lt_rest ).
 
         " Cleanup
         lo_inspection->delete( EXCEPTIONS locked = 1 OTHERS = 2 ).
