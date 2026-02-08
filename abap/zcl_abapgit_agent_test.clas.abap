@@ -1,9 +1,6 @@
 " Test class for unit testing
 CLASS zcl_abapgit_agent_test DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
-  PUBLIC SECTION.
-    INTERFACES: if_oo_class_integration_fi.
-
   PRIVATE SECTION.
     DATA: mv_value TYPE i.
 

@@ -29,7 +29,8 @@
       "Bash(abapgit-agent health:*)",
       "Bash(abapgit-agent status:*)",
       "Bash(abapgit-agent syntax-check:*)",
-      "Bash(DEBUG=1 node bin/abapgit-agent:*)"
+      "Bash(DEBUG=1 node bin/abapgit-agent:*)",
+      "Bash(DEBUG=1 abapgit-agent pull:*)"
     ]
   }
 }
