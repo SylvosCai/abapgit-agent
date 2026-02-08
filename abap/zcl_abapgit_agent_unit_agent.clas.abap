@@ -17,7 +17,6 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_result,
              success TYPE abap_bool,
              message TYPE string,
-             debug TYPE string,
              test_count TYPE i,
              passed_count TYPE i,
              failed_count TYPE i,
@@ -39,6 +38,8 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         VALUE(rs_result) TYPE ty_result.
 
   PRIVATE SECTION.
+    DATA mo_runner TYPE REF TO cl_sut_aunit_runner.
+
     METHODS get_test_classes
       IMPORTING
         iv_package TYPE devclass OPTIONAL
@@ -46,7 +47,7 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_classes) TYPE ty_object_list.
 
-    METHODS run_local_tests
+    METHODS run_aunit_tests
       IMPORTING
         it_classes TYPE ty_object_list
       RETURNING
@@ -81,9 +82,8 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     rs_result-message = |Found { lines( lt_test_classes ) } test class(es)|.
 
-    " Run local tests using ABAP Unit framework
-    DATA(lt_results) = run_local_tests( lt_test_classes ).
-    rs_result-results = lt_results.
+    " Run AUnit tests using CL_SUT_AUNIT_RUNNER
+    rs_result-results = run_aunit_tests( lt_test_classes ).
 
     IF rs_result-results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
@@ -140,80 +140,61 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD run_local_tests.
-    " Run unit tests by discovering methods dynamically
-    DATA: lv_class_name TYPE seoclsname.
+  METHOD run_aunit_tests.
+    " Run unit tests using CL_SUT_AUNIT_RUNNER
+    DATA: lv_test_classes TYPE string.
 
-    DATA: lo_test_class TYPE REF TO object.
+    " Build space-separated list of test classes
+    LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
+      IF lv_test_classes IS INITIAL.
+        lv_test_classes = <ls_class>-object_name.
+      ELSE.
+        lv_test_classes = |{ lv_test_classes } { <ls_class>-object_name }|.
+      ENDIF.
+    ENDLOOP.
 
-    DATA lt_methods TYPE TABLE OF seocpdname.
+    " Create runner instance
+    CREATE OBJECT mo_runner.
 
-    FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
-    FIELD-SYMBOLS: <ls_meth> LIKE LINE OF lt_methods.
+    " Set properties
+    mo_runner->p_save = ''.
+    mo_runner->p_email = ''.
 
-    TRY.
-        LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
-          lv_class_name = <ls_class>-object_name.
+    " Set test classes for execution
+    mo_runner->p_testclasses = lv_test_classes.
 
-          " Create test class instance dynamically
-          CREATE OBJECT lo_test_class TYPE (lv_class_name).
+    " Run tests
+    mo_runner->run( ).
 
-          " Get all methods using RTTI
-          DATA(lo_type) = cl_abap_typedescr=>describe_by_object_ref( lo_test_class ).
-          DATA(lo_class) = CAST cl_abap_classdescr( lo_type ).
-          DATA(lt_all_methods) = lo_class->methods.
+    " Get results from tab_objects
+    DATA(lt_objects) = mo_runner->tab_objects.
 
-          " Filter for test methods (start with TEST or end with _TEST)
-          LOOP AT lt_all_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
-            DATA(lv_mname) = <ls_method>-name.
-            IF lv_mname CS 'TEST' OR lv_mname CS '_TEST'.
-              APPEND lv_mname TO lt_methods.
-            ENDIF.
-          ENDLOOP.
+    IF lt_objects IS INITIAL.
+      RETURN.
+    ENDIF.
 
-          " Run each test method
-          SORT lt_methods.
-          DELETE ADJACENT DUPLICATES FROM lt_methods.
+    " Process results - structure: OBJECT-TAB_TESTCLASSES-TAB_METHODS
+    LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
+      DATA(lv_obj_name) = <ls_object>-object_name.
 
-          LOOP AT lt_methods ASSIGNING <ls_meth>.
-            " Call setup method if exists
-            CALL METHOD lo_test_class->setup
-              EXCEPTIONS OTHERS = 0.
+      " Loop through test classes
+      LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
+        DATA(lv_tcl_name) = <ls_tcl>-testclass.
 
-            " Execute test method and catch exceptions
-            CALL METHOD lo_test_class->(<ls_meth>)
-              EXCEPTIONS
-                method_not_found = 1
-                OTHERS = 2.
-
-            IF sy-subrc = 0.
-              " Test passed (no exception)
-              APPEND VALUE #(
-                object_type = 'CLAS'
-                object_name = lv_class_name
-                test_method = <ls_meth>
-                status = 'PASSED'
-                message = |{ lv_class_name }=>{ <ls_meth> } passed|
-                line = ''
-              ) TO rt_results.
-            ELSE.
-              " Test failed or error
-              APPEND VALUE #(
-                object_type = 'CLAS'
-                object_name = lv_class_name
-                test_method = <ls_meth>
-                status = 'FAILED'
-                message = |{ lv_class_name }=>{ <ls_meth> } failed|
-                line = ''
-              ) TO rt_results.
-            ENDIF.
-          ENDLOOP.
+        " Loop through test methods
+        LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
+          DATA(ls_result) = VALUE ty_test_result(
+            object_type = 'CLAS'
+            object_name = lv_obj_name
+            test_method = <ls_method>-methodname
+            status = <ls_method>-kind
+            message = <ls_method>-description
+            line = <ls_method>-source
+          ).
+          APPEND ls_result TO rt_results.
         ENDLOOP.
-
-      CATCH cx_root INTO DATA(lx_error).
-        " Return empty on error
-        RETURN.
-    ENDTRY.
+      ENDLOOP.
+    ENDLOOP.
 
   ENDMETHOD.
 
@@ -224,7 +205,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     LOOP AT it_results ASSIGNING FIELD-SYMBOL(<ls_result>).
       CASE <ls_result>-status.
-        WHEN 'S' OR 'P' OR 'PASSED'.  " Success or Passed
+        WHEN 'P' OR 'S' OR 'PASSED'.  " Passed or Success
           rs_stats-passed_count = rs_stats-passed_count + 1.
         WHEN 'A' OR 'E' OR 'F' OR 'FAILED' OR 'ERROR'.  " Abort, Error, or Failed
           rs_stats-failed_count = rs_stats-failed_count + 1.
