@@ -38,7 +38,12 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       IF <ls_line> CS 'CLASS ' OR <ls_line> CS 'ENDCLASS' OR
          <ls_line> CS 'REPORT' OR <ls_line> CS 'PROGRAM' OR
          <ls_line> CS 'FUNCTION-POOL' OR <ls_line> CS 'PUBLIC SECTION' OR
-         <ls_line> CS 'PRIVATE SECTION' OR <ls_line> CS 'PROTECTED SECTION'.
+         <ls_line> CS 'PRIVATE SECTION' OR <ls_line> CS 'PROTECTED SECTION' OR
+         <ls_line> CS 'METHODS ' OR <ls_line> CS 'CLASS-METHODS ' OR
+         <ls_line> CS 'DATA:' OR <ls_line> CS 'CONSTANTS:' OR
+         <ls_line> CS 'INTERFACES' OR <ls_line> CS 'METHOD ' OR
+         <ls_line> CS 'ENDMETHOD' OR <ls_line> CS 'CLASS-DATA:' OR
+         <ls_line> CS 'PARAMETERS' OR <ls_line> CS 'SELECT-OPTIONS'.
         CONTINUE.
       ENDIF.
       APPEND <ls_line> TO lt_source.
