@@ -1,12 +1,34 @@
-# ABAP AI Bridge
+# ABAP AI Bridge - CLI Tool Development
 
-This project provides the `abapgit-agent` CLI tool for pulling and activating ABAP code from git repositories.
+This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
 
-## Commands
+## Project Structure
+
+```
+abap-ai-bridge/
+├── bin/
+│   └── abapgit-agent        # CLI entry point
+├── src/
+│   ├── agent.js             # Main agent class
+│   ├── abap-client.js       # REST client for ABAP communication
+│   ├── config.js            # Configuration management
+│   ├── server.js            # HTTP server
+│   └── logger.js             # Logging utilities
+├── abap/                    # ABAP backend components
+│   ├── zcl_abapgit_agent*.clas.abap
+│   ├── zif_abapgit_agent.intf.abap
+│   └── CLAUDE.md            # ABAP project guidelines (copy to your ABAP repos)
+└── tests/
+```
+
+## CLI Commands
 
 ```bash
 # Pull and activate from current git repo
 abapgit-agent pull
+
+# Syntax check for specific object
+abapgit-agent syntax-check <object_type> <object_name>
 
 # Health check
 abapgit-agent health
@@ -15,52 +37,14 @@ abapgit-agent health
 abapgit-agent status
 ```
 
-## Configuration
-
-Create `.abapGitAgent` in your ABAP repository root:
-
-```json
-{
-  "host": "your-sap-system.com",
-  "sapport": 443,
-  "client": "100",
-  "user": "TECH_USER",
-  "password": "your-password",
-  "language": "EN",
-  "gitUsername": "github-username",
-  "gitPassword": "github-token"
-}
-```
-
 ## For ABAP Code Generation
 
-When generating ABAP code for abapGit:
-
-1. Reference https://github.com/abapGit/abapGit for object serialization format
-2. Generate code in proper ABAP syntax
-3. Push to git, then use `abapgit-agent pull` to validate
-
-## JSON Handling in ABAP
-
-Always use `/ui2/cl_json` for JSON serialization and deserialization:
-
-```abap
-" Deserialize JSON to ABAP structure
-DATA ls_data TYPE ty_request.
-ls_data = /ui2/cl_json=>deserialize( json = lv_json ).
-
-" Serialize ABAP structure to JSON
-lv_json = /ui2/cl_json=>serialize( data = ls_response ).
-```
-
-Do NOT use manual string operations (FIND, SHIFT, etc.) for JSON parsing.
+**NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see `/abap/CLAUDE.md`. Copy that file to your ABAP repository root when setting up new projects.
 
 ## Development Workflow
 
-1. After `abapgit-agent pull`, check the output carefully
-2. If "Pull completed with errors" or "Failed Objects" > 0, there are syntax errors
-3. "Error updating where-used list" means the object has syntax errors
-4. Use the syntax-check API to get detailed error information
-5. Fix all syntax errors before proceeding - all objects must show with checkmark
-6. Only proceed with testing when "Failed Objects (0)" is shown
-7. Commit and push the fix, then pull again to verify
+1. Make changes to CLI code (JavaScript) or ABAP backend (abap/ folder)
+2. Test locally: `node bin/abapgit-agent pull`
+3. Test against real ABAP system
+4. Commit and push
+5. Deploy ABAP changes via abapGit to your SAP system
