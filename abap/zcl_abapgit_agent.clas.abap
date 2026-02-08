@@ -48,6 +48,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
     rs_result-job_id = lv_job_id.
     rs_result-success = abap_false.
+    GET TIME STAMP FIELD rs_result-started_at.
 
     IF iv_url IS INITIAL.
       rs_result-message = 'URL is required'.
@@ -86,19 +87,15 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           " Extract activated and failed objects from the log
           DATA(ls_obj_result) = get_object_lists( ).
 
+          rs_result-log_messages = ls_obj_result-log_messages.
           rs_result-activated_objects = ls_obj_result-activated_objects.
           rs_result-failed_objects = ls_obj_result-failed_objects.
 
           " Count objects
-          rs_result-activated_count = 0.
-          LOOP AT rs_result-activated_objects ASSIGNING FIELD-SYMBOL(<ls_act>).
-            rs_result-activated_count = rs_result-activated_count + 1.
-          ENDLOOP.
+          rs_result-activated_count = lines( rs_result-activated_objects ).
+          rs_result-failed_count = lines( rs_result-failed_objects ).
 
-          rs_result-failed_count = 0.
-          LOOP AT rs_result-failed_objects ASSIGNING FIELD-SYMBOL(<ls_fail>).
-            rs_result-failed_count = rs_result-failed_count + 1.
-          ENDLOOP.
+          GET TIME STAMP FIELD rs_result-finished_at.
 
           IF lv_has_error = abap_true.
             rs_result-message = 'Pull completed with errors'.
@@ -109,12 +106,15 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           ENDIF.
         ELSE.
           rs_result-message = |Repository not found: { iv_url }|.
+          GET TIME STAMP FIELD rs_result-finished_at.
         ENDIF.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
         rs_result = handle_exception( ix_exception = lx_git ).
+        GET TIME STAMP FIELD rs_result-finished_at.
       CATCH cx_root INTO DATA(lx_error).
         rs_result = handle_exception( ix_exception = lx_error ).
+        GET TIME STAMP FIELD rs_result-finished_at.
     ENDTRY.
 
   ENDMETHOD.
@@ -222,8 +222,9 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD get_object_lists.
     " Extract activated and failed objects from the log with full details
     DATA: lo_log TYPE REF TO zif_abapgit_log.
+    DATA: lv_key TYPE string.
 
-    CLEAR: rs_result-activated_objects, rs_result-failed_objects.
+    CLEAR: rs_result-log_messages, rs_result-activated_objects, rs_result-failed_objects.
 
     lo_log = mo_repo->get_log( ).
     IF lo_log IS BOUND.
@@ -252,11 +253,23 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           ENDIF.
         ENDIF.
 
-        " Success messages (type 'S') - activated objects
-        IF ls_msg-type = 'S'.
-          APPEND ls_object TO rs_result-activated_objects.
-        " Error/Abort/Warning messages - failed objects
-        ELSEIF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
+        " Add all messages to log_messages table
+        APPEND ls_object TO rs_result-log_messages.
+
+        " Success messages (type 'S') - add to activated objects if unique
+        IF ls_msg-type = 'S' AND ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
+          " Check for duplicates
+          lv_key = |{ ls_msg-obj_type }{ ls_msg-obj_name }|.
+          READ TABLE rs_result-activated_objects WITH KEY obj_type = ls_msg-obj_type
+                                                        obj_name = ls_msg-obj_name
+                                                  TRANSPORTING NO FIELDS.
+          IF sy-subrc <> 0.
+            APPEND ls_object TO rs_result-activated_objects.
+          ENDIF.
+        ENDIF.
+
+        " Error/Abort/Warning messages - add to failed objects
+        IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
           APPEND ls_object TO rs_result-failed_objects.
         ENDIF.
       ENDLOOP.

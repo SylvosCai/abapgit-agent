@@ -513,7 +513,11 @@ async function pull(gitUrl, branch = 'main') {
       console.log('───────────────────────────────────────────────────────────────────────────────');
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
-        const text = obj.TEXT || 'Activation failed';
+        let text = obj.TEXT || 'Activation failed';
+        // Include exception text if available
+        if (obj.EXCEPTION && obj.EXCEPTION.trim()) {
+          text = `${text}\nException: ${obj.EXCEPTION}`;
+        }
         console.log(`❌ ${objKey}: ${text}`);
       }
     } else if (failedCount > 0) {

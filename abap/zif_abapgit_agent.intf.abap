@@ -19,6 +19,7 @@ INTERFACE zif_abapgit_agent PUBLIC.
     error_detail TYPE string,
     activated_count TYPE i,
     failed_count TYPE i,
+    log_messages TYPE ty_object_list,
     activated_objects TYPE ty_object_list,
     failed_objects TYPE ty_object_list,
     started_at TYPE timestampl,

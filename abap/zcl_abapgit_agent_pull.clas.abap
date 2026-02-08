@@ -100,6 +100,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
             error_detail TYPE string,
             activated_count TYPE i,
             failed_count TYPE i,
+            log_messages TYPE zif_abapgit_agent=>ty_object_list,
             activated_objects TYPE zif_abapgit_agent=>ty_object_list,
             failed_objects TYPE zif_abapgit_agent=>ty_object_list,
           END OF ls_response.
@@ -110,6 +111,7 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
     ls_response-error_detail = ls_result-error_detail.
     ls_response-activated_count = ls_result-activated_count.
     ls_response-failed_count = ls_result-failed_count.
+    ls_response-log_messages = ls_result-log_messages.
     ls_response-activated_objects = ls_result-activated_objects.
     ls_response-failed_objects = ls_result-failed_objects.
 
