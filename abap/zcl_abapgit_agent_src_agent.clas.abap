@@ -29,11 +29,19 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " GENERATE SUBROUTINE POOL - standard way to check ad-hoc code
-    " Creates a temporary subroutine pool without activation
+    " Wrap source in a subroutine pool structure
+    " GENERATE SUBROUTINE POOL requires subroutines
     DATA lt_source TYPE string_table.
-    lt_source = it_source_code.
+    APPEND 'PROGRAM SUBPOOL.' TO lt_source.
+    APPEND 'FORM check_syntax.' TO lt_source.
 
+    LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
+      APPEND <ls_line> TO lt_source.
+    ENDLOOP.
+
+    APPEND 'ENDFORM.' TO lt_source.
+
+    " Generate subroutine pool for syntax checking
     GENERATE SUBROUTINE POOL lt_source
       NAME DATA(lv_prog_name)
       MESSAGE lv_word
