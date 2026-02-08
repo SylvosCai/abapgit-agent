@@ -55,6 +55,37 @@ For ABAP syntax, objects, and abapGit conventions, refer to:
 - **abapGit**: https://github.com/abapGit/abapGit
 - abapGit documentation explains object types, serialization format, and best practices
 
+## Local Code Reference (Offline Support)
+
+When network issues prevent accessing online resources, you can maintain a local folder with ABAP code examples for reference.
+
+**Setup:**
+
+1. Create a folder to store ABAP code examples (e.g., `~/abap-reference`)
+2. Clone abapGit or other ABAP repositories for reference
+3. Configure the path in `.abapGitAgent`:
+   ```json
+   {
+     "referenceFolder": "~/abap-reference"
+   }
+   ```
+
+**Usage:**
+
+- When Claude needs to reference ABAP patterns, it can read files from this folder
+- Useful for offline development or when network is unreliable
+- Keep commonly used ABAP utilities, class patterns, and examples
+
+**Recommended repositories to clone:**
+
+```bash
+# abapGit itself - best reference for ABAP patterns
+git clone https://github.com/abapGit/abapGit.git
+
+# ABAP utilities and patterns
+git clone https://github.com/abap-tools/abap-utilities.git
+```
+
 ## ABAP Object Types
 
 Common object types in this project:

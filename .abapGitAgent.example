@@ -6,5 +6,6 @@
   "password": "your-password",
   "language": "EN",
   "gitUsername": "github-username",
-  "gitPassword": "github-token"
+  "gitPassword": "github-token",
+  "referenceFolder": "~/abap-reference"
 }
