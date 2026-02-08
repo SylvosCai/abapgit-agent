@@ -362,8 +362,6 @@ async function syntaxCheckSource(sourceFile) {
 
     const result = await request('POST', endpoint, data, { csrfToken: csrfToken });
 
-    console.log('Debug - Raw result:', JSON.stringify(result, null, 2));
-
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
     const errorCount = result.ERROR_COUNT || result.error_count || 0;
