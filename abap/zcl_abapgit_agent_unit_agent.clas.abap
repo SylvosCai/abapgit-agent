@@ -142,14 +142,14 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
   METHOD run_local_tests.
     " Run unit tests by discovering methods dynamically
-    DATA: lv_class_name TYPE seoclsname,
-          lv_method_name TYPE seocpdname.
+    DATA: lv_class_name TYPE seoclsname.
 
     DATA: lo_test_class TYPE REF TO object.
 
     DATA lt_methods TYPE TABLE OF seocpdname.
 
     FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
+    FIELD-SYMBOLS: <ls_meth> LIKE LINE OF lt_methods.
 
     TRY.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
@@ -161,61 +161,52 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
           " Get all methods using RTTI
           DATA(lo_type) = cl_abap_typedescr=>describe_by_object_ref( lo_test_class ).
           DATA(lo_class) = CAST cl_abap_classdescr( lo_type ).
-          DATA(lt_meths) = lo_class->methods.
+          DATA(lt_all_methods) = lo_class->methods.
 
           " Filter for test methods (start with TEST or end with _TEST)
-          LOOP AT lt_meths ASSIGNING FIELD-SYMBOL(<ls_meth>).
-            DATA(lv_mname) = <ls_meth>-name.
-            IF lv_mname CP 'TEST*' OR lv_mname CP '*_TEST'.
+          LOOP AT lt_all_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
+            DATA(lv_mname) = <ls_method>-name.
+            IF lv_mname CS 'TEST' OR lv_mname CS '_TEST'.
               APPEND lv_mname TO lt_methods.
             ENDIF.
           ENDLOOP.
-
-          IF lt_methods IS INITIAL.
-            " No test methods found - continue
-            CONTINUE.
-          ENDIF.
 
           " Run each test method
           SORT lt_methods.
           DELETE ADJACENT DUPLICATES FROM lt_methods.
 
-          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<lv_method>).
-            lv_method_name = <lv_method>.
-
+          LOOP AT lt_methods ASSIGNING <ls_meth>.
             " Call setup method if exists
             CALL METHOD lo_test_class->setup
               EXCEPTIONS OTHERS = 0.
 
             " Execute test method and catch exceptions
-            CALL METHOD lo_test_class->(lv_method_name)
+            CALL METHOD lo_test_class->(<ls_meth>)
               EXCEPTIONS
                 method_not_found = 1
                 OTHERS = 2.
 
             IF sy-subrc = 0.
               " Test passed (no exception)
-              ls_result = VALUE #(
+              APPEND VALUE #(
                 object_type = 'CLAS'
                 object_name = lv_class_name
-                test_method = lv_method_name
+                test_method = <ls_meth>
                 status = 'PASSED'
-                message = |{ lv_class_name }=>{ lv_method_name } passed|
+                message = |{ lv_class_name }=>{ <ls_meth> } passed|
                 line = ''
-              ).
+              ) TO rt_results.
             ELSE.
               " Test failed or error
-              ls_result = VALUE #(
+              APPEND VALUE #(
                 object_type = 'CLAS'
                 object_name = lv_class_name
-                test_method = lv_method_name
+                test_method = <ls_meth>
                 status = 'FAILED'
-                message = |{ lv_class_name }=>{ lv_method_name } failed|
+                message = |{ lv_class_name }=>{ <ls_meth> } failed|
                 line = ''
-              ).
+              ) TO rt_results.
             ENDIF.
-
-            APPEND ls_result TO rt_results.
           ENDLOOP.
         ENDLOOP.
 
