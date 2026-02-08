@@ -31,10 +31,10 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " Step 1: INSERT REPORT - saves source to TRDIR without activation
-    " Use a temporary program name for syntax check
+    " Step 1: INSERT REPORT - saves source to TRDIR
+    " STATE 'A' makes it active so syntax check works
     lv_prog_name = |Z_SYNTAX_CHECK_{ sy-uname }|.
-    INSERT REPORT lv_prog_name FROM it_source_code.
+    INSERT REPORT lv_prog_name FROM it_source_code STATE 'A'.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
@@ -78,8 +78,10 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     DATA(lv_syntax_line) = lv_line.
     DATA(lv_syntax_word) = lv_word.
 
-    " Step 5: DELETE REPORT - cleanup the temporary program (ignore result)
-    DELETE REPORT lv_prog_name.
+    " Step 5: DELETE REPORT - cleanup the temporary program
+    " Ignore sy-subrc since cleanup failures shouldn't affect the result
+    DELETE REPORT lv_prog_name.           "# EC NOTEXT
+    CLEAR sy-subrc.                        " Clear after DELETE REPORT
 
     " Set result based on syntax check
     IF lv_syntax_rc <> 0.
