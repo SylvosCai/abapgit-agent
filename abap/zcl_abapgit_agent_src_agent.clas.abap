@@ -30,9 +30,9 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " INSERT REPORT + SYNTAX-CHECK
+    " INSERT REPORT - saves source as inactive
     lv_prog_name = |ZSYN_{ sy-uname }|.
-    INSERT REPORT lv_prog_name FROM it_source_code STATE 'A'.
+    INSERT REPORT lv_prog_name FROM it_source_code STATE 'I'.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
@@ -55,9 +55,11 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get TRDIR properties
+    " Get TRDIR properties (include inactive programs)
     DATA ls_dir TYPE trdir.
-    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
+    SELECT SINGLE * FROM trdir INTO ls_dir
+      WHERE name = lv_prog_name
+      AND state = 'I'.  " Inactive
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
