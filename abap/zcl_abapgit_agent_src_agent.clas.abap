@@ -30,36 +30,56 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " Try to get TRDIR properties for the source name
-    " First try exact name (for PROG objects)
+    " Step 1: INSERT REPORT - saves source to TRDIR without activation
+    " Use a temporary program name for syntax check
+    DATA(lv_prog_name) = |Z_SYNTAX_CHECK_{ sy-uname }|.
+    INSERT REPORT lv_prog_name FROM it_source_code.
+
+    IF sy-subrc <> 0.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-line = '1'.
+      rs_result-text = 'Failed to insert source code for syntax check'.
+      RETURN.
+    ENDIF.
+
+    " Step 2: READ REPORT back to get the source (verifies it was saved)
+    DATA lt_source TYPE STANDARD TABLE OF string.
+    READ REPORT lv_prog_name INTO lt_source.
+
+    IF sy-subrc <> 0.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-line = '1'.
+      rs_result-text = 'Failed to read inserted source code'.
+      " Cleanup
+      DELETE REPORT lv_prog_name.
+      RETURN.
+    ENDIF.
+
+    " Step 3: Get TRDIR properties for the inserted program
     SELECT SINGLE * FROM trdir
       INTO ls_dir
-      WHERE name = iv_source_name.
+      WHERE name = lv_prog_name.
 
     IF sy-subrc <> 0.
-      " For CLAS objects, TRDIR entries have format: ZCL_XXX======CP
-      " Try pattern <name>======%
-      DATA(lv_name_pattern) = |{ iv_source_name }======%|.
-      SELECT SINGLE * FROM trdir
-        INTO ls_dir
-        WHERE name LIKE lv_name_pattern
-        AND subc = '1'.  " Main program
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-line = '1'.
+      rs_result-text = 'Failed to get TRDIR properties'.
+      " Cleanup
+      DELETE REPORT lv_prog_name.
+      RETURN.
     ENDIF.
 
-    IF sy-subrc <> 0.
-      " Use default properties if not found
-      CLEAR ls_dir.
-      ls_dir-name = iv_source_name.
-      ls_dir-type = '1'.
-      ls_dir-subc = '1'.
-      ls_dir-uccheck = 'X'.
-    ENDIF.
-
-    " Perform syntax check on the provided source code table
-    SYNTAX-CHECK FOR it_source_code
+    " Step 4: Perform syntax check on the source
+    SYNTAX-CHECK FOR lt_source
       MESSAGE lv_word
       LINE lv_line
       DIRECTORY ENTRY ls_dir.
+
+    " Step 5: DELETE REPORT - cleanup the temporary program
+    DELETE REPORT lv_prog_name.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
