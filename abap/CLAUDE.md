@@ -112,6 +112,11 @@ When implementing new features or fixing issues:
 
 **Don't guess patterns** - The codebase has proven implementations. Reuse them.
 
+**Common mistakes to avoid:**
+- Using wrong method parameter names (e.g., `set_string_data( iv_data = x )` should be `set_string_data( x )`)
+- Forgetting to use `/ui2/cl_json` for JSON operations
+- Using inline DATA declarations incorrectly
+
 ## ABAP Reference
 
 For ABAP syntax, objects, and abapGit conventions, refer to:
