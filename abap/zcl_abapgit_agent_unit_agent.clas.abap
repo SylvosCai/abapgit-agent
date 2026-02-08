@@ -37,6 +37,33 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rs_result) TYPE ty_result.
 
+  PRIVATE SECTION.
+    METHODS get_test_objects_from_package
+      IMPORTING
+        iv_package TYPE devclass
+      RETURNING
+        VALUE(rt_objects) TYPE ty_object_list.
+
+    METHODS class_has_test_methods
+      IMPORTING
+        iv_object_name TYPE string
+      RETURNING
+        VALUE(rv_has_tests) TYPE abap_bool.
+
+    METHODS run_tests_for_object
+      IMPORTING
+        iv_object_type TYPE string
+        iv_object_name TYPE string
+      RETURNING
+        VALUE(rt_results) TYPE ty_test_results.
+
+    METHODS execute_test_method
+      IMPORTING
+        iv_class_name TYPE seoclsname
+        iv_method_name TYPE string
+      RETURNING
+        VALUE(rv_success) TYPE abap_bool.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
@@ -177,7 +204,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       ls_result-method_name = ls_method-method_key-cpname.
 
       " Try to run the test method
-      IF execute_test_method( lv_class_name = lv_class_name
+      IF execute_test_method( iv_class_name = lv_class_name
                              iv_method_name = ls_method-method_key-cpname
                              ) = abap_true.
         ls_result-passed = abap_true.
@@ -196,7 +223,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
           lx_error TYPE REF TO cx_root.
 
     " Create instance of the test class
-    CREATE OBJECT lo_test TYPE (lv_class_name).
+    CREATE OBJECT lo_test TYPE (iv_class_name).
 
     " Try to call the test method
     TRY.
@@ -205,7 +232,6 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       CATCH cx_root INTO lx_error.
         rv_success = abap_false.
     ENDTRY.
-
   ENDMETHOD.
 
 ENDCLASS.
