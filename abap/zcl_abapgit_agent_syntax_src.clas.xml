@@ -1,22 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v2.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml">
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
-   <CLS>
+   <VSEOCLASS>
     <CLSNAME>ZCL_ABAPGIT_AGENT_SYNTAX_SRC</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>REST Handler - Syntax Check Source Code</DESCRIPT>
-    <CATEGORY>00</CATEGORY>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
-    <IMP>
-     <IF>PUBLIC</IF>
-    </IMP>
-    <EXEC>
-     <DYN>S</DYN>
-     <CLS>ZCL_ABAPGIT_AGENT_SYNTAX_SRC</CLS>
-    </EXEC>
-   </CLS>
+    <CLSDEFINE>1</CLSDEFINE>
+    <UNICODE>X</UNICODE>
+    <VERSION>1</VERSION>
+   </VSEOCLASS>
   </asx:values>
  </asx:abap>
 </abapGit>
