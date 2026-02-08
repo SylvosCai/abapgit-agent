@@ -27,13 +27,17 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
           lv_prog_name TYPE progname,
-          lv_has_class TYPE abap_bool.
+          lv_has_class TYPE abap_bool,
+          lv_line_text TYPE string.
 
     rs_result-success = abap_true.
 
     " Check if source contains CLASS DEFINITION
     LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
-      IF <ls_line> CP 'CLASS * DEFINITION*'.
+      lv_line_text = <ls_line>.
+      CONDENSE lv_line_text.
+
+      IF lv_line_text CP 'CLASS * DEFINITION*'.
         lv_has_class = abap_true.
         EXIT.
       ENDIF.
@@ -41,12 +45,11 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     IF lv_has_class = abap_true.
       " For CLASS files, extract method implementations for checking
-      " Strip CLASS DEFINITION/IMPLEMENTATION and check only method bodies
       DATA lt_methods TYPE string_table.
       DATA lv_in_method TYPE abap_bool.
 
       LOOP AT it_source_code ASSIGNING <ls_line>.
-        DATA(lv_line_text) = <ls_line>.
+        lv_line_text = <ls_line>.
         CONDENSE lv_line_text.
 
         " Skip CLASS statements
@@ -83,7 +86,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       DATA lt_source TYPE string_table.
 
       LOOP AT it_source_code ASSIGNING <ls_line>.
-        DATA(lv_line_text) = <ls_line>.
+        lv_line_text = <ls_line>.
         CONDENSE lv_line_text.
 
         IF lv_line_text CP 'REPORT*' OR lv_line_text CP 'PROGRAM*' OR lv_line_text CP 'FUNCTION-POOL*'.
