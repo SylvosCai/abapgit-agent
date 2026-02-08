@@ -12,10 +12,6 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
   PRIVATE SECTION.
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_src_agent.
 
-    TYPES: BEGIN OF ty_request,
-             program_name TYPE string,
-           END OF ty_request.
-
     TYPES: BEGIN OF ty_error,
              line TYPE string,
              column TYPE string,
@@ -35,19 +31,25 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA ls_request TYPE ty_request.
+    DATA lv_program_name TYPE string.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON using /ui2/cl_json
-    /ui2/cl_json=>deserialize(
-      EXPORTING
-        json = lv_json
-      CHANGING
-        data = ls_request ).
+    " Parse JSON to extract program_name
+    FIND REGEX '"program_name"\s*:\s*"([^"]+)"' IN lv_json
+      MATCH OFFSET DATA(lv_off) SUBMATCHES DATA(lv_match).
+
+    IF sy-subrc <> 0 OR lv_match IS INITIAL.
+      lv_program_name = lv_json.
+    ELSE.
+      lv_program_name = lv_match.
+    ENDIF.
+
+    " Trim whitespace
+    CONDENSE lv_program_name.
 
     DATA lv_json_resp TYPE string.
-    IF ls_request-program_name IS INITIAL.
+    IF lv_program_name IS INITIAL.
       lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Program name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
@@ -58,7 +60,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
     " Call syntax check agent with program name
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
-    ls_result = mo_agent->syntax_check_source( iv_program_name = ls_request-program_name ).
+    ls_result = mo_agent->syntax_check_source( iv_program_name = lv_program_name ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.
