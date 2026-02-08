@@ -23,17 +23,24 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
-    DATA lv_line TYPE i.
-    DATA lv_word TYPE string.
+    DATA: lv_line TYPE i,
+          lv_word TYPE string,
+          ls_dir TYPE trdir.
 
     rs_result-success = abap_true.
 
-    " Perform syntax check using SYNTAX-CHECK FOR ITAB
+    " Read program properties from TRDIR for proper syntax check
+    " Using DIRECTORY ENTRY instead of PROGRAM for full property support
+    SELECT SINGLE * FROM trdir
+      WHERE name = @sy-repid
+      INTO @ls_dir.
+
+    " Perform syntax check using SYNTAX-CHECK FOR ITAB with DIRECTORY ENTRY
     " sy-subrc = 0: no errors, 4: syntax error found
     SYNTAX-CHECK FOR it_source_code
       MESSAGE lv_word
       LINE lv_line
-      PROGRAM sy-repid.
+      DIRECTORY ENTRY ls_dir.
 
     IF sy-subrc <> 0.
       " Syntax error found - add to results
