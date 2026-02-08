@@ -37,7 +37,7 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
       convert_file_to_object
         IMPORTING iv_file TYPE string
-        RETURNING VALUE(rs_sig) TYPE ty_item_signature,
+        RETURNING VALUE(rs_sig) TYPE ty_item_signature.
 
       check_log_for_errors
         RETURNING VALUE(rv_has_error) TYPE abap_bool,
