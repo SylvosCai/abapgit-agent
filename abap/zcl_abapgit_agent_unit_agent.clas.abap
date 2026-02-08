@@ -147,6 +147,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     DATA: BEGIN OF ls_aunit_result,
             type TYPE c LENGTH 1,
+            sep TYPE c,
             text TYPE string,
           END OF ls_aunit_result.
 
@@ -184,22 +185,59 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-        " Parse the result
-        " Result format: TYPE|TEXT;...
-        SPLIT lv_result AT ';' INTO TABLE lt_aunit_results.
+        " Get test statistics
+        lv_stats = lo_runner->get_test_stats( ).
 
-        " Convert to our format
-        LOOP AT lt_aunit_results ASSIGNING FIELD-SYMBOL(<ls_aunit>).
-          DATA(ls_result) = VALUE ty_test_result(
-            object_type = 'CLAS'
-            object_name = <ls_aunit>-text(30)  " First 30 chars is class name
-            test_method = <ls_aunit>-text+31  " Rest is method name
-            status = <ls_aunit>-type
-            message = <ls_aunit>-text
-            line = ''
-          ).
-          APPEND ls_result TO rt_results.
-        ENDLOOP.
+        " Parse the result - format: P|ClassName.MethodName;...
+        DATA lv_off TYPE i.
+        DATA lv_len TYPE i.
+        DATA lv_line TYPE string.
+        DATA lv_rem TYPE string.
+
+        lv_rem = lv_result.
+
+        WHILE lv_rem IS NOT INITIAL.
+          " Find separator
+          FIND '|' IN lv_rem MATCH OFFSET DATA(lv_pos).
+          IF sy-subrc = 0.
+            " Get type
+            DATA(lv_type) = lv_rem(lv_pos).
+            lv_rem = lv_rem+lv_pos+1.
+
+            " Find next separator or end
+            FIND ';' IN lv_rem MATCH OFFSET DATA(lv_pos2).
+            IF sy-subrc = 0.
+              lv_line = lv_rem(lv_pos2).
+              lv_rem = lv_rem+lv_pos2+1.
+            ELSE.
+              lv_line = lv_rem.
+              CLEAR lv_rem.
+            ENDIF.
+
+            " Parse class and method
+            FIND '=' IN lv_line MATCH OFFSET DATA(lv_eq_pos).
+            IF sy-subrc = 0.
+              DATA(lv_class) = lv_line(lv_eq_pos).
+              DATA(lv_method) = lv_line+lv_eq_pos+1.
+            ELSE.
+              lv_class = lv_line.
+              lv_method = ''.
+            ENDIF.
+
+            " Add to results
+            DATA(ls_result) = VALUE ty_test_result(
+              object_type = 'CLAS'
+              object_name = lv_class
+              test_method = lv_method
+              status = lv_type
+              message = lv_line
+              line = ''
+            ).
+            APPEND ls_result TO rt_results.
+          ELSE.
+            CLEAR lv_rem.
+          ENDIF.
+        ENDWHILE.
 
       CATCH cx_root INTO DATA(lx_error).
         " Return empty on error
