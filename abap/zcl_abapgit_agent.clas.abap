@@ -15,6 +15,13 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PRIVATE SECTION.
     DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
+    " Local type for item signature (matches abapGit structure)
+    TYPES: BEGIN OF ty_item_signature,
+             obj_type TYPE tadir-object,
+             obj_name TYPE tadir-obj_name,
+             devclass TYPE devclass,
+           END OF ty_item_signature.
+
     METHODS:
       configure_credentials
         IMPORTING iv_url TYPE string
@@ -29,7 +36,7 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
       convert_file_to_object
         IMPORTING iv_file TYPE string
-        RETURNING VALUE(rs_sig) TYPE zif_abapgit_definitions=>ty_item_signature,
+        RETURNING VALUE(rs_sig) TYPE ty_item_signature.
 
       check_log_for_errors
         RETURNING VALUE(rv_has_error) TYPE abap_bool,
@@ -157,7 +164,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     rs_checks = mo_repo->deserialize_checks( ).
 
     " Build list of files to deserialize (convert file names to obj_type + obj_name)
-    DATA lt_filtered_items TYPE STANDARD TABLE OF zif_abapgit_definitions=>ty_item_signature.
+    DATA lt_filtered_items TYPE STANDARD TABLE OF ty_item_signature.
 
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
       LOOP AT it_files INTO DATA(lv_file).
