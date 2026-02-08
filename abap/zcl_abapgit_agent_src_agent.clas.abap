@@ -26,7 +26,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
-          lv_prog_name TYPE progname.  " Must be explicit type
+          lv_prog_name TYPE progname.
 
     rs_result-success = abap_true.
 
@@ -55,7 +55,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get TRDIR properties for DIRECTORY ENTRY
+    " Get TRDIR properties
     DATA ls_dir TYPE trdir.
     SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
 
@@ -68,20 +68,28 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Perform syntax check with DIRECTORY ENTRY
+    " Perform syntax check - save result before cleanup
+    DATA(lv_syntax_rc) = sy-subrc.
+    DATA(lv_syntax_line) = lv_line.
+    DATA(lv_syntax_word) = lv_word.
+
     SYNTAX-CHECK FOR lt_source
       MESSAGE lv_word
       LINE lv_line
       DIRECTORY ENTRY ls_dir.
 
+    lv_syntax_rc = sy-subrc.
+    lv_syntax_line = lv_line.
+    lv_syntax_word = lv_word.
+
     " Cleanup
     DELETE REPORT lv_prog_name.
 
-    IF sy-subrc <> 0.
+    IF lv_syntax_rc <> 0.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-line = lv_line.
-      rs_result-text = lv_word.
+      rs_result-line = lv_syntax_line.
+      rs_result-text = lv_syntax_word.
     ENDIF.
   ENDMETHOD.
 
