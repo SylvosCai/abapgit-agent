@@ -48,6 +48,29 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
 
 **Never guess** - ABAP syntax is strict. If you're unsure, search first.
 
+## Check Local Implementation First
+
+When implementing new features or fixing issues:
+
+1. **Always check local implementations first** - This project already contains working examples of:
+   - REST handlers (e.g., `zcl_abapgit_agent_pull`, `zcl_abapgit_agent_syntax`)
+   - JSON serialization using `/ui2/cl_json`
+   - ABAP object activation patterns
+   - Error handling approaches
+
+2. **Before inventing something new:**
+   - Search the `abap/` folder for similar implementations
+   - Look at existing patterns in the codebase
+   - Reuse existing helper classes and methods
+   - Follow the established code style
+
+3. **Examples:**
+   - Need to create a new REST endpoint? → Study `zcl_abapgit_agent_pull.clas.abap`
+   - Need to serialize JSON? → Use `/ui2/cl_json` as shown in existing handlers
+   - Need to query TADIR? → Check how other classes do it
+
+**Don't guess patterns** - The codebase has proven implementations. Reuse them.
+
 ## ABAP Reference
 
 For ABAP syntax, objects, and abapGit conventions, refer to:
