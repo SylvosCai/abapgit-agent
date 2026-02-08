@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v2.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml">
+  <asx:values>
+   <CLS>
+    <CLSNAME>ZCL_ABAPGIT_AGENT_SYNTAX_SRC_AGENT</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Syntax Check Source Agent - SYNTAX-CHECK FOR ITAB</DESCRIPT>
+    <CATEGORY>00</CATEGORY>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <IMP>
+     <IF>PUBLIC</IF>
+    </IMP>
+    <EXEC>
+     <DYN>S</DYN>
+     <CLS>ZCL_ABAPGIT_AGENT_SYNTAX_SRC_AGENT</CLS>
+    </EXEC>
+   </CLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

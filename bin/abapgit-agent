@@ -266,35 +266,41 @@ function request(method, path, data = null, options = {}) {
 }
 
 /**
- * Syntax check for ABAP object
+ * Syntax check for ABAP source code (direct from file)
  */
-async function syntaxCheck(objectType, objectName) {
-  console.log(`\n  Syntax check for ${objectType} ${objectName}`);
+async function syntaxCheckSource(sourceFile) {
+  console.log(`\n  Syntax check for file: ${sourceFile}`);
 
   try {
     const config = loadConfig();
+
+    // Read file contents
+    if (!fs.existsSync(sourceFile)) {
+      console.error(`\n  Error: File not found: ${sourceFile}`);
+      process.exit(1);
+    }
+
+    const fileContent = fs.readFileSync(sourceFile, 'utf8');
+    const sourceLines = fileContent.split('\n');
 
     // Fetch CSRF token first
     const csrfToken = await fetchCsrfToken(config);
 
     const data = {
-      object_type: objectType,
-      object_name: objectName
+      source_code: sourceLines
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
-    const objType = result.OBJECT_TYPE || result.object_type || objectType;
-    const objName = result.OBJECT_NAME || result.object_name || objectName;
     const errorCount = result.ERROR_COUNT || result.error_count || 0;
     const errors = result.ERRORS || result.errors || [];
 
     console.log('\n');
 
     if (errorCount > 0) {
-      console.log(`❌ ${objType} ${objName} - ${errorCount} error(s) found:`);
+      console.log(`❌ Syntax check failed (${errorCount} error(s)):`);
       console.log('\nErrors:');
       console.log('─'.repeat(60));
 
@@ -308,11 +314,9 @@ async function syntaxCheck(objectType, objectName) {
         console.log('');
       }
     } else if (success === 'X' || success === true) {
-      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
-    } else if (success === '' || success === undefined || success === null) {
-      console.log(`❌ ${objType} ${objName} - Syntax check failed (no response or invalid response)`);
+      console.log(`✅ Syntax check passed (0 errors)`);
     } else {
-      console.log(`⚠️  ${objType} ${objName} - Unexpected status: ${success}`);
+      console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
     }
 
     return result;
@@ -615,6 +619,18 @@ To enable integration:
         await syntaxCheck(objectType, objectName);
         break;
 
+      case 'syntax-check-source':
+        const fileIndex = args.indexOf('--file');
+        if (fileIndex === -1 || fileIndex + 1 >= args.length) {
+          console.error('Error: --file parameter required');
+          console.error('Usage: abapgit-agent syntax-check-source --file <source_file>');
+          console.error('Example: abapgit-agent syntax-check-source --file zcl_my_class.clas.abap');
+          process.exit(1);
+        }
+        const sourceFile = args[fileIndex + 1];
+        await syntaxCheckSource(sourceFile);
+        break;
+
       case 'unit':
         const packageArg = args.indexOf('--package');
         const objectArg = args.indexOf('--object');
@@ -659,7 +675,10 @@ Commands:
     Auto-detects git remote and branch from current directory.
 
   syntax-check <object_type> <object_name>
-    Check syntax of an ABAP object and display detailed errors.
+    Check syntax of an ABAP object (Code Inspector).
+
+  syntax-check-source --file <source_file>
+    Check syntax of ABAP source code directly (SYNTAX-CHECK FOR ITAB).
 
   unit --package <package>
     Run unit tests for all objects in a package.
@@ -678,6 +697,7 @@ Examples:
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --url <git-url>       # Override remote URL
   abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+  abapgit-agent syntax-check-source --file zcl_my_class.clas.abap
   abapgit-agent unit --package ZMY_PACKAGE
   abapgit-agent unit --object CLAS ZCL_TEST
   abapgit-agent health
