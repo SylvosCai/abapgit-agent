@@ -24,25 +24,17 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
-          lv_word TYPE string,
-          ls_dir TYPE trdir.
+          lv_word TYPE string.
 
     rs_result-success = abap_true.
 
-    " Initialize directory entry with default values for a report program
-    " Program type '1' = executable report program
-    CLEAR ls_dir.
-    ls_dir-name = 'ZSYNTAX_CHECK'.
-    ls_dir-type = '1'.        " Report program
-    ls_dir-subc = '1'.         " Executable program
-    ls_dir-uccheck = 'X'.      " Unicode check active
-
-    " Perform syntax check using SYNTAX-CHECK FOR ITAB with DIRECTORY ENTRY
-    " sy-subrc = 0: no errors, 4: syntax error found, 8: runtime error
-    SYNTAX-CHECK FOR it_source_code
+    " Use GENERATE SUBROUTINE POOL for proper syntax checking
+    " This is the standard way to check dynamically generated ABAP code
+    GENERATE SUBROUTINE POOL it_source_code
+      NAME DATA(lv_prog_name)
       MESSAGE lv_word
       LINE lv_line
-      DIRECTORY ENTRY ls_dir.
+      WORD lv_word.
 
     IF sy-subrc <> 0.
       " Syntax error found - add to results
