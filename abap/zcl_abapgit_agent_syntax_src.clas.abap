@@ -13,7 +13,7 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_src_agent.
 
     TYPES: BEGIN OF ty_request,
-             source_code TYPE string_table,
+             source_code TYPE string,
            END OF ty_request.
 
     TYPES: BEGIN OF ty_error,
@@ -56,9 +56,13 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " Split source code string into internal table
+    DATA lt_source_code TYPE string_table.
+    SPLIT ls_request-source_code AT cl_abap_char_utilities=>newline INTO TABLE lt_source_code.
+
     " Call syntax check agent - returns structure
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
-    ls_result = mo_agent->syntax_check_source( it_source_code = ls_request-source_code ).
+    ls_result = mo_agent->syntax_check_source( it_source_code = lt_source_code ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.
