@@ -20,8 +20,6 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
 
     TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
 
-    TYPES ty_program_name TYPE c LENGTH 40.
-
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
@@ -33,39 +31,22 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA lv_match TYPE string.
-    DATA lv_program_name TYPE ty_program_name.
+    DATA lv_source_code TYPE string.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON to extract program_name using simple string operations
-    " Look for "program_name": "VALUE""
-    DATA(lv_pos) = 0.
-    FIND FIRST OCCURRENCE OF '"program_name"' IN lv_json MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      DATA(lv_start) = lv_pos + strlen( '"program_name"' ).
-      FIND FIRST OCCURRENCE OF '"' IN lv_json+lv_start MATCH OFFSET DATA(lv_quote).
-      IF sy-subrc = 0.
-        DATA(lv_value_start) = lv_start + lv_quote + 1.
-        FIND FIRST OCCURRENCE OF '"' IN lv_json+lv_value_start MATCH OFFSET DATA(lv_value_end).
-        IF sy-subrc = 0.
-          lv_match = lv_json+lv_value_start(lv_value_end).
-        ENDIF.
-      ENDIF.
-    ENDIF.
-
-    IF lv_match IS INITIAL.
-      CLEAR lv_program_name.
-    ELSE.
-      lv_program_name = lv_match.
-    ENDIF.
-
-    " Trim whitespace
-    CONDENSE lv_program_name.
+    " Parse JSON using /ui2/cl_json
+    /ui2/cl_json=>deserialize(
+      EXPORTING
+        json = lv_json
+      CHANGING
+        data = lv_source_code ).
 
     DATA lv_json_resp TYPE string.
-    IF lv_program_name IS INITIAL.
-      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Program name is required"}]}'.
+    CONDENSE lv_source_code.
+
+    IF lv_source_code IS INITIAL.
+      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source code name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
@@ -73,9 +54,9 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call syntax check agent with program name
+    " Call syntax check agent
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
-    ls_result = mo_agent->syntax_check_source( iv_program_name = lv_program_name ).
+    ls_result = mo_agent->syntax_check_source( iv_source_code = lv_source_code ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.
@@ -83,7 +64,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       lv_success = 'X'.
     ENDIF.
 
-    " Build response structure (same as /syntax-check)
+    " Build response structure
     DATA: BEGIN OF ls_response,
             success TYPE string,
             error_count TYPE i,
@@ -98,7 +79,7 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
                       text = ls_result-text ) TO ls_response-errors.
     ENDIF.
 
-    " Serialize to JSON using /ui2/cl_json
+    " Serialize to JSON
     lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
 
     lo_entity = mo_response->create_entity( ).

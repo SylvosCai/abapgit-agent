@@ -324,43 +324,30 @@ async function syntaxCheck(objectType, objectName) {
 
 /**
  * Syntax check for ABAP source file (READ REPORT + SYNTAX-CHECK)
+ * Uses /syntax-check-source for both PROG and CLAS files
  */
 async function syntaxCheckSource(sourceFile) {
   console.log(`\n  Syntax check for file: ${sourceFile}`);
 
   try {
-    // Extract program name from file path
+    // Extract source name from file path
     // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
     // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
-    let programName = path.basename(sourceFile);
-    programName = programName.replace('.clas.abap', '').replace('.prog.abap', '');
-    programName = programName.toUpperCase();
+    let sourceName = path.basename(sourceFile);
+    sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
+    sourceName = sourceName.toUpperCase();
 
     const config = loadConfig();
 
     // Fetch CSRF token first
     const csrfToken = await fetchCsrfToken(config);
 
-    let data;
-    let endpoint;
+    // Send to /syntax-check-source for all file types (PROG and CLAS)
+    const data = {
+      source_code: sourceName
+    };
 
-    // For CLAS files, use the Code Inspector (existing endpoint)
-    if (sourceFile.endsWith('.clas.abap')) {
-      console.log(`  Using Code Inspector for CLAS object`);
-      endpoint = '/sap/bc/z_abapgit_agent/syntax-check';
-      data = {
-        object_type: 'CLAS',
-        object_name: programName
-      };
-    } else {
-      // For other files (PROG), use READ REPORT + SYNTAX-CHECK
-      endpoint = '/sap/bc/z_abapgit_agent/syntax-check-source';
-      data = {
-        program_name: programName
-      };
-    }
-
-    const result = await request('POST', endpoint, data, { csrfToken: csrfToken });
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
@@ -384,7 +371,7 @@ async function syntaxCheckSource(sourceFile) {
         console.log('');
       }
     } else if (success === 'X' || success === true) {
-      console.log(`✅ ${programName} - Syntax check passed (0 errors)`);
+      console.log(`✅ ${sourceName} - Syntax check passed (0 errors)`);
     } else {
       console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
     }
