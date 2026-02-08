@@ -196,13 +196,39 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
         " Loop through test methods
         LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
+          " Extract fields dynamically since structure names vary
+          DATA: lv_methodname TYPE string,
+                lv_kind TYPE string,
+                lv_desc TYPE string,
+                lv_src TYPE string.
+
+          ASSIGN COMPONENT 'METHODNAME' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_mname>).
+          IF sy-subrc = 0 AND <lv_mname> IS ASSIGNED.
+            lv_methodname = <lv_mname>.
+          ENDIF.
+
+          ASSIGN COMPONENT 'KIND' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_kind>).
+          IF sy-subrc = 0 AND <lv_kind> IS ASSIGNED.
+            lv_kind = <lv_kind>.
+          ENDIF.
+
+          ASSIGN COMPONENT 'DESCRIPTION' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_desc>).
+          IF sy-subrc = 0 AND <lv_desc> IS ASSIGNED.
+            lv_desc = <lv_desc>.
+          ENDIF.
+
+          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_src>).
+          IF sy-subrc = 0 AND <lv_src> IS ASSIGNED.
+            lv_src = <lv_src>.
+          ENDIF.
+
           DATA(ls_result) = VALUE ty_test_result(
             object_type = 'CLAS'
             object_name = lv_obj_name
-            test_method = <ls_method>-methodname
-            status = <ls_method>-kind
-            message = <ls_method>-description
-            line = <ls_method>-source
+            test_method = lv_methodname
+            status = lv_kind
+            message = lv_desc
+            line = lv_src
           ).
           APPEND ls_result TO rt_results.
         ENDLOOP.
