@@ -1,13 +1,16 @@
 " Unit test for syntax agent
-CLASS zcl_ai_syntax_agent_test DEFINITION FOR TESTING PUBLIC.
+CLASS zcl_ai_syntax_agent_test DEFINITION
+  FOR TESTING
+  RISK LEVEL HARMLESS
+  DURATION SHORT.
 
   PRIVATE SECTION.
-    DATA: mv_value TYPE i.
+    DATA mv_value TYPE i.
 
-    METHODS: setup.
+    METHODS setup.
 
-    METHODS: test_initial_value FOR TESTING.
-    METHODS: test_string_concat FOR TESTING.
+    METHODS: test_initial_value FOR TESTING,
+      test_string_concat FOR TESTING.
 
 ENDCLASS.
 
@@ -22,7 +25,7 @@ CLASS zcl_ai_syntax_agent_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_string_concat.
-    DATA: lv_result TYPE string.
+    DATA lv_result TYPE string.
     CONCATENATE 'Hello' 'World' INTO lv_result SEPARATED BY space.
     cl_abap_unit_assert=>assert_equals( act = lv_result exp = 'Hello World' ).
   ENDMETHOD.
