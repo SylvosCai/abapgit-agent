@@ -143,41 +143,60 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     DATA: lv_class_name TYPE seoclsname,
           lv_method_name TYPE seocpdname.
 
-    DATA: lo_test_class TYPE REF TO cl_aunit_test,
-          lt_results TYPE abap_list.
+    DATA: lo_test_class TYPE REF TO object.
 
-    FIELD-SYMBOLS: <ls_result> LIKE LINE OF lt_results.
+    FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
 
     TRY.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
           lv_class_name = <ls_class>-object_name.
 
-          " Create test class instance
+          " Create test class instance dynamically
           CREATE OBJECT lo_test_class TYPE (lv_class_name).
 
-          " Get test methods
-          DATA(lt_methods) = lo_test_class->if_aunit_test~get_test_methods( ).
+          " Get test methods using reflection
+          CALL METHOD cl_aunit_utility=>get_test_methods
+            EXPORTING
+              p_test_class = lv_class_name
+            RECEIVING
+              p_test_methods = DATA(lt_methods).
 
           " Run each test method
           LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<lv_method>).
             lv_method_name = <lv_method>.
 
-            " Execute test method
-            lo_test_class->if_aunit_test~execute(
-              EXPORTING
-                p_method_name = lv_method_name
-              RECEIVING
-                p_result      = DATA(lo_result) ).
+            " Execute test method and catch exceptions
+            DATA(lv_exc) = ''.
+            DATA(lv_msg) = ''.
 
-            " Convert result
-            DATA(ls_result) = VALUE ty_test_result(
-              object_type = 'CLAS'
-              object_name = lv_class_name
-              test_method = lv_method_name
-              status = lo_result->severity
-              message = lo_result->message
-              line = lo_result->source
-            ).
+            " Call test method dynamically and capture result
+            CALL METHOD lo_test_class->(lv_method_name)
+              EXCEPTIONS
+                method_not_found = 1
+                OTHERS = 2.
+
+            IF sy-subrc = 0.
+              " Test passed (no exception)
+              ls_result = VALUE #(
+                object_type = 'CLAS'
+                object_name = lv_class_name
+                test_method = lv_method_name
+                status = 'PASSED'
+                message = |{ lv_class_name }=>{ lv_method_name } passed|
+                line = ''
+              ).
+            ELSE.
+              " Test failed or error
+              ls_result = VALUE #(
+                object_type = 'CLAS'
+                object_name = lv_class_name
+                test_method = lv_method_name
+                status = 'FAILED'
+                message = |{ lv_class_name }=>{ lv_method_name } failed|
+                line = ''
+              ).
+            ENDIF.
+
             APPEND ls_result TO rt_results.
           ENDLOOP.
         ENDLOOP.
