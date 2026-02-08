@@ -26,9 +26,8 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
-          lv_prog_name TYPE progname,     " For INSERT REPORT
-          lv_has_class TYPE abap_bool,
-          lt_read_source TYPE STANDARD TABLE OF STRING.  " For reading inserted source
+          lv_prog_name TYPE progname,
+          lv_has_class TYPE abap_bool.
 
     rs_result-success = abap_true.
 
@@ -54,29 +53,41 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       ENDIF.
 
       " Read back and check
-      READ REPORT lv_prog_name INTO lt_read_source.
+      DATA lt_source TYPE STANDARD TABLE OF STRING.
+      READ REPORT lv_prog_name INTO lt_source.
 
-      IF sy-subrc = 0.
-        " Get TRDIR properties
-        DATA ls_dir TYPE trdir.
-        SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
-
-        IF sy-subrc = 0.
-          " Perform syntax check
-          SYNTAX-CHECK FOR lt_read_source
-            MESSAGE lv_word
-            LINE lv_line
-            DIRECTORY ENTRY ls_dir.
-        ENDIF.
+      IF sy-subrc <> 0.
+        rs_result-success = abap_false.
+        rs_result-error_count = 1.
+        rs_result-line = '1'.
+        rs_result-text = 'Failed to read inserted source'.
+        RETURN.
       ENDIF.
+
+      " Get TRDIR properties
+      DATA ls_dir TYPE trdir.
+      SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
+
+      IF sy-subrc <> 0.
+        rs_result-success = abap_false.
+        rs_result-error_count = 1.
+        rs_result-line = '1'.
+        rs_result-text = 'Failed to get TRDIR properties'.
+        RETURN.
+      ENDIF.
+
+      " Perform syntax check
+      SYNTAX-CHECK FOR lt_source
+        MESSAGE lv_word
+        LINE lv_line
+        DIRECTORY ENTRY ls_dir.
 
       " Cleanup - ignore result
       DELETE REPORT lv_prog_name.       "# EC NOTEXT
-      CLEAR sy-subrc.
     ELSE.
       " For non-CLASS files (PROG, etc.), use subroutine pool
       " Strip REPORT/PROGRAM statement
-      DATA lt_source TYPE string_table.
+      DATA lt_subpool TYPE string_table.
 
       LOOP AT it_source_code ASSIGNING <ls_line>.
         DATA(lv_line_text) = <ls_line>.
@@ -87,17 +98,17 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
-        APPEND <ls_line> TO lt_source.
+        APPEND <ls_line> TO lt_subpool.
       ENDLOOP.
 
       " Wrap in subroutine pool structure
-      INSERT 'PROGRAM SUBPOOL.' INTO lt_source INDEX 1.
-      INSERT 'FORM check_syntax.' INTO lt_source INDEX 2.
-      APPEND 'ENDFORM.' TO lt_source.
+      INSERT 'PROGRAM SUBPOOL.' INTO lt_subpool INDEX 1.
+      INSERT 'FORM check_syntax.' INTO lt_subpool INDEX 2.
+      APPEND 'ENDFORM.' TO lt_subpool.
 
       " Generate subroutine pool for syntax checking
       lv_prog_name = |Z_SUBPOOL_{ sy-uname }|.
-      GENERATE SUBROUTINE POOL lt_source
+      GENERATE SUBROUTINE POOL lt_subpool
         NAME lv_prog_name
         MESSAGE lv_word
         LINE lv_line.
