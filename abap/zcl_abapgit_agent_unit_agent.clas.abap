@@ -248,6 +248,14 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
               OTHERS = 2 ).
         ENDIF.
 
+        " Save results to database
+        lo_inspection->save(
+          EXCEPTIONS
+            missing_information = 1
+            insp_no_name = 2
+            not_enqueued = 3
+            OTHERS = 4 ).
+
         " Get results
         lo_inspection->get_results(
           EXPORTING
