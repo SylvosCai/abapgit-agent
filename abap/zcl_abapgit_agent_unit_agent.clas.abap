@@ -183,7 +183,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     DATA: lo_objset TYPE REF TO cl_ci_objectset.
     DATA: lo_variant TYPE REF TO cl_ci_checkvariant.
     DATA: lo_inspection TYPE REF TO cl_ci_inspection.
-    DATA: lt_list TYPE scit_alvlist.
+    DATA: lt_rest TYPE scit_rest.
 
     TRY.
         " Create object set
@@ -249,7 +249,11 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         ENDIF.
 
         " Get results
-        lo_inspection->plain_list( IMPORTING p_list = lt_list ).
+        lo_inspection->get_results(
+          EXPORTING
+            p_max_lines = 1000000
+          IMPORTING
+            p_scirest_ps = DATA(lt_rest) ).
 
         " Cleanup
         lo_inspection->delete( EXCEPTIONS locked = 1 OTHERS = 2 ).
@@ -260,7 +264,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
-    rt_results = lt_list.
+    rt_results = lt_rest.
 
   ENDMETHOD.
 
