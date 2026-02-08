@@ -55,11 +55,9 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get TRDIR properties (include inactive programs)
+    " Get TRDIR properties
     DATA ls_dir TYPE trdir.
-    SELECT SINGLE * FROM trdir INTO ls_dir
-      WHERE name = lv_prog_name
-      AND state = 'I'.  " Inactive
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
