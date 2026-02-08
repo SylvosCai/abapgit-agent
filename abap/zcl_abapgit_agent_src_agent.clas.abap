@@ -74,19 +74,19 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     ENDIF.
 
     " Step 4: Perform syntax check on the source
-    SYNTAX-CHECK FOR lt_source
-      MESSAGE lv_word
-      LINE lv_line
-      DIRECTORY ENTRY ls_dir.
+    DATA(lv_syntax_rc) = sy-subrc.
+    DATA(lv_syntax_line) = lv_line.
+    DATA(lv_syntax_word) = lv_word.
 
-    " Step 5: DELETE REPORT - cleanup the temporary program
+    " Step 5: DELETE REPORT - cleanup the temporary program (ignore result)
     DELETE REPORT lv_prog_name.
 
-    IF sy-subrc <> 0.
+    " Set result based on syntax check
+    IF lv_syntax_rc <> 0.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-line = lv_line.
-      rs_result-text = lv_word.
+      rs_result-line = lv_syntax_line.
+      rs_result-text = lv_syntax_word.
     ENDIF.
   ENDMETHOD.
 
