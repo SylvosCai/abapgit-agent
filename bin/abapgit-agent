@@ -345,6 +345,13 @@ async function syntaxCheckSource(sourceFile) {
     // Split into lines array
     const sourceLines = fileContent.split('\n');
 
+    // Extract source name from file path
+    // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
+    // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
+    let sourceName = path.basename(sourceFile);
+    sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
+    sourceName = sourceName.toUpperCase();
+
     const config = loadConfig();
 
     // Fetch CSRF token first
