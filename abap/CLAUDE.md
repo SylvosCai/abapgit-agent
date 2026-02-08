@@ -12,9 +12,10 @@ This is an ABAP project. **Do not attempt local syntax validation** - ABAP code 
 
 1. After generating code, push changes to git
 2. Run `abapgit-agent pull` to pull and activate in ABAP system
-3. Review activation results for errors
-4. If errors exist, fix them and repeat
-5. Use `abapgit-agent syntax-check <type> <name>` for detailed syntax errors
+3. Review activation results carefully
+4. **"Error updating where-used list" = SYNTAX ERROR** - This is NOT a warning!
+5. If Failed Objects > 0, there are syntax errors - fix them before proceeding
+6. Use `abapgit-agent syntax-check <type> <name>` for detailed error info
 
 ```bash
 # After making changes to ABAP files
@@ -47,6 +48,25 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
    - Test again with `abapgit-agent pull`
 
 **Never guess** - ABAP syntax is strict. If you're unsure, search first.
+
+## Understanding abapgit-agent Output
+
+**Critical: Never ignore these messages!**
+
+| Message | Meaning | Action Required |
+|---------|---------|-----------------|
+| `Error updating where-used list` | **SYNTAX ERROR** - object has errors | Fix the syntax error |
+| `Failed Objects (N) > 0` | Objects failed to activate | Fix syntax errors |
+| `Success: X` with all objects checked | All good | Proceed |
+
+**Example error flow:**
+```
+❌ Pull completed with errors!
+⚠️  Failed Objects (1):
+   ✗ CLAS ZCL_MY_CLASS: Error updating where-used list
+
+Action: The class has syntax errors. Use syntax-check to get details.
+```
 
 ## Check Local Implementation First
 
