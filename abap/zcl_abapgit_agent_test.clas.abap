@@ -1,5 +1,5 @@
 " Test class for unit testing
-CLASS zcl_abapgit_agent_test DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abapgit_agent_test DEFINITION FOR TESTING.
 
   PRIVATE SECTION.
     DATA: mv_value TYPE i.
