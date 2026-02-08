@@ -4,10 +4,11 @@ CLASS zcl_ai_syntax_agent_test DEFINITION
   RISK LEVEL HARMLESS
   DURATION SHORT.
 
+  PUBLIC SECTION.
+    METHODS setup.
+
   PRIVATE SECTION.
     DATA mv_value TYPE i.
-
-    METHODS setup.
 
     METHODS: test_initial_value FOR TESTING,
       test_string_concat FOR TESTING.
