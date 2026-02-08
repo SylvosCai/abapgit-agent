@@ -25,7 +25,11 @@
       "Bash(git branch:*)",
       "Bash(git checkout:*)",
       "Bash(git restore:*)",
-      "Bash(abapgit-agent pull:*)"
+      "Bash(abapgit-agent pull:*)",
+      "Bash(abapgit-agent health:*)",
+      "Bash(abapgit-agent status:*)",
+      "Bash(abapgit-agent syntax-check:*)",
+      "Bash(DEBUG=1 node bin/abapgit-agent:*)"
     ]
   }
 }

@@ -17,7 +17,7 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
              object_name TYPE string,
            END OF ty_object.
 
-    TYPES: ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
+    TYPES ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_request,
              package TYPE devclass,
@@ -36,6 +36,8 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
     DATA ls_request TYPE ty_request.
+    DATA lv_json_resp TYPE string.
+    DATA lo_entity TYPE REF TO cl_rest_entity.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
@@ -48,8 +50,8 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
 
     " Validate request
     IF ls_request-package IS INITIAL AND ls_request-objects IS INITIAL.
-      DATA(lv_json_resp) = '{"success":"","test_count":0,"passed_count":0,"failed_count":0,"message":"Package or objects required"}'.
-      DATA(lo_entity) = mo_response->create_entity( ).
+      lv_json_resp = '{"success":"","test_count":0,"passed_count":0,"failed_count":0,"message":"Package or objects required"}'.
+      lo_entity = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
       mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).

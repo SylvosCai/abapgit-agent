@@ -4,6 +4,13 @@
 CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
+    METHODS run_tests
+      IMPORTING
+        iv_package TYPE devclass OPTIONAL
+        it_objects TYPE ty_object_list OPTIONAL
+      RETURNING
+        VALUE(rs_result) TYPE ty_result.
+
     TYPES: BEGIN OF ty_test_result,
              object_type TYPE string,
              object_name TYPE string,
@@ -29,40 +36,6 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_object.
 
     TYPES ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
-
-    METHODS run_tests
-      IMPORTING
-        iv_package TYPE devclass OPTIONAL
-        it_objects TYPE ty_object_list OPTIONAL
-      RETURNING
-        VALUE(rs_result) TYPE ty_result.
-
-  PRIVATE SECTION.
-    METHODS get_test_objects_from_package
-      IMPORTING
-        iv_package TYPE devclass
-      RETURNING
-        VALUE(rt_objects) TYPE ty_object_list.
-
-    METHODS class_has_test_methods
-      IMPORTING
-        iv_object_name TYPE string
-      RETURNING
-        VALUE(rv_has_tests) TYPE abap_bool.
-
-    METHODS run_tests_for_object
-      IMPORTING
-        iv_object_type TYPE string
-        iv_object_name TYPE string
-      RETURNING
-        VALUE(rt_results) TYPE ty_test_results.
-
-    METHODS execute_test_method
-      IMPORTING
-        iv_class_name TYPE seoclsname
-        iv_method_name TYPE string
-      RETURNING
-        VALUE(rv_success) TYPE abap_bool.
 
 ENDCLASS.
 
@@ -93,22 +66,20 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Run tests for each object
-    DATA lt_all_results TYPE ty_test_results.
+    " Run tests using CL_AUNIT_API
+    DATA lt_results TYPE ty_test_results.
     DATA lv_total_tests TYPE i VALUE 0.
     DATA lv_passed_tests TYPE i VALUE 0.
     DATA lv_failed_tests TYPE i VALUE 0.
 
     LOOP AT lt_objects INTO DATA(ls_object).
-      DATA lt_results TYPE ty_test_results.
-      lt_results = run_tests_for_object(
-        iv_object_type = ls_object-object_type
-        iv_object_name = ls_object-object_name ).
+      DATA lt_obj_results TYPE ty_test_results.
+      lt_obj_results = run_tests_for_object( ls_object-object_type, ls_object-object_name ).
 
-      APPEND LINES OF lt_results TO lt_all_results.
+      APPEND LINES OF lt_obj_results TO lt_results.
 
-      lv_total_tests = lv_total_tests + lines( lt_results ).
-      LOOP AT lt_results INTO DATA(ls_result).
+      lv_total_tests = lv_total_tests + lines( lt_obj_results ).
+      LOOP AT lt_obj_results INTO DATA(ls_result).
         IF ls_result-passed = abap_true.
           lv_passed_tests = lv_passed_tests + 1.
         ELSE.
@@ -120,118 +91,71 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     rs_result-test_count = lv_total_tests.
     rs_result-passed_count = lv_passed_tests.
     rs_result-failed_count = lv_failed_tests.
-    rs_result-results = lt_all_results.
+    rs_result-results = lt_results.
 
     IF lv_failed_tests > 0.
       rs_result-success = abap_false.
     ENDIF.
 
     IF lv_total_tests = 0.
-      rs_result-message = 'No unit tests found in specified objects'.
+      rs_result-message = 'No unit tests found'.
     ELSE.
-      rs_result-message = |{ lv_total_tests } tests executed: { lv_passed_tests } passed, { lv_failed_tests } failed|.
+      rs_result-message = |{ lv_total_tests } tests: { lv_passed_tests } passed, { lv_failed_tests } failed|.
     ENDIF.
-
   ENDMETHOD.
 
   METHOD get_test_objects_from_package.
-    DATA: BEGIN OF ls_obj,
-            object_type TYPE string,
-            object_name TYPE string,
-          END OF ls_obj,
-          lt_all_objects TYPE STANDARD TABLE OF ls_obj.
-
     " Query TADIR for classes in the package
-    SELECT object AS object_type, obj_name AS object_name
+    SELECT obj_name
       FROM tadir
-      INTO TABLE @lt_all_objects
+      INTO TABLE @rt_objects
       WHERE pgmid = 'R3TR'
         AND object = 'CLAS'
         AND devclass = @iv_package
         AND obj_name LIKE 'Z%'.
-
-    " Filter for classes that have test methods
-    LOOP AT lt_all_objects INTO ls_obj.
-      IF class_has_test_methods( ls_obj-object_name ) = abap_true.
-        APPEND ls_obj TO rt_objects.
-      ENDIF.
-    ENDLOOP.
-
-  ENDMETHOD.
-
-  METHOD class_has_test_methods.
-    DATA: lv_class_name TYPE seoclsname,
-          lt_methods TYPE seoo_intf_r_methods.
-
-    lv_class_name = iv_object_name.
-
-    " Get methods from class
-    CALL METHOD cl_rtti_classdat=>get_all_method_implementations
-      EXPORTING
-        p_classname = lv_class_name
-      RECEIVING
-        p_methods   = lt_methods.
-
-    " Check if any method has FOR TESTING
-    LOOP AT lt_methods INTO DATA(ls_method).
-      IF ls_method-method_key-ccat = '2'. " 2 = TEST
-        rv_has_tests = abap_true.
-        RETURN.
-      ENDIF.
-    ENDLOOP.
-
-    rv_has_tests = abap_false.
   ENDMETHOD.
 
   METHOD run_tests_for_object.
-    DATA: lv_class_name TYPE seoclsname,
-          lt_methods TYPE seoo_intf_r_methods,
+    DATA: lo_aunit TYPE REF TO cl_aunit_api,
+          lt_tasks TYPE if_aunit_types=>tt_task,
+          lt_result TYPE if_aunit_types=>tt_result,
           ls_result TYPE ty_test_result.
 
-    lv_class_name = iv_object_name.
+    " Create AUnit API instance
+    lo_aunit = cl_aunit_api=>create( ).
 
-    " Get all test methods from the class
-    CALL METHOD cl_rtti_classdat=>get_all_method_implementations
+    " Add test class to task
+    DATA(ls_task) = VALUE if_aunit_types=>ts_task( class = iv_object_name ).
+
+    " Get task for the class
+    lo_aunit->get_tasks(
       EXPORTING
-        p_classname = lv_class_name
+        iv_classname = iv_object_name
       RECEIVING
-        p_methods   = lt_methods.
+        rt_tasks = lt_tasks ).
 
-    " Filter for test methods only
-    LOOP AT lt_methods INTO DATA(ls_method) WHERE method_key-ccat = '2'. " TEST methods
+    " Run tasks
+    lo_aunit->execute(
+      EXPORTING
+        it_tasks = lt_tasks
+      RECEIVING
+        rt_results = lt_result ).
+
+    " Convert results
+    LOOP AT lt_result INTO DATA(ls_aunit_result).
       ls_result-object_type = iv_object_type.
       ls_result-object_name = iv_object_name.
-      ls_result-method_name = ls_method-method_key-cpname.
+      ls_result-method_name = ls_aunit_result-method.
 
-      " Try to run the test method
-      IF execute_test_method( iv_class_name = lv_class_name
-                             iv_method_name = ls_method-method_key-cpname
-                             ) = abap_true.
-        ls_result-passed = abap_true.
-      ELSE.
+      IF ls_aunit_result-kind = if_aunit_constants=>critical.
         ls_result-passed = abap_false.
-        ls_result-error = 'Test method failed'.
+        ls_result-error = ls_aunit_result-message.
+      ELSE.
+        ls_result-passed = abap_true.
       ENDIF.
 
       APPEND ls_result TO rt_results.
     ENDLOOP.
-
-  ENDMETHOD.
-
-  METHOD execute_test_method.
-    DATA: lo_test TYPE REF TO object,
-          lx_error TYPE REF TO cx_root.
-
-    " Create instance of the test class
-    CREATE OBJECT lo_test TYPE (iv_class_name).
-
-    " Try to call the test method
-    TRY.
-        CALL METHOD lo_test->(iv_method_name).
-        rv_success = abap_true.
-      CATCH cx_root INTO lx_error.
-        rv_success = abap_false.
-    ENDTRY.
   ENDMETHOD.
 
 ENDCLASS.

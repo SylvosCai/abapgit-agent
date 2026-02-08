@@ -293,9 +293,7 @@ async function syntaxCheck(objectType, objectName) {
 
     console.log('\n');
 
-    if (success === 'X' || success === true) {
-      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
-    } else if (errorCount > 0) {
+    if (errorCount > 0) {
       console.log(`❌ ${objType} ${objName} - ${errorCount} error(s) found:`);
       console.log('\nErrors:');
       console.log('─'.repeat(60));
@@ -309,8 +307,10 @@ async function syntaxCheck(objectType, objectName) {
         console.log(`    ${text}`);
         console.log('');
       }
+    } else if (success === 'X' || success === true) {
+      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
     } else {
-      console.log(`⚠️  ${objType} ${objName} - ${errorCount} error(s) found`);
+      console.log(`⚠️  ${objType} ${objName} - Unknown status (success=${success})`);
     }
 
     return result;
