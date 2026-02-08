@@ -20,6 +20,8 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
 
     TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
 
+    TYPES ty_program_name TYPE c LENGTH 40.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
@@ -31,16 +33,17 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA lv_program_name TYPE string.
+    DATA lv_match TYPE string.
+    DATA lv_program_name TYPE ty_program_name.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
     " Parse JSON to extract program_name
     FIND REGEX '"program_name"\s*:\s*"([^"]+)"' IN lv_json
-      MATCH OFFSET DATA(lv_off) SUBMATCHES DATA(lv_match).
+      MATCH OFFSET DATA(lv_off) SUBMATCHES lv_match.
 
     IF sy-subrc <> 0 OR lv_match IS INITIAL.
-      lv_program_name = lv_json.
+      CLEAR lv_program_name.
     ELSE.
       lv_program_name = lv_match.
     ENDIF.
