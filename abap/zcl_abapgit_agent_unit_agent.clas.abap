@@ -17,6 +17,7 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_result,
              success TYPE abap_bool,
              message TYPE string,
+             debug TYPE string,
              test_count TYPE i,
              passed_count TYPE i,
              failed_count TYPE i,
@@ -81,7 +82,8 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     rs_result-message = |Found { lines( lt_test_classes ) } test class(es)|.
 
     " Run local tests using ABAP Unit framework
-    rs_result-results = run_local_tests( lt_test_classes ).
+    DATA(lt_results) = run_local_tests( lt_test_classes ).
+    rs_result-results = lt_results.
 
     IF rs_result-results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
@@ -151,11 +153,14 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     DATA lt_methods LIKE TABLE OF ls_method.
 
+    DATA lv_debug TYPE string.
+
     FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
 
     TRY.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
           lv_class_name = <ls_class>-object_name.
+          lv_debug = |Checking class { lv_class_name }...|.
 
           " Query SEOCOMPDIR for test methods
           SELECT cmpname FROM seocompdir
@@ -164,6 +169,8 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
               AND cmptype = 0
               AND ( cmpname LIKE 'TEST%' OR cmpname LIKE '%_TEST' )
             ORDER BY cmpname.
+
+          lv_debug = |{ lv_debug } Found { lines( lt_methods ) } methods|.
 
           IF lt_methods IS INITIAL.
             " No test methods found - continue
@@ -204,7 +211,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
                 object_name = lv_class_name
                 test_method = lv_method_name
                 status = 'FAILED'
-                message = |{ lv_class_name }=>{ lv_method_name } failed|
+                message = |{ lv_class_name }=>{ lv_method_name } failed (sy-subrc={ sy-subrc })|
                 line = ''
               ).
             ENDIF.
@@ -214,6 +221,8 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         ENDLOOP.
 
       CATCH cx_root INTO DATA(lx_error).
+        " Store debug info
+        lv_debug = |{ lv_debug } Error: { lx_error->get_text( ) }|.
         " Return empty on error
         RETURN.
     ENDTRY.
