@@ -13,7 +13,6 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
 
   PRIVATE SECTION.
-    DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
     " Local type for item signature (matches abapGit structure)
     TYPES: BEGIN OF ty_item_signature,
@@ -21,6 +20,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
              obj_name TYPE tadir-obj_name,
              devclass TYPE devclass,
            END OF ty_item_signature.
+
+    DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
     METHODS:
       configure_credentials
