@@ -1,6 +1,5 @@
 *"*"use source
-*"*"Local Interface:
-*"**********************************************************************
+*"*"Local Interface
 CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -31,15 +30,6 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
-    CONSTANTS gc_variant TYPE sci_chkv VALUE 'SWF_ABAP_UNIT'.
-
-    " Alternative: Run unit tests using AUnit framework directly
-    METHODS run_tests_aunit
-      IMPORTING
-        it_classes TYPE ty_object_list
-      RETURNING
-        VALUE(rt_results) TYPE ty_test_results.
-
     METHODS run_tests
       IMPORTING
         iv_package TYPE devclass OPTIONAL
@@ -55,28 +45,9 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_classes) TYPE ty_object_list.
 
-    METHODS build_object_set
+    METHODS run_aunit_tests
       IMPORTING
         it_classes TYPE ty_object_list
-      RETURNING
-        VALUE(rt_objects) TYPE scit_objs.
-
-    METHODS run_inspection
-      IMPORTING
-        it_objects TYPE scit_objs
-        iv_name TYPE sci_objs
-      RETURNING
-        VALUE(rt_results) TYPE scit_rest.
-
-    METHODS get_plain_list
-      IMPORTING
-        io_inspection TYPE REF TO cl_ci_inspection
-      RETURNING
-        VALUE(rt_results) TYPE scit_alvlist.
-
-    METHODS convert_alv_results
-      IMPORTING
-        it_alv TYPE scit_alvlist
       RETURNING
         VALUE(rt_results) TYPE ty_test_results.
 
@@ -109,33 +80,15 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     rs_result-message = |Found { lines( lt_test_classes ) } test class(es)|.
 
-    " Build object set for Code Inspector
-    DATA(lt_objects) = build_object_set( lt_test_classes ).
-
-    IF lt_objects IS INITIAL.
-      rs_result-message = 'Could not build object set'.
-      RETURN.
-    ENDIF.
-
-    " Run inspection with SWF_ABAP_UNIT variant
-    DATA lv_name TYPE sci_objs.
-    CONCATENATE 'UNIT_' sy-uname sy-datum sy-uzeit INTO lv_name.
-    DATA(lt_results) = run_inspection(
-      it_objects = lt_objects
-      iv_name    = lv_name ).
-
-    IF lt_results IS INITIAL.
-      " Try AUnit framework directly as fallback
-      rs_result-results = run_tests_aunit( lt_test_classes ).
-    ELSE.
-      " Convert and count results
-      rs_result-results = convert_results( lt_results ).
-    ENDIF.
+    " Run AUnit tests using CL_SUT_AUNIT_RUNNER
+    rs_result-results = run_aunit_tests( lt_test_classes ).
 
     IF rs_result-results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
       RETURN.
     ENDIF.
+
+    " Count results
     count_results(
       EXPORTING it_results = rs_result-results
       CHANGING rs_stats = rs_result ).
@@ -185,279 +138,73 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD build_object_set.
-    " Build object set for Code Inspector
-    DATA: ls_obj TYPE scir_objs.
+  METHOD run_aunit_tests.
+    " Run unit tests using CL_SUT_AUNIT_RUNNER
+    DATA: lo_runner TYPE REF TO cl_sut_aunit_runner,
+          lv_exc_text TYPE string,
+          lv_stats TYPE string,
+          lv_result TYPE string.
 
-    LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
-      ls_obj-objtype = <ls_class>-object_type.
-      ls_obj-objname = <ls_class>-object_name.
-      APPEND ls_obj TO rt_objects.
-    ENDLOOP.
+    DATA: BEGIN OF ls_aunit_result,
+            type TYPE c LENGTH 1,
+            text TYPE string,
+          END OF ls_aunit_result.
 
-  ENDMETHOD.
+    DATA lt_aunit_results LIKE TABLE OF ls_aunit_result.
 
-  METHOD run_inspection.
-    DATA: lo_objset TYPE REF TO cl_ci_objectset.
-    DATA: lo_variant TYPE REF TO cl_ci_checkvariant.
-    DATA: lo_inspection TYPE REF TO cl_ci_inspection.
-    DATA: lt_rest TYPE scit_rest.
+    " Create runner instance
+    CREATE OBJECT lo_runner.
 
     TRY.
-        " Create object set
-        lo_objset = cl_ci_objectset=>save_from_list(
-          p_name    = iv_name
-          p_objects = it_objects ).
+        " Build test class string (space-separated)
+        DATA(lv_test_classes).
+        LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
+          IF lv_test_classes IS INITIAL.
+            lv_test_classes = <ls_class>-object_name.
+          ELSE.
+            lv_test_classes = |{ lv_test_classes } { <ls_class>-object_name }|.
+          ENDIF.
+        ENDLOOP.
 
-        " Get unit test check variant
-        lo_variant = cl_ci_checkvariant=>get_ref(
-          p_user = ''
-          p_name = gc_variant ).
+        " Run tests
+        lo_runner->run_as_rfc_system(
+          EXPORTING
+            p_testclasses = lv_test_classes
+            p_env         = 'ABAP'
+          RECEIVING
+            p_result      = lv_result
+          EXCEPTIONS
+            system_failure = 1
+            communication_failure = 2
+            OTHERS = 3 ).
 
-        IF lo_variant IS NOT BOUND.
-          " Variant not found - try AUNIT variant
-          lo_variant = cl_ci_checkvariant=>get_ref(
-            p_user = ''
-            p_name = 'AUNIT' ).
-        ENDIF.
-
-        IF lo_variant IS NOT BOUND.
-          " Variant not found - try DEFAULT variant
-          lo_variant = cl_ci_checkvariant=>get_ref(
-            p_user = ''
-            p_name = 'DEFAULT' ).
-        ENDIF.
-
-        IF lo_variant IS NOT BOUND.
-          " Cannot get variant - return empty
+        IF sy-subrc <> 0.
+          " Get exception text
+          lv_exc_text = lo_runner->get_raised_exc_text( ).
           RETURN.
         ENDIF.
 
-        " Create inspection
-        cl_ci_inspection=>create(
-          EXPORTING
-            p_user = sy-uname
-            p_name = iv_name
-          RECEIVING
-            p_ref = lo_inspection ).
+        " Parse the result
+        " Result format: TYPE|TEXT;...
+        SPLIT lv_result AT ';' INTO TABLE lt_aunit_results.
 
-        " Set inspection with variant and object set
-        lo_inspection->set(
-          EXPORTING
-            p_chkv = lo_variant
-            p_objs = lo_objset ).
-
-        " Save inspection
-        lo_inspection->save(
-          EXCEPTIONS
-            missing_information = 1
-            insp_no_name = 2
-            not_enqueued = 3
-            OTHERS = 4 ).
-
-        " Run inspection
-        lo_inspection->run(
-          EXPORTING
-            p_howtorun = 'D'
-          EXCEPTIONS
-            invalid_check_version = 1
-            OTHERS = 2 ).
-
-        IF sy-subrc <> 0.
-          " Run failed - try without D option
-          lo_inspection->run(
-            EXPORTING
-              p_howtorun = 'P'
-            EXCEPTIONS
-              invalid_check_version = 1
-              OTHERS = 2 ).
-        ENDIF.
-
-        " Save results to database
-        lo_inspection->save(
-          EXCEPTIONS
-            missing_information = 1
-            insp_no_name = 2
-            not_enqueued = 3
-            OTHERS = 4 ).
-
-        " Get results - try get_results first
-        lo_inspection->get_results(
-          EXPORTING
-            p_max_lines = 1000000
-          IMPORTING
-            p_scirest_ps = lt_rest ).
-
-        " If get_results returns empty, try plain_list
-        IF lt_rest IS INITIAL.
-          DATA(lt_plain) = get_plain_list( lo_inspection ).
-          IF lt_plain IS NOT INITIAL.
-            " Convert plain list results to scit_rest format for compatibility
-            DATA(ls_rest) LIKE LINE OF lt_rest.
-            LOOP AT lt_plain ASSIGNING FIELD-SYMBOL(<ls_plain>).
-              CLEAR ls_rest.
-              ls_rest-objtype = <ls_plain>-objtyp.  " scit_alvlist uses OBJTYP
-              ls_rest-objname = <ls_plain>-objname.
-              ls_rest-line = <ls_plain>-line.
-              ls_rest-kind = <ls_plain>-kind.
-              ls_rest-test = <ls_plain>-text.       " scit_alvlist uses TEXT
-              ls_rest-prio = <ls_plain>-prio.
-              APPEND ls_rest TO lt_rest.
-            ENDLOOP.
-          ENDIF.
-        ENDIF.
-
-        " Cleanup
-        lo_inspection->delete( EXCEPTIONS locked = 1 OTHERS = 2 ).
-        lo_objset->delete( EXCEPTIONS exists_in_insp = 1 locked = 2 OTHERS = 3 ).
+        " Convert to our format
+        LOOP AT lt_aunit_results ASSIGNING FIELD-SYMBOL(<ls_aunit>).
+          DATA(ls_result) = VALUE ty_test_result(
+            object_type = 'CLAS'
+            object_name = <ls_aunit>-text(30)  " First 30 chars is class name
+            test_method = <ls_aunit>-text+31  " Rest is method name
+            status = <ls_aunit>-type
+            message = <ls_aunit>-text
+            line = ''
+          ).
+          APPEND ls_result TO rt_results.
+        ENDLOOP.
 
       CATCH cx_root INTO DATA(lx_error).
         " Return empty on error
         RETURN.
     ENDTRY.
-
-    rt_results = lt_rest.
-
-  ENDMETHOD.
-
-  METHOD run_tests_aunit.
-    " Run unit tests using AUnit framework directly
-    " This is an alternative to Code Inspector for running tests
-
-    DATA: lo_engine TYPE REF TO if_aunit_engine,
-          lo_result TYPE REF TO if_aunit_result,
-          lt_alv TYPE scit_alvlist.
-
-    " Create AUnit engine
-    TRY.
-        lo_engine = cl_aunit_engine=>create( ).
-
-        " Add test classes to engine
-        LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
-          lo_engine->add_test_class(
-            EXPORTING
-              p_name = <ls_class>-object_name ).
-        ENDLOOP.
-
-        " Run tests
-        lo_engine->run(
-          EXPORTING
-            p_howtorun = 'S'  " Short run
-          EXCEPTIONS
-            OTHERS = 4 ).
-
-        IF sy-subrc <> 0.
-          RETURN.
-        ENDIF.
-
-        " Get result object
-        lo_result = lo_engine->get_result( ).
-
-        " Get plain list from result
-        lo_result->get_plain_list(
-          EXPORTING
-            p_max_lines = 1000000
-          IMPORTING
-            p_list = lt_alv ).
-
-        " Convert to our format
-        rt_results = convert_alv_results( lt_alv ).
-
-      CATCH cx_root.
-        " Return empty on error
-        RETURN.
-    ENDTRY.
-
-  ENDMETHOD.
-
-  METHOD get_plain_list.
-    " Get results using plain_list method (ALV format)
-    io_inspection->plain_list(
-      EXPORTING
-        p_max_lines = 1000000
-      IMPORTING
-        p_list = rt_results ).
-  ENDMETHOD.
-
-  METHOD convert_results.
-    " Convert Code Inspector results to our format
-    DATA: ls_result LIKE LINE OF rt_results.
-
-    LOOP AT it_alv ASSIGNING FIELD-SYMBOL(<ls_alv>).
-      CLEAR ls_result.
-
-      ls_result-object_type = <ls_alv>-objtype.
-      ls_result-object_name = <ls_alv>-objname.
-      ls_result-line = <ls_alv>-line.
-
-      " Extract test method from text (format: "CLASS=>METHOD" or "CLASS METHOD")
-      DATA(lv_text) = <ls_alv>-test.
-      IF lv_text CP '*=>*'.
-        SPLIT lv_text AT '=>' INTO DATA(lv_class) DATA(lv_method).
-        ls_result-test_method = lv_method.
-      ELSEIF lv_text CP '* *'.
-        " Try space separation
-        SPLIT lv_text AT ' ' INTO DATA(lv_class2) DATA(lv_method2).
-        ls_result-test_method = lv_method2.
-      ELSE.
-        ls_result-test_method = lv_text.
-      ENDIF.
-
-      " Determine status based on kind
-      CASE <ls_alv>-kind.
-        WHEN 'S'.  " Success
-          ls_result-status = 'PASSED'.
-          ls_result-message = <ls_alv>-test.
-        WHEN 'W'.  " Warning
-          ls_result-status = 'PASSED'.
-          ls_result-message = <ls_alv>-test.
-        WHEN 'E' OR 'A'.  " Error or Abort
-          ls_result-status = 'FAILED'.
-          ls_result-message = <ls_alv>-test.
-        WHEN OTHERS.
-          ls_result-status = 'UNKNOWN'.
-          ls_result-message = <ls_alv>-test.
-      ENDCASE.
-
-      APPEND ls_result TO rt_results.
-    ENDLOOP.
-
-  ENDMETHOD.
-
-  METHOD convert_alv_results.
-    " Convert ALV list results to our format
-    DATA: ls_result LIKE LINE OF rt_results.
-
-    LOOP AT it_alv ASSIGNING FIELD-SYMBOL(<ls_alv>).
-      CLEAR ls_result.
-
-      ls_result-object_type = <ls_alv>-objtyp.  " scit_alvlist uses OBJTYP
-      ls_result-object_name = <ls_alv>-objname.
-      ls_result-line = <ls_alv>-line.
-
-      " Extract test method from text
-      DATA(lv_text) = <ls_alv>-text.
-      IF lv_text CS '=>'.
-        DATA(lv_pos) = sy-fdpos + 2.
-        lv_text = lv_text+lv_pos.
-      ENDIF.
-      ls_result-test_method = lv_text.
-
-      " Determine status based on kind
-      CASE <ls_alv>-kind.
-        WHEN 'S' OR 'W'.  " Success or Warning
-          ls_result-status = 'PASSED'.
-          ls_result-message = <ls_alv>-text.
-        WHEN 'E' OR 'A'.  " Error or Abort
-          ls_result-status = 'FAILED'.
-          ls_result-message = <ls_alv>-text.
-        WHEN OTHERS.
-          ls_result-status = 'UNKNOWN'.
-          ls_result-message = <ls_alv>-text.
-      ENDCASE.
-
-      APPEND ls_result TO rt_results.
-    ENDLOOP.
 
   ENDMETHOD.
 
@@ -468,10 +215,17 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     LOOP AT it_results ASSIGNING FIELD-SYMBOL(<ls_result>).
       CASE <ls_result>-status.
-        WHEN 'PASSED'.
+        WHEN 'P'.  " Passed
           rs_stats-passed_count = rs_stats-passed_count + 1.
-        WHEN 'FAILED' OR 'ERROR' OR 'UNKNOWN'.
+        WHEN 'F' OR 'E' OR 'A'.  " Failed, Error, or Abort
           rs_stats-failed_count = rs_stats-failed_count + 1.
+        WHEN OTHERS.
+          " Check message for pass/fail
+          IF <ls_result>-message CS 'Passed' OR <ls_result>-message CS 'passed'.
+            rs_stats-passed_count = rs_stats-passed_count + 1.
+          ELSE.
+            rs_stats-failed_count = rs_stats-failed_count + 1.
+          ENDIF.
       ENDCASE.
     ENDLOOP.
 
