@@ -33,6 +33,13 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     CONSTANTS gc_variant TYPE sci_chkv VALUE 'SWF_ABAP_UNIT'.
 
+    " Alternative: Run unit tests using AUnit framework directly
+    METHODS run_tests_aunit
+      IMPORTING
+        it_classes TYPE ty_object_list
+      RETURNING
+        VALUE(rt_results) TYPE ty_test_results.
+
     METHODS run_tests
       IMPORTING
         iv_package TYPE devclass OPTIONAL
@@ -61,9 +68,15 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_results) TYPE scit_rest.
 
-    METHODS convert_results
+    METHODS get_plain_list
       IMPORTING
-        it_alv TYPE scit_rest
+        io_inspection TYPE REF TO cl_ci_inspection
+      RETURNING
+        VALUE(rt_results) TYPE scit_alvlist.
+
+    METHODS convert_alv_results
+      IMPORTING
+        it_alv TYPE scit_alvlist
       RETURNING
         VALUE(rt_results) TYPE ty_test_results.
 
@@ -112,12 +125,17 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       iv_name    = lv_name ).
 
     IF lt_results IS INITIAL.
+      " Try AUnit framework directly as fallback
+      rs_result-results = run_tests_aunit( lt_test_classes ).
+    ELSE.
+      " Convert and count results
+      rs_result-results = convert_results( lt_results ).
+    ENDIF.
+
+    IF rs_result-results IS INITIAL.
       rs_result-message = |No test results - { rs_result-message }|.
       RETURN.
     ENDIF.
-
-    " Convert and count results
-    rs_result-results = convert_results( lt_results ).
     count_results(
       EXPORTING it_results = rs_result-results
       CHANGING rs_stats = rs_result ).
@@ -197,7 +215,14 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
           p_name = gc_variant ).
 
         IF lo_variant IS NOT BOUND.
-          " Variant not found - try default AUNIT variant
+          " Variant not found - try AUNIT variant
+          lo_variant = cl_ci_checkvariant=>get_ref(
+            p_user = ''
+            p_name = 'AUNIT' ).
+        ENDIF.
+
+        IF lo_variant IS NOT BOUND.
+          " Variant not found - try DEFAULT variant
           lo_variant = cl_ci_checkvariant=>get_ref(
             p_user = ''
             p_name = 'DEFAULT' ).
@@ -256,12 +281,31 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
             not_enqueued = 3
             OTHERS = 4 ).
 
-        " Get results
+        " Get results - try get_results first
         lo_inspection->get_results(
           EXPORTING
             p_max_lines = 1000000
           IMPORTING
             p_scirest_ps = lt_rest ).
+
+        " If get_results returns empty, try plain_list
+        IF lt_rest IS INITIAL.
+          DATA(lt_plain) = get_plain_list( lo_inspection ).
+          IF lt_plain IS NOT INITIAL.
+            " Convert plain list results to scit_rest format for compatibility
+            DATA(ls_rest) LIKE LINE OF lt_rest.
+            LOOP AT lt_plain ASSIGNING FIELD-SYMBOL(<ls_plain>).
+              CLEAR ls_rest.
+              ls_rest-objtype = <ls_plain>-objtyp.  " scit_alvlist uses OBJTYP
+              ls_rest-objname = <ls_plain>-objname.
+              ls_rest-line = <ls_plain>-line.
+              ls_rest-kind = <ls_plain>-kind.
+              ls_rest-test = <ls_plain>-text.       " scit_alvlist uses TEXT
+              ls_rest-prio = <ls_plain>-prio.
+              APPEND ls_rest TO lt_rest.
+            ENDLOOP.
+          ENDIF.
+        ENDIF.
 
         " Cleanup
         lo_inspection->delete( EXCEPTIONS locked = 1 OTHERS = 2 ).
@@ -274,6 +318,65 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
 
     rt_results = lt_rest.
 
+  ENDMETHOD.
+
+  METHOD run_tests_aunit.
+    " Run unit tests using AUnit framework directly
+    " This is an alternative to Code Inspector for running tests
+
+    DATA: lo_engine TYPE REF TO if_aunit_engine,
+          lo_result TYPE REF TO if_aunit_result,
+          lt_alv TYPE scit_alvlist.
+
+    " Create AUnit engine
+    TRY.
+        lo_engine = cl_aunit_engine=>create( ).
+
+        " Add test classes to engine
+        LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
+          lo_engine->add_test_class(
+            EXPORTING
+              p_name = <ls_class>-object_name ).
+        ENDLOOP.
+
+        " Run tests
+        lo_engine->run(
+          EXPORTING
+            p_howtorun = 'S'  " Short run
+          EXCEPTIONS
+            OTHERS = 4 ).
+
+        IF sy-subrc <> 0.
+          RETURN.
+        ENDIF.
+
+        " Get result object
+        lo_result = lo_engine->get_result( ).
+
+        " Get plain list from result
+        lo_result->get_plain_list(
+          EXPORTING
+            p_max_lines = 1000000
+          IMPORTING
+            p_list = lt_alv ).
+
+        " Convert to our format
+        rt_results = convert_alv_results( lt_alv ).
+
+      CATCH cx_root.
+        " Return empty on error
+        RETURN.
+    ENDTRY.
+
+  ENDMETHOD.
+
+  METHOD get_plain_list.
+    " Get results using plain_list method (ALV format)
+    io_inspection->plain_list(
+      EXPORTING
+        p_max_lines = 1000000
+      IMPORTING
+        p_list = rt_results ).
   ENDMETHOD.
 
   METHOD convert_results.
@@ -314,6 +417,43 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         WHEN OTHERS.
           ls_result-status = 'UNKNOWN'.
           ls_result-message = <ls_alv>-test.
+      ENDCASE.
+
+      APPEND ls_result TO rt_results.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD convert_alv_results.
+    " Convert ALV list results to our format
+    DATA: ls_result LIKE LINE OF rt_results.
+
+    LOOP AT it_alv ASSIGNING FIELD-SYMBOL(<ls_alv>).
+      CLEAR ls_result.
+
+      ls_result-object_type = <ls_alv>-objtyp.  " scit_alvlist uses OBJTYP
+      ls_result-object_name = <ls_alv>-objname.
+      ls_result-line = <ls_alv>-line.
+
+      " Extract test method from text
+      DATA(lv_text) = <ls_alv>-text.
+      IF lv_text CS '=>'.
+        DATA(lv_pos) = sy-fdpos + 2.
+        lv_text = lv_text+lv_pos.
+      ENDIF.
+      ls_result-test_method = lv_text.
+
+      " Determine status based on kind
+      CASE <ls_alv>-kind.
+        WHEN 'S' OR 'W'.  " Success or Warning
+          ls_result-status = 'PASSED'.
+          ls_result-message = <ls_alv>-text.
+        WHEN 'E' OR 'A'.  " Error or Abort
+          ls_result-status = 'FAILED'.
+          ls_result-message = <ls_alv>-text.
+        WHEN OTHERS.
+          ls_result-status = 'UNKNOWN'.
+          ls_result-message = <ls_alv>-text.
       ENDCASE.
 
       APPEND ls_result TO rt_results.
