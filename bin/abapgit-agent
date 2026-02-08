@@ -323,28 +323,37 @@ async function syntaxCheck(objectType, objectName) {
 }
 
 /**
- * Syntax check for ABAP source file (READ REPORT + SYNTAX-CHECK)
- * Uses /syntax-check-source for both PROG and CLAS files
+ * Syntax check for ABAP source file
+ * Reads file content and sends to /syntax-check-source
  */
 async function syntaxCheckSource(sourceFile) {
   console.log(`\n  Syntax check for file: ${sourceFile}`);
 
   try {
-    // Extract source name from file path
-    // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
-    // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
-    let sourceName = path.basename(sourceFile);
-    sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
-    sourceName = sourceName.toUpperCase();
+    // Read file content
+    const absolutePath = path.isAbsolute(sourceFile)
+      ? sourceFile
+      : path.join(process.cwd(), sourceFile);
+
+    if (!fs.existsSync(absolutePath)) {
+      console.error(`\n  Error: File not found: ${absolutePath}`);
+      process.exit(1);
+    }
+
+    const fileContent = fs.readFileSync(absolutePath, 'utf8');
+
+    // Split into lines array
+    const sourceLines = fileContent.split('\n');
 
     const config = loadConfig();
 
     // Fetch CSRF token first
     const csrfToken = await fetchCsrfToken(config);
 
-    // Send to /syntax-check-source for all file types (PROG and CLAS)
+    // Send source code lines and name to /syntax-check-source
     const data = {
-      source_code: sourceName
+      source_name: sourceName,
+      source_code: sourceLines
     };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
@@ -371,7 +380,7 @@ async function syntaxCheckSource(sourceFile) {
         console.log('');
       }
     } else if (success === 'X' || success === true) {
-      console.log(`✅ ${sourceName} - Syntax check passed (0 errors)`);
+      console.log(`✅ ${path.basename(sourceFile)} - Syntax check passed (0 errors)`);
     } else {
       console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
     }

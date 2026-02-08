@@ -13,7 +13,8 @@ CLASS zcl_abapgit_agent_syntax_src DEFINITION PUBLIC FINAL
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_src_agent.
 
     TYPES: BEGIN OF ty_request,
-             source_code TYPE string,
+             source_name TYPE string,
+             source_code TYPE string_table,
            END OF ty_request.
 
     TYPES: BEGIN OF ty_error,
@@ -47,12 +48,9 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
         data = ls_request ).
 
     DATA lv_json_resp TYPE string.
-    DATA lv_source_code TYPE string.
-    lv_source_code = ls_request-source_code.
-    CONDENSE lv_source_code.
 
-    IF lv_source_code IS INITIAL.
-      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source name is required"}]}'.
+    IF ls_request-source_code IS INITIAL.
+      lv_json_resp = '{"success":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source code content is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
@@ -60,9 +58,11 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call syntax check agent
+    " Call syntax check agent with source name and source code table
     DATA ls_result TYPE zcl_abapgit_agent_src_agent=>ty_result.
-    ls_result = mo_agent->syntax_check_source( iv_source_code = lv_source_code ).
+    ls_result = mo_agent->syntax_check_source(
+      iv_source_name = ls_request-source_name
+      it_source_code = ls_request-source_code ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.

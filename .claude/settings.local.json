@@ -32,7 +32,8 @@
       "Bash(DEBUG=1 node bin/abapgit-agent:*)",
       "Bash(DEBUG=1 abapgit-agent pull:*)",
       "Bash(DEBUG=1 abapgit-agent unit:*)",
-      "Bash(abapgit-agent unit:*)"
+      "Bash(abapgit-agent unit:*)",
+      "Bash(printf:*)"
     ]
   }
 }
