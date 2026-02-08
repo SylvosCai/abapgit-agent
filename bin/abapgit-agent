@@ -474,9 +474,12 @@ async function runUnitTests(options) {
 /**
  * Pull and activate repository
  */
-async function pull(gitUrl, branch = 'main') {
+async function pull(gitUrl, branch = 'main', files = null) {
   console.log(`\n🚀 Starting pull for: ${gitUrl}`);
   console.log(`   Branch: ${branch}`);
+  if (files && files.length > 0) {
+    console.log(`   Files: ${files.join(', ')}`);
+  }
 
   try {
     const config = loadConfig();
@@ -491,6 +494,11 @@ async function pull(gitUrl, branch = 'main') {
       username: config.gitUsername,
       password: config.gitPassword
     };
+
+    // Add files array if specified
+    if (files && files.length > 0) {
+      data.files = files;
+    }
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
@@ -647,10 +655,16 @@ To enable integration:
       case 'pull':
         const urlArgIndex = args.indexOf('--url');
         const branchArgIndex = args.indexOf('--branch');
+        const filesArgIndex = args.indexOf('--files');
 
         // Auto-detect git remote URL if not provided
         let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
         let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : getGitBranch();
+        let files = null;
+
+        if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
+          files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+        }
 
         if (!gitUrl) {
           gitUrl = getGitRemoteUrl();
@@ -662,7 +676,7 @@ To enable integration:
           console.log(`📌 Auto-detected git remote: ${gitUrl}`);
         }
 
-        await pull(gitUrl, branch);
+        await pull(gitUrl, branch, files);
         break;
 
       case 'health':
@@ -743,9 +757,10 @@ Usage:
   abapgit-agent <command> [options]
 
 Commands:
-  pull [--url <git-url>] [--branch <branch>]
+  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>]
     Pull and activate repository in ABAP system.
     Auto-detects git remote and branch from current directory.
+    Use --files to pull only specific files.
 
   syntax-check <object_type> <object_name>
     Check syntax of an ABAP object (Code Inspector).
@@ -769,6 +784,7 @@ Examples:
   abapgit-agent pull                       # Auto-detect from git repo
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --url <git-url>       # Override remote URL
+  abapgit-agent pull --files zcl_my_class.clas.abap  # Pull specific file
   abapgit-agent syntax-check CLAS ZCL_MY_CLASS
   abapgit-agent syntax-check-source --file zcl_my_class.clas.abap
   abapgit-agent unit --package ZMY_PACKAGE

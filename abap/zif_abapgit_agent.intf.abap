@@ -51,6 +51,7 @@ INTERFACE zif_abapgit_agent PUBLIC.
       iv_branch TYPE string DEFAULT 'main'
       iv_username TYPE string OPTIONAL
       iv_password TYPE string OPTIONAL
+      it_files TYPE string_table OPTIONAL
     RETURNING
       VALUE(rs_result) TYPE ty_result
     RAISING
