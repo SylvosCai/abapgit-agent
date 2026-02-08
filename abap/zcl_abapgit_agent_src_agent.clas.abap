@@ -12,9 +12,11 @@ CLASS zcl_abapgit_agent_src_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
              text TYPE string,
            END OF ty_result.
 
+    TYPES ty_program_name TYPE c LENGTH 40.
+
     METHODS syntax_check_source
       IMPORTING
-        iv_program_name TYPE c LENGTH 40
+        iv_program_name TYPE ty_program_name
       RETURNING
         VALUE(rs_result) TYPE ty_result.
 
