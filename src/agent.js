@@ -86,6 +86,31 @@ class ABAPGitAgent {
       throw new Error(`Syntax check failed: ${error.message}`);
     }
   }
+
+  /**
+   * Run unit tests for package or objects
+   * @param {string} packageName - Package name to run tests for (optional)
+   * @param {Array} objects - Array of {object_type, object_name} objects (optional)
+   * @returns {object} Unit test results with test_count, passed_count, failed_count, results
+   */
+  async unitCheck(packageName = null, objects = []) {
+    logger.info('Starting unit tests', { package: packageName, objects });
+
+    try {
+      const result = await this.abap.unitTest(packageName, objects);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        test_count: result.TEST_COUNT || result.test_count || 0,
+        passed_count: result.PASSED_COUNT || result.passed_count || 0,
+        failed_count: result.FAILED_COUNT || result.failed_count || 0,
+        message: result.MESSAGE || result.message || '',
+        results: result.RESULTS || result.results || []
+      };
+    } catch (error) {
+      logger.error('Unit tests failed', { error: error.message });
+      throw new Error(`Unit tests failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

@@ -247,6 +247,31 @@ class ABAPClient {
 
     return await this.request('POST', '/syntax-check', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * Run unit tests for package or objects
+   * @param {string} packageName - Package name to run tests for (optional)
+   * @param {Array} objects - Array of {object_type, object_name} objects (optional)
+   * @returns {object} Unit test results
+   */
+  async unitTest(packageName = null, objects = []) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {};
+
+    if (packageName) {
+      data.package = packageName;
+    }
+
+    if (objects && objects.length > 0) {
+      data.objects = objects;
+    }
+
+    logger.info('Starting unit tests', { package: packageName, objects, service: 'abap-ai-bridge' });
+
+    return await this.request('POST', '/unit', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

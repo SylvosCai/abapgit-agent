@@ -321,6 +321,73 @@ async function syntaxCheck(objectType, objectName) {
 }
 
 /**
+ * Run unit tests for package or objects
+ */
+async function runUnitTests(options) {
+  console.log('\n  Running unit tests');
+
+  try {
+    const config = loadConfig();
+
+    // Fetch CSRF token first
+    const csrfToken = await fetchCsrfToken(config);
+
+    const data = {};
+
+    if (options.package) {
+      data.package = options.package;
+    }
+
+    if (options.objects && options.objects.length > 0) {
+      data.objects = options.objects;
+    }
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
+
+    // Handle uppercase keys from ABAP
+    const success = result.SUCCESS || result.success;
+    const testCount = result.TEST_COUNT || result.test_count || 0;
+    const passedCount = result.PASSED_COUNT || result.passed_count || 0;
+    const failedCount = result.FAILED_COUNT || result.failed_count || 0;
+    const message = result.MESSAGE || result.message || '';
+    const results = result.RESULTS || result.results || [];
+
+    console.log('\n');
+
+    if (success === 'X' || success === true) {
+      console.log(`✅ All tests passed!`);
+    } else {
+      console.log(`❌ Some tests failed`);
+    }
+
+    console.log(`   ${message}`);
+    console.log(`   Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
+
+    if (failedCount > 0 && results.length > 0) {
+      console.log('\nFailed Tests:');
+      console.log('─'.repeat(60));
+
+      for (const test of results) {
+        if (test.PASSED === false || test.passed === false) {
+          const objName = test.OBJECT_NAME || test.object_name || '?';
+          const methodName = test.METHOD_NAME || test.method_name || '?';
+          const error = test.ERROR || test.error || 'Unknown error';
+
+          console.log(`   ✗ ${objName}=${methodName}`);
+          console.log(`     Error: ${error}`);
+          console.log('');
+        }
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`\n  Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+/**
  * Pull and activate repository
  */
 async function pull(gitUrl, branch = 'main') {
@@ -506,6 +573,35 @@ To enable integration:
         await syntaxCheck(objectType, objectName);
         break;
 
+      case 'unit':
+        const packageArg = args.indexOf('--package');
+        const objectArg = args.indexOf('--object');
+
+        const unitOptions = { package: null, objects: [] };
+
+        if (packageArg !== -1 && packageArg + 1 < args.length) {
+          unitOptions.package = args[packageArg + 1];
+        }
+
+        if (objectArg !== -1 && objectArg + 2 < args.length) {
+          unitOptions.objects.push({
+            object_type: args[objectArg + 1],
+            object_name: args[objectArg + 2]
+          });
+        }
+
+        if (!unitOptions.package && unitOptions.objects.length === 0) {
+          console.error('Error: unit requires --package or --object');
+          console.error('Usage: abapgit-agent unit --package <package>');
+          console.error('   or: abapgit-agent unit --object <type> <name>');
+          console.error('Example: abapgit-agent unit --package ZMY_PACKAGE');
+          console.error('Example: abapgit-agent unit --object CLAS ZCL_TEST');
+          process.exit(1);
+        }
+
+        await runUnitTests(unitOptions);
+        break;
+
       case 'help':
       case '--help':
       case '-h':
@@ -523,6 +619,12 @@ Commands:
   syntax-check <object_type> <object_name>
     Check syntax of an ABAP object and display detailed errors.
 
+  unit --package <package>
+    Run unit tests for all objects in a package.
+
+  unit --object <type> <name>
+    Run unit tests for a specific object.
+
   health
     Check if ABAP REST API is healthy
 
@@ -534,6 +636,8 @@ Examples:
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --url <git-url>       # Override remote URL
   abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+  abapgit-agent unit --package ZMY_PACKAGE
+  abapgit-agent unit --object CLAS ZCL_TEST
   abapgit-agent health
   abapgit-agent status
 `);
