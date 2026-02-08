@@ -29,35 +29,26 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
-    " Local structure for syntax check errors
-    TYPES: BEGIN OF ty_syntax_err,
-             line TYPE i,
-             col TYPE i,
-             errortext TYPE string,
-           END OF ty_syntax_err.
-
-    DATA: lt_errtab TYPE TABLE OF ty_syntax_err.
+    DATA: lv_word TYPE string,
+          lv_line TYPE i.
 
     rs_result-success = abap_true.
 
     " Perform syntax check using SYNTAX-CHECK FOR ITAB
-    " ID 'ERR' TABLE - collects all errors into internal table
+    " Reports first error via MESSAGE and LINE parameters
+    " sy-subrc = 0: no errors, 4: syntax error found
     SYNTAX-CHECK FOR it_source_code
-      ID 'ERR' TABLE lt_errtab
+      MESSAGE lv_word
+      LINE lv_line
       PROGRAM sy-repid.
 
-    " Convert errors to ty_errors
-    LOOP AT lt_errtab INTO DATA(ls_err).
-      DATA(ls_error) = VALUE ty_error(
-        line   = ls_err-line
-        column = ls_err-col
-        text   = ls_err-errortext ).
-      APPEND ls_error TO rs_result-errors.
-    ENDLOOP.
-
-    rs_result-error_count = lines( rs_result-errors ).
-    IF rs_result-error_count > 0.
+    IF sy-subrc <> 0.
+      " Syntax error found - add to results
       rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      APPEND VALUE #( line = lv_line
+                      column = '1'
+                      text = lv_word ) TO rs_result-errors.
     ENDIF.
   ENDMETHOD.
 
