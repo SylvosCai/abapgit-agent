@@ -195,13 +195,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
                                              obj_name = ls_overwrite-obj_name
                                       TRANSPORTING NO FIELDS.
         IF sy-subrc = 0.
-          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+          ls_overwrite-decision = '1'.
         ELSE.
-          CLEAR ls_overwrite-decision.
+          ls_overwrite-decision = ' '.
         ENDIF.
       ELSE.
         " No files specified, deserialize all
-        ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+        ls_overwrite-decision = '1'.
       ENDIF.
       MODIFY rs_checks-overwrite FROM ls_overwrite.
     ENDLOOP.
