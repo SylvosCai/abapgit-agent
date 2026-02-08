@@ -146,7 +146,6 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
     DATA: lo_test_class TYPE REF TO object.
 
     DATA: BEGIN OF ls_method,
-            clsname TYPE seoclsname,
             cmpname TYPE seocpdname,
           END OF ls_method.
 
@@ -158,23 +157,13 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
           lv_class_name = <ls_class>-object_name.
 
-          " Query SE24 for test methods (FOR TESTING)
-          SELECT cmpname INTO TABLE lt_methods
-            FROM seocompdir
+          " Query SEOCOMPDIR for test methods
+          SELECT cmpname FROM seocompdir
+            INTO TABLE lt_methods
             WHERE clsname = lv_class_name
-              AND cmptype = 0  " Method
-              AND cmpname LIKE 'TEST%'
+              AND cmptype = 0
+              AND ( cmpname LIKE 'TEST%' OR cmpname LIKE '%_TEST' )
             ORDER BY cmpname.
-
-          IF lt_methods IS INITIAL.
-            " Try also methods ending with _TEST
-            SELECT cmpname INTO TABLE lt_methods
-              FROM seocompdir
-              WHERE clsname = lv_class_name
-                AND cmptype = 0
-                AND cmpname LIKE '%_TEST'
-              ORDER BY cmpname.
-          ENDIF.
 
           IF lt_methods IS INITIAL.
             " No test methods found - continue
