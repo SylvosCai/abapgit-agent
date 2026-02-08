@@ -282,7 +282,7 @@ async function syntaxCheck(objectType, objectName) {
       object_name: objectName
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken });
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
