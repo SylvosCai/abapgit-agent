@@ -29,22 +29,24 @@ ENDCLASS.
 CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
-    DATA: lv_word     TYPE string,
-          lv_line     TYPE i,
-          lt_errtab   TYPE TABLE OF scsynerr.
+    " Local structure for syntax check errors
+    TYPES: BEGIN OF ty_syntax_err,
+             line TYPE i,
+             col TYPE i,
+             errortext TYPE string,
+           END OF ty_syntax_err.
+
+    DATA: lt_errtab TYPE TABLE OF ty_syntax_err.
 
     rs_result-success = abap_true.
 
     " Perform syntax check using SYNTAX-CHECK FOR ITAB
     " ID 'ERR' TABLE - collects all errors into internal table
-    " Continues checking after errors (doesn't stop at first error)
     SYNTAX-CHECK FOR it_source_code
-      MESSAGE lv_word
-      LINE lv_line
       ID 'ERR' TABLE lt_errtab
       PROGRAM sy-repid.
 
-    " Convert errors from scsynerr to ty_errors
+    " Convert errors to ty_errors
     LOOP AT lt_errtab INTO DATA(ls_err).
       DATA(ls_error) = VALUE ty_error(
         line   = ls_err-line

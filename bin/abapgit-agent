@@ -266,6 +266,63 @@ function request(method, path, data = null, options = {}) {
 }
 
 /**
+ * Syntax check for ABAP object (Code Inspector)
+ */
+async function syntaxCheck(objectType, objectName) {
+  console.log(`\n  Syntax check for ${objectType} ${objectName}`);
+
+  try {
+    const config = loadConfig();
+
+    // Fetch CSRF token first
+    const csrfToken = await fetchCsrfToken(config);
+
+    const data = {
+      object_type: objectType,
+      object_name: objectName
+    };
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
+
+    // Handle uppercase keys from ABAP
+    const success = result.SUCCESS || result.success;
+    const objType = result.OBJECT_TYPE || result.object_type || objectType;
+    const objName = result.OBJECT_NAME || result.object_name || objectName;
+    const errorCount = result.ERROR_COUNT || result.error_count || 0;
+    const errors = result.ERRORS || result.errors || [];
+
+    console.log('\n');
+
+    if (errorCount > 0) {
+      console.log(`❌ ${objType} ${objName} - ${errorCount} error(s) found:`);
+      console.log('\nErrors:');
+      console.log('─'.repeat(60));
+
+      for (const err of errors) {
+        const line = err.LINE || err.line || '?';
+        const column = err.COLUMN || err.column || '?';
+        const text = err.TEXT || err.text || 'Unknown error';
+
+        console.log(`  Line ${line}, Column ${column}:`);
+        console.log(`    ${text}`);
+        console.log('');
+      }
+    } else if (success === 'X' || success === true) {
+      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
+    } else if (success === '' || success === undefined || success === null) {
+      console.log(`❌ ${objType} ${objName} - Syntax check failed (no response or invalid response)`);
+    } else {
+      console.log(`⚠️  ${objType} ${objName} - Unexpected status: ${success}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`\n  Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+/**
  * Syntax check for ABAP source code (direct from file)
  */
 async function syntaxCheckSource(sourceFile) {
