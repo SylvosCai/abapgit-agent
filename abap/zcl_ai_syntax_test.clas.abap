@@ -1,6 +1,0 @@
-" Simple test class
-CLASS zcl_ai_syntax_test DEFINITION PUBLIC FINAL CREATE PUBLIC.
-ENDCLASS.
-
-CLASS zcl_ai_syntax_test IMPLEMENTATION.
-ENDCLASS.
