@@ -130,18 +130,28 @@ When network issues prevent accessing online resources, you can maintain a local
 
 **Setup:**
 
-1. Create a folder to store ABAP code examples (e.g., `~/abap-reference`)
-2. Clone abapGit or other ABAP repositories for reference
-3. Configure the path in `.abapGitAgent`:
+1. Configure the reference folder path in `.abapGitAgent`:
    ```json
    {
-     "referenceFolder": "~/abap-reference"
+     "referenceFolder": "<path-to-reference-folder>"
    }
+   ```
+
+2. Clone ABAP repositories for reference into this folder:
+   ```bash
+   # abapGit itself - best reference for ABAP patterns
+   git clone https://github.com/abapGit/abapGit.git
+
+   # ABAP coding style guides (Clean ABAP, code review)
+   git clone https://github.com/SAP/styleguides.git
+
+   # ABAP cheat sheets with code snippets for various topics
+   git clone https://github.com/SAP/abap-cheat-sheets.git
    ```
 
 **Usage:**
 
-- When Claude needs to reference ABAP patterns, it can read files from this folder
+- When Claude needs to reference ABAP patterns, read files from the folder configured in `.abapGitAgent` (`referenceFolder`)
 - Useful for offline development or when network is unreliable
 - Keep commonly used ABAP utilities, class patterns, and examples
 
