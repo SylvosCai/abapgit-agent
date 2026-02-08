@@ -280,7 +280,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       ls_result-line = <ls_alv>-line.
 
       " Extract test method from text (format: "CLASS=>METHOD" or "CLASS METHOD")
-      DATA(lv_text) = <ls_alv>-text.
+      DATA(lv_text) = <ls_alv>-test.
       IF lv_text CP '*=>*'.
         SPLIT lv_text AT '=>' INTO DATA(lv_class) DATA(lv_method).
         ls_result-test_method = lv_method.
@@ -296,16 +296,16 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
       CASE <ls_alv>-kind.
         WHEN 'S'.  " Success
           ls_result-status = 'PASSED'.
-          ls_result-message = <ls_alv>-text.
+          ls_result-message = <ls_alv>-test.
         WHEN 'W'.  " Warning
           ls_result-status = 'PASSED'.
-          ls_result-message = <ls_alv>-text.
+          ls_result-message = <ls_alv>-test.
         WHEN 'E' OR 'A'.  " Error or Abort
           ls_result-status = 'FAILED'.
-          ls_result-message = <ls_alv>-text.
+          ls_result-message = <ls_alv>-test.
         WHEN OTHERS.
           ls_result-status = 'UNKNOWN'.
-          ls_result-message = <ls_alv>-text.
+          ls_result-message = <ls_alv>-test.
       ENDCASE.
 
       APPEND ls_result TO rt_results.
