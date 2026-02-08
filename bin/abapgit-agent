@@ -454,7 +454,9 @@ async function pull(gitUrl, branch = 'main') {
     if (errorDetail && errorDetail.trim()) {
       console.log(`\n📋 Error Details:`);
       console.log('───────────────────────────────────────────────────────────────────────────────');
-      console.log(errorDetail);
+      // Handle escaped newlines from ABAP JSON
+      const formattedDetail = errorDetail.replace(/\\n/g, '\n');
+      console.log(formattedDetail);
     }
 
     // Display all messages as table
