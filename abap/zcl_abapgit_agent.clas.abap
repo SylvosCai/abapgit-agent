@@ -177,12 +177,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_log_detail.
-    " TODO: For syntax errors (type 'E'), the message contains "Error updating where-used list"
-    " Enhance to extract:
-    " - Line number from error message
-    " - Column number if available
-    " - Error code (e.g., "ZC123")
-    " - Query SNHI for detailed syntax information
+    " Extract detailed log messages including type, id, number, text, obj_type, obj_name, exception
     DATA: lo_log TYPE REF TO zif_abapgit_log.
 
     rv_detail = ''.
@@ -210,7 +205,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_object_lists.
-    " Extract activated and failed objects from the log
+    " Extract activated and failed objects from the log with full details
     DATA: lo_log TYPE REF TO zif_abapgit_log.
 
     CLEAR: rs_result-activated_objects, rs_result-failed_objects.
@@ -223,9 +218,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
       LOOP AT lt_messages INTO ls_msg.
         DATA: ls_object TYPE zif_abapgit_agent=>ty_object.
+        ls_object-type = ls_msg-type.
+        ls_object-id = ls_msg-id.
+        ls_object-number = ls_msg-number.
+        ls_object-text = ls_msg-text.
         ls_object-obj_type = ls_msg-obj_type.
         ls_object-obj_name = ls_msg-obj_name.
-        ls_object-text = ls_msg-text.
+        ls_object-exception = ls_msg-exception.
 
         " Success messages (type 'S') - activated objects
         IF ls_msg-type = 'S'.

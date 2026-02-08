@@ -1,9 +1,13 @@
 INTERFACE zif_abapgit_agent PUBLIC.
 
   TYPES: BEGIN OF ty_object,
+    type TYPE string,
+    id TYPE string,
+    number TYPE string,
+    text TYPE string,
     obj_type TYPE string,
     obj_name TYPE string,
-    text TYPE string,
+    exception TYPE string,
   END OF ty_object.
 
   TYPES: ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
