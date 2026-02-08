@@ -222,6 +222,14 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
             p_chkv = lo_variant
             p_objs = lo_objset ).
 
+        " Save inspection
+        lo_inspection->save(
+          EXCEPTIONS
+            missing_information = 1
+            insp_no_name = 2
+            not_enqueued = 3
+            OTHERS = 4 ).
+
         " Run inspection
         lo_inspection->run(
           EXPORTING
