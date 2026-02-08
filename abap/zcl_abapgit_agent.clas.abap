@@ -200,12 +200,12 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           IF ls_msg-exception IS BOUND.
             lv_msg = |{ lv_msg }\n    Exception: { ls_msg-exception->get_text( ) }|.
           ENDIF.
-          rv_detail = rv_detail && '\n  - ' && lv_msg.
+          rv_detail = rv_detail && |{ cl_abap_char_utilities=>newline }  - { lv_msg }|.
         ENDIF.
       ENDLOOP.
 
       IF rv_detail IS NOT INITIAL.
-        rv_detail = 'Error Details:' && rv_detail.
+        rv_detail = |Error Details:{ rv_detail }|.
       ENDIF.
     ENDIF.
   ENDMETHOD.
