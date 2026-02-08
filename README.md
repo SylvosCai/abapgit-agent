@@ -436,6 +436,62 @@ Claude Code terminal: $ abapgit-agent pull
 2. Verify abapGit settings for activation
 3. Check SE80 for object activation status
 
+## Optional: claude-mem for ABAP Knowledge Management
+
+claude-mem is a Claude Code plugin that stores memories across sessions. Use it to retain ABAP knowledge learned from the reference repositories.
+
+### Setup
+
+1. Install the plugin:
+   ```bash
+   /plugin marketplace add thedotmack/claude-mem
+   /plugin install claude-mem
+   ```
+
+### Saving Knowledge
+
+When you discover important ABAP patterns, save them:
+
+```
+/claude-mem:do
+```
+
+This launches a subagent to implement your task and **automatically save memories**.
+
+### Retrieving Knowledge
+
+When you need to recall previously learned ABAP patterns:
+
+```
+/claude-mem:mem-search
+```
+
+Then search for topics like:
+- "ABAP class structure"
+- "Clean ABAP naming"
+- "Authorization check"
+- "Dynamic method call"
+- "abapGit syntax check"
+
+### Workflow Example
+
+1. Read from `/abap-reference/abapGit/` to understand class format
+2. Save with `/claude-mem:do`
+3. Later ask "How do I structure an ABAP class?"
+4. claude-mem searches memory and returns the pattern
+
+### Key Memory Topics
+
+| Topic | What to Save |
+|-------|-------------|
+| abapGit format | `ZCL_*.clas.abap`, XML metadata pattern |
+| Clean ABAP | Naming conventions, patterns, anti-patterns |
+| Authorization | `AUTHORITY-CHECK` syntax, activity values |
+| Dynamic calls | `CALL METHOD (class)=>(method)` |
+| Syntax check | `zcl_abapgit_code_inspector=>run()` |
+
+claude-mem persists across sessions - your learned knowledge is saved.
+
 ## License
 
 MIT License

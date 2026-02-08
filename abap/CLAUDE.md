@@ -165,66 +165,6 @@ git clone https://github.com/abapGit/abapGit.git
 git clone https://github.com/abap-tools/abap-utilities.git
 ```
 
-## Using claude-mem for ABAP Knowledge
-
-claude-mem is a Claude Code plugin that stores memories across sessions. Use it to retain ABAP knowledge learned from the reference repositories.
-
-### Setup
-
-1. Install the plugin:
-   ```bash
-   /plugin marketplace add thedotmack/claude-mem
-   /plugin install claude-mem
-   ```
-
-### Saving Knowledge
-
-When you discover important ABAP patterns from the reference repos, save them:
-
-```
-/claude-mem:do
-```
-
-This launches a subagent to implement your task and **automatically save memories** to claude-mem's database.
-
-### Retrieving Knowledge
-
-When you need to recall previously learned ABAP patterns:
-
-```
-/claude-mem:mem-search
-```
-
-Then search for topics like:
-- "ABAP class structure"
-- "Clean ABAP naming"
-- "Authorization check"
-- "Dynamic method call"
-- "Syntax check"
-
-### Workflow Example
-
-1. **Before**: Read from `/abap-reference/abapGit/` to understand class format
-2. **Save**: `/claude-mem:do` to save "ABAP Class Structure for abapGit" memory
-3. **Later**: Ask "How do I structure an ABAP class for abapGit?"
-4. **claude-mem**: Searches memory, finds saved knowledge, returns pattern
-
-### Key Memory Topics to Save
-
-| Topic | What to Save |
-|-------|-------------|
-| abapGit file format | `ZCL_*.clas.abap`, XML metadata pattern, class template |
-| Clean ABAP | Naming conventions, code patterns, anti-patterns to avoid |
-| Authorization | `AUTHORITY-CHECK` syntax, activity values |
-| Dynamic programming | `CALL METHOD (class)=>(method)` patterns |
-| Syntax check | `zcl_abapgit_code_inspector=>run()` usage |
-
-### Memory Search Tips
-
-- Use specific keywords: "class template", "authorization object", "dynamic call"
-- Include project context: "abap-ai-bridge ABAP pattern"
-- claude-mem persists across sessions - your learned knowledge is saved
-
 ## ABAP Object Types
 
 Common object types in this project:
