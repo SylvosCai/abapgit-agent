@@ -30,9 +30,9 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " INSERT REPORT - saves source as inactive
+    " INSERT REPORT - saves source (default is inactive)
     lv_prog_name = |ZSYN_{ sy-uname }|.
-    INSERT REPORT lv_prog_name FROM it_source_code STATE 'I'.
+    INSERT REPORT lv_prog_name FROM it_source_code.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
