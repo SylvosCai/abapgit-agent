@@ -1,0 +1,152 @@
+# Installation & Setup
+
+## Architecture
+
+```
+Claude (VS Code) → CLI Tool → ABAP System (REST/HTTP)
+                                  ↓
+                    Result + Error Feedback
+```
+
+## Components
+
+### ABAP Side - REST Implementation
+
+| File | Type | Description |
+|------|------|-------------|
+| `zif_abapgit_agent.intf.abap` | Interface | Type definitions and method signatures |
+| `zcl_abapgit_agent.clas.abap` | Class | OO implementation with `pull` method |
+| `zcl_abapgit_agent_handler.clas.abap` | Class | REST router for endpoints |
+| `zcl_abapgit_agent_pull.clas.abap` | Class | POST /pull handler |
+| `zcl_abapgit_agent_health.clas.abap` | Class | GET /health handler |
+
+**Note:** Error details are returned directly in the REST response via `error_detail` field.
+
+### CLI Tool (Node.js)
+- REST client for ABAP communication
+- Configuration management (reads from cwd/.abapGitAgent)
+- Auto-detects git remote URL and branch from current directory
+- Cookie-based session management
+
+## Why REST API?
+
+The REST API approach provides several advantages:
+- **No OData/Gateway needed** - Simpler setup
+- **Standard HTTP** - Easy to debug and test
+- **No SEGW required** - Direct ICF handler
+- **No native dependencies** - Works on any OS
+
+## ABAP System Setup
+
+Deploy ABAP objects using abapGit:
+
+1. Use abapGit to deploy the ABAP objects in `/abap` folder
+2. Create SICF handler:
+   - Run transaction `SICF`
+   - Navigate to: `sap/bc/z_abapgit_agent`
+   - Create if doesn't exist:
+     - Right-click on `sap/bc` → **Create Element**
+     - **Service Name**: `Z_ABAPGIT_AGENT`
+     - **Handler Class**: `ZCL_ABAPGIT_AGENT_HANDLER`
+   - Activate the service
+
+## CLI Installation
+
+```bash
+# Option A: Install globally for system-level integration
+sudo npm link
+
+# Option B: Use from cloned repo
+cd abap-ai-bridge
+npm install
+```
+
+## Configuration
+
+Copy `.abapGitAgent.example` to `.abapGitAgent` in your repository root:
+
+```bash
+cp .abapGitAgent.example .abapGitAgent
+```
+
+### Configuration Options
+
+**File-based** (.abapGitAgent):
+```json
+{
+  "host": "your-sap-system.com",
+  "sapport": 443,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN",
+  "gitUsername": "github-username",
+  "gitPassword": "github-token"
+}
+```
+
+**Environment variables**:
+- `ABAP_HOST`, `ABAP_PORT`, `ABAP_CLIENT`, `ABAP_USER`, `ABAP_PASSWORD`
+
+## System-Level Integration
+
+This package supports **system-level integration**, meaning any ABAP git repository can use it without cloning this repository:
+
+1. **Install globally**: `sudo npm link`
+2. **Configure**: Add `.abapGitAgent` to your ABAP repo
+3. **Use**: Run `abapgit-agent` from your repo directory
+
+## Creating New ABAP Projects
+
+### 1. Create Project Structure
+
+```bash
+# Create new ABAP repository
+mkdir my-abap-repo
+cd my-abap-repo
+
+# Copy CLAUDE.md (tells Claude how to work with ABAP)
+cp /path/to/abap-ai-bridge/abap/CLAUDE.md .
+
+# Initialize git
+git init
+```
+
+### 2. Add ABAP Objects
+
+Copy your ABAP objects to the repo:
+
+```bash
+# Copy individual objects
+cp /path/to/abap-ai-bridge/abap/zcl_*.abap ./
+```
+
+### 3. Configure and Push
+
+```bash
+# Create .abapGitAgent config
+cp .abapGitAgent.example .abapGitAgent
+# Edit .abapGitAgent with your SAP system details
+
+# Initial commit
+git add .
+git commit -m "Initial ABAP project"
+
+# Add remote and push
+git remote add origin https://github.tools.sap/user/my-abap-repo.git
+git push -u origin main
+```
+
+### 4. Deploy to SAP
+
+Use abapGit in your SAP system to pull the repository.
+
+## Claude Code Integration
+
+Claude Code automatically reads `CLAUDE.md` in your project root for context:
+
+1. **No local syntax validation** - Claude knows ABAP needs SAP system
+2. **Use `abapgit-agent pull`** - For validation after code generation
+3. **Reference local docs** - See CLAUDE_MEM.md for knowledge management
+
+See `abap/CLAUDE.md` for detailed ABAP project guidelines.
