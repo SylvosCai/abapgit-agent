@@ -36,8 +36,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     lv_is_class = abap_false.
     LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
       lv_line_text = <ls_line>.
-      CONDENSE lv_line_text.
-      IF lv_line_text CP 'CLASS * DEFINITION*'.
+      IF lv_line_text CS 'CLASS '.  " Contains CLASS followed by space
         lv_is_class = abap_true.
         EXIT.
       ENDIF.
@@ -51,23 +50,25 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       LOOP AT it_source_code ASSIGNING <ls_line>.
         CLEAR lv_line_text.
         lv_line_text = <ls_line>.
+
+        " Skip class definition statements (use CS for contains)
         CONDENSE lv_line_text.
 
         " Skip class definition statements
-        IF lv_line_text CP 'CLASS * DEFINITION*' OR lv_line_text CP 'ENDCLASS*' OR
-           lv_line_text CP 'PUBLIC SECTION*' OR lv_line_text CP 'PRIVATE SECTION*' OR
-           lv_line_text CP 'PROTECTED SECTION*' OR lv_line_text CP 'METHODS*' OR
-           lv_line_text CP 'CLASS-METHODS*' OR lv_line_text CP 'DATA*' OR
-           lv_line_text CP 'CLASS-DATA*' OR lv_line_text CP 'CONSTANTS*' OR
-           lv_line_text CP 'INTERFACES*'.
+        IF lv_line_text CS 'CLASS ' OR lv_line_text CS 'ENDCLASS' OR
+           lv_line_text CS 'PUBLIC SECTION' OR lv_line_text CS 'PRIVATE SECTION' OR
+           lv_line_text CS 'PROTECTED SECTION' OR lv_line_text CS 'METHODS' OR
+           lv_line_text CS 'CLASS-METHODS' OR lv_line_text CS 'DATA:' OR
+           lv_line_text CS 'CLASS-DATA:' OR lv_line_text CS 'CONSTANTS:' OR
+           lv_line_text CS 'INTERFACES'.
           CONTINUE.
         ENDIF.
 
         " Track if we're inside a method implementation
-        IF lv_line_text CP 'METHOD *'.
+        IF lv_line_text CS 'METHOD '.
           lv_in_method = abap_true.
           APPEND <ls_line> TO lt_methods.
-        ELSEIF lv_line_text CP 'ENDMETHOD*'.
+        ELSEIF lv_line_text CS 'ENDMETHOD'.
           lv_in_method = abap_false.
         ELSEIF lv_in_method = abap_true.
           APPEND <ls_line> TO lt_methods.
