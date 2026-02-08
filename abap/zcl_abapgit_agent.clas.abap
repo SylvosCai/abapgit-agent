@@ -224,7 +224,10 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         ls_object-text = ls_msg-text.
         ls_object-obj_type = ls_msg-obj_type.
         ls_object-obj_name = ls_msg-obj_name.
-        ls_object-exception = ls_msg-exception.
+        " Exception is a REF, need to convert to string
+        IF ls_msg-exception IS BOUND.
+          ls_object-exception = ls_msg-exception->get_text( ).
+        ENDIF.
 
         " Success messages (type 'S') - activated objects
         IF ls_msg-type = 'S'.
