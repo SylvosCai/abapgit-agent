@@ -197,7 +197,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         IF sy-subrc = 0.
           ls_overwrite-decision = '1'.
         ELSE.
-          ls_overwrite-decision = ' '.
+          ls_overwrite-decision = 'S'.  " Skip other files
         ENDIF.
       ELSE.
         " No files specified, deserialize all
