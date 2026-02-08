@@ -286,8 +286,8 @@ async function syntaxCheck(objectType, objectName) {
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
-    const objType = result.OBJECT_TYPE || result.object_type;
-    const objName = result.OBJECT_NAME || result.object_name;
+    const objType = result.OBJECT_TYPE || result.object_type || objectType;
+    const objName = result.OBJECT_NAME || result.object_name || objectName;
     const errorCount = result.ERROR_COUNT || result.error_count || 0;
     const errors = result.ERRORS || result.errors || [];
 
