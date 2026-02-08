@@ -346,6 +346,11 @@ async function runUnitTests(options) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
 
+    // Display raw result for debugging
+    if (process.env.DEBUG) {
+      console.log('Raw result:', JSON.stringify(result, null, 2));
+    }
+
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
     const testCount = result.TEST_COUNT || result.test_count || 0;
