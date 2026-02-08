@@ -25,12 +25,13 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
   METHOD syntax_check_source.
     DATA: lv_line TYPE i,
-          lv_word TYPE string.
+          lv_word TYPE string,
+          lv_prog_name TYPE progname.  " Must be explicit type
 
     rs_result-success = abap_true.
 
-    " Try INSERT REPORT + SYNTAX-CHECK (no DIRECTORY ENTRY)
-    DATA(lv_prog_name) = |ZSYN_{ sy-uname }|.
+    " INSERT REPORT + SYNTAX-CHECK
+    lv_prog_name = |ZSYN_{ sy-uname }|.
     INSERT REPORT lv_prog_name FROM it_source_code STATE 'A'.
 
     IF sy-subrc <> 0.
@@ -54,10 +55,24 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Perform syntax check without DIRECTORY ENTRY
+    " Get TRDIR properties for DIRECTORY ENTRY
+    DATA ls_dir TYPE trdir.
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_prog_name.
+
+    IF sy-subrc <> 0.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-line = '1'.
+      rs_result-text = 'Failed to get TRDIR properties'.
+      DELETE REPORT lv_prog_name.
+      RETURN.
+    ENDIF.
+
+    " Perform syntax check with DIRECTORY ENTRY
     SYNTAX-CHECK FOR lt_source
       MESSAGE lv_word
-      LINE lv_line.
+      LINE lv_line
+      DIRECTORY ENTRY ls_dir.
 
     " Cleanup
     DELETE REPORT lv_prog_name.
