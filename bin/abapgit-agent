@@ -747,8 +747,8 @@ Commands:
   syntax-check <object_type> <object_name>
     Check syntax of an ABAP object (Code Inspector).
 
-  syntax-check-source --program <program_name>
-    Check syntax of ABAP program using READ REPORT and SYNTAX-CHECK.
+  syntax-check-source --file <source_file>
+    Check syntax of ABAP source file (.clas.abap, .prog.abap).
 
   unit --package <package>
     Run unit tests for all objects in a package.
@@ -767,7 +767,7 @@ Examples:
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --url <git-url>       # Override remote URL
   abapgit-agent syntax-check CLAS ZCL_MY_CLASS
-  abapgit-agent syntax-check-source --program Z_MY_PROGRAM
+  abapgit-agent syntax-check-source --file zcl_my_class.clas.abap
   abapgit-agent unit --package ZMY_PACKAGE
   abapgit-agent unit --object CLAS ZCL_TEST
   abapgit-agent health
