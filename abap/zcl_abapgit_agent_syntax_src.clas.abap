@@ -38,12 +38,23 @@ CLASS zcl_abapgit_agent_syntax_src IMPLEMENTATION.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON to extract program_name using PCRE regex
-    FIND REGEX '"program_name"\s*:\s*"([^"]+)"' IN lv_json
-      MATCH OFFSET DATA(lv_off) SUBMATCHES lv_match
-      PCRE.
+    " Parse JSON to extract program_name using simple string operations
+    " Look for "program_name": "VALUE""
+    DATA(lv_pos) = 0.
+    FIND FIRST OCCURRENCE OF '"program_name"' IN lv_json MATCH OFFSET lv_pos.
+    IF sy-subrc = 0.
+      DATA(lv_start) = lv_pos + strlen( '"program_name"' ).
+      FIND FIRST OCCURRENCE OF '"' IN lv_json+lv_start MATCH OFFSET DATA(lv_quote).
+      IF sy-subrc = 0.
+        DATA(lv_value_start) = lv_start + lv_quote + 1.
+        FIND FIRST OCCURRENCE OF '"' IN lv_json+lv_value_start MATCH OFFSET DATA(lv_value_end).
+        IF sy-subrc = 0.
+          lv_match = lv_json+lv_value_start(lv_value_end).
+        ENDIF.
+      ENDIF.
+    ENDIF.
 
-    IF sy-subrc <> 0 OR lv_match IS INITIAL.
+    IF lv_match IS INITIAL.
       CLEAR lv_program_name.
     ELSE.
       lv_program_name = lv_match.
