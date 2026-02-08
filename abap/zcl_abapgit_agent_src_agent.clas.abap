@@ -27,13 +27,14 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
     DATA: lv_line TYPE i,
           lv_word TYPE string,
           lv_prog_name TYPE progname,
-          lv_has_class TYPE abap_bool.
+          lv_has_class TYPE abap_bool,
+          lv_line_text TYPE string.
 
     rs_result-success = abap_true.
 
     " Check if source contains CLASS DEFINITION
     LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
-      DATA(lv_line_text) = <ls_line>.
+      lv_line_text = <ls_line>.
       CONDENSE lv_line_text.
       IF lv_line_text CP 'CLASS * DEFINITION*'.
         lv_has_class = abap_true.
@@ -90,7 +91,7 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
       DELETE REPORT lv_prog_name.
     ELSE.
       " For non-CLASS files, use subroutine pool
-      DATA lt_source TYPE string_table.
+      DATA lt_subpool TYPE string_table.
 
       LOOP AT it_source_code ASSIGNING <ls_line>.
         lv_line_text = <ls_line>.
@@ -98,15 +99,15 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
         IF lv_line_text CP 'REPORT*' OR lv_line_text CP 'PROGRAM*' OR lv_line_text CP 'FUNCTION-POOL*'.
           CONTINUE.
         ENDIF.
-        APPEND <ls_line> TO lt_source.
+        APPEND <ls_line> TO lt_subpool.
       ENDLOOP.
 
-      INSERT 'PROGRAM SUBPOOL.' INTO lt_source INDEX 1.
-      INSERT 'FORM check.' INTO lt_source INDEX 2.
-      APPEND 'ENDFORM.' TO lt_source.
+      INSERT 'PROGRAM SUBPOOL.' INTO lt_subpool INDEX 1.
+      INSERT 'FORM check.' INTO lt_subpool INDEX 2.
+      APPEND 'ENDFORM.' TO lt_subpool.
 
       lv_prog_name = |Z_SUBPOOL_{ sy-uname }|.
-      GENERATE SUBROUTINE POOL lt_source
+      GENERATE SUBROUTINE POOL lt_subpool
         NAME lv_prog_name
         MESSAGE lv_word
         LINE lv_line.
