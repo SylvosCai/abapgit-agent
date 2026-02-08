@@ -219,7 +219,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     "   my_program.prog.abap        -> obj_type = 'PROG', obj_name = 'MY_PROGRAM'
 
     DATA lv_file TYPE string.
-    DATA lv_pos TYPE i.
     lv_file = iv_file.
 
     " Convert to uppercase for consistent matching
@@ -252,10 +251,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
 
     " Clean up path separators and get just the object name
     REPLACE ALL OCCURRENCES OF '\' IN lv_file WITH '/'.
-    FIND LAST OCCURRENCE OF '/' IN lv_file MATCH OFFSET lv_pos.
-    IF sy-subrc = 0.
-      lv_file = lv_file+lv_pos.
-    ENDIF.
+
+    " Extract object name from path (get everything after last '/')
+    DATA lt_segments TYPE TABLE OF string.
+    SPLIT lv_file AT '/' INTO TABLE lt_segments.
+    READ TABLE lt_segments INDEX lines( lt_segments ) INTO lv_file.
 
     rs_sig-obj_name = lv_file.
   ENDMETHOD.
