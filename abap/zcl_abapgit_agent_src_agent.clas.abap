@@ -29,16 +29,24 @@ CLASS zcl_abapgit_agent_src_agent IMPLEMENTATION.
 
     rs_result-success = abap_true.
 
-    " Wrap source in a subroutine pool structure
-    " GENERATE SUBROUTINE POOL requires subroutines
+    " Prepare source for subroutine pool - strip REPORT/PROGRAM statement
     DATA lt_source TYPE string_table.
-    APPEND 'PROGRAM SUBPOOL.' TO lt_source.
-    APPEND 'FORM check_syntax.' TO lt_source.
 
     LOOP AT it_source_code ASSIGNING FIELD-SYMBOL(<ls_line>).
+      DATA(lv_line_text) = <ls_line>.
+      CONDENSE lv_line_text.
+
+      " Skip REPORT, PROGRAM, or FUNCTION-POOL statements
+      IF lv_line_text CP 'REPORT*' OR lv_line_text CP 'PROGRAM*' OR lv_line_text CP 'FUNCTION-POOL*'.
+        CONTINUE.
+      ENDIF.
+
       APPEND <ls_line> TO lt_source.
     ENDLOOP.
 
+    " Wrap in subroutine pool structure
+    INSERT 'PROGRAM SUBPOOL.' INTO lt_source INDEX 1.
+    INSERT 'FORM check_syntax.' INTO lt_source INDEX 2.
     APPEND 'ENDFORM.' TO lt_source.
 
     " Generate subroutine pool for syntax checking
