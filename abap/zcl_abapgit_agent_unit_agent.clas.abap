@@ -59,11 +59,11 @@ CLASS zcl_abapgit_agent_unit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         it_objects TYPE scit_objs
         iv_name TYPE sci_objs
       RETURNING
-        VALUE(rt_results) TYPE scit_alvlist.
+        VALUE(rt_results) TYPE scit_rest.
 
     METHODS convert_results
       IMPORTING
-        it_alv TYPE scit_alvlist
+        it_alv TYPE scit_rest
       RETURNING
         VALUE(rt_results) TYPE ty_test_results.
 
