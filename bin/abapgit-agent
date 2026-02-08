@@ -309,8 +309,10 @@ async function syntaxCheck(objectType, objectName) {
       }
     } else if (success === 'X' || success === true) {
       console.log(`✅ ${objType} ${objName} - No syntax errors found`);
+    } else if (success === '' || success === undefined || success === null) {
+      console.log(`❌ ${objType} ${objName} - Syntax check failed (no response or invalid response)`);
     } else {
-      console.log(`⚠️  ${objType} ${objName} - Unknown status (success=${success})`);
+      console.log(`⚠️  ${objType} ${objName} - Unexpected status: ${success}`);
     }
 
     return result;
@@ -455,14 +457,14 @@ async function pull(gitUrl, branch = 'main') {
 
     // Display failed objects
     if (failedObjects && failedObjects.length > 0) {
-      console.log(`\n⚠️  Failed Objects (${failedObjects.length}):`);
+      console.log(`\n❌ Failed Objects (${failedObjects.length}):`);
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
-        const text = obj.TEXT ? `: ${obj.TEXT}` : '';
+        const text = obj.TEXT ? `: ${obj.TEXT}` : ' - Activation failed';
         console.log(`   ✗ ${objKey}${text}`);
       }
     } else if (failedCount > 0) {
-      console.log(`\n⚠️  Failed Objects (${failedCount})`);
+      console.log(`\n❌ Failed Objects (${failedCount})`);
     }
 
     // Show error details if any
