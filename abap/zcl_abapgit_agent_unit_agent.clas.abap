@@ -141,48 +141,47 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_local_tests.
-    " Run unit tests locally by querying SE24 for test methods
+    " Run unit tests by discovering methods dynamically
     DATA: lv_class_name TYPE seoclsname,
           lv_method_name TYPE seocpdname.
 
     DATA: lo_test_class TYPE REF TO object.
 
-    DATA: BEGIN OF ls_method,
-            cmpname TYPE seocpdname,
-          END OF ls_method.
-
-    DATA lt_methods LIKE TABLE OF ls_method.
-
-    DATA lv_debug TYPE string.
+    DATA lt_methods TYPE TABLE OF seocpdname.
 
     FIELD-SYMBOLS: <ls_result> LIKE LINE OF rt_results.
 
     TRY.
         LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
           lv_class_name = <ls_class>-object_name.
-          lv_debug = |Checking class { lv_class_name }...|.
 
-          " Query SEOCOMPDIR for test methods
-          SELECT cmpname FROM seocompdir
-            INTO TABLE lt_methods
-            WHERE clsname = lv_class_name
-              AND cmptype = 0
-              AND ( cmpname LIKE 'TEST%' OR cmpname LIKE '%_TEST' )
-            ORDER BY cmpname.
+          " Create test class instance dynamically
+          CREATE OBJECT lo_test_class TYPE (lv_class_name).
 
-          lv_debug = |{ lv_debug } Found { lines( lt_methods ) } methods|.
+          " Get all methods using RTTI
+          DATA(lo_type) = cl_abap_typedescr=>describe_by_object_ref( lo_test_class ).
+          DATA(lo_class) = CAST cl_abap_classdescr( lo_type ).
+          DATA(lt_meths) = lo_class->methods.
+
+          " Filter for test methods (start with TEST or end with _TEST)
+          LOOP AT lt_meths ASSIGNING FIELD-SYMBOL(<ls_meth>).
+            DATA(lv_mname) = <ls_meth>-name.
+            IF lv_mname CP 'TEST*' OR lv_mname CP '*_TEST'.
+              APPEND lv_mname TO lt_methods.
+            ENDIF.
+          ENDLOOP.
 
           IF lt_methods IS INITIAL.
             " No test methods found - continue
             CONTINUE.
           ENDIF.
 
-          " Create test class instance dynamically
-          CREATE OBJECT lo_test_class TYPE (lv_class_name).
-
           " Run each test method
-          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<ls_meth>).
-            lv_method_name = <ls_meth>-cmpname.
+          SORT lt_methods.
+          DELETE ADJACENT DUPLICATES FROM lt_methods.
+
+          LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<lv_method>).
+            lv_method_name = <lv_method>.
 
             " Call setup method if exists
             CALL METHOD lo_test_class->setup
@@ -211,7 +210,7 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
                 object_name = lv_class_name
                 test_method = lv_method_name
                 status = 'FAILED'
-                message = |{ lv_class_name }=>{ lv_method_name } failed (sy-subrc={ sy-subrc })|
+                message = |{ lv_class_name }=>{ lv_method_name } failed|
                 line = ''
               ).
             ENDIF.
@@ -221,8 +220,6 @@ CLASS zcl_abapgit_agent_unit_agent IMPLEMENTATION.
         ENDLOOP.
 
       CATCH cx_root INTO DATA(lx_error).
-        " Store debug info
-        lv_debug = |{ lv_debug } Error: { lx_error->get_text( ) }|.
         " Return empty on error
         RETURN.
     ENDTRY.
