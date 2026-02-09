@@ -204,9 +204,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         READ TABLE lt_parts INDEX 2 INTO ls_sig-obj_type.
 
         " Extract file name from obj_name (remove path prefix)
-        FIND LAST OCCURRENCE OF '/' IN lv_obj_name MATCH OFFSET DATA(lv_pos).
-        IF sy-subrc = 0.
-          lv_obj_name = lv_obj_name+lv_pos.
+        DATA lv_len TYPE i.
+        lv_len = strlen( lv_obj_name ).
+        DATA lv_offs TYPE i.
+        lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
+        IF lv_offs > 0.
+          lv_offs = lv_len - lv_offs - 1.
+          lv_obj_name = lv_obj_name+lv_offs.
         ENDIF.
         ls_sig-obj_name = lv_obj_name.
         INSERT ls_sig INTO TABLE lt_valid_files.
