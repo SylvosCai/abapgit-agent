@@ -45,8 +45,8 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
         DATA lv_obj_type TYPE string.
         DATA lv_obj_name TYPE string.
         " Use agent's parse_file_to_object method
-        DATA(lo_agent) = NEW zcl_abgagt_agent( ).
-        lo_agent->parse_file_to_object(
+        DATA(lo_parser) = NEW zcl_abgagt_agent( ).
+        lo_parser->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
