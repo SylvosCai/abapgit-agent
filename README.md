@@ -30,8 +30,8 @@ abapgit-agent pull --branch develop
 # Override git URL if needed
 abapgit-agent pull --url https://github.tools.sap/user/repo --branch main
 
-# Syntax check for specific object
-abapgit-agent syntax-check <object_type> <object_name>
+# Inspect source file for issues
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
 # Health check
 abapgit-agent health

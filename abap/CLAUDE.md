@@ -114,7 +114,7 @@ Action: The class has syntax errors. Use inspect to get details.
 When implementing new features or fixing issues:
 
 1. **Always check local implementations first** - This project already contains working examples of:
-   - REST handlers (e.g., `zcl_abapgit_agent_pull`, `zcl_abapgit_agent_inspect`)
+   - REST handlers (e.g., `zcl_abgagt_resource_pull`, `zcl_abgagt_resource_inspect`)
    - JSON serialization using `/ui2/cl_json`
    - ABAP object activation patterns
    - Error handling approaches
@@ -126,7 +126,7 @@ When implementing new features or fixing issues:
    - Follow the established code style
 
 3. **Examples:**
-   - Need to create a new REST endpoint? → Study `zcl_abapgit_agent_pull.clas.abap`
+   - Need to create a new REST endpoint? → Study `zcl_abgagt_resource_pull.clas.abap`
    - Need to serialize JSON? → Use `/ui2/cl_json` as shown in existing handlers
    - Need to query TADIR? → Check how other classes do it
 
