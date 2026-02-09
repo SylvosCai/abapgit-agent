@@ -32,6 +32,8 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         RAISING zcx_abapgit_exception,
 
       prepare_deserialize_checks
+        IMPORTING
+          it_files TYPE string_table OPTIONAL
         RETURNING
           VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
         RAISING zcx_abapgit_exception,
@@ -87,15 +89,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
 
-          DATA(ls_checks) = prepare_deserialize_checks( ).
+          DATA(ls_checks) = prepare_deserialize_checks( it_files = it_files ).
 
           mo_repo->create_new_log( ).
 
-          " Pass files directly to deserialize for selective deserialization
           mo_repo->deserialize(
-            is_checks             = ls_checks
-            ii_log                = mo_repo->get_log( )
-            it_triggered_by_files = it_files ).
+            is_checks = ls_checks
+            ii_log   = mo_repo->get_log( ) ).
 
           " Check the abapGit log for errors and extract object lists
           DATA(lv_has_error) = check_log_for_errors( ).
@@ -168,6 +168,25 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
+    " Filter to only include requested files
+    DATA lt_filtered_overwrite LIKE rs_checks-overwrite.
+
+    IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+      LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
+        DATA lv_file TYPE string.
+        lv_file = ls_overwrite-path.
+        " Look for matching file in it_files
+        LOOP AT it_files INTO DATA(lv_requested_file).
+          IF lv_file CS lv_requested_file.
+            APPEND ls_overwrite TO lt_filtered_overwrite.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+      ENDLOOP.
+      rs_checks-overwrite = lt_filtered_overwrite.
+    ENDIF.
+
+    " Set decision for each file
     DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite INTO ls_overwrite.
       ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
@@ -177,55 +196,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
     lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
     lo_settings->set_activate_wo_popup( abap_true ).
-  ENDMETHOD.
-
-  METHOD convert_file_to_object.
-    " Convert file path to obj_type and obj_name
-    " Examples:
-    "   zcl_my_class.clas.abap      -> obj_type = 'CLAS', obj_name = 'ZCL_MY_CLASS'
-    "   zcl_my_class.clas.prog.abap -> obj_type = 'PROG', obj_name = 'ZCL_MY_CLASS'
-    "   my_program.prog.abap        -> obj_type = 'PROG', obj_name = 'MY_PROGRAM'
-
-    DATA lv_file TYPE string.
-    lv_file = iv_file.
-
-    " Convert to uppercase for consistent matching
-    TRANSLATE lv_file TO UPPER CASE.
-
-    " Determine object type from file extension
-    IF lv_file CS '.CLAS.ABAP'.
-      rs_sig-obj_type = 'CLAS'.
-      " Extract object name (remove .clas.abap extension)
-      REPLACE '.CLAS.ABAP' IN lv_file WITH ''.
-    ELSEIF lv_file CS '.CLAS.PROG.ABAP'.
-      rs_sig-obj_type = 'PROG'.
-      " Extract object name (remove .clas.prog.abap extension)
-      REPLACE '.CLAS.PROG.ABAP' IN lv_file WITH ''.
-    ELSEIF lv_file CS '.PROG.ABAP'.
-      rs_sig-obj_type = 'PROG'.
-      " Extract object name (remove .prog.abap extension)
-      REPLACE '.PROG.ABAP' IN lv_file WITH ''.
-    ELSEIF lv_file CS '.INTF.ABAP'.
-      rs_sig-obj_type = 'INTF'.
-      " Extract object name (remove .intf.abap extension)
-      REPLACE '.INTF.ABAP' IN lv_file WITH ''.
-    ELSEIF lv_file CS '.FUGR.ABAP'.
-      rs_sig-obj_type = 'FUGR'.
-      REPLACE '.FUGR.ABAP' IN lv_file WITH ''.
-    ELSEIF lv_file CS '.TABL.ABAP'.
-      rs_sig-obj_type = 'TABL'.
-      REPLACE '.TABL.ABAP' IN lv_file WITH ''.
-    ENDIF.
-
-    " Clean up path separators and get just the object name
-    REPLACE ALL OCCURRENCES OF '\' IN lv_file WITH '/'.
-
-    " Extract object name from path (get everything after last '/')
-    DATA lt_segments TYPE TABLE OF string.
-    SPLIT lv_file AT '/' INTO TABLE lt_segments.
-    READ TABLE lt_segments INDEX lines( lt_segments ) INTO lv_file.
-
-    rs_sig-obj_name = lv_file.
   ENDMETHOD.
 
   METHOD check_log_for_errors.
