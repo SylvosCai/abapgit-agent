@@ -296,3 +296,21 @@ Common object types in this project:
 - Interface names: `ZIF_<NAME>`
 - Programs: `Z<NAME>`
 - Package: `$<PROJECT_NAME>`
+
+## Best Practices
+
+### Always Return Interface Types, Not Class Types
+
+When defining factory methods or creating objects, return the interface type, not the class type:
+
+```abap
+" WRONG - returns concrete class
+CLASS-METHODS get_instance
+  RETURNING VALUE(ro_factory) TYPE REF TO zcl_abgagt_cmd_factory.
+
+" CORRECT - returns interface type
+CLASS-METHODS get_instance
+  RETURNING VALUE(ro_factory) TYPE REF TO zif_abgagt_cmd_factory.
+```
+
+**Why?** Interface types provide better abstraction, easier testing, and follow the dependency inversion principle. Callers depend on the interface (abstraction), not the concrete class.

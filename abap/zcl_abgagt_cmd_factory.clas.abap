@@ -2,7 +2,7 @@ CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_cmd_factory.
     CLASS-METHODS get_instance
-      RETURNING VALUE(ro_factory) TYPE REF TO zcl_abgagt_cmd_factory.
+      RETURNING VALUE(ro_factory) TYPE REF TO zif_abgagt_cmd_factory.
   PRIVATE SECTION.
     METHODS constructor.
 ENDCLASS.
