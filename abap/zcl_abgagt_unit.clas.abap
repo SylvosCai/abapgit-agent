@@ -28,12 +28,18 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_unit_params.
+    DATA: ls_params TYPE ty_unit_params,
+          lv_json TYPE string,
+          lv_file TYPE string,
+          lv_obj_type TYPE string,
+          lv_obj_name TYPE string,
+          lo_parser TYPE REF TO zcl_abgagt_agent,
+          lo_agent TYPE REF TO zcl_abgagt_agent.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
       " Single item passed - could be JSON params
-      READ TABLE it_files INDEX 1 INTO DATA(lv_json).
+      READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
         " Looks like JSON, deserialize
         /ui2/cl_json=>deserialize(
@@ -42,11 +48,9 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
       ENDIF.
     ELSEIF lines( it_files ) > 0.
       " Files passed as list - parse to objects
-      LOOP AT it_files INTO DATA(lv_file).
-        DATA lv_obj_type TYPE string.
-        DATA lv_obj_name TYPE string.
+      LOOP AT it_files INTO lv_file.
         " Use agent's parse_file_to_object method
-        DATA(lo_parser) = NEW zcl_abgagt_agent( ).
+        lo_parser = NEW zcl_abgagt_agent( ).
         lo_parser->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
@@ -60,7 +64,7 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
     ENDIF.
 
     " Get agent instance and execute unit tests
-    DATA(lo_agent) = NEW zcl_abgagt_agent( ).
+    lo_agent = NEW zcl_abgagt_agent( ).
 
     " Convert package if provided
     DATA(lv_package) = COND devclass( WHEN ls_params-package IS NOT INITIAL THEN ls_params-package ).
