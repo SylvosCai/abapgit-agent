@@ -66,17 +66,8 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
 
     " First part is obj_name (may contain path), second part is obj_type
     DATA lv_obj_name TYPE string.
-    DATA lv_obj_type_raw TYPE string.
     READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
-
-    " Convert ABAP file extension to object type
-    " e.g., CLAS.ABAP -> CLAS, INTF.ABAP -> INTF, PROG.ABAP -> PROG
-    IF lv_obj_type_raw = 'CLASS'.
-      ev_obj_type = 'CLAS'.
-    ELSE.
-      ev_obj_type = lv_obj_type_raw.
-    ENDIF.
+    READ TABLE lt_parts INDEX 2 INTO ev_obj_type.
 
     " Extract file name from obj_name (remove path prefix)
     " Find '/' in reversed string to get position from end, then add 1 for forward offset
