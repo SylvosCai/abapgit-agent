@@ -272,8 +272,8 @@ function request(method, urlPath, data = null, options = {}) {
 }
 
 /**
- * Syntax check for ABAP source file
- * Reads file content and sends to /syntax-check-source
+ * Inspect ABAP source file
+ * Reads file content and sends to /inspect
  */
 async function syntaxCheckSource(sourceFile, csrfToken, config) {
   console.log(`  Syntax check for file: ${sourceFile}`);
@@ -300,7 +300,7 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
       source_name: sourceName
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
@@ -745,7 +745,7 @@ To enable integration:
 
       case 'inspect': {
         // TODO: Implement full inspect feature with:
-        // - Syntax check (currently implemented via /syntax-check)
+        // - Syntax check (currently implemented via /inspect)
         // - Code Inspector checks (SE51, SCI)
         // - ATC checks (SATC)
         // - Custom rule checks

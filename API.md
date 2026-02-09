@@ -8,7 +8,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/syntax-check` | Inspect source file (syntax check) |
+| POST | `/inspect` | Inspect source file for issues |
 | POST | `/unit` | Execute unit tests |
 
 ## GET /health
@@ -109,7 +109,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 }
 ```
 
-## POST /syntax-check
+## POST /inspect
 
 Inspect source file for issues (currently runs syntax check via Code Inspector).
 

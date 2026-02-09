@@ -18,7 +18,7 @@ CLASS zcl_abapgit_agent_handler IMPLEMENTATION.
 
     lo_router->attach( iv_template = '/pull' iv_handler_class = 'ZCL_ABAPGIT_AGENT_PULL' ).
     lo_router->attach( iv_template = '/health' iv_handler_class = 'ZCL_ABAPGIT_AGENT_HEALTH' ).
-    lo_router->attach( iv_template = '/syntax-check' iv_handler_class = 'ZCL_ABAPGIT_AGENT_SYNTAX' ).
+    lo_router->attach( iv_template = '/inspect' iv_handler_class = 'ZCL_ABAPGIT_AGENT_INSPECT' ).
     lo_router->attach( iv_template = '/unit' iv_handler_class = 'ZCL_ABAPGIT_AGENT_UNIT' ).
 
     ro_root_handler = lo_router.
