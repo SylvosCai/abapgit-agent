@@ -172,8 +172,11 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     " Set decision for each file
     DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite INTO ls_overwrite.
-      ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-      MODIFY rs_checks-overwrite FROM ls_overwrite.
+      " Ensure decision is set
+      IF ls_overwrite-decision IS INITIAL.
+        ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+        MODIFY rs_checks-overwrite FROM ls_overwrite.
+      ENDIF.
     ENDLOOP.
 
     DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
