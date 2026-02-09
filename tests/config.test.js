@@ -50,7 +50,6 @@ describe('Config', () => {
     process.env.ABAP_USER = 'ENV_USER';
     process.env.ABAP_PASSWORD = 'env_pass';
     process.env.ABAP_LANGUAGE = 'DE';
-    process.env.AGENT_PORT = '4000';
 
     const { loadConfig } = require('../src/config');
     const config = loadConfig();
@@ -58,7 +57,7 @@ describe('Config', () => {
     expect(config.host).toBe('env-host.com');
     expect(config.sapport).toBe(443);
     expect(config.client).toBe('200');
-    expect(config.agent.port).toBe(4000);
+    expect(config.user).toBe('ENV_USER');
   });
 
   test('getAbapConfig returns correct structure', () => {
