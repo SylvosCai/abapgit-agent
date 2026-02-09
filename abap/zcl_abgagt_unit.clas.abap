@@ -34,7 +34,7 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
           lo_parser TYPE REF TO zcl_abgagt_agent,
-          lo_agent TYPE REF TO zcl_abgagt_agent.
+          lo_test_agent TYPE REF TO zcl_abgagt_agent.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
@@ -64,7 +64,7 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
     ENDIF.
 
     " Get agent instance and execute unit tests
-    lo_agent = NEW zcl_abgagt_agent( ).
+    lo_test_agent = NEW zcl_abgagt_agent( ).
 
     " Convert package if provided
     DATA(lv_package) = COND devclass( WHEN ls_params-package IS NOT INITIAL THEN ls_params-package ).
@@ -77,7 +77,7 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
       <ls_obj>-object_name = <ls_param_obj>-object_name.
     ENDLOOP.
 
-    DATA(ls_result) = lo_agent->zif_abgagt_agent~run_tests(
+    DATA(ls_result) = lo_test_agent->zif_abgagt_agent~run_tests(
       iv_package = lv_package
       it_objects = lt_objects ).
 
