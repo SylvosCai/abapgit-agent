@@ -1,4 +1,4 @@
-CLASS zcl_abgagt_util DEFINITION.
+CLASS zcl_abgagt_util DEFINITION PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_util.
     METHODS parse_file_to_object

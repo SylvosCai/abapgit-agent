@@ -1,4 +1,4 @@
-CLASS zcl_abgagt_cmd_factory DEFINITION.
+CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_cmd_factory.
     METHODS get_command
