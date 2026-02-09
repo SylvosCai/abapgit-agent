@@ -14,11 +14,13 @@ Claude (VS Code) → CLI Tool → ABAP System (REST/HTTP)
 
 | File | Type | Description |
 |------|------|-------------|
-| `zif_abapgit_agent.intf.abap` | Interface | Type definitions and method signatures |
-| `zcl_abapgit_agent.clas.abap` | Class | OO implementation with `pull` method |
-| `zcl_abapgit_agent_handler.clas.abap` | Class | REST router for endpoints |
-| `zcl_abapgit_agent_pull.clas.abap` | Class | POST /pull handler |
-| `zcl_abapgit_agent_health.clas.abap` | Class | GET /health handler |
+| `zif_abgagt_agent.intf.abap` | Interface | Type definitions and method signatures |
+| `zcl_abgagt_agent.clas.abap` | Class | Main agent with `pull`, `inspect`, `run_tests` methods |
+| `zcl_abgagt_rest_handler.clas.abap` | Class | REST router for endpoints |
+| `zcl_abgagt_resource_pull.clas.abap` | Class | POST /pull handler |
+| `zcl_abgagt_resource_inspect.clas.abap` | Class | POST /inspect handler |
+| `zcl_abgagt_resource_unit.clas.abap` | Class | POST /unit handler |
+| `zcl_abgagt_resource_health.clas.abap` | Class | GET /health handler |
 
 **Note:** Error details are returned directly in the REST response via `error_detail` field.
 
@@ -47,7 +49,7 @@ Deploy ABAP objects using abapGit:
    - Create if doesn't exist:
      - Right-click on `sap/bc` → **Create Element**
      - **Service Name**: `Z_ABAPGIT_AGENT`
-     - **Handler Class**: `ZCL_ABAPGIT_AGENT_HANDLER`
+     - **Handler Class**: `ZCL_ABGAGT_REST_HANDLER`
    - Activate the service
 
 ## CLI Installation
