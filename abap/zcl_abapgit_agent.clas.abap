@@ -197,10 +197,18 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
-        " First part is obj_name, second part is obj_type
+        " First part is obj_name (may contain path), second part is obj_type
         DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
-        READ TABLE lt_parts INDEX 1 INTO ls_sig-obj_name.
+        DATA lv_obj_name TYPE string.
+        READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
         READ TABLE lt_parts INDEX 2 INTO ls_sig-obj_type.
+
+        " Extract file name from obj_name (remove path prefix)
+        FIND LAST OCCURRENCE OF '/' IN lv_obj_name MATCH OFFSET DATA(lv_pos).
+        IF sy-subrc = 0.
+          lv_obj_name = lv_obj_name+lv_pos.
+        ENDIF.
+        ls_sig-obj_name = lv_obj_name.
         INSERT ls_sig INTO TABLE lt_valid_files.
       ENDLOOP.
     ENDIF.
