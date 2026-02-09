@@ -36,6 +36,9 @@ abapgit-agent pull --branch <branch>
 # Pull from specific URL
 abapgit-agent pull --url <git-url>
 
+# Syntax check an ABAP file (IMPORTANT for debugging activation errors)
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
 # Health check
 abapgit-agent health
 

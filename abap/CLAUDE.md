@@ -37,10 +37,20 @@ git push
 # 3. Pull only changed file (seconds, not minutes)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
 
-# 4. Repeat until done
+# 4. Check for syntax errors (if pull shows "Error updating where-used list")
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# 5. Repeat until done
 ```
 
 **Important:** Only run `abapgit-agent pull` when ABAP code has actually changed. If you're only modifying JavaScript, JSON, or markdown files, skip the pull step.
+
+**Syntax Check Command:**
+When pull shows "Error updating where-used list", use:
+```bash
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+```
+This will show detailed syntax errors including line numbers and error messages.
 
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
