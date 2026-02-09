@@ -48,28 +48,10 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Parse file name to extract obj_type and obj_name using agent API
-    DATA lv_obj_type TYPE string.
-    DATA lv_obj_name TYPE string.
-    mo_agent->zif_abgagt_agent~parse_file_to_object(
-      EXPORTING iv_file = ls_request-source_name
-      IMPORTING ev_obj_type = lv_obj_type
-                ev_obj_name = lv_obj_name ).
-
-    IF lv_obj_type IS INITIAL OR lv_obj_name IS INITIAL.
-      lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Invalid file format"}]}'.
-      lo_entity = mo_response->create_entity( ).
-      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-      lo_entity->set_string_data( lv_json_resp ).
-      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
-      RETURN.
-    ENDIF.
-
-    " Call inspect method on main agent
+    " Call inspect method on main agent (passes file name, internally parses)
     DATA ls_result TYPE zif_abgagt_agent=>ty_inspect_result.
     ls_result = mo_agent->zif_abgagt_agent~inspect(
-      iv_object_type = lv_obj_type
-      iv_object_name = lv_obj_name ).
+      iv_file = ls_request-source_name ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.

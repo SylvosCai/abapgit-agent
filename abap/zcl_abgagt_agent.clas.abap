@@ -11,14 +11,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     INTERFACES: zif_abgagt_agent.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
-    METHODS: parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
 
-  PRIVATE SECTION.
+  PROTECTED SECTION.
 
     " Local type for item signature (matches abapGit structure)
     TYPES: BEGIN OF ty_item_signature,
@@ -28,6 +22,13 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_item_signature.
 
     DATA: mo_repo TYPE REF TO zif_abapgit_repo.
+
+    METHODS: parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
 
     METHODS configure_credentials
       IMPORTING
@@ -180,10 +181,18 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
   METHOD zif_abgagt_agent~inspect.
     DATA ls_error LIKE LINE OF rs_result-errors.
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+
+    " Convert file name to object type and name
+    parse_file_to_object(
+      EXPORTING iv_file = iv_file
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
 
     rs_result-success = abap_true.
-    rs_result-object_type = iv_object_type.
-    rs_result-object_name = iv_object_name.
+    rs_result-object_type = lv_obj_type.
+    rs_result-object_name = lv_obj_name.
 
     TRY.
         " Check if object exists in TADIR
@@ -191,15 +200,15 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         SELECT SINGLE devclass FROM tadir
           INTO lv_devclass
           WHERE pgmid = 'R3TR'
-            AND object = iv_object_type
-            AND obj_name = iv_object_name.
+            AND object = lv_obj_type
+            AND obj_name = lv_obj_name.
 
         IF lv_devclass IS INITIAL.
           rs_result-success = abap_false.
           rs_result-error_count = 1.
           ls_error-line = '1'.
           ls_error-column = '1'.
-          ls_error-text = |Object { iv_object_type } { iv_object_name } does not exist|.
+          ls_error-text = |Object { lv_obj_type } { lv_obj_name } does not exist|.
           ls_error-word = ''.
           APPEND ls_error TO rs_result-errors.
           RETURN.
@@ -207,8 +216,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
         " Create object structure for the specific object
         DATA ls_obj TYPE scir_objs.
-        ls_obj-objtype = iv_object_type.
-        ls_obj-objname = iv_object_name.
+        ls_obj-objtype = lv_obj_type.
+        ls_obj-objname = lv_obj_name.
 
         DATA lt_objects TYPE scit_objs.
         APPEND ls_obj TO lt_objects.
@@ -259,7 +268,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Parse results
         LOOP AT lt_list INTO DATA(ls_list).
           " Only include errors for the requested object
-          IF ls_list-objtype = iv_object_type AND ls_list-objname = iv_object_name.
+          IF ls_list-objtype = lv_obj_type AND ls_list-objname = lv_obj_name.
             CLEAR ls_error.
             ls_error-line = ls_list-line.
             ls_error-column = ls_list-col.

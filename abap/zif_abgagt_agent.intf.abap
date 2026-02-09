@@ -118,8 +118,7 @@ INTERFACE zif_abgagt_agent PUBLIC.
 
   METHODS inspect
     IMPORTING
-      iv_object_type TYPE string
-      iv_object_name TYPE string
+      iv_file TYPE string
     RETURNING
       VALUE(rs_result) TYPE ty_inspect_result.
 
@@ -129,12 +128,5 @@ INTERFACE zif_abgagt_agent PUBLIC.
       it_objects TYPE ty_object_keys OPTIONAL
     RETURNING
       VALUE(rs_result) TYPE ty_unit_result.
-
-  METHODS parse_file_to_object
-    IMPORTING
-      iv_file TYPE string
-    EXPORTING
-      ev_obj_type TYPE string
-      ev_obj_name TYPE string.
 
 ENDINTERFACE.
