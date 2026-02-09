@@ -22,12 +22,15 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_pull_params.
+    DATA: ls_params TYPE ty_pull_params,
+          lo_agent TYPE REF TO zcl_abgagt_agent,
+          ls_pull_result TYPE zif_abgagt_agent=>ty_result,
+          lx_error TYPE REF TO zcx_abapgit_exception.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
       " Single file passed as string - could be JSON params
-      READ TABLE it_files INDEX 1 INTO DATA(lv_json).
+      READ TABLE it_files INDEX DATA(lv_json).
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
         " Looks like JSON, deserialize
         /ui2/cl_json=>deserialize(
@@ -43,9 +46,7 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
     ENDIF.
 
     " Get agent instance and execute pull
-    DATA(lo_agent) = NEW zcl_abgagt_agent( ).
-
-    DATA(ls_pull_result) TYPE zif_abgagt_agent=>ty_result.
+    lo_agent = NEW zcl_abgagt_agent( ).
 
     TRY.
         ls_pull_result = lo_agent->zif_abgagt_agent~pull(
@@ -54,7 +55,7 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
           iv_username = ls_params-username
           iv_password = ls_params-password
           it_files    = ls_params-files ).
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+      CATCH zcx_abapgit_exception INTO lx_error.
         ls_pull_result-success = abap_false.
         ls_pull_result-message = lx_error->get_text( ).
     ENDTRY.
