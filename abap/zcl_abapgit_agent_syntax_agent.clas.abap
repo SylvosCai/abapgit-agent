@@ -75,8 +75,9 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
     DATA lv_offs TYPE i.
     lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
     IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
+      DATA lv_start TYPE i.
+      lv_start = lv_len - lv_offs - 1.
+      lv_obj_name = lv_obj_name+lv_start.
     ENDIF.
 
     " Remove leading '/' if present
