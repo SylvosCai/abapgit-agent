@@ -16,13 +16,14 @@ class ABAPGitAgent {
    * @param {string} branch - Branch name (default: main)
    * @param {string} username - Git username (optional)
    * @param {string} password - Git password/token (optional)
+   * @param {Array} files - Specific files to pull (optional)
    * @returns {object} Pull result with success, job_id, message, error_detail
    */
-  async pull(repoUrl, branch = 'main', username = null, password = null) {
-    logger.info('Starting pull operation', { repoUrl, branch, username: !!username });
+  async pull(repoUrl, branch = 'main', username = null, password = null, files = null) {
+    logger.info('Starting pull operation', { repoUrl, branch, username: !!username, files });
 
     try {
-      const result = await this.abap.pull(repoUrl, branch, username, password);
+      const result = await this.abap.pull(repoUrl, branch, username, password, files);
 
       // Return the result directly from ABAP (handle uppercase keys from /UI2/CL_JSON)
       return {

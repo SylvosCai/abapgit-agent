@@ -152,6 +152,11 @@ class ABAPClient {
     return new Promise((resolve, reject) => {
       const url = new URL(`${cfg.baseUrl}/pull`);
 
+      // Clear stale cookies before fetching new token
+      if (fs.existsSync(this.cookieFile)) {
+        fs.unlinkSync(this.cookieFile);
+      }
+
       // Read cookies for sending (handle Netscape format)
       const cookieHeader = this.readNetscapeCookies();
 
@@ -200,7 +205,7 @@ class ABAPClient {
   /**
    * Pull repository and activate
    */
-  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null) {
+  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null) {
     const cfg = this.getConfig();
 
     // Fetch CSRF token first (using GET /pull with X-CSRF-Token: fetch)
@@ -210,6 +215,12 @@ class ABAPClient {
       url: repoUrl,
       branch: branch
     };
+
+    // Add files if specified
+    if (files && files.length > 0) {
+      data.files = files;
+    }
+
     // Use config git credentials if no override provided
     data.username = gitUsername || cfg.gitUsername;
     data.password = gitPassword || cfg.gitPassword;
