@@ -39,7 +39,7 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
         data = ls_request ).
 
     DATA lv_json_resp TYPE string.
-    IF ls_request-sourceName IS INITIAL.
+    IF ls_request-source_name IS INITIAL.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
@@ -51,7 +51,7 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
     " Parse file name to extract obj_type and obj_name using agent API
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
-    mo_agent->parse_file_to_object(
+    mo_agent->zif_abgagt_agent~parse_file_to_object(
       EXPORTING iv_file = ls_request-source_name
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
