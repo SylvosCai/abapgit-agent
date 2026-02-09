@@ -179,13 +179,6 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         lv_upper = lv_file.
         TRANSLATE lv_upper TO UPPER CASE.
 
-        " Extract just the filename from path
-        REPLACE ALL OCCURRENCES OF '\' IN lv_upper WITH '/'.
-        FIND LAST OCCURRENCE OF '/' IN lv_upper MATCH OFFSET DATA(lv_pos).
-        IF sy-subrc = 0.
-          lv_upper = lv_upper+lv_pos.
-        ENDIF.
-
         " Split filename by '.' to get obj_name, obj_type, and verify 'ABAP'
         DATA lt_parts TYPE TABLE OF string.
         SPLIT lv_upper AT '.' INTO TABLE lt_parts.
