@@ -11,6 +11,12 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     INTERFACES: zif_abgagt_agent.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
+    METHODS: parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
 
   PRIVATE SECTION.
 
@@ -29,13 +35,6 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         iv_username TYPE string
         iv_password TYPE string
       RAISING zcx_abapgit_exception.
-
-    METHODS parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
 
     METHODS prepare_deserialize_checks
       IMPORTING
