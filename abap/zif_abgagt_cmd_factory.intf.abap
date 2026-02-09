@@ -10,6 +10,6 @@ INTERFACE zif_abgagt_cmd_factory PUBLIC.
     IMPORTING
       iv_command TYPE string
     RETURNING
-      VALUE(ro_command) TYPE REF TO zif_abgagt_command.
+      VALUE(ro_command) TYPE REF TO object.
 
 ENDINTERFACE.

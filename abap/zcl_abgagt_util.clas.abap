@@ -1,5 +1,5 @@
 "! <p class="shorttext synchronized">Utility Class for ABAP Git Agent</p>
-"! Provides common utilities for parsing files, checking logs, and configuring repos.
+"! Provides common utilities for parsing files and checking logs.
 "! Uses singleton pattern - get instance via get_instance( ).
 CLASS zcl_abgagt_util DEFINITION PUBLIC CREATE PRIVATE.
   PUBLIC SECTION.
@@ -12,8 +12,6 @@ CLASS zcl_abgagt_util DEFINITION PUBLIC CREATE PRIVATE.
         VALUE(ro_util) TYPE REF TO zcl_abgagt_util.
 
   PRIVATE SECTION.
-    DATA mv_configured TYPE abap_bool.
-
     METHODS constructor.
 
 ENDCLASS.
@@ -27,23 +25,21 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD constructor.
-    mv_configured = abap_false.
+    " Private constructor for singleton
   ENDMETHOD.
 
   METHOD parse_file_to_object.
     " Extract object type and name from file name
     " e.g., 'zcl_my_class.clas.abap' -> CLAS, ZCL_MY_CLASS
-    " e.g., 'src/zif_my_intf.intf.abap' -> INTF, ZIF_MY_INTF
 
     DATA lv_filename TYPE string.
     lv_filename = iv_file.
 
-    " Find extension position (last dot before .abap)
+    " Find extension position
     DATA lv_ext_pos TYPE i.
     lv_ext_pos = find( val = lv_filename sub = '.abap' case = abap_false ).
 
     IF lv_ext_pos > 0.
-      " Get object name from first part
       DATA lv_obj_name TYPE string.
       lv_obj_name = substring( val = lv_filename len = lv_ext_pos ).
 
@@ -55,11 +51,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
         lv_obj_name = substring( val = lv_obj_name off = lv_last_slash + 1 ).
       ENDIF.
 
-      " Convert to uppercase for ABAP
       TRANSLATE lv_obj_name TO UPPER CASE.
       ev_obj_name = lv_obj_name.
 
-      " Get extension for object type
       DATA lv_ext TYPE string.
       lv_ext = substring( val = lv_filename off = lv_ext_pos + 5 ).
 
@@ -70,12 +64,6 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           ev_obj_type = 'INTF'.
         WHEN 'prog' OR 'program'.
           ev_obj_type = 'PROG'.
-        WHEN 'fugr'.
-          ev_obj_type = 'FUGR'.
-        WHEN 'tabl'.
-          ev_obj_type = 'TABL'.
-        WHEN 'ddls'.
-          ev_obj_type = 'DDLS'.
         WHEN OTHERS.
           CLEAR ev_obj_type.
       ENDCASE.
@@ -83,24 +71,11 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_log_for_errors.
-    " Check if activation log has errors
     rv_has_error = abap_false.
   ENDMETHOD.
 
   METHOD get_log_detail.
-    " Get detailed log information
-    rv_detail = 'Log detail retrieval not implemented'.
-  ENDMETHOD.
-
-  METHOD configure_credentials.
-    " Configure credentials for git access
-    mv_configured = abap_true.
-  ENDMETHOD.
-
-  METHOD build_repo.
-    " Build abapGit repo instance from URL
-    " Return null - implementation would be provided by caller
-    CLEAR ev_obj_name.  " Placeholder - return empty
+    rv_detail = 'Not implemented'.
   ENDMETHOD.
 
 ENDCLASS.

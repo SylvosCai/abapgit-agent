@@ -14,21 +14,7 @@ CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
       REDEFINITION.
 
   PRIVATE SECTION.
-    DATA mo_util TYPE REF TO zif_abgagt_util.
-
     METHODS constructor.
-
-    METHODS create_pull
-      RETURNING
-        VALUE(ro_command) TYPE REF TO zif_abgagt_command.
-
-    METHODS create_inspect
-      RETURNING
-        VALUE(ro_command) TYPE REF TO zif_abgagt_command.
-
-    METHODS create_unit
-      RETURNING
-        VALUE(ro_command) TYPE REF TO zif_abgagt_command.
 
 ENDCLASS.
 
@@ -41,30 +27,18 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD constructor.
-    mo_util = zcl_abgagt_util=>get_instance( ).
+    " Private constructor for singleton
   ENDMETHOD.
 
   METHOD get_command.
     CASE iv_command.
-      WHEN zif_abgagt_command=>co_pull.
-        ro_command = create_pull( ).
-      WHEN zif_abgagt_command=>co_inspect.
-        ro_command = create_inspect( ).
-      WHEN zif_abgagt_command=>co_unit.
-        ro_command = create_unit( ).
+      WHEN 'PULL'.
+        ro_command = zcl_abgagt_pull=>create( ).
+      WHEN 'INSPECT'.
+        ro_command = zcl_abgagt_inspect=>create( ).
+      WHEN 'UNIT'.
+        ro_command = zcl_abgagt_unit=>create( ).
     ENDCASE.
-  ENDMETHOD.
-
-  METHOD create_pull.
-    ro_command = zcl_abgagt_pull=>create( mo_util ).
-  ENDMETHOD.
-
-  METHOD create_inspect.
-    ro_command = zcl_abgagt_inspect=>create( mo_util ).
-  ENDMETHOD.
-
-  METHOD create_unit.
-    ro_command = zcl_abgagt_unit=>create( mo_util ).
   ENDMETHOD.
 
 ENDCLASS.
