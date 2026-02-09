@@ -17,10 +17,12 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
 
     TYPES ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
+    TYPES ty_string_list TYPE STANDARD TABLE OF string WITH NON-UNIQUE DEFAULT KEY.
+
     TYPES: BEGIN OF ty_request,
              package TYPE devclass,
              objects TYPE ty_object_list,
-             files TYPE STANDARD TABLE OF string,
+             files TYPE ty_string_list,
            END OF ty_request.
 
     TYPES: BEGIN OF ty_result_item,
