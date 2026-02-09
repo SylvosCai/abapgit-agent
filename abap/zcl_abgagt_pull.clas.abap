@@ -23,6 +23,7 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_pull_params,
+          lv_json TYPE string,
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_pull_result TYPE zif_abgagt_agent=>ty_result,
           lx_error TYPE REF TO zcx_abapgit_exception.
@@ -30,7 +31,7 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
       " Single file passed as string - could be JSON params
-      READ TABLE it_files INDEX DATA(lv_json).
+      READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
         " Looks like JSON, deserialize
         /ui2/cl_json=>deserialize(
