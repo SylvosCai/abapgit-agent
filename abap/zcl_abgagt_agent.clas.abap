@@ -709,7 +709,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             lv_src = <lv_src>.
           ENDIF.
 
-          DATA(ls_result) = VALUE ty_test_result(
+          DATA(ls_result) = VALUE zif_abgagt_agent=>ty_test_result(
             object_type = 'CLAS'
             object_name = lv_obj_name
             test_method = lv_methodname
