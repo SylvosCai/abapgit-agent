@@ -63,6 +63,29 @@ lv_json = /ui2/cl_json=>serialize( data = ls_response ).
 
 This is enforced by ABAP - manual string operations for JSON parsing will cause type conflicts.
 
+## ABAP Class Definition - Must Use PUBLIC
+
+**CRITICAL**: Global ABAP classes MUST use `PUBLIC` in the class definition:
+
+```abap
+" Correct - global class
+CLASS zcl_my_class DEFINITION PUBLIC.
+  ...
+ENDCLASS.
+
+" Wrong - treated as local class, will fail activation
+CLASS zcl_my_class DEFINITION.
+  ...
+ENDCLASS.
+```
+
+**Error symptom**: `Error updating where-used list for CLAS ZCL_MY_CLASS`
+
+**Fix**: Add `PUBLIC` keyword:
+```abap
+CLASS zcl_my_class DEFINITION PUBLIC.  " <- PUBLIC required
+```
+
 ## Creating New ABAP Objects - XML Metadata Required
 
 **IMPORTANT**: When creating new ABAP objects in abapGit format, you MUST create XML metadata files alongside the `.clas.abap` and `.intf.abap` files.

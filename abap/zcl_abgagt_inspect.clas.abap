@@ -1,11 +1,17 @@
 CLASS zcl_abgagt_inspect DEFINITION PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
-    METHODS get_name RETURNING VALUE(rv_name) TYPE string.
+    METHODS get_name REDEFINITION.
+    METHODS execute REDEFINITION.
 ENDCLASS.
 
 CLASS zcl_abgagt_inspect IMPLEMENTATION.
   METHOD get_name.
     rv_name = 'INSPECT'.
+  ENDMETHOD.
+
+  METHOD execute.
+    " Inspect command implementation
+    rv_result = '{"success":true,"command":"INSPECT","file_count":' && |{ lines( it_files ) }| && '}'.
   ENDMETHOD.
 ENDCLASS.
