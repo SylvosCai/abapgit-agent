@@ -6,32 +6,21 @@ CLASS zcl_abgagt_resource_inspect DEFINITION PUBLIC FINAL
                              CREATE PUBLIC.
 
   PUBLIC SECTION.
-    METHODS: constructor.
-    METHODS: if_rest_resource~post REDEFINITION.
-
-  PRIVATE SECTION.
-    DATA mo_agent TYPE REF TO zcl_abgagt_agent.
-
-    TYPES: BEGIN OF ty_request,
-             source_name TYPE string,
-           END OF ty_request.
+    METHODS if_rest_resource~post REDEFINITION.
 
 ENDCLASS.
 
 CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
 
-  METHOD constructor.
-    super->constructor( ).
-    CREATE OBJECT mo_agent.
-  ENDMETHOD.
-
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA ls_request TYPE ty_request.
-
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Deserialize JSON using /ui2/cl_json
+    " Parse JSON using /ui2/cl_json
+    DATA: BEGIN OF ls_request,
+            source_name TYPE string,
+          END OF ls_request.
+
     /ui2/cl_json=>deserialize(
       EXPORTING
         json = lv_json
@@ -48,38 +37,34 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call inspect method on main agent (passes file name, internally parses)
-    DATA ls_result TYPE zif_abgagt_agent=>ty_inspect_result.
-    ls_result = mo_agent->zif_abgagt_agent~inspect(
-      iv_file = ls_request-source_name ).
+    " Get command from factory
+    DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
+    DATA(lo_command) = lo_factory->get_command( 'INSPECT' ).
 
-    " Convert success to 'X' or '' for JSON
-    DATA lv_success TYPE string.
-    IF ls_result-success = abap_true.
-      lv_success = 'X'.
+    IF lo_command IS NOT BOUND.
+      lv_json_resp = '{"success":"","error":"INSPECT command not found"}'.
+      lo_entity = mo_response->create_entity( ).
+      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      lo_entity->set_string_data( lv_json_resp ).
+      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
+      RETURN.
     ENDIF.
 
-    " Build response structure
-    DATA: BEGIN OF ls_response,
-            success TYPE string,
-            object_type TYPE string,
-            object_name TYPE string,
-            error_count TYPE i,
-            errors TYPE zif_abgagt_agent=>ty_errors,
-          END OF ls_response.
+    " Build params JSON for command
+    DATA: BEGIN OF ls_params,
+            source_name TYPE string,
+          END OF ls_params.
+    ls_params-source_name = ls_request-source_name.
 
-    ls_response-success = lv_success.
-    ls_response-object_type = ls_result-object_type.
-    ls_response-object_name = ls_result-object_name.
-    ls_response-error_count = ls_result-error_count.
-    ls_response-errors = ls_result-errors.
+    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_params ).
+    DATA(lt_files) = VALUE string_table( ( lv_params_json ) ).
 
-    " Serialize to JSON using /ui2/cl_json
-    lv_json_resp = /ui2/cl_json=>serialize( data = ls_response ).
+    " Execute command
+    DATA(lv_result) = lo_command->execute( lt_files ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_entity->set_string_data( lv_json_resp ).
+    lo_entity->set_string_data( lv_result ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
