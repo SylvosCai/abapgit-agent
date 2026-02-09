@@ -27,7 +27,7 @@ abap-ai-bridge/
 # Pull and activate from current git repo
 abapgit-agent pull
 
-# Pull specific files only
+# Pull specific files only (fast - recommended for iterative development)
 abapgit-agent pull --files <file1>,<file2>,...
 
 # Pull from specific branch
@@ -35,12 +35,6 @@ abapgit-agent pull --branch <branch>
 
 # Pull from specific URL
 abapgit-agent pull --url <git-url>
-
-# Inspect source file(s) for issues (currently runs syntax check)
-abapgit-agent inspect --files <file1>,<file2>,...
-
-# Run unit tests for test class files
-abapgit-agent unit --files <file1>,<file2>,...
 
 # Health check
 abapgit-agent health
@@ -104,90 +98,6 @@ Exception: Exception details
 1. **Activated Objects** - Only includes objects that completed successfully (no errors in log)
 2. **Failed Objects Log** - Shows all error messages (duplicates allowed for multiple errors per object)
 3. **Error Details** - When errors occur, displays error detail section at the top
-
-## Inspect Command
-
-### Description
-Inspect ABAP source files for issues. Currently runs syntax check using Code Inspector.
-
-### Usage
-```bash
-# Inspect single file
-abapgit-agent inspect --files zcl_my_class.clas.abap
-
-# Inspect multiple files
-abapgit-agent inspect --files zcl_class1.clas.abap,zcl_class2.clas.abap
-
-# Inspect from subdirectory
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-```
-
-### Output
-```
-Inspect for 1 file(s)
-
-  Syntax check for file: zcl_my_class.clas.abap
-
-✅ zcl_my_class.clas.abap - Syntax check passed (0 errors)
-```
-
-With errors:
-```
-Inspect for 1 file(s)
-
-  Syntax check for file: zcl_my_class.clas.abap
-
-❌ Syntax check failed (2 error(s)):
-
-Errors:
-────────────────────────────────────────────────────────────
-  Line 10, Column 5:
-    "X" is not a type
-  Line 12, Column 1:
-    ENDCLASS missing
-```
-
-### TODO: Future Enhancements
-- Add `--check-type` parameter for different check types
-- Support Code Inspector (SCI) checks
-- Support ATC (ABAP Test Cockpit) checks
-- Custom rule checks
-- Detailed result reporting with recommendations
-
-## Unit Command
-
-### Description
-Run ABAP unit tests (AUnit) for test class files.
-
-### Usage
-```bash
-# Run unit test for single file
-abapgit-agent unit --files zcl_my_test.clas.abap
-
-# Run unit tests for multiple files
-abapgit-agent unit --files zcl_test1.clas.abap,zcl_test2.clas.abap
-```
-
-### Output
-```
-Running unit tests for 1 file(s)
-
-  Running unit test for: zcl_my_test.clas.abap
-  ✅ ZCL_MY_TEST - All tests passed
-     Tests: 5 | Passed: 5 | Failed: 0
-```
-
-With failures:
-```
-Running unit tests for 1 file(s)
-
-  Running unit test for: zcl_my_test.clas.abap
-  ❌ ZCL_MY_TEST - Tests failed
-     Tests: 5 | Passed: 3 | Failed: 2
-
-     ✗ TEST_METHOD_1: Expected X but got Y
-     ✗ TEST_METHOD_2: Reference is initial
-```
 
 ## Health Check
 
@@ -278,13 +188,8 @@ export GIT_PASSWORD="git-token"
    ```bash
    abapgit-agent pull
    ```
-3. Verify changes with `inspect` and `unit`:
-   ```bash
-   abapgit-agent inspect --files abap/zcl_my_class.clas.abap
-   abapgit-agent unit --files abap/zcl_my_test.clas.abap
-   ```
-4. Commit and push
-5. Deploy changes via abapGit to your SAP system
+3. Commit and push
+4. Deploy changes via abapGit to your SAP system
 
 ### Fast Iteration Workflow
 
@@ -292,7 +197,7 @@ For quick ABAP code changes:
 1. Make small change to ABAP file
 2. `git add <file> && git commit -m "fix"`
 3. `abapgit-agent pull --files <file>` (seconds, not minutes)
-4. Test with `inspect` or `unit` command
+4. Verify activation results
 5. Repeat until done
 
 ## For ABAP Code Generation

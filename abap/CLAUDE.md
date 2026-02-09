@@ -22,7 +22,6 @@ This is an ABAP project. **Do not attempt local syntax validation** - ABAP code 
 3. Review activation results carefully
 4. **"Error updating where-used list" = SYNTAX ERROR** - This is NOT a warning!
 5. If Failed Objects > 0, there are syntax errors - fix them before proceeding
-6. Use `abapgit-agent inspect --files <file>` for detailed error info
 
 ## Fast Iteration Workflow
 
@@ -38,10 +37,7 @@ git push
 # 3. Pull only changed file (seconds, not minutes)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
 
-# 4. Verify with inspect
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
-
-# 5. Repeat until done
+# 4. Repeat until done
 ```
 
 ## JSON Handling - ALWAYS Use /ui2/cl_json
@@ -76,12 +72,6 @@ abapgit-agent pull --files abap/zcl_my_class.clas.abap
 
 # Or validate all files
 abapgit-agent pull
-
-# Check specific file for syntax errors
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
-
-# Run unit tests
-abapgit-agent unit --files abap/zcl_my_test.clas.abap
 ```
 
 ## Handling Persistent Syntax Errors
