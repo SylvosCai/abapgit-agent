@@ -204,13 +204,13 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         READ TABLE lt_parts INDEX 2 INTO ls_sig-obj_type.
 
         " Extract file name from obj_name (remove path prefix)
-        " Find '/' in reversed string to get position from end, then add 1 for forward offset
+        DATA lv_len TYPE i.
+        lv_len = strlen( lv_obj_name ).
         DATA lv_offs TYPE i.
         lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
         IF lv_offs > 0.
-          DATA lv_start TYPE i.
-          lv_start = lv_offs + 1.
-          lv_obj_name = lv_obj_name+lv_start.
+          lv_offs = lv_len - lv_offs - 1.
+          lv_obj_name = lv_obj_name+lv_offs.
         ENDIF.
         " Remove leading '/' if present (when file is in subdirectory like abap/)
         IF lv_obj_name(1) = '/'.
