@@ -40,8 +40,7 @@ abapgit-agent pull --url <git-url>
 abapgit-agent inspect --files <file1>,<file2>,...
 
 # Run unit tests
-abapgit-agent unit --package <package>
-abapgit-agent unit --object <type> <name>
+abapgit-agent unit --files <file1>,<file2>,...
 
 # Health check
 abapgit-agent health

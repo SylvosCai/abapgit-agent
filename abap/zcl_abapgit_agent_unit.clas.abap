@@ -22,7 +22,17 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
     TYPES: BEGIN OF ty_request,
              package TYPE devclass,
              objects TYPE ty_object_list,
+             files TYPE STANDARD TABLE OF string,
            END OF ty_request.
+
+    METHODS parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
+
+ENDCLASS.
 
     TYPES: BEGIN OF ty_result_item,
              object_name TYPE string,
@@ -57,6 +67,24 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
         data = ls_request ).
 
     DATA lv_json_resp TYPE string.
+
+    " Parse files to objects if provided
+    IF ls_request-files IS NOT INITIAL.
+      LOOP AT ls_request-files INTO DATA(lv_file).
+        DATA lv_obj_type TYPE string.
+        DATA lv_obj_name TYPE string.
+        parse_file_to_object(
+          EXPORTING iv_file = lv_file
+          IMPORTING ev_obj_type = lv_obj_type
+                    ev_obj_name = lv_obj_name ).
+        IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
+          APPEND INITIAL LINE TO ls_request-objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
+          <ls_obj>-object_type = lv_obj_type.
+          <ls_obj>-object_name = lv_obj_name.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
     IF ls_request-package IS INITIAL AND ls_request-objects IS INITIAL.
       lv_json_resp = '{"success":"","message":"Package or objects required"}'.
       DATA(lo_entity) = mo_response->create_entity( ).
@@ -113,6 +141,61 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
+  ENDMETHOD.
+
+  METHOD parse_file_to_object.
+    " Parse file path to extract obj_type and obj_name
+    " Example: "zcl_my_test.clas.abap" -> CLAS, ZCL_MY_TEST
+
+    DATA lv_upper TYPE string.
+    lv_upper = iv_file.
+    TRANSLATE lv_upper TO UPPER CASE.
+
+    " Split filename by '.' to get parts
+    DATA lt_parts TYPE TABLE OF string.
+    SPLIT lv_upper AT '.' INTO TABLE lt_parts.
+    DATA lv_part_count TYPE i.
+    lv_part_count = lines( lt_parts ).
+
+    IF lv_part_count < 3.
+      RETURN.
+    ENDIF.
+
+    " Last part should be 'ABAP' for verification
+    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
+    IF lv_last <> 'ABAP'.
+      RETURN.
+    ENDIF.
+
+    " First part is obj_name (may contain path), second part is obj_type
+    DATA lv_obj_name TYPE string.
+    DATA lv_obj_type_raw TYPE string.
+    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
+
+    " Convert file extension to object type
+    IF lv_obj_type_raw = 'CLASS'.
+      ev_obj_type = 'CLAS'.
+    ELSE.
+      ev_obj_type = lv_obj_type_raw.
+    ENDIF.
+
+    " Extract file name from obj_name (remove path prefix)
+    DATA lv_len TYPE i.
+    lv_len = strlen( lv_obj_name ).
+    DATA lv_offs TYPE i.
+    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
+    IF lv_offs > 0.
+      lv_offs = lv_len - lv_offs - 1.
+      lv_obj_name = lv_obj_name+lv_offs.
+    ENDIF.
+
+    " Remove leading '/' if present
+    IF lv_obj_name(1) = '/'.
+      lv_obj_name = lv_obj_name+1.
+    ENDIF.
+
+    ev_obj_name = lv_obj_name.
   ENDMETHOD.
 
 ENDCLASS.

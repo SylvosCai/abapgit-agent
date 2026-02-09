@@ -409,6 +409,84 @@ async function runUnitTests(options) {
 }
 
 /**
+ * Run unit test for a single file
+ */
+async function runUnitTestForFile(sourceFile, csrfToken, config) {
+  console.log(`  Running unit test for: ${sourceFile}`);
+
+  try {
+    // Read file content
+    const absolutePath = pathModule.isAbsolute(sourceFile)
+      ? sourceFile
+      : pathModule.join(process.cwd(), sourceFile);
+
+    if (!fs.existsSync(absolutePath)) {
+      console.error(`  ❌ File not found: ${absolutePath}`);
+      return;
+    }
+
+    // Extract object type and name from file path
+    // e.g., "zcl_my_test.clas.abap" -> CLAS, ZCL_MY_TEST
+    const fileName = pathModule.basename(sourceFile).toUpperCase();
+    const parts = fileName.split('.');
+    if (parts.length < 3) {
+      console.error(`  ❌ Invalid file format: ${sourceFile}`);
+      return;
+    }
+
+    // obj_name is first part (may contain path), obj_type is second part
+    const objType = parts[1] === 'CLASS' ? 'CLAS' : parts[1];
+    let objName = parts[0];
+
+    // Handle subdirectory paths
+    const lastSlash = objName.lastIndexOf('/');
+    if (lastSlash >= 0) {
+      objName = objName.substring(lastSlash + 1);
+    }
+
+    // Send object info to unit endpoint
+    const data = {
+      objects: [{
+        object_type: objType,
+        object_name: objName
+      }]
+    };
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
+
+    // Handle uppercase keys from ABAP
+    const success = result.SUCCESS || result.success;
+    const testCount = result.TEST_COUNT || result.test_count || 0;
+    const passedCount = result.PASSED_COUNT || result.passed_count || 0;
+    const failedCount = result.FAILED_COUNT || result.failed_count || 0;
+    const message = result.MESSAGE || result.message || '';
+    const results = result.RESULTS || result.results || [];
+
+    if (success === 'X' || success === true) {
+      console.log(`  ✅ ${objName} - All tests passed`);
+    } else {
+      console.log(`  ❌ ${objName} - Tests failed`);
+    }
+
+    console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
+
+    if (failedCount > 0 && results.length > 0) {
+      for (const test of results) {
+        if (test.PASSED === false || test.passed === false) {
+          const methodName = test.METHOD_NAME || test.method_name || '?';
+          const error = test.ERROR || test.error || 'Unknown error';
+          console.log(`     ✗ ${methodName}: ${error}`);
+        }
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`\n  Error: ${error.message}`);
+  }
+}
+
+/**
  * Pull and activate repository
  */
 async function pull(gitUrl, branch = 'main', files = null) {
@@ -695,34 +773,28 @@ To enable integration:
         break;
       }
 
-      case 'unit':
-        const packageArg = args.indexOf('--package');
-        const objectArg = args.indexOf('--object');
-
-        const unitOptions = { package: null, objects: [] };
-
-        if (packageArg !== -1 && packageArg + 1 < args.length) {
-          unitOptions.package = args[packageArg + 1];
-        }
-
-        if (objectArg !== -1 && objectArg + 2 < args.length) {
-          unitOptions.objects.push({
-            object_type: args[objectArg + 1],
-            object_name: args[objectArg + 2]
-          });
-        }
-
-        if (!unitOptions.package && unitOptions.objects.length === 0) {
-          console.error('Error: unit requires --package or --object');
-          console.error('Usage: abapgit-agent unit --package <package>');
-          console.error('   or: abapgit-agent unit --object <type> <name>');
-          console.error('Example: abapgit-agent unit --package ZMY_PACKAGE');
-          console.error('Example: abapgit-agent unit --object CLAS ZCL_TEST');
+      case 'unit': {
+        const filesArgIndex = args.indexOf('--files');
+        if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
+          console.error('Error: --files parameter required');
+          console.error('Usage: abapgit-agent unit --files <file1>,<file2>,...');
+          console.error('Example: abapgit-agent unit --files zcl_my_test.clas.abap');
           process.exit(1);
         }
 
-        await runUnitTests(unitOptions);
+        const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+
+        console.log(`\n  Running unit tests for ${files.length} file(s)`);
+        console.log('');
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        for (const sourceFile of files) {
+          await runUnitTestForFile(sourceFile, csrfToken, config);
+        }
         break;
+      }
 
       case 'help':
       case '--help':
@@ -742,8 +814,8 @@ Commands:
   inspect --files <file1>,<file2>,...
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
 
-  unit --package <package>
-    Run unit tests for all objects in a package.
+  unit --files <file1>,<file2>,...
+    Run unit tests for ABAP test class files (.clas.abap).
 
   unit --object <type> <name>
     Run unit tests for a specific object.
@@ -760,8 +832,8 @@ Examples:
   abapgit-agent pull --files zcl_my_class.clas.abap  # Pull specific file
   abapgit-agent inspect --files zcl_my_class.clas.abap
   abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_ai_sample.clas.abap
-  abapgit-agent unit --package ZMY_PACKAGE
-  abapgit-agent unit --object CLAS ZCL_TEST
+  abapgit-agent unit --files zcl_my_test.clas.abap
+  abapgit-agent unit --files zcl_my_test.clas.abap,zcl_other_test.clas.abap
   abapgit-agent health
   abapgit-agent status
 `);
