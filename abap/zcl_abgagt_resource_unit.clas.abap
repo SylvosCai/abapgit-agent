@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
+CLASS zcl_abgagt_resource_unit DEFINITION PUBLIC FINAL
                              INHERITING FROM cl_rest_resource
                              CREATE PUBLIC.
 
@@ -17,12 +17,10 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
 
     TYPES ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
-    TYPES ty_string_list TYPE STANDARD TABLE OF string WITH NON-UNIQUE DEFAULT KEY.
-
     TYPES: BEGIN OF ty_request,
              package TYPE devclass,
              objects TYPE ty_object_list,
-             files TYPE ty_string_list,
+             files TYPE string_table,
            END OF ty_request.
 
     TYPES: BEGIN OF ty_result_item,
@@ -35,18 +33,11 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
 
     TYPES ty_results TYPE STANDARD TABLE OF ty_result_item WITH NON-UNIQUE DEFAULT KEY.
 
-    DATA mo_agent TYPE REF TO zcl_abapgit_agent_unit_agent.
-
-    METHODS parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
+    DATA mo_agent TYPE REF TO zcl_abgagt_agent.
 
 ENDCLASS.
 
-CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
+CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
 
   METHOD constructor.
     super->constructor( ).
@@ -68,12 +59,12 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
 
     DATA lv_json_resp TYPE string.
 
-    " Parse files to objects if provided
+    " Parse files to objects if provided using agent API
     IF ls_request-files IS NOT INITIAL.
       LOOP AT ls_request-files INTO DATA(lv_file).
         DATA lv_obj_type TYPE string.
         DATA lv_obj_name TYPE string.
-        parse_file_to_object(
+        mo_agent->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
@@ -94,9 +85,9 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call unit test agent
-    DATA ls_agent_result TYPE zcl_abapgit_agent_unit_agent=>ty_result.
-    ls_agent_result = mo_agent->run_tests(
+    " Call run_tests method on main agent
+    DATA ls_agent_result TYPE zif_abgagt_agent=>ty_unit_result.
+    ls_agent_result = mo_agent->zif_abgagt_agent~run_tests(
       iv_package = ls_request-package
       it_objects = ls_request-objects ).
 
@@ -141,61 +132,6 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
-  ENDMETHOD.
-
-  METHOD parse_file_to_object.
-    " Parse file path to extract obj_type and obj_name
-    " Example: "zcl_my_test.clas.abap" -> CLAS, ZCL_MY_TEST
-
-    DATA lv_upper TYPE string.
-    lv_upper = iv_file.
-    TRANSLATE lv_upper TO UPPER CASE.
-
-    " Split filename by '.' to get parts
-    DATA lt_parts TYPE TABLE OF string.
-    SPLIT lv_upper AT '.' INTO TABLE lt_parts.
-    DATA lv_part_count TYPE i.
-    lv_part_count = lines( lt_parts ).
-
-    IF lv_part_count < 3.
-      RETURN.
-    ENDIF.
-
-    " Last part should be 'ABAP' for verification
-    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP'.
-      RETURN.
-    ENDIF.
-
-    " First part is obj_name (may contain path), second part is obj_type
-    DATA lv_obj_name TYPE string.
-    DATA lv_obj_type_raw TYPE string.
-    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
-
-    " Convert file extension to object type
-    IF lv_obj_type_raw = 'CLASS'.
-      ev_obj_type = 'CLAS'.
-    ELSE.
-      ev_obj_type = lv_obj_type_raw.
-    ENDIF.
-
-    " Extract file name from obj_name (remove path prefix)
-    DATA lv_len TYPE i.
-    lv_len = strlen( lv_obj_name ).
-    DATA lv_offs TYPE i.
-    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
-    IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
-    ENDIF.
-
-    " Remove leading '/' if present
-    IF lv_obj_name(1) = '/'.
-      lv_obj_name = lv_obj_name+1.
-    ENDIF.
-
-    ev_obj_name = lv_obj_name.
   ENDMETHOD.
 
 ENDCLASS.

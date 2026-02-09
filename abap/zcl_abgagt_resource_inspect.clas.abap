@@ -1,9 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-" TODO: Add check_type parameter (SYNTAX, CODE_INSPECTOR, ATC, CUSTOM)
-" TODO: Support multiple check variants and detailed result reporting
-CLASS zcl_abapgit_agent_inspect DEFINITION PUBLIC FINAL
+CLASS zcl_abgagt_resource_inspect DEFINITION PUBLIC FINAL
                              INHERITING FROM cl_rest_resource
                              CREATE PUBLIC.
 
@@ -12,7 +10,7 @@ CLASS zcl_abapgit_agent_inspect DEFINITION PUBLIC FINAL
     METHODS: if_rest_resource~post REDEFINITION.
 
   PRIVATE SECTION.
-    DATA mo_agent TYPE REF TO zcl_abapgit_agent_syntax_agent.
+    DATA mo_agent TYPE REF TO zcl_abgagt_agent.
 
     TYPES: BEGIN OF ty_request,
              source_name TYPE string,
@@ -20,7 +18,7 @@ CLASS zcl_abapgit_agent_inspect DEFINITION PUBLIC FINAL
 
 ENDCLASS.
 
-CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
+CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
 
   METHOD constructor.
     super->constructor( ).
@@ -33,7 +31,7 @@ CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse JSON using /ui2/cl_json
+    " Deserialize JSON using /ui2/cl_json
     /ui2/cl_json=>deserialize(
       EXPORTING
         json = lv_json
@@ -41,7 +39,7 @@ CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
         data = ls_request ).
 
     DATA lv_json_resp TYPE string.
-    IF ls_request-source_name IS INITIAL.
+    IF ls_request-sourceName IS INITIAL.
       lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
@@ -50,7 +48,7 @@ CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Parse file name to extract obj_type and obj_name
+    " Parse file name to extract obj_type and obj_name using agent API
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
     mo_agent->parse_file_to_object(
@@ -67,9 +65,9 @@ CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call syntax check agent
-    DATA ls_result TYPE zcl_abapgit_agent_syntax_agent=>ty_result.
-    ls_result = mo_agent->syntax_check(
+    " Call inspect method on main agent
+    DATA ls_result TYPE zif_abgagt_agent=>ty_inspect_result.
+    ls_result = mo_agent->zif_abgagt_agent~inspect(
       iv_object_type = lv_obj_type
       iv_object_name = lv_obj_name ).
 
@@ -85,7 +83,7 @@ CLASS zcl_abapgit_agent_inspect IMPLEMENTATION.
             object_type TYPE string,
             object_name TYPE string,
             error_count TYPE i,
-            errors TYPE zcl_abapgit_agent_syntax_agent=>ty_errors,
+            errors TYPE zif_abgagt_agent=>ty_errors,
           END OF ls_response.
 
     ls_response-success = lv_success.

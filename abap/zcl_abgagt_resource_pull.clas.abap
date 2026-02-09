@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abapgit_agent_pull DEFINITION PUBLIC FINAL
+CLASS zcl_abgagt_resource_pull DEFINITION PUBLIC FINAL
                              INHERITING FROM cl_rest_resource
                              CREATE PUBLIC.
 
@@ -10,7 +10,7 @@ CLASS zcl_abapgit_agent_pull DEFINITION PUBLIC FINAL
 
 ENDCLASS.
 
-CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
+CLASS zcl_abgagt_resource_pull IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
@@ -45,8 +45,8 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lo_agent) = NEW zcl_abapgit_agent( ).
-    DATA(ls_result) = lo_agent->zif_abapgit_agent~pull(
+    DATA(lo_agent) = NEW zcl_abgagt_agent( ).
+    DATA(ls_result) = lo_agent->zif_abgagt_agent~pull(
       iv_url      = ls_request-url
       iv_branch   = ls_request-branch
       iv_username = ls_request-username
@@ -63,9 +63,9 @@ CLASS zcl_abapgit_agent_pull IMPLEMENTATION.
             error_detail TYPE string,
             activated_count TYPE i,
             failed_count TYPE i,
-            log_messages TYPE zif_abapgit_agent=>ty_object_list,
-            activated_objects TYPE zif_abapgit_agent=>ty_object_list,
-            failed_objects TYPE zif_abapgit_agent=>ty_object_list,
+            log_messages TYPE zif_abgagt_agent=>ty_object_list,
+            activated_objects TYPE zif_abgagt_agent=>ty_object_list,
+            failed_objects TYPE zif_abgagt_agent=>ty_object_list,
           END OF ls_response.
 
     ls_response-success = lv_success.

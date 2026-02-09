@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZCL_ABAPGIT_AGENT_UNIT_AGENT</CLSNAME>
+    <CLSNAME>ZCL_ABGAGT_AGENT</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>ABAP Git Agent - Unit Test Execution Agent</DESCRIPT>
+    <DESCRIPT>ABAP Git Agent - Main Agent API</DESCRIPT>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>

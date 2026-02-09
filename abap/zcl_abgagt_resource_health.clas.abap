@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abapgit_agent_health DEFINITION PUBLIC FINAL
+CLASS zcl_abgagt_resource_health DEFINITION PUBLIC FINAL
                                INHERITING FROM cl_rest_resource
                                CREATE PUBLIC.
 
@@ -10,7 +10,7 @@ CLASS zcl_abapgit_agent_health DEFINITION PUBLIC FINAL
 
 ENDCLASS.
 
-CLASS zcl_abapgit_agent_health IMPLEMENTATION.
+CLASS zcl_abgagt_resource_health IMPLEMENTATION.
 
   METHOD if_rest_resource~get.
     DATA lv_json TYPE string.
