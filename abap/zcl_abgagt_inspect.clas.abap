@@ -1,8 +1,8 @@
 CLASS zcl_abgagt_inspect DEFINITION PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
-    METHODS get_name REDEFINITION.
-    METHODS execute REDEFINITION.
+    METHODS get_name.
+    METHODS execute.
 ENDCLASS.
 
 CLASS zcl_abgagt_inspect IMPLEMENTATION.
