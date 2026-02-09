@@ -168,27 +168,68 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
-    " If specific files requested, filter overwrite table to only those files
+    " If specific files requested, build lookup table of (obj_type, obj_name)
+    DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
+                            WITH UNIQUE KEY obj_type obj_name.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-      DATA lt_filtered_overwrite LIKE rs_checks-overwrite.
-      LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
-        LOOP AT it_files INTO DATA(lv_requested_file).
-          " Check if file name matches
-          IF ls_overwrite-obj_name CP lv_requested_file.
-            ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-            APPEND ls_overwrite TO lt_filtered_overwrite.
-            EXIT.
-          ENDIF.
-        ENDLOOP.
-      ENDLOOP.
-      rs_checks-overwrite = lt_filtered_overwrite.
-    ELSE.
-      " No files specified - set all decisions to yes
-      LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
-        ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-        MODIFY rs_checks-overwrite FROM ls_overwrite.
+      LOOP AT it_files INTO DATA(lv_file).
+        " Convert file path to obj_type and obj_name
+        " Example: abap/zcl_ai_math.clas.abap -> CLAS, ZCL_AI_MATH
+        DATA lv_upper TYPE string.
+        lv_upper = lv_file.
+        TRANSLATE lv_upper TO UPPER CASE.
+
+        DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
+        IF lv_upper CS '.CLAS.ABAP'.
+          ls_sig-obj_type = 'CLAS'.
+          REPLACE '.CLAS.ABAP' IN lv_upper WITH ''.
+        ELSEIF lv_upper CS '.CLAS.PROG.ABAP'.
+          ls_sig-obj_type = 'PROG'.
+          REPLACE '.CLAS.PROG.ABAP' IN lv_upper WITH ''.
+        ELSEIF lv_upper CS '.PROG.ABAP'.
+          ls_sig-obj_type = 'PROG'.
+          REPLACE '.PROG.ABAP' IN lv_upper WITH ''.
+        ELSEIF lv_upper CS '.INTF.ABAP'.
+          ls_sig-obj_type = 'INTF'.
+          REPLACE '.INTF.ABAP' IN lv_upper WITH ''.
+        ELSEIF lv_upper CS '.FUGR.ABAP'.
+          ls_sig-obj_type = 'FUGR'.
+          REPLACE '.FUGR.ABAP' IN lv_upper WITH ''.
+        ELSEIF lv_upper CS '.TABL.ABAP'.
+          ls_sig-obj_type = 'TABL'.
+          REPLACE '.TABL.ABAP' IN lv_upper WITH ''.
+        ENDIF.
+
+        " Extract object name from path (remove directory prefix)
+        REPLACE ALL OCCURRENCES OF '\' IN lv_upper WITH '/'.
+        FIND LAST OCCURRENCE OF '/' IN lv_upper MATCH OFFSET DATA(lv_pos).
+        IF sy-subrc = 0.
+          lv_upper = lv_upper+lv_pos.
+        ENDIF.
+
+        ls_sig-obj_name = lv_upper.
+        INSERT ls_sig INTO TABLE lt_valid_files.
       ENDLOOP.
     ENDIF.
+
+    " Set decision for each file
+    LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
+      IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+        " Check if file is in valid files list
+        READ TABLE lt_valid_files WITH TABLE KEY obj_type = ls_overwrite-obj_type
+                                             obj_name = ls_overwrite-obj_name
+                                     TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+        ELSE.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_no.
+        ENDIF.
+      ELSE.
+        " No files specified - deserialize all
+        ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+      ENDIF.
+      MODIFY rs_checks-overwrite FROM ls_overwrite.
+    ENDLOOP.
 
     DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
     lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
