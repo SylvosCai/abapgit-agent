@@ -31,10 +31,10 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
     DATA: ls_params TYPE ty_unit_params,
           lv_json TYPE string,
           lv_file TYPE string,
-          lv_obj_type TYPE string,
-          lv_obj_name TYPE string,
-          lo_parser TYPE REF TO zcl_abgagt_agent,
-          lo_test_agent TYPE REF TO zcl_abgagt_agent.
+          lv_objtp TYPE string,
+          lv_objnm TYPE string,
+          lo_file_parser TYPE REF TO zcl_abgagt_agent,
+          lo_runner TYPE REF TO zcl_abgagt_agent.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
@@ -50,21 +50,21 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
       " Files passed as list - parse to objects
       LOOP AT it_files INTO lv_file.
         " Use agent's parse_file_to_object method
-        lo_parser = NEW zcl_abgagt_agent( ).
-        lo_parser->parse_file_to_object(
+        lo_file_parser = NEW zcl_abgagt_agent( ).
+        lo_file_parser->parse_file_to_object(
           EXPORTING iv_file = lv_file
-          IMPORTING ev_obj_type = lv_obj_type
-                    ev_obj_name = lv_obj_name ).
-        IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
+          IMPORTING ev_obj_type = lv_objtp
+                    ev_obj_name = lv_objnm ).
+        IF lv_objtp IS NOT INITIAL AND lv_objnm IS NOT INITIAL.
           APPEND INITIAL LINE TO ls_params-objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
-          <ls_obj>-object_type = lv_obj_type.
-          <ls_obj>-object_name = lv_obj_name.
+          <ls_obj>-object_type = lv_objtp.
+          <ls_obj>-object_name = lv_objnm.
         ENDIF.
       ENDLOOP.
     ENDIF.
 
     " Get agent instance and execute unit tests
-    lo_test_agent = NEW zcl_abgagt_agent( ).
+    lo_runner = NEW zcl_abgagt_agent( ).
 
     " Convert package if provided
     DATA(lv_package) = COND devclass( WHEN ls_params-package IS NOT INITIAL THEN ls_params-package ).
@@ -77,7 +77,7 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
       <ls_obj>-object_name = <ls_param_obj>-object_name.
     ENDLOOP.
 
-    DATA(ls_result) = lo_test_agent->zif_abgagt_agent~run_tests(
+    DATA(ls_result) = lo_runner->zif_abgagt_agent~run_tests(
       iv_package = lv_package
       it_objects = lt_objects ).
 
