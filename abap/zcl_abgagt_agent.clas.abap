@@ -252,10 +252,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Save inspection
         lo_inspection->save( ).
 
-        " Run inspection directly
+        " Run inspection via RFC (for async CLI execution)
         lo_inspection->run(
           EXPORTING
-            p_howtorun = 'D'
+            p_howtorun = 'R'
           EXCEPTIONS
             invalid_check_version = 1
             OTHERS = 2 ).
