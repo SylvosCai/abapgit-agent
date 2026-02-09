@@ -272,68 +272,11 @@ function request(method, urlPath, data = null, options = {}) {
 }
 
 /**
- * Syntax check for ABAP object (Code Inspector)
- */
-async function syntaxCheck(objectType, objectName) {
-  console.log(`\n  Syntax check for ${objectType} ${objectName}`);
-
-  try {
-    const config = loadConfig();
-
-    // Fetch CSRF token first
-    const csrfToken = await fetchCsrfToken(config);
-
-    const data = {
-      object_type: objectType,
-      object_name: objectName
-    };
-
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
-
-    // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
-    const objType = result.OBJECT_TYPE || result.object_type || objectType;
-    const objName = result.OBJECT_NAME || result.object_name || objectName;
-    const errorCount = result.ERROR_COUNT || result.error_count || 0;
-    const errors = result.ERRORS || result.errors || [];
-
-    console.log('\n');
-
-    if (errorCount > 0) {
-      console.log(`❌ ${objType} ${objName} - ${errorCount} error(s) found:`);
-      console.log('\nErrors:');
-      console.log('─'.repeat(60));
-
-      for (const err of errors) {
-        const line = err.LINE || err.line || '?';
-        const column = err.COLUMN || err.column || '?';
-        const text = err.TEXT || err.text || 'Unknown error';
-
-        console.log(`  Line ${line}, Column ${column}:`);
-        console.log(`    ${text}`);
-        console.log('');
-      }
-    } else if (success === 'X' || success === true) {
-      console.log(`✅ ${objType} ${objName} - No syntax errors found`);
-    } else if (success === '' || success === undefined || success === null) {
-      console.log(`❌ ${objType} ${objName} - Syntax check failed (no response or invalid response)`);
-    } else {
-      console.log(`⚠️  ${objType} ${objName} - Unexpected status: ${success}`);
-    }
-
-    return result;
-  } catch (error) {
-    console.error(`\n  Error: ${error.message}`);
-    process.exit(1);
-  }
-}
-
-/**
  * Syntax check for ABAP source file
  * Reads file content and sends to /syntax-check-source
  */
-async function syntaxCheckSource(sourceFile) {
-  console.log(`\n  Syntax check for file: ${sourceFile}`);
+async function syntaxCheckSource(sourceFile, csrfToken, config) {
+  console.log(`  Syntax check for file: ${sourceFile}`);
 
   try {
     // Read file content
@@ -342,8 +285,8 @@ async function syntaxCheckSource(sourceFile) {
       : pathModule.join(process.cwd(), sourceFile);
 
     if (!fs.existsSync(absolutePath)) {
-      console.error(`\n  Error: File not found: ${absolutePath}`);
-      process.exit(1);
+      console.error(`  ❌ File not found: ${absolutePath}`);
+      return;
     }
 
     const fileContent = fs.readFileSync(absolutePath, 'utf8');
@@ -358,18 +301,12 @@ async function syntaxCheckSource(sourceFile) {
     sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
     sourceName = sourceName.toUpperCase();
 
-    const config = loadConfig();
-
-    // Fetch CSRF token first
-    const csrfToken = await fetchCsrfToken(config);
-
-    // Send source code lines and name to /syntax-check-source
+    // Send file name to syntax-check endpoint
     const data = {
-      source_name: sourceName,
-      source_code: sourceLines
+      source_name: sourceName
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check-source', data, { csrfToken: csrfToken });
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken: csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
@@ -735,29 +672,25 @@ To enable integration:
         break;
 
       case 'syntax-check':
-        const objectType = args[1];
-        const objectName = args[2];
-
-        if (!objectType || !objectName) {
-          console.error('Error: syntax-check requires object_type and object_name');
-          console.error('Usage: abapgit-agent syntax-check <object_type> <object_name>');
-          console.error('Example: abapgit-agent syntax-check CLAS ZCL_MY_CLASS');
+        const filesArgIndex = args.indexOf('--files');
+        if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
+          console.error('Error: --files parameter required');
+          console.error('Usage: abapgit-agent syntax-check --files <file1>,<file2>,...');
+          console.error('Example: abapgit-agent syntax-check --files zcl_my_class.clas.abap');
           process.exit(1);
         }
 
-        await syntaxCheck(objectType, objectName);
-        break;
+        const filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
-      case 'syntax-check-source':
-        const fileIndex = args.indexOf('--file');
-        if (fileIndex === -1 || fileIndex + 1 >= args.length) {
-          console.error('Error: --file parameter required');
-          console.error('Usage: abapgit-agent syntax-check-source --file <source_file>');
-          console.error('Example: abapgit-agent syntax-check-source --file zcl_my_class.clas.abap');
-          process.exit(1);
+        console.log(`\n  Syntax check for ${filesSyntaxCheck.length} file(s)`);
+        console.log('');
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        for (const sourceFile of filesSyntaxCheck) {
+          await syntaxCheckSource(sourceFile, csrfToken, config);
         }
-        const sourceFile = args[fileIndex + 1];
-        await syntaxCheckSource(sourceFile);
         break;
 
       case 'unit':
@@ -804,11 +737,8 @@ Commands:
     Auto-detects git remote and branch from current directory.
     Use --files to pull only specific files.
 
-  syntax-check <object_type> <object_name>
-    Check syntax of an ABAP object (Code Inspector).
-
-  syntax-check-source --file <source_file>
-    Check syntax of ABAP source file (.clas.abap, .prog.abap).
+  syntax-check --files <file1>,<file2>,...
+    Check syntax of ABAP source file(s) (.clas.abap, .prog.abap).
 
   unit --package <package>
     Run unit tests for all objects in a package.
@@ -825,10 +755,9 @@ Commands:
 Examples:
   abapgit-agent pull                       # Auto-detect from git repo
   abapgit-agent pull --branch develop      # Use specific branch
-  abapgit-agent pull --url <git-url>       # Override remote URL
   abapgit-agent pull --files zcl_my_class.clas.abap  # Pull specific file
-  abapgit-agent syntax-check CLAS ZCL_MY_CLASS
-  abapgit-agent syntax-check-source --file zcl_my_class.clas.abap
+  abapgit-agent syntax-check --files zcl_my_class.clas.abap
+  abapgit-agent syntax-check --files zcl_my_class.clas.abap,zcl_ai_sample.clas.abap
   abapgit-agent unit --package ZMY_PACKAGE
   abapgit-agent unit --object CLAS ZCL_TEST
   abapgit-agent health

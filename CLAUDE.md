@@ -36,8 +36,11 @@ abapgit-agent pull --branch <branch>
 # Pull from specific URL
 abapgit-agent pull --url <git-url>
 
-# Syntax check for specific object
+# Syntax check for specific object (Code Inspector)
 abapgit-agent syntax-check <object_type> <object_name>
+
+# Syntax check for source file(s)
+abapgit-agent syntax-check --files <file1>,<file2>,...
 
 # Run unit tests
 abapgit-agent unit --package <package>

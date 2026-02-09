@@ -28,9 +28,64 @@ CLASS zcl_abapgit_agent_syntax_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rs_result) TYPE ty_result.
 
+    METHODS parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
+
+  METHOD parse_file_to_object.
+    " Parse file path to extract obj_type and obj_name
+    " Example: "zcl_ai_math.clas.abap" -> CLAS, ZCL_AI_MATH
+    " Example: "src/zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
+
+    DATA lv_upper TYPE string.
+    lv_upper = iv_file.
+    TRANSLATE lv_upper TO UPPER CASE.
+
+    " Split filename by '.' to get parts
+    DATA lt_parts TYPE TABLE OF string.
+    SPLIT lv_upper AT '.' INTO TABLE lt_parts.
+    DATA lv_part_count TYPE i.
+    lv_part_count = lines( lt_parts ).
+
+    IF lv_part_count < 3.
+      RETURN.
+    ENDIF.
+
+    " Last part should be 'ABAP' for verification
+    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
+    IF lv_last <> 'ABAP'.
+      RETURN.
+    ENDIF.
+
+    " First part is obj_name (may contain path), second part is obj_type
+    DATA lv_obj_name TYPE string.
+    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+    READ TABLE lt_parts INDEX 2 INTO ev_obj_type.
+
+    " Extract file name from obj_name (remove path prefix)
+    DATA lv_len TYPE i.
+    lv_len = strlen( lv_obj_name ).
+    DATA lv_offs TYPE i.
+    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
+    IF lv_offs > 0.
+      lv_offs = lv_len - lv_offs - 1.
+      lv_obj_name = lv_obj_name+lv_offs.
+    ENDIF.
+
+    " Remove leading '/' if present
+    IF lv_obj_name(1) = '/'.
+      lv_obj_name = lv_obj_name+1.
+    ENDIF.
+
+    ev_obj_name = lv_obj_name.
+  ENDMETHOD.
 
   METHOD syntax_check.
     DATA ls_error LIKE LINE OF rs_result-errors.
@@ -97,6 +152,8 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
 
         " Save inspection
         lo_inspection->save(
+          EXPORTING
+            p_user = sy-uname
           EXCEPTIONS
             missing_information = 1
             insp_no_name = 2

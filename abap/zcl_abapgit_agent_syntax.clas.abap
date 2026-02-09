@@ -13,8 +13,7 @@ CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
     DATA mo_agent TYPE REF TO zcl_abapgit_agent_syntax_agent.
 
     TYPES: BEGIN OF ty_request,
-             object_type TYPE string,
-             object_name TYPE string,
+             source_name TYPE string,
            END OF ty_request.
 
 ENDCLASS.
@@ -40,8 +39,8 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
         data = ls_request ).
 
     DATA lv_json_resp TYPE string.
-    IF ls_request-object_type IS INITIAL OR ls_request-object_name IS INITIAL.
-      lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Object type and name are required"}]}'.
+    IF ls_request-source_name IS INITIAL.
+      lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Source name is required"}]}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
@@ -49,11 +48,28 @@ CLASS zcl_abapgit_agent_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Call syntax check agent - returns structure
+    " Parse file name to extract obj_type and obj_name
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+    mo_agent->parse_file_to_object(
+      EXPORTING iv_file = ls_request-source_name
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    IF lv_obj_type IS INITIAL OR lv_obj_name IS INITIAL.
+      lv_json_resp = '{"success":"","object_type":"","object_name":"","error_count":1,"errors":[{"line":"1","column":"1","text":"Invalid file format"}]}'.
+      lo_entity = mo_response->create_entity( ).
+      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+      lo_entity->set_string_data( lv_json_resp ).
+      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
+      RETURN.
+    ENDIF.
+
+    " Call syntax check agent
     DATA ls_result TYPE zcl_abapgit_agent_syntax_agent=>ty_result.
     ls_result = mo_agent->syntax_check(
-      iv_object_type = ls_request-object_type
-      iv_object_name = ls_request-object_name ).
+      iv_object_type = lv_obj_type
+      iv_object_name = lv_obj_name ).
 
     " Convert success to 'X' or '' for JSON
     DATA lv_success TYPE string.
