@@ -76,7 +76,7 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
     lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
     IF lv_offs > 0.
       DATA lv_start TYPE i.
-      lv_start = lv_len - lv_offs - 1.
+      lv_start = lv_len - lv_offs.
       lv_obj_name = lv_obj_name+lv_start.
     ENDIF.
 
