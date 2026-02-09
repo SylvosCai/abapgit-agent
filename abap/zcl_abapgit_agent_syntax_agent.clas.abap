@@ -70,13 +70,12 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
     READ TABLE lt_parts INDEX 2 INTO ev_obj_type.
 
     " Extract file name from obj_name (remove path prefix)
-    DATA lv_len TYPE i.
-    lv_len = strlen( lv_obj_name ).
+    " Find '/' in reversed string to get position from end, then add 1 for forward offset
     DATA lv_offs TYPE i.
     lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
     IF lv_offs > 0.
       DATA lv_start TYPE i.
-      lv_start = lv_len - lv_offs.
+      lv_start = lv_offs + 1.
       lv_obj_name = lv_obj_name+lv_start.
     ENDIF.
 
