@@ -151,14 +151,7 @@ CLASS zcl_abapgit_agent_syntax_agent IMPLEMENTATION.
             p_objs = lo_objset ).
 
         " Save inspection
-        lo_inspection->save(
-          EXPORTING
-            p_user = sy-uname
-          EXCEPTIONS
-            missing_information = 1
-            insp_no_name = 2
-            not_enqueued = 3
-            OTHERS = 4 ).
+        lo_inspection->save( ).
 
         " Run inspection directly
         lo_inspection->run(
