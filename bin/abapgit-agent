@@ -578,18 +578,54 @@ async function pull(gitUrl, branch = 'main', files = null) {
       }
     }
 
-    // Display unique activated objects (already deduped from API)
-    if (activatedObjects && activatedObjects.length > 0) {
-      console.log(`\n📦 Activated Objects (${activatedObjects.length} unique):`);
+    // Extract objects with errors from log messages (type 'E' = Error)
+    const failedObjectsFromLog = [];
+    const objectsWithErrors = new Set();
+
+    for (const msg of logMessages) {
+      if (msg.TYPE === 'E' && msg.OBJ_TYPE && msg.OBJ_NAME) {
+        const objKey = `${msg.OBJ_TYPE} ${msg.OBJ_NAME}`;
+        objectsWithErrors.add(objKey);
+        failedObjectsFromLog.push({
+          OBJ_TYPE: msg.OBJ_TYPE,
+          OBJ_NAME: msg.OBJ_NAME,
+          TEXT: msg.TEXT || 'Activation failed',
+          EXCEPTION: msg.EXCEPTION || ''
+        });
+      }
+    }
+
+    // Filter activated objects - only include objects without errors
+    const filteredActivatedObjects = activatedObjects.filter(obj => {
+      const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
+      return objKey && !objectsWithErrors.has(objKey);
+    });
+
+    // Display unique activated objects (excluding objects with errors)
+    if (filteredActivatedObjects && filteredActivatedObjects.length > 0) {
+      console.log(`\n📦 Activated Objects (${filteredActivatedObjects.length} unique):`);
       console.log('───────────────────────────────────────────────────────────────────────────────');
-      for (const obj of activatedObjects) {
+      for (const obj of filteredActivatedObjects) {
         console.log(`✅ ${obj.OBJ_TYPE} ${obj.OBJ_NAME}`);
       }
     }
 
-    // Display failed objects (already unique from API)
-    if (failedObjects && failedObjects.length > 0) {
-      console.log(`\n❌ Failed Objects (${failedObjects.length}):`);
+    // Display failed objects log (all error messages, duplicates allowed)
+    if (failedObjectsFromLog.length > 0) {
+      console.log(`\n❌ Failed Objects Log (${failedObjectsFromLog.length} entries):`);
+      console.log('───────────────────────────────────────────────────────────────────────────────');
+      for (const obj of failedObjectsFromLog) {
+        const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
+        let text = obj.TEXT || 'Activation failed';
+        // Include exception text if available
+        if (obj.EXCEPTION && obj.EXCEPTION.trim()) {
+          text = `${text}\nException: ${obj.EXCEPTION}`;
+        }
+        console.log(`❌ ${objKey}: ${text}`);
+      }
+    } else if (failedObjects && failedObjects.length > 0) {
+      // Fallback to API failed_objects if no errors in log
+      console.log(`\n❌ Failed Objects Log (${failedObjects.length}):`);
       console.log('───────────────────────────────────────────────────────────────────────────────');
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
@@ -601,7 +637,7 @@ async function pull(gitUrl, branch = 'main', files = null) {
         console.log(`❌ ${objKey}: ${text}`);
       }
     } else if (failedCount > 0) {
-      console.log(`\n❌ Failed Objects (${failedCount})`);
+      console.log(`\n❌ Failed Objects Log (${failedCount})`);
     }
 
     return result;

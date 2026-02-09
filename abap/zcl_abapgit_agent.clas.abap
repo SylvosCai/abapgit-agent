@@ -212,6 +212,10 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           lv_offs = lv_len - lv_offs - 1.
           lv_obj_name = lv_obj_name+lv_offs.
         ENDIF.
+        " Remove leading '/' if present (when file is in subdirectory like abap/)
+        IF lv_obj_name(1) = '/'.
+          lv_obj_name = lv_obj_name+1.
+        ENDIF.
         ls_sig-obj_name = lv_obj_name.
         INSERT ls_sig INTO TABLE lt_valid_files.
       ENDLOOP.
