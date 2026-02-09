@@ -208,12 +208,6 @@ function request(method, urlPath, data = null, options = {}) {
     const config = loadConfig();
     const url = new URL(urlPath, `https://${config.host}:${config.sapport}`);
 
-    // Clear stale cookies before making request
-    const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
-    if (fs.existsSync(cookiePath)) {
-      fs.unlinkSync(cookiePath);
-    }
-
     const headers = {
       'Content-Type': 'application/json',
       'sap-client': config.client,
