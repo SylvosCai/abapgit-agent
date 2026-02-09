@@ -45,12 +45,19 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
     " Get agent instance and execute pull
     DATA(lo_agent) = NEW zcl_abgagt_agent( ).
 
-    DATA(ls_result) = lo_agent->zif_abgagt_agent~pull(
-      iv_url      = ls_params-url
-      iv_branch   = ls_params-branch
-      iv_username = ls_params-username
-      iv_password = ls_params-password
-      it_files    = ls_params-files ).
+    DATA(ls_result) TYPE zif_abgagt_agent=>ty_result.
+
+    TRY.
+        ls_result = lo_agent->zif_abgagt_agent~pull(
+          iv_url      = ls_params-url
+          iv_branch   = ls_params-branch
+          iv_username = ls_params-username
+          iv_password = ls_params-password
+          it_files    = ls_params-files ).
+      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+        ls_result-success = abap_false.
+        ls_result-message = lx_error->get_text( ).
+    ENDTRY.
 
     " Convert result to JSON string using /ui2/cl_json
     DATA: BEGIN OF ls_response,
