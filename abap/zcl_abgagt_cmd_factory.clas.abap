@@ -1,5 +1,4 @@
 "! <p class="shorttext synchronized">Command Factory for ABAP Git Agent</p>
-"! Factory class for creating command instances.
 CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_cmd_factory.
