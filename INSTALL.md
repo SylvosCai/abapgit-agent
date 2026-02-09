@@ -59,7 +59,7 @@ Deploy ABAP objects using abapGit:
 sudo npm link
 
 # Option B: Use from cloned repo
-cd abap-ai-bridge
+cd abapgit-agent
 npm install
 ```
 
@@ -108,7 +108,7 @@ mkdir my-abap-repo
 cd my-abap-repo
 
 # Copy CLAUDE.md (tells Claude how to work with ABAP)
-cp /path/to/abap-ai-bridge/abap/CLAUDE.md .
+cp /path/to/abapgit-agent/abap/CLAUDE.md .
 
 # Initialize git
 git init
@@ -120,7 +120,7 @@ Copy your ABAP objects to the repo:
 
 ```bash
 # Copy individual objects
-cp /path/to/abap-ai-bridge/abap/zcl_*.abap ./
+cp /path/to/abapgit-agent/abap/zcl_*.abap ./
 ```
 
 ### 3. Configure and Push
@@ -135,7 +135,7 @@ git add .
 git commit -m "Initial ABAP project"
 
 # Add remote and push
-git remote add origin https://github.tools.sap/user/my-abap-repo.git
+git remote add origin https://github.com/user/my-abap-repo.git
 git push -u origin main
 ```
 

@@ -1,11 +1,11 @@
-# ABAP AI Bridge - CLI Tool Development
+# ABAP Git Agent - CLI Tool Development
 
 This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
 
 ## Project Structure
 
 ```
-abap-ai-bridge/
+abapgit-agent/
 ├── bin/
 │   └── abapgit-agent        # CLI entry point
 ├── src/
@@ -60,7 +60,7 @@ abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
 abapgit-agent pull --branch develop
 
 # Pull from specific URL (useful for CI/CD)
-abapgit-agent pull --url https://github.tools.sap/I045696/my-repo.git
+abapgit-agent pull --url https://github.com/I045696/my-repo.git
 
 # Combined options
 abapgit-agent pull --branch develop --files src/zcl_my_class.clas.abap
@@ -83,7 +83,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 Icon │ Object                      │ Message
 ...
 
-📦 Activated Objects (N unique):
+📦 Activated Objects (N):
 ───────────────────────────────────────────────────────────────────────────────
 ✅ CLAS ZCL_MY_CLASS
 ...

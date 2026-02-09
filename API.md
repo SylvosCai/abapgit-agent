@@ -51,14 +51,14 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/pull" \
   -H "X-CSRF-Token: $CSRF" \
   -b cookies.txt \
   -u USER:PASSWORD \
-  -d '{"url": "https://github.tools.sap/user/repo.git", "branch": "main"}'
+  -d '{"url": "https://github.com/user/repo.git", "branch": "main"}'
 ```
 
 ### Request Body
 
 ```json
 {
-  "url": "https://github.tools.sap/user/repo.git",
+  "url": "https://github.com/user/repo.git",
   "branch": "main",
   "username": "git-username",
   "password": "git-token",

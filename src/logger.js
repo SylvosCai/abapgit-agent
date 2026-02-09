@@ -18,7 +18,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'abap-ai-bridge' },
+  defaultMeta: { service: 'abapgit-agent' },
   transports: [
     new winston.transports.File({
       filename: path.join(logDir, 'error.log'),

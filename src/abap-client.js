@@ -225,7 +225,7 @@ class ABAPClient {
     data.username = gitUsername || cfg.gitUsername;
     data.password = gitPassword || cfg.gitPassword;
 
-    logger.info('Starting pull operation', { repoUrl, branch, service: 'abap-ai-bridge' });
+    logger.info('Starting pull operation', { repoUrl, branch, service: 'abapgit-agent' });
 
     return await this.request('POST', '/pull', data, { csrfToken: this.csrfToken });
   }
@@ -254,7 +254,7 @@ class ABAPClient {
       object_name: objectName
     };
 
-    logger.info('Starting syntax check', { objectType, objectName, service: 'abap-ai-bridge' });
+    logger.info('Starting syntax check', { objectType, objectName, service: 'abapgit-agent' });
 
     return await this.request('POST', '/syntax-check', data, { csrfToken: this.csrfToken });
   }
@@ -279,7 +279,7 @@ class ABAPClient {
       data.objects = objects;
     }
 
-    logger.info('Starting unit tests', { package: packageName, objects, service: 'abap-ai-bridge' });
+    logger.info('Starting unit tests', { package: packageName, objects, service: 'abapgit-agent' });
 
     return await this.request('POST', '/unit', data, { csrfToken: this.csrfToken });
   }

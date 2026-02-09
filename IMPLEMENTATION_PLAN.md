@@ -88,7 +88,7 @@ ENDINTERFACE.
 
 #### 2.1 Project Structure (DONE)
 ```
-abap-ai-bridge/
+abapgit-agent/
 ├── package.json
 ├── src/
 │   ├── agent.js          # Main agent class

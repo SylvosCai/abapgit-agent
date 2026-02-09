@@ -14,6 +14,10 @@
 const pathModule = require('path');
 const fs = require('fs');
 
+// Get terminal width for responsive table
+const getTermWidth = () => process.stdout.columns || 80;
+const TERM_WIDTH = getTermWidth();
+
 const COOKIE_FILE = '.abapgit_agent_cookies.txt';
 
 /**
@@ -559,7 +563,7 @@ async function pull(gitUrl, branch = 'main', files = null) {
     // Display error detail if available
     if (errorDetail && errorDetail.trim()) {
       console.log(`\n📋 Error Details:`);
-      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log('─'.repeat(TERM_WIDTH));
       // Handle escaped newlines from ABAP JSON
       const formattedDetail = errorDetail.replace(/\\n/g, '\n');
       console.log(formattedDetail);
@@ -568,9 +572,35 @@ async function pull(gitUrl, branch = 'main', files = null) {
     // Display all messages as table (from log_messages)
     if (logMessages && logMessages.length > 0) {
       console.log(`\n📋 Pull Log (${logMessages.length} messages):`);
-      console.log('───────────────────────────────────────────────────────────────────────────────');
-      console.log('Icon │ Object                      │ Message');
-      console.log('──────┼────────────────────────────┼───────────────────────────────────────');
+
+      // Calculate column widths based on terminal width
+      const tableWidth = Math.min(TERM_WIDTH, 120);
+      const iconCol = 5;  // Width for emoji column (emoji takes 2 visual cells)
+      const objCol = 28;
+      const msgCol = tableWidth - iconCol - objCol - 6; // Account for vertical lines (3 chars)
+
+      // Helper to get visible width (emoji takes 2 cells)
+      const getVisibleWidth = (str) => {
+        let width = 0;
+        for (const char of str) {
+          width += (char.charCodeAt(0) > 127) ? 2 : 1;  // Emoji/wide chars = 2
+        }
+        return width;
+      };
+
+      // Helper to pad to visible width
+      const padToWidth = (str, width) => {
+        const currentWidth = getVisibleWidth(str);
+        return str + ' '.repeat(width - currentWidth);
+      };
+
+      const headerLine = '─'.repeat(iconCol) + '┼' + '─'.repeat(objCol) + '┼' + '─'.repeat(msgCol);
+      const headerText = padToWidth('Icon', iconCol) + '│' + padToWidth('Object', objCol) + '│' + 'Message'.substring(0, msgCol);
+      const borderLine = '─'.repeat(tableWidth);
+
+      console.log(borderLine);
+      console.log(headerText);
+      console.log(headerLine);
 
       for (const msg of logMessages) {
         const icon = getIcon(msg.TYPE);
@@ -580,10 +610,9 @@ async function pull(gitUrl, branch = 'main', files = null) {
         const text = msg.TEXT || '';
 
         // Truncate long text
-        const maxTextLen = 50;
-        const displayText = text.length > maxTextLen ? text.substring(0, maxTextLen) + '...' : text;
+        const displayText = text.length > msgCol ? text.substring(0, msgCol - 3) + '...' : text;
 
-        console.log(`${icon} │ ${obj.padEnd(28)} │ ${displayText}`);
+        console.log(padToWidth(icon, iconCol) + '│' + padToWidth(obj.substring(0, objCol), objCol) + '│' + displayText);
       }
     }
 
@@ -612,8 +641,8 @@ async function pull(gitUrl, branch = 'main', files = null) {
 
     // Display unique activated objects (excluding objects with errors)
     if (filteredActivatedObjects && filteredActivatedObjects.length > 0) {
-      console.log(`\n📦 Activated Objects (${filteredActivatedObjects.length} unique):`);
-      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log(`\n📦 Activated Objects (${filteredActivatedObjects.length}):`);
+      console.log('─'.repeat(TERM_WIDTH));
       for (const obj of filteredActivatedObjects) {
         console.log(`✅ ${obj.OBJ_TYPE} ${obj.OBJ_NAME}`);
       }
@@ -622,7 +651,7 @@ async function pull(gitUrl, branch = 'main', files = null) {
     // Display failed objects log (all error messages, duplicates allowed)
     if (failedObjectsFromLog.length > 0) {
       console.log(`\n❌ Failed Objects Log (${failedObjectsFromLog.length} entries):`);
-      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log('─'.repeat(TERM_WIDTH));
       for (const obj of failedObjectsFromLog) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
         let text = obj.TEXT || 'Activation failed';
@@ -635,7 +664,7 @@ async function pull(gitUrl, branch = 'main', files = null) {
     } else if (failedObjects && failedObjects.length > 0) {
       // Fallback to API failed_objects if no errors in log
       console.log(`\n❌ Failed Objects Log (${failedObjects.length}):`);
-      console.log('───────────────────────────────────────────────────────────────────────────────');
+      console.log('─'.repeat(TERM_WIDTH));
       for (const obj of failedObjects) {
         const objKey = obj.OBJ_TYPE && obj.OBJ_NAME ? `${obj.OBJ_TYPE} ${obj.OBJ_NAME}` : '';
         let text = obj.TEXT || 'Activation failed';

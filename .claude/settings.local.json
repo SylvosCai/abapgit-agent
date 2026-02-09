@@ -39,7 +39,10 @@
       "Bash(DEBUG=1 abapgit-agent syntax-check:*)",
       "Bash(abapgit-agent inspect:*)",
       "Bash(git ls-files:*)",
-      "mcp__plugin_claude-mem_mcp-search__save_memory"
+      "mcp__plugin_claude-mem_mcp-search__save_memory",
+      "Bash(git mv:*)",
+      "Bash(git reset:*)",
+      "Bash(DEBUG=*)"
     ]
   }
 }

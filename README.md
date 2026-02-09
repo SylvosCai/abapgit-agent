@@ -1,4 +1,4 @@
-# ABAP AI Bridge
+# abapGit Agent
 
 A local agent that enables AI coding tools (Claude, Copilot, etc.) to automatically pull and activate ABAP code from git repositories using REST API.
 
@@ -28,7 +28,7 @@ abapgit-agent pull
 abapgit-agent pull --branch develop
 
 # Override git URL if needed
-abapgit-agent pull --url https://github.tools.sap/user/repo --branch main
+abapgit-agent pull --url https://github.com/user/repo --branch main
 
 # Inspect source file for issues
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
@@ -44,7 +44,7 @@ abapgit-agent status
 
 ```bash
 # Install dependencies
-cd abap-ai-bridge
+cd abapgit-agent
 npm install
 
 # Run from package directory (auto-detects from git)

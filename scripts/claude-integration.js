@@ -50,7 +50,7 @@ function loadConfig() {
     return JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
   }
 
-  // Fallback to abap-ai-bridge parent directory
+  // Fallback to abapgit-agent parent directory
   const bridgeConfigPath = path.join(__dirname, '..', '.abapGitAgent');
   if (fs.existsSync(bridgeConfigPath)) {
     return JSON.parse(fs.readFileSync(bridgeConfigPath, 'utf8'));
@@ -338,7 +338,7 @@ Commands:
     Check if ABAP integration is configured for this repo
 
 Examples:
-  node scripts/claude-integration.js pull --url https://github.tools.sap/user/repo --branch main
+  node scripts/claude-integration.js pull --url https://github.com/user/repo --branch main
   node scripts/claude-integration.js health
 `);
     }

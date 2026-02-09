@@ -1,8 +1,8 @@
 /**
- * ABAP AI Bridge - Package Entry Point
+ * ABAP Git Agent - Package Entry Point
  *
  * Exports functions for programmatic use:
- *   const { pull, healthCheck } = require('abap-ai-bridge');
+ *   const { pull, healthCheck } = require('abapgit-agent');
  */
 
 const { ABAPGitAgent } = require('./agent');
