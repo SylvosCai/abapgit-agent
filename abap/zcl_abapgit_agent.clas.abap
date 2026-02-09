@@ -173,10 +173,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       DATA lt_filtered_overwrite LIKE rs_checks-overwrite.
       LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
         LOOP AT it_files INTO DATA(lv_requested_file).
-          " Check if file path contains the requested file
-          DATA lv_path TYPE string.
-          CONCATENATE '/' lv_requested_file INTO lv_path.
-          IF ls_overwrite-file CP lv_path.
+          " Check if file name matches
+          IF ls_overwrite-obj_name CP lv_requested_file.
             ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
             APPEND ls_overwrite TO lt_filtered_overwrite.
             EXIT.
@@ -186,8 +184,7 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       rs_checks-overwrite = lt_filtered_overwrite.
     ELSE.
       " No files specified - set all decisions to yes
-      DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
-      LOOP AT rs_checks-overwrite INTO ls_overwrite.
+      LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
         ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
         MODIFY rs_checks-overwrite FROM ls_overwrite.
       ENDLOOP.
