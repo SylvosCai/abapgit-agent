@@ -30,7 +30,7 @@ abapgit-agent pull --branch develop
 # Override git URL if needed
 abapgit-agent pull --url https://github.com/user/repo --branch main
 
-# Inspect source file for issues
+# Inspect source file for issues (TODO: In Progress)
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
 # Health check
@@ -38,6 +38,9 @@ abapgit-agent health
 
 # Check integration status
 abapgit-agent status
+
+# Run unit tests (TODO: In Progress)
+abapgit-agent unit --files abap/zcl_my_test.clas.abap
 ```
 
 ## Local Development

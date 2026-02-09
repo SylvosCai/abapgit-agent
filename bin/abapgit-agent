@@ -841,10 +841,10 @@ Commands:
     Use --files to pull only specific files.
 
   inspect --files <file1>,<file2>,...
-    Inspect ABAP source file(s) for issues. Currently runs syntax check.
+    Inspect ABAP source file(s) for issues. Currently runs syntax check. [TODO: In Progress]
 
   unit --files <file1>,<file2>,...
-    Run unit tests for ABAP test class files (.clas.abap).
+    Run unit tests for ABAP test class files (.clas.abap). [TODO: In Progress]
 
   unit --object <type> <name>
     Run unit tests for a specific object.
@@ -859,10 +859,10 @@ Examples:
   abapgit-agent pull                       # Auto-detect from git repo
   abapgit-agent pull --branch develop      # Use specific branch
   abapgit-agent pull --files zcl_my_class.clas.abap  # Pull specific file
-  abapgit-agent inspect --files zcl_my_class.clas.abap
-  abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_ai_sample.clas.abap
-  abapgit-agent unit --files zcl_my_test.clas.abap
-  abapgit-agent unit --files zcl_my_test.clas.abap,zcl_other_test.clas.abap
+  # abapgit-agent inspect --files zcl_my_class.clas.abap  [TODO: In Progress]
+  # abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_ai_sample.clas.abap
+  # abapgit-agent unit --files zcl_my_test.clas.abap  [TODO: In Progress]
+  # abapgit-agent unit --files zcl_my_test.clas.abap,zcl_other_test.clas.abap
   abapgit-agent health
   abapgit-agent status
 `);

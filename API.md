@@ -8,8 +8,8 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/inspect` | Inspect source file for issues |
-| POST | `/unit` | Execute unit tests |
+| POST | `/inspect` | **TODO: In Progress** - Inspect source file for issues |
+| POST | `/unit` | **TODO: In Progress** - Execute unit tests |
 
 ## GET /health
 
@@ -109,7 +109,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 }
 ```
 
-## POST /inspect
+## POST /inspect (TODO: In Progress)
 
 Inspect source file for issues (currently runs syntax check via Code Inspector).
 
@@ -160,7 +160,7 @@ The endpoint parses the file name to extract `obj_type` and `obj_name`:
 }
 ```
 
-## POST /unit
+## POST /unit (TODO: In Progress)
 
 Execute unit tests (AUnit) for test class files.
 
@@ -241,7 +241,7 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
 | `activated_objects` | Array | Unique successfully activated objects |
 | `failed_objects` | Array | All error log entries |
 
-### Syntax Check Response Fields
+### Syntax Check Response Fields (TODO: In Progress)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -251,7 +251,7 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
 | `error_count` | Integer | Number of syntax errors found |
 | `errors` | Array | List of errors with line, column, text |
 
-### Unit Test Response Fields
+### Unit Test Response Fields (TODO: In Progress)
 
 | Field | Type | Description |
 |-------|------|-------------|
