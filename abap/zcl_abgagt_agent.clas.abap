@@ -23,45 +23,63 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     DATA: mo_repo TYPE REF TO zif_abapgit_repo.
 
-    METHODS:
-      configure_credentials
-        IMPORTING
-          iv_url TYPE string
-          iv_username TYPE string
-          iv_password TYPE string
-        RAISING zcx_abapgit_exception,
+    METHODS configure_credentials
+      IMPORTING
+        iv_url TYPE string
+        iv_username TYPE string
+        iv_password TYPE string
+      RAISING zcx_abapgit_exception.
 
-      parse_file_to_object
-        IMPORTING
-          iv_file TYPE string
-        EXPORTING
-          ev_obj_type TYPE string
-          ev_obj_name TYPE string,
+    METHODS parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
 
-      prepare_deserialize_checks
-        IMPORTING
-          it_files TYPE string_table OPTIONAL
-        RETURNING
-          VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
-        RAISING zcx_abapgit_exception,
+    METHODS prepare_deserialize_checks
+      IMPORTING
+        it_files TYPE string_table OPTIONAL
+      RETURNING
+        VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
+      RAISING zcx_abapgit_exception.
 
-      check_log_for_errors
-        RETURNING
-          VALUE(rv_has_error) TYPE abap_bool,
+    METHODS check_log_for_errors
+      RETURNING
+        VALUE(rv_has_error) TYPE abap_bool.
 
-      get_log_detail
-        RETURNING
-          VALUE(rv_detail) TYPE string,
+    METHODS get_log_detail
+      RETURNING
+        VALUE(rv_detail) TYPE string.
 
-      get_object_lists
-        RETURNING
-          VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result,
+    METHODS get_object_lists
+      RETURNING
+        VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result.
 
-      handle_exception
-        IMPORTING
-          ix_exception TYPE REF TO cx_root
-        RETURNING
-          VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result.
+    METHODS handle_exception
+      IMPORTING
+        ix_exception TYPE REF TO cx_root
+      RETURNING
+        VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result.
+
+    METHODS get_test_classes
+      IMPORTING
+        iv_package TYPE devclass OPTIONAL
+        it_objects TYPE zif_abgagt_agent=>ty_object_keys OPTIONAL
+      RETURNING
+        VALUE(rt_classes) TYPE zif_abgagt_agent=>ty_object_keys.
+
+    METHODS run_aunit_tests
+      IMPORTING
+        it_classes TYPE zif_abgagt_agent=>ty_object_keys
+      RETURNING
+        VALUE(rt_results) TYPE zif_abgagt_agent=>ty_test_results.
+
+    METHODS count_results
+      IMPORTING
+        it_results TYPE zif_abgagt_agent=>ty_test_results
+      CHANGING
+        rs_stats TYPE zif_abgagt_agent=>ty_unit_result.
 
 ENDCLASS.
 
