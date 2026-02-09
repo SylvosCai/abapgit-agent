@@ -53,12 +53,15 @@ CLASS zcl_abgagt_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD execute.
-    " Process multiple files
-    " Implementation would loop through files and inspect each one
+    " Execute inspect for multiple files
+    " This is a stub - actual implementation would use CL_CI_INSPECTION
+    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_inspect_result.
   ENDMETHOD.
 
   METHOD inspect_single_file.
     " Inspect single file implementation
+    " This would use CL_CI_INSPECTION for syntax check
+    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_inspect_result.
   ENDMETHOD.
 
 ENDCLASS.

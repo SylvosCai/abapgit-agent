@@ -53,12 +53,15 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD execute.
-    " Process multiple files for unit tests
-    " Implementation would loop through files and run tests
+    " Execute unit tests for multiple files
+    " This is a stub - actual implementation would use CL_SUT_AUNIT_RUNNER
+    rs_result = run_unit_tests( it_files ).
   ENDMETHOD.
 
   METHOD run_unit_tests.
     " Run unit tests implementation
+    " This would use CL_SUT_AUNIT_RUNNER or CL_AUCV_TEST_RUNNER_STANDARD
+    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_unit_result.
   ENDMETHOD.
 
 ENDCLASS.

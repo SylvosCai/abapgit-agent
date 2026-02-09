@@ -34,14 +34,14 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD parse_file_to_object.
     " Extract object type and name from file name
     " e.g., 'zcl_my_class.clas.abap' -> CLAS, ZCL_MY_CLASS
-    " e.g., 'zif_my_intf.intf.abap' -> INTF, ZIF_MY_INTTF
+    " e.g., 'src/zif_my_intf.intf.abap' -> INTF, ZIF_MY_INTF
 
     DATA lv_filename TYPE string.
     lv_filename = iv_file.
 
-    " Find extension position
+    " Find extension position (last dot before .abap)
     DATA lv_ext_pos TYPE i.
-    lv_ext_pos = find( val = lv_filename sub = '.' occ = 2 case = abap_false ).
+    lv_ext_pos = find( val = lv_filename sub = '.abap' case = abap_false ).
 
     IF lv_ext_pos > 0.
       " Get object name from first part
@@ -62,48 +62,42 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
       " Get extension for object type
       DATA lv_ext TYPE string.
-      lv_ext = substring( val = lv_filename off = lv_ext_pos + 1 ).
+      lv_ext = substring( val = lv_filename off = lv_ext_pos + 5 ).
 
       CASE lv_ext.
-        WHEN 'clas.abap' OR 'class.abap'.
+        WHEN 'clas' OR 'class'.
           ev_obj_type = 'CLAS'.
-        WHEN 'intf.abap'.
+        WHEN 'intf'.
           ev_obj_type = 'INTF'.
-        WHEN 'prog.abap' OR 'program.abap'.
+        WHEN 'prog' OR 'program'.
           ev_obj_type = 'PROG'.
-        WHEN 'fugr.abap'.
+        WHEN 'fugr'.
           ev_obj_type = 'FUGR'.
-        WHEN 'tabl.abap'.
+        WHEN 'tabl'.
           ev_obj_type = 'TABL'.
-        WHEN 'ddls.abap'.
+        WHEN 'ddls'.
           ev_obj_type = 'DDLS'.
         WHEN OTHERS.
-          " Try to parse from filename pattern
           CLEAR ev_obj_type.
       ENDCASE.
     ENDIF.
   ENDMETHOD.
 
   METHOD check_log_for_errors.
-    DATA lo_log TYPE REF TO zcl_abapgit_log.
-    lo_log = zcl_abapgit_log=>create_new( ).
-
+    " Check if activation log has errors
+    " This is a simplified check - actual implementation would query log entries
     rv_has_error = abap_false.
-
-    " Check if log has errors
-    DATA lt_logs TYPE zcl_abapgit_persistence_factory=>ty_logs.
-    " Implementation would check actual log entries
   ENDMETHOD.
 
   METHOD get_log_detail.
     " Get detailed log information
     " Implementation would return formatted log details
-    rv_detail = 'Log detail not implemented'.
+    rv_detail = 'Log detail retrieval not implemented'.
   ENDMETHOD.
 
   METHOD configure_credentials.
     " Configure credentials for git access
-    " Implementation would set up authentication
+    " This would set up authentication for the repo
     mv_configured = abap_true.
   ENDMETHOD.
 
