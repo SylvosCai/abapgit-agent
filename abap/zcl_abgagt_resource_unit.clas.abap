@@ -113,16 +113,12 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
 
     " Convert results
     LOOP AT ls_agent_result-results ASSIGNING FIELD-SYMBOL(<ls_result>).
-      DATA ls_item TYPE ty_result_item.
+      DATA ls_item TYPE zif_abgagt_agent=>ty_test_result.
       ls_item-object_name = <ls_result>-object_name.
       ls_item-test_method = <ls_result>-test_method.
       ls_item-status = <ls_result>-status.
       ls_item-message = <ls_result>-message.
-      IF <ls_result>-status = 'PASSED'.
-        ls_item-passed = abap_true.
-      ELSE.
-        ls_item-passed = abap_false.
-      ENDIF.
+      ls_item-line = <ls_result>-line.
       APPEND ls_item TO ls_response-results.
     ENDLOOP.
 
