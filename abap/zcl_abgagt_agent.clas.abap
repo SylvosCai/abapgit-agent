@@ -660,11 +660,15 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDLOOP.
 
     " Run tests
-    lo_runner->run(
-      EXPORTING
-        i_flg_select_only = abap_false
-      EXCEPTIONS
-        OTHERS = 1 ).
+    TRY.
+        lo_runner->run(
+          EXPORTING
+            i_flg_select_only = abap_false
+          EXCEPTIONS
+            OTHERS = 1 ).
+      CATCH cx_sut_error.
+        RETURN.
+    ENDTRY.
 
     IF sy-subrc <> 0.
       RETURN.
@@ -755,11 +759,15 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDLOOP.
 
     " Run tests
-    lo_runner->run(
-      EXPORTING
-        i_flg_select_only = abap_false
-      EXCEPTIONS
-        OTHERS = 1 ).
+    TRY.
+        lo_runner->run(
+          EXPORTING
+            i_flg_select_only = abap_false
+          EXCEPTIONS
+            OTHERS = 1 ).
+      CATCH cx_sut_error.
+        RETURN.
+    ENDTRY.
 
     IF sy-subrc <> 0.
       RETURN.
