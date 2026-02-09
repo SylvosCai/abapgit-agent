@@ -56,9 +56,9 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
           IMPORTING ev_obj_type = lv_objtp
                     ev_obj_name = lv_objnm ).
         IF lv_objtp IS NOT INITIAL AND lv_objnm IS NOT INITIAL.
-          APPEND INITIAL LINE TO ls_params-objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
-          <ls_obj>-object_type = lv_objtp.
-          <ls_obj>-object_name = lv_objnm.
+          APPEND INITIAL LINE TO ls_params-objects ASSIGNING FIELD-SYMBOL(<ls_param>).
+          <ls_param>-object_type = lv_objtp.
+          <ls_param>-object_name = lv_objnm.
         ENDIF.
       ENDLOOP.
     ENDIF.
@@ -72,9 +72,9 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
     " Convert objects to agent format
     DATA lt_objects TYPE zif_abgagt_agent=>ty_object_keys.
     LOOP AT ls_params-objects ASSIGNING FIELD-SYMBOL(<ls_param_obj>).
-      APPEND INITIAL LINE TO lt_objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
-      <ls_obj>-object_type = <ls_param_obj>-object_type.
-      <ls_obj>-object_name = <ls_param_obj>-object_name.
+      APPEND INITIAL LINE TO lt_objects ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-object_type = <ls_param_obj>-object_type.
+      <ls_result>-object_name = <ls_param_obj>-object_name.
     ENDLOOP.
 
     DATA(ls_result) = lo_runner->zif_abgagt_agent~run_tests(
