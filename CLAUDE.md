@@ -27,6 +27,15 @@ abap-ai-bridge/
 # Pull and activate from current git repo
 abapgit-agent pull
 
+# Pull specific files only
+abapgit-agent pull --files <file1>,<file2>,...
+
+# Pull from specific branch
+abapgit-agent pull --branch <branch>
+
+# Pull from specific URL
+abapgit-agent pull --url <git-url>
+
 # Syntax check for specific object
 abapgit-agent syntax-check <object_type> <object_name>
 
@@ -59,7 +68,59 @@ Icon │ Object                      │ Message
 ───────────────────────────────────────────────────────────────────────────────
 ✅ CLAS ZCL_MY_CLASS
 ...
+
+❌ Failed Objects Log (M entries):
+───────────────────────────────────────────────────────────────────────────────
+❌ CLAS ZCL_MY_CLASS: Error message text
+Exception: Exception details
 ```
+
+### Key Behaviors
+
+1. **Activated Objects** - Only includes objects that completed successfully (no errors in log)
+2. **Failed Objects Log** - Shows all error messages (duplicates allowed for multiple errors on same object)
+3. **Error Details** - When errors occur, displays error detail section at the top
+
+### Example with Errors
+
+```
+❌ Pull completed with errors!
+   Job ID: CAIS20260209041349
+   Message: Pull completed with errors
+
+📋 Error Details:
+───────────────────────────────────────────────────────────────────────────────
+CLAS ZCL_AI_MATH: The statement METHOD ... . is unexpected
+Exception: The statement METHOD ... . is unexpected
+
+📋 Pull Log (17 messages):
+───────────────────────────────────────────────────────────────────────────────
+Icon │ Object                      │ Message
+...
+❌ │ CLAS ZCL_AI_MATH             │ The statement METHOD ... . is unexpected
+
+📦 Activated Objects (3 unique):
+───────────────────────────────────────────────────────────────────────────────
+✅ CLAS ZCL_AI_MATH_HANDLER
+✅ CLAS ZCL_AI_SAMPLE
+
+❌ Failed Objects Log (3 entries):
+───────────────────────────────────────────────────────────────────────────────
+❌ CLAS ZCL_AI_MATH: The statement METHOD ... . is unexpected
+Exception: The statement METHOD ... . is unexpected
+❌ CLAS ZCL_AI_MATH: Import of object ZCL_AI_MATH failed
+❌ CLAS ZCL_AI_MATH_HANDLER: Error updating where-used list for CLAS ZCL_AI_MATH_HANDLER
+```
+
+### File Filtering
+
+Use `--files` to pull specific files:
+
+```bash
+abapgit-agent pull --files zcl_ai_math.clas.abap,zcl_ai_sample.clas.abap
+```
+
+Files in subdirectories are supported (e.g., `src/zcl_my_class.clas.abap`).
 
 ### JSON Response Structure
 
@@ -109,13 +170,13 @@ The REST API returns the following structure:
 | `job_id` | string | Unique job ID for the pull operation |
 | `message` | string | Human-readable status message |
 | `error_detail` | string | Detailed error messages (if any) |
-| `activated_count` | number | Number of unique activated objects |
-| `failed_count` | number | Number of failed objects |
+| `activated_count` | number | Number of unique activated objects (excludes objects with errors) |
+| `failed_count` | number | Number of failed object entries |
 | `started_at` | timestamp | Start time of the operation |
 | `finished_at` | timestamp | End time of the operation |
 | `log_messages` | array | All log messages (success, error, info, warning) |
 | `activated_objects` | array | Unique successfully activated objects |
-| `failed_objects` | array | Failed objects with error details |
+| `failed_objects` | array | All error log entries (duplicates allowed for multiple errors per object) |
 
 ### Message Types (TYPE field)
 
