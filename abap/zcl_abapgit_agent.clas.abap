@@ -32,17 +32,9 @@ CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         RAISING zcx_abapgit_exception,
 
       prepare_deserialize_checks
-        IMPORTING
-          it_files TYPE string_table OPTIONAL
         RETURNING
           VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
         RAISING zcx_abapgit_exception,
-
-      convert_file_to_object
-        IMPORTING
-          iv_file TYPE string
-        RETURNING
-          VALUE(rs_sig) TYPE ty_item_signature,
 
       check_log_for_errors
         RETURNING
@@ -95,13 +87,15 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
 
-          DATA(ls_checks) = prepare_deserialize_checks( it_files = it_files ).
+          DATA(ls_checks) = prepare_deserialize_checks( ).
 
           mo_repo->create_new_log( ).
 
+          " Pass files directly to deserialize for selective deserialization
           mo_repo->deserialize(
-            is_checks = ls_checks
-            ii_log   = mo_repo->get_log( ) ).
+            is_checks             = ls_checks
+            ii_log                = mo_repo->get_log( )
+            it_triggered_by_files = it_files ).
 
           " Check the abapGit log for errors and extract object lists
           DATA(lv_has_error) = check_log_for_errors( ).
@@ -174,35 +168,9 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
-    " Build list of files to deserialize (convert file names to obj_type + obj_name)
-    DATA lt_filtered_items TYPE STANDARD TABLE OF ty_item_signature.
-
-    IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-      LOOP AT it_files INTO DATA(lv_file).
-        DATA(ls_sig) = convert_file_to_object( lv_file ).
-        IF ls_sig-obj_type IS NOT INITIAL.
-          APPEND ls_sig TO lt_filtered_items.
-        ENDIF.
-      ENDLOOP.
-    ENDIF.
-
-    " Set decision for each file
     DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite INTO ls_overwrite.
-      IF lines( lt_filtered_items ) > 0.
-        " Check if file matches any in lt_filtered_items
-        READ TABLE lt_filtered_items WITH KEY obj_type = ls_overwrite-obj_type
-                                             obj_name = ls_overwrite-obj_name
-                                      TRANSPORTING NO FIELDS.
-        IF sy-subrc = 0.
-          ls_overwrite-decision = '1'.  " Overwrite = deserialize
-        ELSE.
-          ls_overwrite-decision = '2'.  " Skip = do not deserialize
-        ENDIF.
-      ELSE.
-        " No files specified, deserialize all
-        ls_overwrite-decision = '1'.
-      ENDIF.
+      ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
       MODIFY rs_checks-overwrite FROM ls_overwrite.
     ENDLOOP.
 
