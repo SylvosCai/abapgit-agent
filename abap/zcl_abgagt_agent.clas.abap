@@ -11,6 +11,12 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     INTERFACES: zif_abgagt_agent.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
+    METHODS: parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
 
   PROTECTED SECTION.
 
@@ -22,13 +28,6 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_item_signature.
 
     DATA: mo_repo TYPE REF TO zif_abapgit_repo.
-
-    METHODS: parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
 
     METHODS configure_credentials
       IMPORTING
