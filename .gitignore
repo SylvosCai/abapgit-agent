@@ -9,3 +9,4 @@ coverage/
 .abapgit_agent_cookies.txt
 cookies.txt
 .claude/
+cl_grcaud*.clas.abap

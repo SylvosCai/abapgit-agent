@@ -63,6 +63,56 @@ lv_json = /ui2/cl_json=>serialize( data = ls_response ).
 
 This is enforced by ABAP - manual string operations for JSON parsing will cause type conflicts.
 
+## Creating New ABAP Objects - XML Metadata Required
+
+**IMPORTANT**: When creating new ABAP objects in abapGit format, you MUST create XML metadata files alongside the `.clas.abap` and `.intf.abap` files.
+
+### XML Metadata Format for CLAS
+
+For `zcl_abgagt_util.clas.abap`, create `zcl_abgagt_util.clas.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_ABGAGT_UTIL</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Description</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+### XML Metadata Format for INTF
+
+For `zif_abgagt_util.intf.abap`, create `zif_abgagt_util.intf.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_INTF" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOINTERF>
+    <CLSNAME>ZIF_ABGAGT_UTIL</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Description</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+   </VSEOINTERF>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Without XML files**, abapGit will NOT recognize the objects during pull, and they won't be activated in the ABAP system.
+
 ```bash
 # After making changes to ABAP files
 git add .
