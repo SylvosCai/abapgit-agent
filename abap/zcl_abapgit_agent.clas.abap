@@ -94,9 +94,8 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
           mo_repo->create_new_log( ).
 
           mo_repo->deserialize(
-            is_checks             = ls_checks
-            ii_log                = mo_repo->get_log( )
-            it_triggered_by_files = it_files ).
+            is_checks = ls_checks
+            ii_log   = mo_repo->get_log( ) ).
 
           " Check the abapGit log for errors and extract object lists
           DATA(lv_has_error) = check_log_for_errors( ).
@@ -174,7 +173,10 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
       DATA lt_filtered_overwrite LIKE rs_checks-overwrite.
       LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
         LOOP AT it_files INTO DATA(lv_requested_file).
-          IF ls_overwrite-path CS lv_requested_file.
+          " Check if file path contains the requested file
+          DATA lv_path TYPE string.
+          CONCATENATE '/' lv_requested_file INTO lv_path.
+          IF ls_overwrite-file CP lv_path.
             ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
             APPEND ls_overwrite TO lt_filtered_overwrite.
             EXIT.
