@@ -11,7 +11,7 @@
  * Auto-detects git remote URL and branch from current directory.
  */
 
-const path = require('path');
+const pathModule = require('path');
 const fs = require('fs');
 
 const COOKIE_FILE = '.abapgit_agent_cookies.txt';
@@ -20,7 +20,7 @@ const COOKIE_FILE = '.abapgit_agent_cookies.txt';
  * Load configuration from .abapGitAgent in current working directory
  */
 function loadConfig() {
-  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  const repoConfigPath = pathModule.join(process.cwd(), '.abapGitAgent');
 
   if (fs.existsSync(repoConfigPath)) {
     return JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
@@ -43,7 +43,7 @@ function loadConfig() {
  * Check if ABAP integration is configured for this repo
  */
 function isAbapIntegrationEnabled() {
-  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  const repoConfigPath = pathModule.join(process.cwd(), '.abapGitAgent');
   return fs.existsSync(repoConfigPath);
 }
 
@@ -51,7 +51,7 @@ function isAbapIntegrationEnabled() {
  * Get git remote URL from .git/config
  */
 function getGitRemoteUrl() {
-  const gitConfigPath = path.join(process.cwd(), '.git', 'config');
+  const gitConfigPath = pathModule.join(process.cwd(), '.git', 'config');
 
   if (!fs.existsSync(gitConfigPath)) {
     return null;
@@ -72,7 +72,7 @@ function getGitRemoteUrl() {
  * Get current git branch
  */
 function getGitBranch() {
-  const headPath = path.join(process.cwd(), '.git', 'HEAD');
+  const headPath = pathModule.join(process.cwd(), '.git', 'HEAD');
 
   if (!fs.existsSync(headPath)) {
     return 'main';
@@ -88,7 +88,7 @@ function getGitBranch() {
  * Supports both Netscape format and simple cookie string format
  */
 function readNetscapeCookies() {
-  const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+  const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
   if (!fs.existsSync(cookiePath)) return '';
 
   const content = fs.readFileSync(cookiePath, 'utf8').trim();
@@ -120,7 +120,7 @@ function readNetscapeCookies() {
  * Save cookies to Netscape format cookie file
  */
 function saveCookies(cookies, host) {
-  const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+  const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
 
   // Parse cookies and convert to Netscape format
   const cookieList = cookies.split(';').map(c => c.trim()).filter(Boolean);
@@ -151,7 +151,7 @@ async function fetchCsrfToken(config) {
 
   return new Promise((resolve, reject) => {
     // Clear stale cookies before fetching new token
-    const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+    const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
     if (fs.existsSync(cookiePath)) {
       fs.unlinkSync(cookiePath);
     }
@@ -201,15 +201,15 @@ async function fetchCsrfToken(config) {
 /**
  * Make HTTP request to ABAP REST endpoint
  */
-function request(method, path, data = null, options = {}) {
+function request(method, urlPath, data = null, options = {}) {
   return new Promise((resolve, reject) => {
     const https = require('https');
     const http = require('http');
     const config = loadConfig();
-    const url = new URL(path, `https://${config.host}:${config.sapport}`);
+    const url = new URL(urlPath, `https://${config.host}:${config.sapport}`);
 
     // Clear stale cookies before making request
-    const cookiePath = path.join(process.cwd(), COOKIE_FILE);
+    const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
     if (fs.existsSync(cookiePath)) {
       fs.unlinkSync(cookiePath);
     }
@@ -343,9 +343,9 @@ async function syntaxCheckSource(sourceFile) {
 
   try {
     // Read file content
-    const absolutePath = path.isAbsolute(sourceFile)
+    const absolutePath = pathModule.isAbsolute(sourceFile)
       ? sourceFile
-      : path.join(process.cwd(), sourceFile);
+      : pathModule.join(process.cwd(), sourceFile);
 
     if (!fs.existsSync(absolutePath)) {
       console.error(`\n  Error: File not found: ${absolutePath}`);
@@ -360,7 +360,7 @@ async function syntaxCheckSource(sourceFile) {
     // Extract source name from file path
     // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS"
     // e.g., "z_my_program.prog.abap" -> "Z_MY_PROGRAM"
-    let sourceName = path.basename(sourceFile);
+    let sourceName = pathModule.basename(sourceFile);
     sourceName = sourceName.replace('.clas.abap', '').replace('.prog.abap', '');
     sourceName = sourceName.toUpperCase();
 
@@ -399,7 +399,7 @@ async function syntaxCheckSource(sourceFile) {
         console.log('');
       }
     } else if (success === 'X' || success === true) {
-      console.log(`✅ ${path.basename(sourceFile)} - Syntax check passed (0 errors)`);
+      console.log(`✅ ${pathModule.basename(sourceFile)} - Syntax check passed (0 errors)`);
     } else {
       console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
     }
@@ -698,7 +698,7 @@ To enable integration:
       case 'status':
         if (isAbapIntegrationEnabled()) {
           console.log('✅ ABAP Git Agent is ENABLED');
-          console.log('   Config location:', path.join(process.cwd(), '.abapGitAgent'));
+          console.log('   Config location:', pathModule.join(process.cwd(), '.abapGitAgent'));
         } else {
           console.log('❌ ABAP Git Agent is NOT configured');
         }
