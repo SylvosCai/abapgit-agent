@@ -34,7 +34,8 @@
       "Bash(DEBUG=1 abapgit-agent unit:*)",
       "Bash(abapgit-agent unit:*)",
       "Bash(printf:*)",
-      "Bash(./bin/abapgit-agent:*)"
+      "Bash(./bin/abapgit-agent:*)",
+      "Bash(DEBUG=1 ./bin/abapgit-agent:*)"
     ]
   }
 }
