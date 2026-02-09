@@ -1,6 +1,9 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
+" TODO: Rename to ZCL_ABAPGIT_AGENT_INSPECT and /inspect endpoint
+" TODO: Add check_type parameter (SYNTAX, CODE_INSPECTOR, ATC, CUSTOM)
+" TODO: Support multiple check variants and detailed result reporting
 CLASS zcl_abapgit_agent_syntax DEFINITION PUBLIC FINAL
                              INHERITING FROM cl_rest_resource
                              CREATE PUBLIC.

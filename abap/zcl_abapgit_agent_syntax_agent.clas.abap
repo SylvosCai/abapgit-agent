@@ -1,6 +1,12 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
+" TODO: Rename to ZCL_ABAPGIT_AGENT_INSPECT_AGENT
+" TODO: Add methods for different check types:
+"       - syntax_check (currently implemented)
+"       - code_inspector_check (SCI)
+"       - atc_check (SATC)
+"       - custom_rule_check
 CLASS zcl_abapgit_agent_syntax_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
