@@ -27,6 +27,9 @@ abapgit-agent pull
 # Pull with specific branch
 abapgit-agent pull --branch develop
 
+# Pull specific files only (fast iteration)
+abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
+
 # Override git URL if needed
 abapgit-agent pull --url https://github.com/user/repo --branch main
 
