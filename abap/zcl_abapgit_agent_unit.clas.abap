@@ -10,8 +10,6 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
       if_rest_resource~post REDEFINITION.
 
   PRIVATE SECTION.
-    DATA mo_agent TYPE REF TO zcl_abapgit_agent_unit_agent.
-
     TYPES: BEGIN OF ty_object,
              object_type TYPE string,
              object_name TYPE string,
@@ -25,15 +23,6 @@ CLASS zcl_abapgit_agent_unit DEFINITION PUBLIC FINAL
              files TYPE STANDARD TABLE OF string,
            END OF ty_request.
 
-    METHODS parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
-
-ENDCLASS.
-
     TYPES: BEGIN OF ty_result_item,
              object_name TYPE string,
              test_method TYPE string,
@@ -43,6 +32,15 @@ ENDCLASS.
            END OF ty_result_item.
 
     TYPES ty_results TYPE STANDARD TABLE OF ty_result_item WITH NON-UNIQUE DEFAULT KEY.
+
+    DATA mo_agent TYPE REF TO zcl_abapgit_agent_unit_agent.
+
+    METHODS parse_file_to_object
+      IMPORTING
+        iv_file TYPE string
+      EXPORTING
+        ev_obj_type TYPE string
+        ev_obj_name TYPE string.
 
 ENDCLASS.
 
@@ -186,8 +184,9 @@ CLASS zcl_abapgit_agent_unit IMPLEMENTATION.
     DATA lv_offs TYPE i.
     lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
     IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
+      DATA lv_start TYPE i.
+      lv_start = lv_offs + 1.
+      lv_obj_name = lv_obj_name+lv_start.
     ENDIF.
 
     " Remove leading '/' if present
