@@ -6,7 +6,7 @@ CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
     CLASS-METHODS get_instance
       RETURNING VALUE(ro_factory) TYPE REF TO zcl_abgagt_cmd_factory.
 
-    METHODS get_command REDEFINITION.
+    METHODS get_command.
 
   PRIVATE SECTION.
     METHODS constructor.
