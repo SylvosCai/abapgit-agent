@@ -1,5 +1,7 @@
 /**
  * ABAP Client - Connects to SAP ABAP system via REST/HTTP
+ * Supports both legacy endpoints (/pull, /syntax-check, /unit)
+ * and new command API (/command) when useCommandApi is enabled
  */
 
 const https = require('https');
@@ -8,6 +10,17 @@ const fs = require('fs');
 const path = require('path');
 const { getAbapConfig } = require('./config');
 const logger = require('./logger');
+
+// Lazy load command client to avoid circular dependencies
+let commandClient = null;
+
+function getCommandClient() {
+  if (!commandClient) {
+    const { getClient } = require('./command-client');
+    commandClient = getClient();
+  }
+  return commandClient;
+}
 
 class ABAPClient {
   constructor() {
@@ -29,10 +42,19 @@ class ABAPClient {
         client: cfg.client,
         language: cfg.language || 'EN',
         gitUsername: cfg.gitUsername,
-        gitPassword: cfg.gitPassword
+        gitPassword: cfg.gitPassword,
+        useCommandApi: cfg.useCommandApi || false
       };
     }
     return this.config;
+  }
+
+  /**
+   * Check if should use command API (based on config)
+   */
+  shouldUseCommandApi() {
+    const cfg = this.getConfig();
+    return cfg.useCommandApi === true;
   }
 
   /**
@@ -204,10 +226,18 @@ class ABAPClient {
 
   /**
    * Pull repository and activate
+   * Uses command API if useCommandApi config is enabled, otherwise uses legacy /pull endpoint
    */
   async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null) {
     const cfg = this.getConfig();
 
+    // Use command API if enabled
+    if (this.shouldUseCommandApi()) {
+      logger.info('Using command API for pull', { repoUrl, branch });
+      return await getCommandClient().pull(repoUrl, branch, gitUsername, gitPassword, files);
+    }
+
+    // Legacy /pull endpoint
     // Fetch CSRF token first (using GET /pull with X-CSRF-Token: fetch)
     await this.fetchCsrfToken();
 
@@ -225,7 +255,7 @@ class ABAPClient {
     data.username = gitUsername || cfg.gitUsername;
     data.password = gitPassword || cfg.gitPassword;
 
-    logger.info('Starting pull operation', { repoUrl, branch, service: 'abapgit-agent' });
+    logger.info('Starting pull operation (legacy endpoint)', { repoUrl, branch, service: 'abapgit-agent' });
 
     return await this.request('POST', '/pull', data, { csrfToken: this.csrfToken });
   }
@@ -244,8 +274,16 @@ class ABAPClient {
 
   /**
    * Check syntax of an ABAP object
+   * Uses command API if useCommandApi config is enabled, otherwise uses legacy /syntax-check endpoint
    */
   async syntaxCheck(objectType, objectName) {
+    // Use command API if enabled
+    if (this.shouldUseCommandApi()) {
+      logger.info('Using command API for syntax check', { objectType, objectName });
+      return await getCommandClient().syntaxCheck(objectType, objectName);
+    }
+
+    // Legacy /syntax-check endpoint
     // Fetch CSRF token first
     await this.fetchCsrfToken();
 
@@ -254,7 +292,7 @@ class ABAPClient {
       object_name: objectName
     };
 
-    logger.info('Starting syntax check', { objectType, objectName, service: 'abapgit-agent' });
+    logger.info('Starting syntax check (legacy endpoint)', { objectType, objectName, service: 'abapgit-agent' });
 
     return await this.request('POST', '/syntax-check', data, { csrfToken: this.csrfToken });
   }
@@ -264,8 +302,16 @@ class ABAPClient {
    * @param {string} packageName - Package name to run tests for (optional)
    * @param {Array} objects - Array of {object_type, object_name} objects (optional)
    * @returns {object} Unit test results
+   * Uses command API if useCommandApi config is enabled, otherwise uses legacy /unit endpoint
    */
   async unitTest(packageName = null, objects = []) {
+    // Use command API if enabled
+    if (this.shouldUseCommandApi()) {
+      logger.info('Using command API for unit test', { package: packageName });
+      return await getCommandClient().unitTest(packageName, objects);
+    }
+
+    // Legacy /unit endpoint
     // Fetch CSRF token first
     await this.fetchCsrfToken();
 
@@ -279,7 +325,7 @@ class ABAPClient {
       data.objects = objects;
     }
 
-    logger.info('Starting unit tests', { package: packageName, objects, service: 'abapgit-agent' });
+    logger.info('Starting unit tests (legacy endpoint)', { package: packageName, objects, service: 'abapgit-agent' });
 
     return await this.request('POST', '/unit', data, { csrfToken: this.csrfToken });
   }

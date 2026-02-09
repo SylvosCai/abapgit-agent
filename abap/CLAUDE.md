@@ -86,6 +86,32 @@ ENDCLASS.
 CLASS zcl_my_class DEFINITION PUBLIC.  " <- PUBLIC required
 ```
 
+## Interface Method Implementation
+
+When implementing interface methods in ABAP classes, use the interface prefix:
+
+```abap
+" Interface definition
+INTERFACE zif_my_interface PUBLIC.
+  METHODS do_something IMPORTING iv_param TYPE string.
+ENDINTERFACE.
+
+" Class implementation - use interface prefix
+CLASS zcl_my_class DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES zif_my_interface.
+ENDCLASS.
+
+CLASS zcl_my_class IMPLEMENTATION.
+  METHOD zif_my_interface~do_something.  " <- Use interface prefix
+    " Implementation here
+  ENDMETHOD.
+ENDCLASS.
+```
+
+**Wrong**: `METHOD do_something.` - parameter `iv_param` will be unknown
+**Correct**: `METHOD zif_my_interface~do_something.` - parameters recognized
+
 ## Creating New ABAP Objects - XML Metadata Required
 
 **IMPORTANT**: When creating new ABAP objects in abapGit format, you MUST create XML metadata files alongside the `.clas.abap` and `.intf.abap` files.

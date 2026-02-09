@@ -50,7 +50,8 @@ function getAbapConfig() {
     password: cfg.password,
     language: cfg.language || 'EN',
     gitUsername: cfg.gitUsername || process.env.GIT_USERNAME,
-    gitPassword: cfg.gitPassword || process.env.GIT_PASSWORD
+    gitPassword: cfg.gitPassword || process.env.GIT_PASSWORD,
+    useCommandApi: cfg.useCommandApi || false
   };
 }
 

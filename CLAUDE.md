@@ -152,9 +152,24 @@ Create `.abapGitAgent` in repository root:
   "password": "your-password",
   "language": "EN",
   "gitUsername": "git-username",
-  "gitPassword": "git-token"
+  "gitPassword": "git-token",
+  "useCommandApi": false
 }
 ```
+
+### Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `host` | SAP system hostname | Required |
+| `sapport` | SAP port (usually 443) | 443 |
+| `client` | SAP client number | 100 |
+| `user` | SAP username | Required |
+| `password` | SAP password | Required |
+| `language` | SAP language | EN |
+| `gitUsername` | Git username/token | Optional |
+| `gitPassword` | Git password/token | Optional |
+| `useCommandApi` | Use new `/command` endpoint | false |
 
 ### Environment Variables
 ```bash
@@ -167,6 +182,18 @@ export ABAP_LANGUAGE="EN"
 export GIT_USERNAME="git-username"
 export GIT_PASSWORD="git-token"
 ```
+
+### Feature Flag: useCommandApi
+
+The `useCommandApi` option controls whether to use the new command-based API (`/command` endpoint) or the legacy endpoints (`/pull`, `/syntax-check`, `/unit`):
+
+- `false` (default): Use legacy endpoints - stable, production-tested
+- `true`: Use new command API - enables command factory pattern for extensibility
+
+The new command API supports the same operations but routes them through a command factory pattern:
+- `PULL` - Pull and activate ABAP objects
+- `INSPECT` - Syntax check ABAP objects
+- `UNIT` - Run unit tests
 
 ## Development Workflow
 
