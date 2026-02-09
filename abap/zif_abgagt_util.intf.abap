@@ -26,25 +26,16 @@ INTERFACE zif_abgagt_util PUBLIC.
       VALUE(rv_detail) TYPE string.
 
   "! Configure git credentials for repo access
-  "! @parameter iv_url | Git repository URL
-  "! @parameter iv_username | Git username
-  "! @parameter iv_password | Git password/token
-  "! @raising zcx_abapgit_exception | Configuration error
   METHODS configure_credentials
     IMPORTING
       iv_url TYPE string
       iv_username TYPE string
-      iv_password TYPE string
-    RAISING
-      zcx_abapgit_exception.
+      iv_password TYPE string.
 
   "! Build abapGit repo instance
   "! @parameter iv_url | Git repository URL
-  "! @return ro_repo | Repository instance
   METHODS build_repo
     IMPORTING
-      iv_url TYPE string
-    RETURNING
-      VALUE(ro_repo) TYPE REF TO zif_abapgit_repo.
+      iv_url TYPE string.
 
 ENDINTERFACE.

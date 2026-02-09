@@ -22,12 +22,6 @@ CLASS zcl_abgagt_inspect DEFINITION PUBLIC CREATE PRIVATE.
     METHODS constructor
       IMPORTING io_util TYPE REF TO zif_abgagt_util.
 
-    METHODS inspect_single_file
-      IMPORTING
-        iv_file TYPE string
-      RETURNING
-        VALUE(rs_result) TYPE REF TO data.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_inspect IMPLEMENTATION.
@@ -50,18 +44,6 @@ CLASS zcl_abgagt_inspect IMPLEMENTATION.
 
   METHOD get_name.
     rv_name = zif_abgagt_command=>co_inspect.
-  ENDMETHOD.
-
-  METHOD execute.
-    " Execute inspect for multiple files
-    " This is a stub - actual implementation would use CL_CI_INSPECTION
-    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_inspect_result.
-  ENDMETHOD.
-
-  METHOD inspect_single_file.
-    " Inspect single file implementation
-    " This would use CL_CI_INSPECTION for syntax check
-    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_inspect_result.
   ENDMETHOD.
 
 ENDCLASS.

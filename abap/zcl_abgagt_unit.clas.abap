@@ -22,12 +22,6 @@ CLASS zcl_abgagt_unit DEFINITION PUBLIC CREATE PRIVATE.
     METHODS constructor
       IMPORTING io_util TYPE REF TO zif_abgagt_util.
 
-    METHODS run_unit_tests
-      IMPORTING
-        it_files TYPE string_table
-      RETURNING
-        VALUE(rs_result) TYPE REF TO data.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_unit IMPLEMENTATION.
@@ -50,18 +44,6 @@ CLASS zcl_abgagt_unit IMPLEMENTATION.
 
   METHOD get_name.
     rv_name = zif_abgagt_command=>co_unit.
-  ENDMETHOD.
-
-  METHOD execute.
-    " Execute unit tests for multiple files
-    " This is a stub - actual implementation would use CL_SUT_AUNIT_RUNNER
-    rs_result = run_unit_tests( it_files ).
-  ENDMETHOD.
-
-  METHOD run_unit_tests.
-    " Run unit tests implementation
-    " This would use CL_SUT_AUNIT_RUNNER or CL_AUCV_TEST_RUNNER_STANDARD
-    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_unit_result.
   ENDMETHOD.
 
 ENDCLASS.

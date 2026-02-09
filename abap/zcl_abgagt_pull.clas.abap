@@ -23,12 +23,6 @@ CLASS zcl_abgagt_pull DEFINITION PUBLIC CREATE PRIVATE.
     METHODS constructor
       IMPORTING io_util TYPE REF TO zif_abgagt_util.
 
-    METHODS pull_files
-      IMPORTING
-        it_files TYPE string_table
-      RETURNING
-        VALUE(rs_result) TYPE REF TO data.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_pull IMPLEMENTATION.
@@ -51,20 +45,6 @@ CLASS zcl_abgagt_pull IMPLEMENTATION.
 
   METHOD get_name.
     rv_name = zif_abgagt_command=>co_pull.
-  ENDMETHOD.
-
-  METHOD execute.
-    " Execute pull for multiple files
-    " For now, return success as this is a stub
-    " The actual implementation would delegate to zcl_abgagt_agent=>pull
-    rs_result = pull_files( it_files ).
-  ENDMETHOD.
-
-  METHOD pull_files.
-    " Stub implementation - delegate to existing agent
-    " This would return a ty_result structure
-    " For now, return empty result
-    CREATE DATA rs_result TYPE zif_abgagt_agent=>ty_result.
   ENDMETHOD.
 
 ENDCLASS.

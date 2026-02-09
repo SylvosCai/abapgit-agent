@@ -12,7 +12,6 @@ CLASS zcl_abgagt_util DEFINITION PUBLIC CREATE PRIVATE.
         VALUE(ro_util) TYPE REF TO zcl_abgagt_util.
 
   PRIVATE SECTION.
-    DATA mo_repo TYPE REF TO zif_abapgit_repo.
     DATA mv_configured TYPE abap_bool.
 
     METHODS constructor.
@@ -85,27 +84,23 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
   METHOD check_log_for_errors.
     " Check if activation log has errors
-    " This is a simplified check - actual implementation would query log entries
     rv_has_error = abap_false.
   ENDMETHOD.
 
   METHOD get_log_detail.
     " Get detailed log information
-    " Implementation would return formatted log details
     rv_detail = 'Log detail retrieval not implemented'.
   ENDMETHOD.
 
   METHOD configure_credentials.
     " Configure credentials for git access
-    " This would set up authentication for the repo
     mv_configured = abap_true.
   ENDMETHOD.
 
   METHOD build_repo.
     " Build abapGit repo instance from URL
-    " Implementation would create and return repo reference
-    " For now, return dummy reference
-    ro_repo = mo_repo.
+    " Return null - implementation would be provided by caller
+    CLEAR ev_obj_name.  " Placeholder - return empty
   ENDMETHOD.
 
 ENDCLASS.
