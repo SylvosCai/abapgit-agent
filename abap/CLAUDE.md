@@ -11,11 +11,38 @@ This is an ABAP project. **Do not attempt local syntax validation** - ABAP code 
 **To validate ABAP code:**
 
 1. After generating code, push changes to git
-2. Run `abapgit-agent pull` to pull and activate in ABAP system
+2. Pull only changed files (fast):
+   ```bash
+   abapgit-agent pull --files abap/zcl_my_class.clas.abap
+   ```
+   Or pull all files:
+   ```bash
+   abapgit-agent pull
+   ```
 3. Review activation results carefully
 4. **"Error updating where-used list" = SYNTAX ERROR** - This is NOT a warning!
 5. If Failed Objects > 0, there are syntax errors - fix them before proceeding
-6. Use `abapgit-agent syntax-check <type> <name>` for detailed error info
+6. Use `abapgit-agent inspect --files <file>` for detailed error info
+
+## Fast Iteration Workflow
+
+For quick ABAP code changes:
+
+```bash
+# 1. Make small change to ABAP file
+# 2. Commit and push
+git add abap/zcl_my_class.clas.abap
+git commit -m "fix: ..."
+git push
+
+# 3. Pull only changed file (seconds, not minutes)
+abapgit-agent pull --files abap/zcl_my_class.clas.abap
+
+# 4. Verify with inspect
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# 5. Repeat until done
+```
 
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
@@ -44,14 +71,17 @@ git add .
 git commit -m "Describe changes"
 git push
 
-# Validate in ABAP system
+# Validate in ABAP system (single file - fast)
+abapgit-agent pull --files abap/zcl_my_class.clas.abap
+
+# Or validate all files
 abapgit-agent pull
 
-# Check specific object for syntax errors
-abapgit-agent syntax-check CLAS ZCL_MY_CLASS
+# Check specific file for syntax errors
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
-# Run unit tests (planned)
-abapgit-agent unit --package ZMY_PACKAGE
+# Run unit tests
+abapgit-agent unit --files abap/zcl_my_test.clas.abap
 ```
 
 ## Handling Persistent Syntax Errors
@@ -86,7 +116,7 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
 ⚠️  Failed Objects (1):
    ✗ CLAS ZCL_MY_CLASS: Error updating where-used list
 
-Action: The class has syntax errors. Use syntax-check to get details.
+Action: The class has syntax errors. Use inspect to get details.
 ```
 
 ## Check Local Implementation First
@@ -94,7 +124,7 @@ Action: The class has syntax errors. Use syntax-check to get details.
 When implementing new features or fixing issues:
 
 1. **Always check local implementations first** - This project already contains working examples of:
-   - REST handlers (e.g., `zcl_abapgit_agent_pull`, `zcl_abapgit_agent_syntax`)
+   - REST handlers (e.g., `zcl_abapgit_agent_pull`, `zcl_abapgit_agent_inspect`)
    - JSON serialization using `/ui2/cl_json`
    - ABAP object activation patterns
    - Error handling approaches

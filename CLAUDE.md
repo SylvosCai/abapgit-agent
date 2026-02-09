@@ -260,11 +260,40 @@ export GIT_PASSWORD="git-token"
 
 ## Development Workflow
 
-1. Make changes to CLI code (JavaScript) or ABAP backend (abap/ folder)
+### CLI Tool Development
+
+1. Make changes to CLI code (JavaScript)
 2. Test locally: `node bin/abapgit-agent pull`
 3. Test against real ABAP system
 4. Commit and push
-5. Deploy ABAP changes via abapGit to your SAP system
+
+### ABAP Backend Development
+
+1. Make changes to ABAP backend (abap/ folder)
+2. Pull only changed files (faster):
+   ```bash
+   abapgit-agent pull --files abap/zcl_my_class.clas.abap
+   ```
+   Or pull all files:
+   ```bash
+   abapgit-agent pull
+   ```
+3. Verify changes with `inspect` and `unit`:
+   ```bash
+   abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+   abapgit-agent unit --files abap/zcl_my_test.clas.abap
+   ```
+4. Commit and push
+5. Deploy changes via abapGit to your SAP system
+
+### Fast Iteration Workflow
+
+For quick ABAP code changes:
+1. Make small change to ABAP file
+2. `git add <file> && git commit -m "fix"`
+3. `abapgit-agent pull --files <file>` (seconds, not minutes)
+4. Test with `inspect` or `unit` command
+5. Repeat until done
 
 ## For ABAP Code Generation
 
