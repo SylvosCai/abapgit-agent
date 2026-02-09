@@ -1,6 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
+" UNIT command implementation - runs unit tests
 CLASS zcl_abgagt_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
