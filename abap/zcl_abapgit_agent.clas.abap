@@ -172,11 +172,26 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
     " Set decision for each file
     DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
     LOOP AT rs_checks-overwrite INTO ls_overwrite.
-      " Ensure decision is set
-      IF ls_overwrite-decision IS INITIAL.
+      IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+        " Files specified - check if this file is in the list
+        DATA lv_included TYPE abap_bool.
+        lv_included = abap_false.
+        LOOP AT it_files INTO DATA(lv_requested_file).
+          IF ls_overwrite-path CS lv_requested_file.
+            lv_included = abap_true.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        IF lv_included = abap_true.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+        ELSE.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_no.
+        ENDIF.
+      ELSE.
+        " No files specified - deserialize all
         ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-        MODIFY rs_checks-overwrite FROM ls_overwrite.
       ENDIF.
+      MODIFY rs_checks-overwrite FROM ls_overwrite.
     ENDLOOP.
 
     DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
