@@ -179,35 +179,35 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
         lv_upper = lv_file.
         TRANSLATE lv_upper TO UPPER CASE.
 
-        DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
-        IF lv_upper CS '.CLAS.ABAP'.
-          ls_sig-obj_type = 'CLAS'.
-          REPLACE '.CLAS.ABAP' IN lv_upper WITH ''.
-        ELSEIF lv_upper CS '.CLAS.PROG.ABAP'.
-          ls_sig-obj_type = 'PROG'.
-          REPLACE '.CLAS.PROG.ABAP' IN lv_upper WITH ''.
-        ELSEIF lv_upper CS '.PROG.ABAP'.
-          ls_sig-obj_type = 'PROG'.
-          REPLACE '.PROG.ABAP' IN lv_upper WITH ''.
-        ELSEIF lv_upper CS '.INTF.ABAP'.
-          ls_sig-obj_type = 'INTF'.
-          REPLACE '.INTF.ABAP' IN lv_upper WITH ''.
-        ELSEIF lv_upper CS '.FUGR.ABAP'.
-          ls_sig-obj_type = 'FUGR'.
-          REPLACE '.FUGR.ABAP' IN lv_upper WITH ''.
-        ELSEIF lv_upper CS '.TABL.ABAP'.
-          ls_sig-obj_type = 'TABL'.
-          REPLACE '.TABL.ABAP' IN lv_upper WITH ''.
-        ENDIF.
-
-        " Extract object name from path (remove directory prefix)
+        " Extract just the filename from path
         REPLACE ALL OCCURRENCES OF '\' IN lv_upper WITH '/'.
         FIND LAST OCCURRENCE OF '/' IN lv_upper MATCH OFFSET DATA(lv_pos).
         IF sy-subrc = 0.
           lv_upper = lv_upper+lv_pos.
         ENDIF.
 
-        ls_sig-obj_name = lv_upper.
+        " Split filename by '.' to get obj_name, obj_type, and verify 'ABAP'
+        DATA lt_parts TYPE TABLE OF string.
+        SPLIT lv_upper AT '.' INTO TABLE lt_parts.
+        DATA lv_part_count TYPE i.
+        lv_part_count = lines( lt_parts ).
+
+        IF lv_part_count < 3.
+          " Invalid file format - skip
+          CONTINUE.
+        ENDIF.
+
+        " Last part should be 'ABAP' for verification
+        READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
+        IF lv_last <> 'ABAP'.
+          " Not an ABAP source file - skip
+          CONTINUE.
+        ENDIF.
+
+        " First part is obj_name, second part is obj_type
+        DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
+        READ TABLE lt_parts INDEX 1 INTO ls_sig-obj_name.
+        READ TABLE lt_parts INDEX 2 INTO ls_sig-obj_type.
         INSERT ls_sig INTO TABLE lt_valid_files.
       ENDLOOP.
     ENDIF.
