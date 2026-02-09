@@ -64,7 +64,7 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
       LOOP AT ls_request-files INTO DATA(lv_file).
         DATA lv_obj_type TYPE string.
         DATA lv_obj_name TYPE string.
-        mo_agent->parse_file_to_object(
+        mo_agent->zif_abgagt_agent~parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
@@ -98,7 +98,7 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
             passed_count TYPE i,
             failed_count TYPE i,
             message TYPE string,
-            results TYPE ty_results,
+            results TYPE zif_abgagt_agent=>ty_test_results,
           END OF ls_response.
 
     " Convert success
