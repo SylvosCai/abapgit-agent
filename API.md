@@ -8,8 +8,8 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/syntax-check` | Check syntax of specific ABAP object |
-| POST | `/unit` | Execute unit tests (planned) |
+| POST | `/syntax-check` | Inspect source file (syntax check) |
+| POST | `/unit` | Execute unit tests |
 
 ## GET /health
 
@@ -61,17 +61,28 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/pull" \
   "url": "https://github.tools.sap/user/repo.git",
   "branch": "main",
   "username": "git-username",
-  "password": "git-token"
+  "password": "git-token",
+  "files": ["zcl_my_class.clas.abap", "zcl_other.clas.abap"]
 }
 ```
+
+### File Format
+
+Files are parsed to extract `(obj_type, obj_name)`:
+- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
+- `src/zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS (subdirectory support)
 
 ### Response (success)
 
 ```json
 {
   "success": "X",
-  "job_id": "USER123_20260206_120000",
-  "message": "Pull completed successfully"
+  "job_id": "CAIS20260208115649",
+  "message": "Pull completed successfully",
+  "activated_count": 10,
+  "failed_count": 0,
+  "activated_objects": [...],
+  "failed_objects": [...]
 }
 ```
 
@@ -80,34 +91,39 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/pull" \
 ```json
 {
   "success": "",
-  "job_id": "USER123_20260206_120000",
-  "message": "Pull completed with activation errors",
-  "error_detail": "Errors/Warnings:\n  - CLAS ZCL_TEST_CLASS: syntax error"
+  "job_id": "CAIS20260209041349",
+  "message": "Pull completed with errors",
+  "error_detail": "CLAS ZCL_MY_CLASS: Syntax error\nException: The statement...",
+  "activated_count": 9,
+  "failed_count": 2,
+  "activated_objects": [...],
+  "failed_objects": [
+    {
+      "type": "E",
+      "text": "The statement METHOD is unexpected",
+      "obj_type": "CLAS",
+      "obj_name": "ZCL_MY_CLASS",
+      "exception": "The statement METHOD is unexpected"
+    }
+  ]
 }
 ```
 
 ## POST /syntax-check
 
-Check syntax of a specific ABAP object.
-
-```bash
-curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/syntax-check" \
-  -H "Content-Type: application/json" \
-  -H "sap-client: 100" \
-  -H "X-CSRF-Token: $CSRF" \
-  -b cookies.txt \
-  -u USER:PASSWORD \
-  -d '{"object_type": "CLAS", "object_name": "ZCL_MY_CLASS"}'
-```
+Inspect source file for issues (currently runs syntax check via Code Inspector).
 
 ### Request Body
 
 ```json
 {
-  "object_type": "CLAS",
-  "object_name": "ZCL_MY_CLASS"
+  "source_name": "ZCL_MY_CLASS.CLASS.ABAP"
 }
 ```
+
+The endpoint parses the file name to extract `obj_type` and `obj_name`:
+- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
+- `src/zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
 
 ### Response (success)
 
@@ -144,6 +160,69 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/syntax-check" \
 }
 ```
 
+## POST /unit
+
+Execute unit tests (AUnit) for test class files.
+
+### Request Body
+
+```json
+{
+  "files": ["zcl_my_test.clas.abap", "zcl_other_test.clas.abap"]
+}
+```
+
+The endpoint parses file names to extract `obj_type` and `obj_name`, then runs tests for each test class found.
+
+### Response (success)
+
+```json
+{
+  "success": "X",
+  "test_count": 10,
+  "passed_count": 10,
+  "failed_count": 0,
+  "message": "All 10 tests passed",
+  "results": [
+    {
+      "object_name": "ZCL_MY_TEST",
+      "test_method": "TEST_METHOD_1",
+      "status": "PASSED",
+      "message": "Test passed",
+      "passed": true
+    }
+  ]
+}
+```
+
+### Response (with failures)
+
+```json
+{
+  "success": "",
+  "test_count": 5,
+  "passed_count": 3,
+  "failed_count": 2,
+  "message": "2 of 5 tests failed",
+  "results": [
+    {
+      "object_name": "ZCL_MY_TEST",
+      "test_method": "TEST_METHOD_1",
+      "status": "FAILED",
+      "message": "Expected X but got Y",
+      "passed": false
+    },
+    {
+      "object_name": "ZCL_MY_TEST",
+      "test_method": "TEST_METHOD_2",
+      "status": "ERROR",
+      "message": "Reference is initial",
+      "passed": false
+    }
+  ]
+}
+```
+
 ## Response Structure
 
 ### Pull Response Fields
@@ -154,6 +233,13 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/syntax-check" \
 | `job_id` | String | Job identifier |
 | `message` | String | Status message |
 | `error_detail` | String | Error details (if any) |
+| `activated_count` | Integer | Number of activated objects |
+| `failed_count` | Integer | Number of failed object entries |
+| `started_at` | Timestamp | Start time of operation |
+| `finished_at` | Timestamp | End time of operation |
+| `log_messages` | Array | All log messages |
+| `activated_objects` | Array | Unique successfully activated objects |
+| `failed_objects` | Array | All error log entries |
 
 ### Syntax Check Response Fields
 
@@ -164,3 +250,14 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/syntax-check" \
 | `object_name` | String | ABAP object name |
 | `error_count` | Integer | Number of syntax errors found |
 | `errors` | Array | List of errors with line, column, text |
+
+### Unit Test Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | String | 'X' for all tests passed, '' for failures |
+| `test_count` | Integer | Total number of tests |
+| `passed_count` | Integer | Number of passed tests |
+| `failed_count` | Integer | Number of failed tests |
+| `message` | String | Status message |
+| `results` | Array | Test results with object_name, test_method, status, message, passed |
