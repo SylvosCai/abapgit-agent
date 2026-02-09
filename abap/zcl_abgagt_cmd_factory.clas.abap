@@ -1,4 +1,4 @@
-CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC.
+CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_cmd_factory.
     CLASS-METHODS get_instance
@@ -28,4 +28,5 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
         ro_command = NEW zcl_abgagt_unit( ).
     ENDCASE.
   ENDMETHOD.
+
 ENDCLASS.
