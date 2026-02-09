@@ -40,6 +40,8 @@ abapgit-agent pull --files abap/zcl_my_class.clas.abap
 # 4. Repeat until done
 ```
 
+**Important:** Only run `abapgit-agent pull` when ABAP code has actually changed. If you're only modifying JavaScript, JSON, or markdown files, skip the pull step.
+
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
 **CRITICAL**: Always use `/ui2/cl_json` for JSON serialization and deserialization.
