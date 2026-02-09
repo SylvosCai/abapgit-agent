@@ -169,30 +169,27 @@ CLASS zcl_abapgit_agent IMPLEMENTATION.
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
 
-    " Set decision for each file
-    DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
-    LOOP AT rs_checks-overwrite INTO ls_overwrite.
-      IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-        " Files specified - check if this file is in the list
-        DATA lv_included TYPE abap_bool.
-        lv_included = abap_false.
+    " If specific files requested, filter overwrite table to only those files
+    IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+      DATA lt_filtered_overwrite LIKE rs_checks-overwrite.
+      LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
         LOOP AT it_files INTO DATA(lv_requested_file).
           IF ls_overwrite-path CS lv_requested_file.
-            lv_included = abap_true.
+            ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+            APPEND ls_overwrite TO lt_filtered_overwrite.
             EXIT.
           ENDIF.
         ENDLOOP.
-        IF lv_included = abap_true.
-          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-        ELSE.
-          ls_overwrite-decision = zif_abapgit_definitions=>c_no.
-        ENDIF.
-      ELSE.
-        " No files specified - deserialize all
+      ENDLOOP.
+      rs_checks-overwrite = lt_filtered_overwrite.
+    ELSE.
+      " No files specified - set all decisions to yes
+      DATA: ls_overwrite LIKE LINE OF rs_checks-overwrite.
+      LOOP AT rs_checks-overwrite INTO ls_overwrite.
         ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-      ENDIF.
-      MODIFY rs_checks-overwrite FROM ls_overwrite.
-    ENDLOOP.
+        MODIFY rs_checks-overwrite FROM ls_overwrite.
+      ENDLOOP.
+    ENDIF.
 
     DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
     lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
