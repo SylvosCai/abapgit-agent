@@ -33,7 +33,7 @@ abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
 # Override git URL if needed
 abapgit-agent pull --url https://github.com/user/repo --branch main
 
-# Inspect source file for issues (TODO: In Progress)
+# Inspect source file for issues
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
 # Health check

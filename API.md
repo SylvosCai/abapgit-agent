@@ -8,7 +8,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/inspect` | **TODO: In Progress** - Inspect source file for issues |
+| POST | `/inspect` | Inspect source file for issues |
 | POST | `/unit` | **TODO: In Progress** - Execute unit tests |
 
 ## GET /health
@@ -109,7 +109,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 }
 ```
 
-## POST /inspect (TODO: In Progress)
+## POST /inspect
 
 Inspect source file for issues (currently runs syntax check via Code Inspector).
 
@@ -241,7 +241,7 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
 | `activated_objects` | Array | Unique successfully activated objects |
 | `failed_objects` | Array | All error log entries |
 
-### Syntax Check Response Fields (TODO: In Progress)
+### Syntax Check Response Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
