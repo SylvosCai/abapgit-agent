@@ -9,7 +9,6 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_intf FOR TESTING.
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
-    METHODS test_intentional_fail FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
@@ -80,23 +79,6 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       act = lv_obj_type msg = 'Invalid file should return empty type' ).
     cl_abap_unit_assert=>assert_initial(
       act = lv_obj_name msg = 'Invalid file should return empty name' ).
-  ENDMETHOD.
-
-  METHOD test_intentional_fail.
-    " This test demonstrates failure - parse CLAS but expect INTF
-    DATA lv_obj_type TYPE string.
-    DATA lv_obj_name TYPE string.
-
-    mo_util->zif_abgagt_util~parse_file_to_object(
-      EXPORTING iv_file = 'zcl_my_class.clas.abap'
-      IMPORTING ev_obj_type = lv_obj_type
-                ev_obj_name = lv_obj_name ).
-
-    " This will fail because CLAS != INTF
-    cl_abap_unit_assert=>assert_equals(
-      act = lv_obj_type
-      exp = 'INTF'
-      msg = 'CLAS file should be parsed as INTF (intentional fail)' ).
   ENDMETHOD.
 
 ENDCLASS.
