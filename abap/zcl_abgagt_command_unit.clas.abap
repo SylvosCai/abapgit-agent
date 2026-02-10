@@ -91,8 +91,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
                     ev_obj_name = lv_obj_name ).
         IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
           APPEND INITIAL LINE TO lt_objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
-          <ls_obj>-object_type = lv_obj_type.
-          <ls_obj>-object_name = lv_obj_name.
+          <ls_obj>-objtype = lv_obj_type.
+          <ls_obj>-objname = lv_obj_name.
         ENDIF.
       ENDLOOP.
     ENDIF.
@@ -156,8 +156,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
       LOOP AT lt_tadir ASSIGNING <ls_tadir>.
         APPEND INITIAL LINE TO rt_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
-        <ls_class>-object_type = 'CLAS'.
-        <ls_class>-object_name = <ls_tadir>-obj_name.
+        <ls_class>-objtype = 'CLAS'.
+        <ls_class>-objname = <ls_tadir>-obj_name.
       ENDLOOP.
     ENDIF.
 
@@ -165,8 +165,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     IF it_objects IS NOT INITIAL.
       LOOP AT it_objects ASSIGNING FIELD-SYMBOL(<ls_obj>).
         APPEND INITIAL LINE TO rt_classes ASSIGNING <ls_class>.
-        <ls_class>-object_type = <ls_obj>-object_type.
-        <ls_class>-object_name = <ls_obj>-object_name.
+        <ls_class>-objtype = <ls_obj>-objtype.
+        <ls_class>-objname = <ls_obj>-objname.
       ENDLOOP.
     ENDIF.
 
