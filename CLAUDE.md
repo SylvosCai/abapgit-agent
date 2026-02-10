@@ -11,15 +11,48 @@ abapgit-agent/
 ├── src/
 │   ├── agent.js             # Main agent class
 │   ├── abap-client.js       # REST client for ABAP communication
+│   ├── command-client.js    # Command-based API client
 │   ├── config.js            # Configuration management
 │   ├── server.js            # HTTP server
-│   └── logger.js             # Logging utilities
+│   └── logger.js            # Logging utilities
 ├── abap/                    # ABAP backend components
-│   ├── zcl_abapgit_agent*.clas.abap
-│   ├── zif_abapgit_agent.intf.abap
-│   └── CLAUDE.md            # ABAP project guidelines (copy to your ABAP repos)
+│   ├── zcl_abapgit_agent*.clas.abap    # Main agent class
+│   ├── zif_abapgit_agent.intf.abap     # Agent interface
+│   ├── zcl_abgagt_cmd_factory.clas.abap # Command factory
+│   ├── zcl_abgagt_command_*.clas.abap   # Command implementations
+│   ├── zif_abgagt_command.intf.abap     # Command interface
+│   ├── zcl_abgagt_resource_*.clas.abap  # REST resource handlers
+│   └── CLAUDE.md            # ABAP project guidelines
 └── tests/
 ```
+
+## ABAP Architecture
+
+### Call Stack
+```
+CLI (bin/abapgit-agent)
+    ↓
+REST Client (src/abap-client.js)
+    ↓
+ABAP REST Handler (ZCL_ABGAGT_REST_HANDLER)
+    ↓
+Resource: ZCL_ABGAGT_RESOURCE_PULL → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_PULL → ZCL_ABGAGT_AGENT
+Resource: ZCL_ABGAGT_RESOURCE_INSPECT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_INSPECT → ZCL_ABGAGT_AGENT
+Resource: ZCL_ABGAGT_RESOURCE_UNIT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_UNIT → ZCL_ABGAGT_AGENT
+Resource: ZCL_ABGAGT_RESOURCE_COMMAND → ZCL_ABGAGT_CMD_FACTORY → Command (for testing)
+```
+
+### ABAP Objects
+
+| Object | Description |
+|--------|-------------|
+| `ZCL_ABGAGT_AGENT` | Main agent - handles pull, inspect, unit operations |
+| `ZCL_ABGAGT_CMD_FACTORY` | Command factory - creates command instances dynamically |
+| `ZCL_ABGAGT_COMMAND_PULL` | Pull command - implements ZIF_ABGAGT_COMMAND |
+| `ZCL_ABGAGT_COMMAND_INSPECT` | Inspect command - implements ZIF_ABGAGT_COMMAND |
+| `ZCL_ABGAGT_COMMAND_UNIT` | Unit command - implements ZIF_ABGAGT_COMMAND |
+| `ZIF_ABGAGT_COMMAND` | Command interface with constants |
+| `ZIF_ABGAGT_CMD_FACTORY` | Factory interface |
 
 ## CLI Commands
 

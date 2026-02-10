@@ -297,6 +297,77 @@ Common object types in this project:
 - Programs: `Z<NAME>`
 - Package: `$<PROJECT_NAME>`
 
+## Command Factory Pattern
+
+### Command Class Naming
+Command implementations should follow the naming convention:
+- `ZCL_ABGAGT_COMMAND_<COMMAND>` where `<COMMAND>` is PULL, INSPECT, UNIT, etc.
+
+Example:
+```abap
+CLASS zcl_abgagt_command_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_command.
+ENDCLASS.
+```
+
+### Command Interface
+Commands implement `ZIF_ABGAGT_COMMAND` with constants:
+
+```abap
+INTERFACE zif_abgagt_command PUBLIC.
+  CONSTANTS:
+    gc_pull TYPE string VALUE 'PULL',
+    gc_inspect TYPE string VALUE 'INSPECT',
+    gc_unit TYPE string VALUE 'UNIT'.
+
+  METHODS get_name RETURNING VALUE(rv_name) TYPE string.
+  METHODS execute IMPORTING it_files TYPE string_table
+                 RETURNING VALUE(rv_result) TYPE string.
+ENDINTERFACE.
+```
+
+### Factory with Dynamic Object Creation
+Use dynamic object creation to avoid syntax errors in one command affecting others:
+
+```abap
+CLASS zcl_abgagt_cmd_factory DEFINITION PUBLIC CREATE PRIVATE.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_cmd_factory.
+    CLASS-METHODS get_instance
+      RETURNING VALUE(ro_factory) TYPE REF TO zif_abgagt_cmd_factory.
+  PRIVATE SECTION.
+    TYPES: BEGIN OF ty_command_map,
+             command TYPE string,
+             class_name TYPE string,
+           END OF ty_command_map.
+    DATA mt_command_map TYPE TABLE OF ty_command_map.
+ENDCLASS.
+
+CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
+  METHOD constructor.
+    mt_command_map = VALUE #(
+      ( command = zif_abgagt_command=>gc_pull     class_name = 'ZCL_ABGAGT_COMMAND_PULL' )
+      ( command = zif_abgagt_command=>gc_inspect class_name = 'ZCL_ABGAGT_COMMAND_INSPECT' )
+      ( command = zif_abgagt_command=>gc_unit   class_name = 'ZCL_ABGAGT_COMMAND_UNIT' )
+    ).
+  ENDMETHOD.
+
+  METHOD zif_abgagt_cmd_factory~get_command.
+    READ TABLE mt_command_map WITH KEY command = iv_command
+      ASSIGNING FIELD-SYMBOL(<ls_map>).
+    IF sy-subrc = 0.
+      CREATE OBJECT ro_command TYPE (<ls_map>-class_name).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+```
+
+**Benefits:**
+- Factory class activates independently of command classes
+- Syntax errors in one command don't affect others
+- Add new commands by updating the mapping table
+
 ## Best Practices
 
 ### Always Return Interface Types, Not Class Types
