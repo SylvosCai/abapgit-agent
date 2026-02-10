@@ -84,7 +84,12 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check for all objects together
-    rs_result = run_syntax_check( lt_objects ).
+    DATA(ls_syntax_result) = run_syntax_check( lt_objects ).
+
+    " Copy results to response
+    ls_result-success = ls_syntax_result-success.
+    ls_result-error_count = ls_syntax_result-error_count.
+    ls_result-errors = ls_syntax_result-errors.
 
     rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
