@@ -54,7 +54,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           lv_objtp TYPE string,
           lv_objnm TYPE string.
 
-    " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
@@ -63,8 +62,10 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           CHANGING data = ls_params ).
       ENDIF.
     ELSEIF lines( it_files ) > 0.
+      DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
       LOOP AT it_files INTO lv_file.
-        parse_file_to_object(
+        CLEAR: lv_objtp, lv_objnm.
+        lo_util->zif_abgagt_util~parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_objtp
                     ev_obj_name = lv_objnm ).
@@ -76,7 +77,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    " Run unit tests
     DATA(lv_package) TYPE devclass.
     IF ls_params-package IS NOT INITIAL.
       lv_package = ls_params-package.
@@ -86,7 +86,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       iv_package = lv_package
       it_objects = ls_params-objects ).
 
-    " Convert result to JSON
     DATA: BEGIN OF ls_response,
             success TYPE string,
             message TYPE string,
@@ -279,64 +278,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           ENDIF.
       ENDCASE.
     ENDLOOP.
-  ENDMETHOD.
-
-  METHOD parse_file_to_object.
-    DATA lv_upper TYPE string.
-    lv_upper = iv_file.
-    TRANSLATE lv_upper TO UPPER CASE.
-
-    DATA lt_parts TYPE TABLE OF string.
-    SPLIT lv_upper AT '.' INTO TABLE lt_parts.
-    DATA lv_part_count TYPE i.
-    lv_part_count = lines( lt_parts ).
-
-    IF lv_part_count < 3.
-      RETURN.
-    ENDIF.
-
-    DATA lv_last TYPE string.
-    READ TABLE lt_parts INDEX lv_part_count INTO lv_last.
-    IF lv_last <> 'ABAP'.
-      RETURN.
-    ENDIF.
-
-    DATA lv_obj_name TYPE string.
-    DATA lv_obj_type_raw TYPE string.
-    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
-
-    CASE lv_obj_type_raw.
-      WHEN 'CLAS' OR 'CLASS'.
-        ev_obj_type = 'CLAS'.
-      WHEN 'INTF' OR 'INTERFACE'.
-        ev_obj_type = 'INTF'.
-      WHEN 'PROG' OR 'PROGRAM'.
-        ev_obj_type = 'PROG'.
-      WHEN 'FUGR' OR 'FUGROUP'.
-        ev_obj_type = 'FUGR'.
-      WHEN 'TABL' OR 'TABLE'.
-        ev_obj_type = 'TABL'.
-      WHEN 'DDLS'.
-        ev_obj_type = 'DDLS'.
-      WHEN OTHERS.
-        ev_obj_type = lv_obj_type_raw.
-    ENDCASE.
-
-    DATA lv_len TYPE i.
-    lv_len = strlen( lv_obj_name ).
-    DATA lv_offs TYPE i.
-    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
-    IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
-    ENDIF.
-
-    IF lv_obj_name(1) = '/'.
-      lv_obj_name = lv_obj_name+1.
-    ENDIF.
-
-    ev_obj_name = lv_obj_name.
   ENDMETHOD.
 
 ENDCLASS.
