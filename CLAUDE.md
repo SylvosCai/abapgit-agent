@@ -365,6 +365,9 @@ Add `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` to main class XML file:
 ### Test Class Naming
 - Short name: `ltcl_<name>` (e.g., `ltcl_util`, not `ltcl_abgagt_util_test`)
 - Must include `FINAL` keyword
+- **CRITICAL: Class name MUST NOT exceed 30 characters!**
+  - Example: `ltcl_cmd_inspect` (18 chars) is OK
+  - `ltcl_zcl_abgagt_command_infect` (32 chars) is NOT OK
 
 ### Test Class Declaration
 ```abap
@@ -374,6 +377,10 @@ CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
 ### Test Methods
 - Must have `FOR TESTING` keyword
 - Can optionally include `RAISING <exception>`
+- **CRITICAL: Method names MUST NOT exceed 30 characters!**
+  - Example: `test_exec_multi_files` (20 chars) is OK
+  - `test_exec_multiple_files` (25 chars) is OK
+  - `test_exec_multiple_files_with_long_name` (40 chars) is NOT OK
 
 ### Setup Method
 ```abap
