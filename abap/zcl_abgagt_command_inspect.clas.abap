@@ -90,7 +90,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_syntax_check
-    IMPORTING it_objects TYPE TABLE OF scir_objs
+    IMPORTING it_objects TYPE ty_object_keys
     RETURNING VALUE(rs_result) TYPE ty_inspect_result.
     DATA lv_name TYPE sci_objs.
     DATA lo_objset TYPE REF TO cl_ci_objectset.
