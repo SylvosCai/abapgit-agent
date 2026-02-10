@@ -44,7 +44,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_util TYPE REF TO zcl_abgagt_util,
           ls_result TYPE ty_inspect_result,
           lt_objects TYPE ty_object_keys,
-          ls_obj TYPE scir_objs.
+          ls_obj TYPE scir_objs,
+          ls_syntax_result TYPE ty_inspect_result.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
@@ -84,7 +85,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check for all objects together
-    DATA(ls_syntax_result) = run_syntax_check( lt_objects ).
+    ls_syntax_result = run_syntax_check( lt_objects ).
 
     " Copy results to response
     ls_result-success = ls_syntax_result-success.
@@ -94,17 +95,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
 
-  METHOD run_syntax_check
-    IMPORTING it_objects TYPE ty_object_keys
-    RETURNING VALUE(rs_result) TYPE ty_inspect_result.
-    DATA lv_name TYPE sci_objs.
-    DATA lo_objset TYPE REF TO cl_ci_objectset.
-    DATA lo_variant TYPE REF TO cl_ci_checkvariant.
-    DATA lo_inspection TYPE REF TO cl_ci_inspection.
-    DATA lt_list TYPE scit_alvlist.
-    DATA ls_list TYPE scit_alv.
-    DATA ls_error TYPE ty_error.
-    DATA lx_error TYPE REF TO cx_root.
+  METHOD run_syntax_check.
+    DATA: lv_name TYPE sci_objs,
+          lo_objset TYPE REF TO cl_ci_objectset,
+          lo_variant TYPE REF TO cl_ci_checkvariant,
+          lo_inspection TYPE REF TO cl_ci_inspection,
+          lt_list TYPE scit_alvlist,
+          ls_list TYPE scit_alv,
+          ls_error TYPE ty_error,
+          lx_error TYPE REF TO cx_root.
 
     rs_result-success = abap_true.
 
