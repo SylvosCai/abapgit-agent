@@ -37,19 +37,39 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_result TYPE ty_inspect_result,
           ls_file_result TYPE ty_inspect_result,
-          lt_all_errors TYPE ty_errors.
+          lt_all_errors TYPE ty_errors,
+          lt_files TYPE string_table.
 
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
-        RETURN.
+        DATA: BEGIN OF ls_params,
+                source_name TYPE string,
+              END OF ls_params.
+        /ui2/cl_json=>deserialize(
+          EXPORTING json = lv_json
+          CHANGING data = ls_params ).
+        IF ls_params-source_name IS NOT INITIAL.
+          APPEND ls_params-source_name TO lt_files.
+        ENDIF.
+      ELSE.
+        APPEND lv_json TO lt_files.
       ENDIF.
+    ELSE.
+      lt_files = it_files.
+    ENDIF.
+
+    IF lt_files IS INITIAL.
+      ls_result-success = abap_false.
+      ls_result-error_count = 1.
+      rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+      RETURN.
     ENDIF.
 
     lo_util = zcl_abgagt_util=>get_instance( ).
     lo_agent = NEW zcl_abgagt_agent( ).
 
-    LOOP AT it_files INTO lv_file.
+    LOOP AT lt_files INTO lv_file.
       CLEAR: lv_obj_type, lv_obj_name.
       lo_util->zif_abgagt_util~parse_file_to_object(
         EXPORTING iv_file = lv_file
