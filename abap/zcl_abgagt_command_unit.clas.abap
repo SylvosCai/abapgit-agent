@@ -143,13 +143,13 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     FIELD-SYMBOLS: <li_result> TYPE any,
                    <lt_task_data> TYPE any,
-                   <lt_indices> TYPE ANY TABLE,
-                   <lt_programs> TYPE ANY TABLE,
+                   <lt_indices> TYPE any,
+                   <lt_programs> TYPE any,
                    <ls_program> TYPE any,
                    <lv_any> TYPE any,
-                   <lt_classes> TYPE ANY TABLE,
+                   <lt_classes> TYPE any,
                    <ls_class> TYPE any,
-                   <lt_methods> TYPE ANY TABLE,
+                   <lt_methods> TYPE any,
                    <ls_method> TYPE any.
 
     TRY.
@@ -272,7 +272,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           DATA(lv_has_error) = abap_false.
 
           LOOP AT <lt_indices> ASSIGNING FIELD-SYMBOL(<ls_index>).
-            DATA: lt_alerts TYPE ANY TABLE.
+            DATA: lt_alerts TYPE any.
             ASSIGN COMPONENT 'ALERTS' OF STRUCTURE <ls_index> TO <lt_alerts>.
             IF sy-subrc = 0 AND <lt_alerts> IS ASSIGNED.
               LOOP AT <lt_alerts> ASSIGNING FIELD-SYMBOL(<ls_alert>).
