@@ -1,19 +1,24 @@
-*"*"Use source
-*"*"Local Interface:
-*"**********************************************************************
-CLASS ltcl_abgagt_util_test DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT.
-  PUBLIC SECTION.
+*----------------------------------------------------------------------*
+*       CLASS ltcl_util DEFINITION
+*----------------------------------------------------------------------*
+CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
+
+  PRIVATE SECTION.
     METHODS parse_class_file FOR TESTING.
     METHODS parse_interface_file FOR TESTING.
     METHODS parse_program_file FOR TESTING.
     METHODS parse_file_with_path FOR TESTING.
     METHODS parse_file_with_leading_slash FOR TESTING.
     METHODS parse_invalid_file FOR TESTING.
+
 ENDCLASS.
 
-CLASS ltcl_abgagt_util_test IMPLEMENTATION.
+*----------------------------------------------------------------------*
+*       CLASS ltcl_util IMPLEMENTATION
+*----------------------------------------------------------------------*
+CLASS ltcl_util IMPLEMENTATION.
+
   METHOD parse_class_file.
-    " Test parsing a simple class file
     DATA lv_file TYPE string VALUE 'zcl_my_class.clas.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -34,7 +39,6 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_interface_file.
-    " Test parsing an interface file
     DATA lv_file TYPE string VALUE 'zif_my_interface.intf.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -55,7 +59,6 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_program_file.
-    " Test parsing a program file
     DATA lv_file TYPE string VALUE 'zmy_report.prog.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -76,7 +79,6 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_file_with_path.
-    " Test parsing a file with path prefix
     DATA lv_file TYPE string VALUE 'src/zcl_my_class.clas.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -97,7 +99,6 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_file_with_leading_slash.
-    " Test parsing a file with leading slash
     DATA lv_file TYPE string VALUE '/src/zcl_my_class.clas.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -118,7 +119,6 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_invalid_file.
-    " Test parsing an invalid file (no .abap extension)
     DATA lv_file TYPE string VALUE 'zcl_my_class.clas.txt'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
@@ -135,4 +135,5 @@ CLASS ltcl_abgagt_util_test IMPLEMENTATION.
       act = lv_obj_name
       msg = 'Object name should be initial for invalid file' ).
   ENDMETHOD.
+
 ENDCLASS.
