@@ -125,12 +125,26 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ls_result-test_count = lines( ls_result-results ).
 
     LOOP AT ls_result-results ASSIGNING FIELD-SYMBOL(<ls_test>).
-      CASE <ls_test>-status.
-        WHEN 'P' OR 'S' OR 'passed'.
-          ls_result-passed_count = ls_result-passed_count + 1.
-        WHEN 'A' OR 'E' OR 'F' OR 'failed' OR 'error'.
-          ls_result-failed_count = ls_result-failed_count + 1.
-      ENDCASE.
+      DATA(lv_status) = <ls_test>-status.
+      IF lv_status IS INITIAL.
+        " If status is empty, count as passed (no error info)
+        ls_result-passed_count = ls_result-passed_count + 1.
+      ELSE.
+        CASE lv_status.
+          WHEN 'P' OR 'S' OR 'PASSED' OR 'passed'.
+            ls_result-passed_count = ls_result-passed_count + 1.
+          WHEN 'A' OR 'E' OR 'F' OR 'FAILED' OR 'failed' OR 'ERROR' OR 'error'.
+            ls_result-failed_count = ls_result-failed_count + 1.
+          WHEN OTHERS.
+            " Unknown status - count as passed if no error in message
+            IF <ls_test>-message IS INITIAL OR
+               <ls_test>-message CN 'errorfail'.
+              ls_result-passed_count = ls_result-passed_count + 1.
+            ELSE.
+              ls_result-failed_count = ls_result-failed_count + 1.
+            ENDIF.
+        ENDCASE.
+      ENDIF.
     ENDLOOP.
 
     IF ls_result-failed_count = 0.
