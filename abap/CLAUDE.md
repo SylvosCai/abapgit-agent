@@ -437,6 +437,24 @@ abap/
 - Test methods: `TEST_<methodname> FOR TESTING` or simply `test_method FOR TESTING`
 - Test file: `<classname>.clas.testclasses.abap`
 
+### CRITICAL: Method Name Length Limit
+
+**Test method names MUST NOT exceed 30 characters!**
+
+```abap
+" WRONG - 34 characters (syntax error)
+METHODS test_execute_with_minimal_params FOR TESTING.
+
+" CORRECT - 18 characters
+METHODS test_exec_minimal FOR TESTING.
+```
+
+Examples of compliant names:
+- `test_get_name` (13 chars)
+- `test_exec_minimal` (18 chars)
+- `test_exec_files` (16 chars)
+- `test_interface` (15 chars)
+
 ### Common Assertions
 
 ```abap
