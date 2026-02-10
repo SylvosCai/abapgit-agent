@@ -216,10 +216,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Get results from str_results - cast to local type
     DATA: ls_str TYPE ty_str_results.
-    ASSIGN lo_runner->str_results TO FIELD-SYMBOL(<fs_str>).
-    IF <fs_str> IS ASSIGNED.
-      ls_str = <fs_str>.
-    ENDIF.
+    ls_str = lo_runner->str_results.
 
     " Build result entry from str_results counts
     DATA(ls_result) = VALUE ty_test_result(
