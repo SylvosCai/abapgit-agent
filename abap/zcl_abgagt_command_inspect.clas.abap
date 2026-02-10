@@ -70,7 +70,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     rv_result = /ui2/cl_json=>serialize( data = ls_response ).
   ENDMETHOD.
 
-  METHOD run_syntax_check.
+  METHOD run_syntax_check
+    RETURNING VALUE(rs_result) TYPE ty_inspect_result.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
