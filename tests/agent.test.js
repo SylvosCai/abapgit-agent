@@ -225,9 +225,7 @@ describe('ABAPGitAgent', () => {
         passed_count: 10,
         failed_count: 0,
         message: 'All 10 tests passed',
-        results: [
-          { object_name: 'ZCL_TEST', test_method: 'TEST_1', status: 'PASSED' }
-        ]
+        errors: []
       });
 
       const result = await agent.unitCheck('ZTEST_PACKAGE');
@@ -236,6 +234,7 @@ describe('ABAPGitAgent', () => {
       expect(result.test_count).toBe(10);
       expect(result.passed_count).toBe(10);
       expect(result.failed_count).toBe(0);
+      expect(result.errors).toEqual([]);
     });
 
     test('returns failure count when tests fail', async () => {
@@ -245,8 +244,9 @@ describe('ABAPGitAgent', () => {
         passed_count: 3,
         failed_count: 2,
         message: '2 of 5 tests failed',
-        results: [
-          { object_name: 'ZCL_TEST', test_method: 'TEST_1', status: 'FAILED' }
+        errors: [
+          { class_name: 'ZCL_TEST', method_name: 'TEST_1', error_kind: 'ERROR', error_text: 'Expected X but got Y' },
+          { class_name: 'ZCL_TEST', method_name: 'TEST_2', error_kind: 'FAILURE', error_text: 'Reference is initial' }
         ]
       });
 
@@ -255,6 +255,9 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(false);
       expect(result.test_count).toBe(5);
       expect(result.failed_count).toBe(2);
+      expect(result.errors).toHaveLength(2);
+      expect(result.errors[0].class_name).toBe('ZCL_TEST');
+      expect(result.errors[0].method_name).toBe('TEST_1');
     });
 
     test('accepts objects parameter', async () => {
@@ -263,7 +266,7 @@ describe('ABAPGitAgent', () => {
         test_count: 2,
         passed_count: 2,
         failed_count: 0,
-        results: []
+        errors: []
       });
 
       const objects = [
@@ -290,7 +293,7 @@ describe('ABAPGitAgent', () => {
         PASSED_COUNT: 5,
         FAILED_COUNT: 0,
         MESSAGE: 'All passed',
-        RESULTS: []
+        ERRORS: []
       });
 
       const result = await agent.unitCheck('ZTEST_PACKAGE');
