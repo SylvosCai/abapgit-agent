@@ -11,6 +11,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              text TYPE string,
              word TYPE string,
            END OF ty_error.
+
+    TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
