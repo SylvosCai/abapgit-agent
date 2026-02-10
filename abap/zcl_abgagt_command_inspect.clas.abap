@@ -91,6 +91,13 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     IMPORTING it_objects TYPE TABLE OF scir_objs
     RETURNING VALUE(rs_result) TYPE ty_inspect_result.
     DATA lv_name TYPE sci_objs.
+    DATA lo_objset TYPE REF TO cl_ci_objectset.
+    DATA lo_variant TYPE REF TO cl_ci_checkvariant.
+    DATA lo_inspection TYPE REF TO cl_ci_inspection.
+    DATA lt_list TYPE scit_alvlist.
+    DATA ls_list TYPE scit_alv.
+    DATA ls_error TYPE ty_error.
+    DATA lx_error TYPE REF TO cx_root.
 
     rs_result-success = abap_true.
 
@@ -99,12 +106,12 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         CONCATENATE 'SYNT_' sy-uname sy-datum sy-uzeit INTO lv_name.
 
         " Create object set
-        DATA(lo_objset) = cl_ci_objectset=>save_from_list(
+        lo_objset = cl_ci_objectset=>save_from_list(
           p_name    = lv_name
           p_objects = it_objects ).
 
         " Get check variant for syntax check
-        DATA(lo_variant) = cl_ci_checkvariant=>get_ref(
+        lo_variant = cl_ci_checkvariant=>get_ref(
           p_user = ''
           p_name = 'SYNTAX_CHECK' ).
 
@@ -114,7 +121,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             p_user = sy-uname
             p_name = lv_name
           RECEIVING
-            p_ref = DATA(lo_inspection) ).
+            p_ref = lo_inspection ).
 
         " Set inspection with object set and variant
         lo_inspection->set(
@@ -134,12 +141,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             OTHERS = 2 ).
 
         " Get results
-        DATA lt_list TYPE scit_alvlist.
         lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
         " Parse results - aggregate all errors
-        DATA ls_error TYPE ty_error.
-        LOOP AT lt_list INTO DATA(ls_list).
+        LOOP AT lt_list INTO ls_list.
           CLEAR ls_error.
           ls_error-line = ls_list-line.
           ls_error-column = ls_list-col.
@@ -171,7 +176,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           rs_result-success = abap_false.
         ENDIF.
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         rs_result-success = abap_false.
         rs_result-error_count = 1.
         ls_error-line = '1'.
