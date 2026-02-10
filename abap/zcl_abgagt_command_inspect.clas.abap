@@ -1,12 +1,12 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abgagt_command_inspect2 DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 ENDCLASS.
 
-CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
+CLASS zcl_abgagt_command_inspect2 IMPLEMENTATION.
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_inspect.
   ENDMETHOD.
