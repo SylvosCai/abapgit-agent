@@ -35,7 +35,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_inspect_params,
           lv_json TYPE string,
-          ls_result TYPE ty_inspect_result.
+          lo_agent TYPE REF TO zcl_abgagt_agent,
+          ls_result TYPE ty_inspect_result,
+          ls_response TYPE ty_inspect_result.
 
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
@@ -50,7 +52,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       READ TABLE it_files INDEX 1 INTO ls_params-source_name.
     ENDIF.
 
-    ls_result-success = abap_true.
-    rv_result = 'test'.
+    lo_agent = NEW zcl_abgagt_agent( ).
+    ls_result = lo_agent->zif_abgagt_agent~inspect( ls_params-source_name ).
+
+    ls_response-success = ls_result-success.
+    ls_response-object_type = ls_result-object_type.
+    ls_response-object_name = ls_result-object_name.
+    ls_response-error_count = ls_result-error_count.
+    ls_response-errors = ls_result-errors.
+
+    rv_result = /ui2/cl_json=>serialize( data = ls_response ).
   ENDMETHOD.
 ENDCLASS.
