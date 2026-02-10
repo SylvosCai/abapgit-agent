@@ -377,7 +377,7 @@ async function runUnitTests(options) {
     const passedCount = result.PASSED_COUNT || result.passed_count || 0;
     const failedCount = result.FAILED_COUNT || result.failed_count || 0;
     const message = result.MESSAGE || result.message || '';
-    const results = result.RESULTS || result.results || [];
+    const errors = result.ERRORS || result.errors || [];
 
     console.log('\n');
 
@@ -390,20 +390,22 @@ async function runUnitTests(options) {
     console.log(`   ${message}`);
     console.log(`   Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
 
-    if (failedCount > 0 && results.length > 0) {
+    if (failedCount > 0 && errors.length > 0) {
       console.log('\nFailed Tests:');
       console.log('─'.repeat(60));
 
-      for (const test of results) {
-        if (test.PASSED === false || test.passed === false) {
-          const objName = test.OBJECT_NAME || test.object_name || '?';
-          const methodName = test.METHOD_NAME || test.method_name || '?';
-          const error = test.ERROR || test.error || 'Unknown error';
+      for (const err of errors) {
+        const className = err.CLASS_NAME || err.class_name || '?';
+        const methodName = err.METHOD_NAME || err.method_name || '?';
+        const errorKind = err.ERROR_KIND || err.error_kind || '';
+        const errorText = err.ERROR_TEXT || err.error_text || 'Unknown error';
 
-          console.log(`   ✗ ${objName}=${methodName}`);
-          console.log(`     Error: ${error}`);
-          console.log('');
+        console.log(`   ✗ ${className}=>${methodName}`);
+        if (errorKind) {
+          console.log(`     Kind: ${errorKind}`);
         }
+        console.log(`     Error: ${errorText}`);
+        console.log('');
       }
     }
 
@@ -463,7 +465,7 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
     const passedCount = result.PASSED_COUNT || result.passed_count || 0;
     const failedCount = result.FAILED_COUNT || result.failed_count || 0;
     const message = result.MESSAGE || result.message || '';
-    const results = result.RESULTS || result.results || [];
+    const errors = result.ERRORS || result.errors || [];
 
     if (testCount === 0) {
       console.log(`  ➖ ${objName} - No unit tests`);
@@ -475,13 +477,12 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
 
     console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
 
-    if (failedCount > 0 && results.length > 0) {
-      for (const test of results) {
-        if (test.PASSED === false || test.passed === false) {
-          const methodName = test.METHOD_NAME || test.method_name || '?';
-          const error = test.ERROR || test.error || 'Unknown error';
-          console.log(`     ✗ ${methodName}: ${error}`);
-        }
+    if (failedCount > 0 && errors.length > 0) {
+      for (const err of errors) {
+        const className = err.CLASS_NAME || err.class_name || '?';
+        const methodName = err.METHOD_NAME || err.method_name || '?';
+        const errorText = err.ERROR_TEXT || err.error_text || 'Unknown error';
+        console.log(`     ✗ ${className}=>${methodName}: ${errorText}`);
       }
     }
 

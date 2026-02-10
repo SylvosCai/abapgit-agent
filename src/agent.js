@@ -105,7 +105,7 @@ class ABAPGitAgent {
         passed_count: result.PASSED_COUNT || result.passed_count || 0,
         failed_count: result.FAILED_COUNT || result.failed_count || 0,
         message: result.MESSAGE || result.message || '',
-        results: result.RESULTS || result.results || []
+        errors: result.ERRORS || result.errors || []
       };
     } catch (error) {
       logger.error('Unit tests failed', { error: error.message });
