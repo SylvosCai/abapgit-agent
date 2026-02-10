@@ -4,6 +4,9 @@
 CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
 
   PRIVATE SECTION.
+    METHODS setup.
+    DATA mo_util TYPE REF TO zcl_abgagt_util.
+
     METHODS parse_class_file FOR TESTING.
     METHODS parse_interface_file FOR TESTING.
     METHODS parse_program_file FOR TESTING.
@@ -18,12 +21,16 @@ ENDCLASS.
 *----------------------------------------------------------------------*
 CLASS ltcl_util IMPLEMENTATION.
 
+  METHOD setup.
+    mo_util = zcl_abgagt_util=>get_instance( ).
+  ENDMETHOD.
+
   METHOD parse_class_file.
     DATA lv_file TYPE string VALUE 'zcl_my_class.clas.abap'.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -43,7 +50,7 @@ CLASS ltcl_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -63,7 +70,7 @@ CLASS ltcl_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -83,7 +90,7 @@ CLASS ltcl_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -103,7 +110,7 @@ CLASS ltcl_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -123,7 +130,7 @@ CLASS ltcl_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    zcl_abgagt_util=>parse_file_to_object(
+    mo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = lv_file
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
