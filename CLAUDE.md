@@ -266,3 +266,93 @@ For quick ABAP code changes:
 ## For ABAP Code Generation
 
 **NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see `/abap/CLAUDE.md`. Copy that file to your ABAP repository root when setting up new projects.
+
+## ABAP Unit Tests
+
+### File Structure
+- Main class: `zcl_xxx.clas.abap`
+- Test class: `zcl_xxx.clas.testclasses.abap`
+- No separate XML needed for test classes
+
+### XML Configuration
+Add `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` to main class XML file:
+```xml
+<VSEOCLASS>
+  <CLSNAME>ZCL_ABGAGT_UTIL</CLSNAME>
+  ...
+  <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+</VSEOCLASS>
+```
+
+### Test Class Naming
+- Short name: `ltcl_<name>` (e.g., `ltcl_util`, not `ltcl_abgagt_util_test`)
+- Must include `FINAL` keyword
+
+### Test Class Declaration
+```abap
+CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
+```
+
+### Test Methods
+- Must have `FOR TESTING` keyword
+- Can optionally include `RAISING <exception>`
+
+### Setup Method
+```abap
+METHOD setup.
+  mo_util = zcl_abgagt_util=>get_instance( ).
+ENDMETHOD.
+```
+
+### Assertions
+Use `CL_ABAP_UNIT_ASSERT` class:
+- `assert_equals( act = lv_act exp = lv_exp msg = 'message' )`
+- `assert_initial( act = lv_act msg = 'message' )`
+- `assert_not_initial( act = lv_act msg = 'message' )`
+
+### Method Call Format
+- Instance methods: `mo_object->method( )`
+- Class/static methods: `zcl_class=>method( )`
+
+### Example Test Class
+```abap
+*----------------------------------------------------------------------*
+*       CLASS ltcl_util DEFINITION
+*----------------------------------------------------------------------*
+CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
+
+  PRIVATE SECTION.
+    METHODS setup.
+    DATA mo_util TYPE REF TO zcl_abgagt_util.
+
+    METHODS parse_class_file FOR TESTING.
+
+ENDCLASS.
+
+*----------------------------------------------------------------------*
+*       CLASS ltcl_util IMPLEMENTATION
+*----------------------------------------------------------------------*
+CLASS ltcl_util IMPLEMENTATION.
+
+  METHOD setup.
+    mo_util = zcl_abgagt_util=>get_instance( ).
+  ENDMETHOD.
+
+  METHOD parse_class_file.
+    DATA lv_file TYPE string VALUE 'zcl_my_class.clas.abap'.
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+
+    mo_util->zif_abgagt_util~parse_file_to_object(
+      EXPORTING iv_file = lv_file
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_obj_type
+      exp = 'CLAS'
+      msg = 'Object type should be CLAS' ).
+  ENDMETHOD.
+
+ENDCLASS.
+```
