@@ -14,7 +14,7 @@ ENDCLASS.
 CLASS zcl_abgagt_inspect IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
-    rv_name = 'INSPECT'.
+    rv_name = zif_abgagt_command=>gc_inspect.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.

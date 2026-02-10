@@ -64,7 +64,7 @@ CLASS zcl_abgagt_resource_command IMPLEMENTATION.
     DATA lv_param_json TYPE string.
 
     CASE ls_request-command.
-      WHEN 'PULL'.
+      WHEN zif_abgagt_command=>gc_pull.
         DATA: BEGIN OF ls_pull_params,
                 url TYPE string,
                 branch TYPE string,
@@ -80,7 +80,7 @@ CLASS zcl_abgagt_resource_command IMPLEMENTATION.
         lv_param_json = /ui2/cl_json=>serialize( data = ls_pull_params ).
         APPEND lv_param_json TO lt_files.
 
-      WHEN 'INSPECT'.
+      WHEN zif_abgagt_command=>gc_inspect.
         DATA: BEGIN OF ls_inspect_params,
                 source_name TYPE string,
               END OF ls_inspect_params.
@@ -90,7 +90,7 @@ CLASS zcl_abgagt_resource_command IMPLEMENTATION.
         lv_param_json = /ui2/cl_json=>serialize( data = ls_inspect_params ).
         APPEND lv_param_json TO lt_files.
 
-      WHEN 'UNIT'.
+      WHEN zif_abgagt_command=>gc_unit.
         DATA: BEGIN OF ls_unit_params,
                 package TYPE string,
                 objects TYPE STANDARD TABLE OF string,

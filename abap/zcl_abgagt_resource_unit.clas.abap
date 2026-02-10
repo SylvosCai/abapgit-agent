@@ -42,7 +42,7 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
 
     " Get command from factory
     DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-    DATA(lo_command) = lo_factory->get_command( 'UNIT' ).
+    DATA(lo_command) = lo_factory->get_command( zif_abgagt_command=>gc_unit ).
 
     IF lo_command IS NOT BOUND.
       lv_json_resp = '{"success":"","error":"UNIT command not found"}'.

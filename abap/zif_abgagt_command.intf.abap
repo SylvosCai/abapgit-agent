@@ -2,6 +2,11 @@
 "! <p class="shorttext synchronized">Command Interface for ABAP Git Agent</p>
 INTERFACE zif_abgagt_command PUBLIC.
 
+  CONSTANTS:
+    gc_pull TYPE string VALUE 'PULL',
+    gc_inspect TYPE string VALUE 'INSPECT',
+    gc_unit TYPE string VALUE 'UNIT'.
+
   " Get command name
   METHODS get_name
     RETURNING VALUE(rv_name) TYPE string.

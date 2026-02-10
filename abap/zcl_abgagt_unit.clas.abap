@@ -24,7 +24,7 @@ ENDCLASS.
 CLASS zcl_abgagt_unit IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
-    rv_name = 'UNIT'.
+    rv_name = zif_abgagt_command=>gc_unit.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.

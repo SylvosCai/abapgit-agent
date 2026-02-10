@@ -39,7 +39,7 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
 
     " Get command from factory
     DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-    DATA(lo_command) = lo_factory->get_command( 'INSPECT' ).
+    DATA(lo_command) = lo_factory->get_command( zif_abgagt_command=>gc_inspect ).
 
     IF lo_command IS NOT BOUND.
       lv_json_resp = '{"success":"","error":"INSPECT command not found"}'.

@@ -2,6 +2,13 @@
  * Command Client - Uses new command-based API for ABAP Git Agent
  */
 
+// Command constants - must match ABAP ZIF_ABGAGT_COMMAND constants
+const COMMANDS = {
+  PULL: 'PULL',
+  INSPECT: 'INSPECT',
+  UNIT: 'UNIT'
+};
+
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
@@ -244,7 +251,7 @@ class CommandClient {
 
     logger.info('Starting pull operation via command API', { repoUrl, branch, service: 'abapgit-agent' });
 
-    return await this.execute('PULL', params);
+    return await this.execute(COMMANDS.PULL, params);
   }
 
   /**
@@ -260,7 +267,7 @@ class CommandClient {
       source_name: `${objectName.toLowerCase()}.${this.mapTypeToExt(objectType)}.abap`
     };
 
-    return await this.execute('INSPECT', params);
+    return await this.execute(COMMANDS.INSPECT, params);
   }
 
   /**
@@ -294,7 +301,7 @@ class CommandClient {
 
     logger.info('Starting unit tests via command API', { package: packageName, objects, service: 'abapgit-agent' });
 
-    return await this.execute('UNIT', params);
+    return await this.execute(COMMANDS.UNIT, params);
   }
 
   /**

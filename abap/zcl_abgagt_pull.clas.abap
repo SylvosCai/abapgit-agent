@@ -18,7 +18,7 @@ ENDCLASS.
 CLASS zcl_abgagt_pull IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
-    rv_name = 'PULL'.
+    rv_name = zif_abgagt_command=>gc_pull.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
