@@ -45,29 +45,29 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
         VALUE(rs_result) TYPE ty_unit_result.
 
   PRIVATE SECTION.
-    " Methods for extracting errors from nested structure
+    " Methods for extracting errors from nested structure using CL_SUT_AUNIT_RUNNER types
     METHODS get_failed_methods
       IMPORTING
-        it_tab_objects TYPE any
+        it_tab_objects TYPE cl_sut_aunit_runner=>typ_tab_objects
       RETURNING
         VALUE(rt_errors) TYPE ty_errors.
 
     METHODS extract_errors_from_object
       IMPORTING
-        is_object TYPE any
+        is_object TYPE cl_sut_aunit_runner=>typ_str_object
       RETURNING
         VALUE(rt_errors) TYPE ty_errors.
 
     METHODS extract_errors_from_testclass
       IMPORTING
-        is_testclass TYPE any
+        is_testclass TYPE cl_sut_aunit_runner=>typ_str_testclass
         iv_class_name TYPE string
       RETURNING
         VALUE(rt_errors) TYPE ty_errors.
 
     METHODS extract_error_from_method
       IMPORTING
-        is_method TYPE any
+        is_method TYPE cl_sut_aunit_runner=>typ_str_method
         iv_method_name TYPE string
       RETURNING
         VALUE(rs_error) TYPE ty_error.
@@ -225,17 +225,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD get_failed_methods.
     " Entry point for extracting failed methods from TAB_OBJECTS
-    DATA lt_objects TYPE any.
-    lt_objects = it_tab_objects.
-
-    LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
-      " Extract class name from object
-      DATA lv_class_name TYPE string.
-      ASSIGN COMPONENT 'OBJNAME' OF STRUCTURE <ls_object> TO FIELD-SYMBOL(<lv_objname>).
-      IF sy-subrc = 0 AND <lv_objname> IS ASSIGNED.
-        lv_class_name = <lv_objname>.
-      ENDIF.
-
+    LOOP AT it_tab_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
       " Extract errors from this object
       DATA(lt_errors) = extract_errors_from_object( <ls_object> ).
       APPEND LINES OF lt_errors TO rt_errors.
@@ -244,56 +234,22 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD extract_errors_from_object.
     " Extract errors from TAB_TESTCLASSES within an object
-    DATA lt_testclasses TYPE any.
-
-    " Get TAB_TESTCLASSES component
-    ASSIGN COMPONENT 'TAB_TESTCLASSES' OF STRUCTURE is_object TO FIELD-SYMBOL(<lt_tcl>).
-    IF sy-subrc <> 0 OR <lt_tcl> IS NOT ASSIGNED.
-      RETURN.
-    ENDIF.
-
-    lt_testclasses = <lt_tcl>.
-
-    LOOP AT lt_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
-      " Get class name
-      DATA lv_class_name TYPE string.
-      ASSIGN COMPONENT 'CLSNAME' OF STRUCTURE is_object TO FIELD-SYMBOL(<lv_clsname>).
-      IF sy-subrc = 0 AND <lv_clsname> IS ASSIGNED.
-        lv_class_name = <lv_clsname>.
-      ENDIF.
-
+    LOOP AT is_object-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
       " Extract errors from this testclass
       DATA(lt_errors) = extract_errors_from_testclass(
         is_testclass = <ls_tcl>
-        iv_class_name = lv_class_name ).
+        iv_class_name = is_object-clsname ).
       APPEND LINES OF lt_errors TO rt_errors.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD extract_errors_from_testclass.
     " Extract errors from TAB_METHODS within a testclass
-    DATA lt_methods TYPE any.
-
-    " Get TAB_METHODS component
-    ASSIGN COMPONENT 'TAB_METHODS' OF STRUCTURE is_testclass TO FIELD-SYMBOL(<lt_methods>).
-    IF sy-subrc <> 0 OR <lt_methods> IS NOT ASSIGNED.
-      RETURN.
-    ENDIF.
-
-    lt_methods = <lt_methods>.
-
-    LOOP AT lt_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
-      " Get method name
-      DATA lv_method_name TYPE string.
-      ASSIGN COMPONENT 'METHODNAME' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_mname>).
-      IF sy-subrc = 0 AND <lv_mname> IS ASSIGNED.
-        lv_method_name = <lv_mname>.
-      ENDIF.
-
+    LOOP AT is_testclass-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
       " Extract error from this method
       DATA(ls_error) = extract_error_from_method(
         is_method = <ls_method>
-        iv_method_name = lv_method_name ).
+        iv_method_name = <ls_method>-methodname ).
 
       " Only add if there's an error
       IF ls_error-error_text IS NOT INITIAL.
@@ -305,25 +261,15 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD extract_error_from_method.
     " Extract STR_ERROR from method and build error structure
-    " Structure: STR_ERROR → STR_ERROR_CORE → errorkind, errortext, tab_messages
+    " typ_str_error contains typ_str_error_core via INCLUDE, so components are directly accessible
 
-    " Get STR_ERROR component
-    ASSIGN COMPONENT 'STR_ERROR' OF STRUCTURE is_method TO FIELD-SYMBOL(<ls_error>).
-    IF sy-subrc <> 0 OR <ls_error> IS NOT ASSIGNED.
-      RETURN.
-    ENDIF.
-
-    " Get STR_ERROR_CORE from STR_ERROR
-    ASSIGN COMPONENT 'STR_ERROR_CORE' OF STRUCTURE <ls_error> TO FIELD-SYMBOL(<ls_error_core>).
-    IF sy-subrc <> 0 OR <ls_error_core> IS NOT ASSIGNED.
+    " Check if there's an error - only process if error kind is set
+    IF is_method-str_error IS INITIAL.
       RETURN.
     ENDIF.
 
     " Get error kind (e.g., 'ERROR', 'FAILURE')
-    ASSIGN COMPONENT 'ERRORKIND' OF STRUCTURE <ls_error_core> TO FIELD-SYMBOL(<lv_errorkind>).
-    IF sy-subrc = 0 AND <lv_errorkind> IS ASSIGNED.
-      rs_error-error_kind = <lv_errorkind>.
-    ENDIF.
+    rs_error-error_kind = is_method-str_error-error_kind.
 
     " Only process if there's an actual error
     IF rs_error-error_kind IS INITIAL.
@@ -331,24 +277,18 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Get error text
-    ASSIGN COMPONENT 'ERRORTEXT' OF STRUCTURE <ls_error_core> TO FIELD-SYMBOL(<lv_errortext>).
-    IF sy-subrc = 0 AND <lv_errortext> IS ASSIGNED.
-      rs_error-error_text = <lv_errortext>.
-    ENDIF.
+    rs_error-error_text = is_method-str_error-errortext.
 
     " If no error text, try tab_messages
     IF rs_error-error_text IS INITIAL.
-      ASSIGN COMPONENT 'TAB_MESSAGES' OF STRUCTURE <ls_error_core> TO FIELD-SYMBOL(<lt_messages>).
-      IF sy-subrc = 0 AND <lt_messages> IS ASSIGNED.
-        DATA lv_messages TYPE string.
-        LOOP AT <lt_messages> ASSIGNING FIELD-SYMBOL(<lv_msg>).
-          IF lv_messages IS NOT INITIAL.
-            lv_messages = |{ lv_messages }\n|.
-          ENDIF.
-          lv_messages = |{ lv_messages }{ <lv_msg> }|.
-        ENDLOOP.
-        rs_error-error_text = lv_messages.
-      ENDIF.
+      DATA lv_messages TYPE string.
+      LOOP AT is_method-str_error-tab_messages ASSIGNING FIELD-SYMBOL(<lv_msg>).
+        IF lv_messages IS NOT INITIAL.
+          lv_messages = |{ lv_messages }\n|.
+        ENDIF.
+        lv_messages = |{ lv_messages }{ <lv_msg> }|.
+      ENDLOOP.
+      rs_error-error_text = lv_messages.
     ENDIF.
 
     rs_error-method_name = iv_method_name.
