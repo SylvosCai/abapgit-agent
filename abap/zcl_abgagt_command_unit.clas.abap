@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-" UNIT command implementation - runs AUnit tests directly (no abapGit API)
+" UNIT command implementation - runs AUnit tests directly
 CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
@@ -37,13 +37,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_key.
 
     TYPES ty_keys TYPE STANDARD TABLE OF ty_key WITH DEFAULT KEY.
-
-    METHODS run_aunit_tests
-      IMPORTING
-        iv_package TYPE devclass OPTIONAL
-        it_keys TYPE ty_keys OPTIONAL
-      RETURNING
-        VALUE(rt_results) TYPE ty_test_results.
 
 ENDCLASS.
 
@@ -146,7 +139,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   METHOD run_aunit_tests.
     DATA: lo_runner TYPE REF TO cl_sut_aunit_runner.
 
-    " Create runner
+    " Create runner using S_CREATE
     cl_sut_aunit_runner=>s_create(
       EXPORTING
         p_cov       = abap_false
@@ -154,22 +147,26 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       RECEIVING
         r_ref_runner = lo_runner ).
 
-    " Configure runner
-    lo_runner->p_disp = abap_false.    " Don't show results UI
-    lo_runner->p_save = abap_true.     " Save values
-    lo_runner->p_runmd = 'E'.          " Execute only (not plan)
+    " Configure runner for OBJECT selection mode
+    lo_runner->p_disp = abap_false.   " No GUI display
+    lo_runner->p_save = abap_true.     " Save results
+    lo_runner->p_runmd = 'E'.         " Execute mode
 
-    " Set test classes from keys
-    DATA lv_test_classes TYPE string.
+    " Set selection type to OBJECT
+    lo_runner->p_seltyp = 'OBJECT'.
+
+    " Build SO_CLASS range for test class(es)
+    DATA: lt_so_class TYPE RANGE OF seoaliases-clsname.
     IF it_keys IS NOT INITIAL.
       LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
-        IF lv_test_classes IS INITIAL.
-          lv_test_classes = <ls_key>-obj_name.
-        ELSE.
-          lv_test_classes = |{ lv_test_classes } { <ls_key>-obj_name }|.
-        ENDIF.
+        " Get local test class names for the object
+        DATA(ls_range) = VALUE #( sign = 'I' option = 'EQ' low = <ls_key>-obj_name ).
+        APPEND ls_range TO lt_so_class.
       ENDLOOP.
     ENDIF.
+
+    " Set the class range
+    lo_runner->so_class[] = lt_so_class[].
 
     " Run tests
     TRY.
