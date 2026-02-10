@@ -68,7 +68,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS extract_error_from_method
       IMPORTING
         is_method TYPE cl_sut_aunit_runner=>typ_str_method
-        iv_method_name TYPE string
+        iv_method_name TYPE saunit_s_method_key-method
       RETURNING
         VALUE(rs_error) TYPE ty_error.
 
