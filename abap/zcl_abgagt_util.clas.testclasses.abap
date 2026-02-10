@@ -9,6 +9,7 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_intf FOR TESTING.
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
+    METHODS test_intentional_fail FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
