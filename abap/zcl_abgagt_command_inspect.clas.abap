@@ -21,10 +21,6 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error_count TYPE i,
              errors TYPE ty_errors,
            END OF ty_inspect_result.
-
-    TYPES: BEGIN OF ty_inspect_params,
-             source_name TYPE string,
-           END OF ty_inspect_params.
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
@@ -33,43 +29,50 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_inspect_params,
-          lv_json TYPE string,
-          lo_util TYPE REF TO zcl_abgagt_util,
+    DATA: lv_json TYPE string,
+          lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
+          lo_util TYPE REF TO zcl_abgagt_util,
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_result TYPE ty_inspect_result,
-          ls_response TYPE ty_inspect_result.
+          ls_file_result TYPE ty_inspect_result,
+          lt_all_errors TYPE ty_errors.
 
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
-        /ui2/cl_json=>deserialize(
-          EXPORTING json = lv_json
-          CHANGING data = ls_params ).
+        RETURN.
       ENDIF.
-    ELSEIF lines( it_files ) > 0.
-      READ TABLE it_files INDEX 1 INTO ls_params-source_name.
     ENDIF.
 
-    IF ls_params-source_name IS NOT INITIAL.
-      lo_util = zcl_abgagt_util=>get_instance( ).
+    lo_util = zcl_abgagt_util=>get_instance( ).
+    lo_agent = NEW zcl_abgagt_agent( ).
+
+    LOOP AT it_files INTO lv_file.
+      CLEAR: lv_obj_type, lv_obj_name.
       lo_util->zif_abgagt_util~parse_file_to_object(
-        EXPORTING iv_file = ls_params-source_name
+        EXPORTING iv_file = lv_file
         IMPORTING ev_obj_type = lv_obj_type
                   ev_obj_name = lv_obj_name ).
+
+      IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
+        ls_file_result = lo_agent->zif_abgagt_agent~inspect( lv_file ).
+
+        IF ls_result-success = abap_true.
+          ls_result-success = ls_file_result-success.
+        ENDIF.
+
+        APPEND LINES OF ls_file_result-errors TO lt_all_errors.
+      ENDIF.
+    ENDLOOP.
+
+    ls_result-error_count = lines( lt_all_errors ).
+    ls_result-errors = lt_all_errors.
+    IF ls_result-error_count > 0.
+      ls_result-success = abap_false.
     ENDIF.
 
-    lo_agent = NEW zcl_abgagt_agent( ).
-    ls_result = lo_agent->zif_abgagt_agent~inspect( ls_params-source_name ).
-
-    ls_response-success = ls_result-success.
-    ls_response-object_type = ls_result-object_type.
-    ls_response-object_name = ls_result-object_name.
-    ls_response-error_count = ls_result-error_count.
-    ls_response-errors = ls_result-errors.
-
-    rv_result = /ui2/cl_json=>serialize( data = ls_response ).
+    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
 ENDCLASS.
