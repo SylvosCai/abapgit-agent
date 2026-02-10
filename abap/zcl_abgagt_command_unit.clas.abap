@@ -38,6 +38,13 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_keys TYPE STANDARD TABLE OF ty_key WITH DEFAULT KEY.
 
+    METHODS run_aunit_tests
+      IMPORTING
+        iv_package TYPE devclass OPTIONAL
+        it_keys TYPE ty_keys OPTIONAL
+      RETURNING
+        VALUE(rt_results) TYPE ty_test_results.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_unit IMPLEMENTATION.
