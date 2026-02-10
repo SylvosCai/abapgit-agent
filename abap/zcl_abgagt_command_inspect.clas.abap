@@ -49,7 +49,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       READ TABLE it_files INDEX 1 INTO ls_params-source_name.
     ENDIF.
 
-    DATA(ls_result) = run_syntax_check( ls_params-source_name ).
     rv_result = 'test'.
   ENDMETHOD.
 ENDCLASS.
