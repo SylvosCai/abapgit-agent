@@ -43,9 +43,16 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lv_obj_name TYPE string,
           lo_util TYPE REF TO zcl_abgagt_util,
           ls_result TYPE ty_inspect_result,
+          lv_name TYPE sci_objs,
+          lo_objset TYPE REF TO cl_ci_objectset,
+          lo_variant TYPE REF TO cl_ci_checkvariant,
+          lo_inspection TYPE REF TO cl_ci_inspection,
+          lt_list TYPE scit_alvlist,
+          ls_list TYPE scit_alv,
+          ls_error TYPE ty_error,
+          lx_error TYPE REF TO cx_root,
           lt_objects TYPE ty_object_keys,
-          ls_obj TYPE scir_objs,
-          ls_syntax_result TYPE ty_inspect_result.
+          ls_obj TYPE scir_objs.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
@@ -85,29 +92,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check for all objects together
-    ls_syntax_result = run_syntax_check( lt_objects ).
-
-    " Copy results to response
-    ls_result-success = ls_syntax_result-success.
-    ls_result-error_count = ls_syntax_result-error_count.
-    ls_result-errors = ls_syntax_result-errors.
-
-    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
-  ENDMETHOD.
-
-  METHOD run_syntax_check
-    IMPORTING it_objects TYPE ty_object_keys
-    RETURNING VALUE(rs_result) TYPE ty_inspect_result.
-    DATA: lv_name TYPE sci_objs,
-          lo_objset TYPE REF TO cl_ci_objectset,
-          lo_variant TYPE REF TO cl_ci_checkvariant,
-          lo_inspection TYPE REF TO cl_ci_inspection,
-          lt_list TYPE scit_alvlist,
-          ls_list TYPE scit_alv,
-          ls_error TYPE ty_error,
-          lx_error TYPE REF TO cx_root.
-
-    rs_result-success = abap_true.
+    ls_result-success = abap_true.
 
     TRY.
         " Create unique name for inspection
@@ -116,7 +101,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         " Create object set
         lo_objset = cl_ci_objectset=>save_from_list(
           p_name    = lv_name
-          p_objects = it_objects ).
+          p_objects = lt_objects ).
 
         " Get check variant for syntax check
         lo_variant = cl_ci_checkvariant=>get_ref(
@@ -158,7 +143,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           ls_error-column = ls_list-col.
           ls_error-text = ls_list-text.
           ls_error-word = ls_list-code.
-          APPEND ls_error TO rs_result-errors.
+          APPEND ls_error TO ls_result-errors.
         ENDLOOP.
 
         " Cleanup
@@ -179,20 +164,22 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             exists_in_objs = 5
             OTHERS = 6 ).
 
-        rs_result-error_count = lines( rs_result-errors ).
-        IF rs_result-error_count > 0.
-          rs_result-success = abap_false.
+        ls_result-error_count = lines( ls_result-errors ).
+        IF ls_result-error_count > 0.
+          ls_result-success = abap_false.
         ENDIF.
 
       CATCH cx_root INTO lx_error.
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
+        ls_result-success = abap_false.
+        ls_result-error_count = 1.
         ls_error-line = '1'.
         ls_error-column = '1'.
         ls_error-text = lx_error->get_text( ).
         ls_error-word = ''.
-        APPEND ls_error TO rs_result-errors.
+        APPEND ls_error TO ls_result-errors.
     ENDTRY.
+
+    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
 
 ENDCLASS.
