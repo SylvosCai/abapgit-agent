@@ -34,7 +34,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_inspect_params,
-          lv_json TYPE string.
+          lv_json TYPE string,
+          ls_result TYPE ty_inspect_result.
 
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
@@ -49,6 +50,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       READ TABLE it_files INDEX 1 INTO ls_params-source_name.
     ENDIF.
 
+    ls_result-success = abap_true.
     rv_result = 'test'.
   ENDMETHOD.
 ENDCLASS.
