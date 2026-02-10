@@ -5,10 +5,10 @@ CLASS ltcl_zcl_abgagt_command_pull DEFINITION FOR TESTING DURATION SHORT RISK LE
     DATA mo_cut TYPE REF TO zcl_abgagt_command_pull.
 
     METHODS setup.
-    METHODS test_get_name_returns_pull FOR TESTING.
-    METHODS test_execute_with_minimal_params FOR TESTING.
-    METHODS test_execute_with_files FOR TESTING.
-    METHODS test_interface_implementation FOR TESTING.
+    METHODS test_get_name FOR TESTING.
+    METHODS test_exec_minimal FOR TESTING.
+    METHODS test_exec_files FOR TESTING.
+    METHODS test_interface FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
@@ -17,7 +17,7 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
     CREATE OBJECT mo_cut.
   ENDMETHOD.
 
-  METHOD test_get_name_returns_pull.
+  METHOD test_get_name.
     " Test that get_name returns the correct command name
     DATA(lv_name) = mo_cut->zif_abgagt_command~get_name( ).
     cl_abap_unit_assert=>assert_equals(
@@ -26,7 +26,7 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
       msg = 'Command name should be PULL' ).
   ENDMETHOD.
 
-  METHOD test_interface_implementation.
+  METHOD test_interface.
     " Test that the class implements the command interface
     DATA lo_interface TYPE REF TO zif_abgagt_command.
     CREATE OBJECT mo_cut TYPE zcl_abgagt_command_pull.
@@ -36,7 +36,7 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
       msg = 'Object should implement zif_abgagt_command interface' ).
   ENDMETHOD.
 
-  METHOD test_execute_with_minimal_params.
+  METHOD test_exec_minimal.
     " Test execute with minimal parameters (url only)
     DATA: BEGIN OF ls_param,
             url TYPE string,
@@ -58,7 +58,7 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
       msg = 'Result should contain success field' ).
   ENDMETHOD.
 
-  METHOD test_execute_with_files.
+  METHOD test_exec_files.
     " Test execute with files parameter
     DATA: BEGIN OF ls_param,
             url TYPE string,
