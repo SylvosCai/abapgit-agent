@@ -161,6 +161,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Set selection type to OBJECT
     lo_runner->p_seltyp = 'OBJECT'.
+    lo_runner->p_selcl = abap_true.   " Enable class selection mode
 
     " Build SO_CLASS range for test class(es)
     DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
