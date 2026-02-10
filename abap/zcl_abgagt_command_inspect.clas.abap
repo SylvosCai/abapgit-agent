@@ -54,6 +54,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_syntax_check RETURNING VALUE(rs_result) TYPE ty_inspect_result.
-    rs_result-success = abap_true.
+    RETURN.
   ENDMETHOD.
 ENDCLASS.
