@@ -465,7 +465,9 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
     const message = result.MESSAGE || result.message || '';
     const results = result.RESULTS || result.results || [];
 
-    if (success === 'X' || success === true) {
+    if (testCount === 0) {
+      console.log(`  ➖ ${objName} - No unit tests`);
+    } else if (success === 'X' || success === true) {
       console.log(`  ✅ ${objName} - All tests passed`);
     } else {
       console.log(`  ❌ ${objName} - Tests failed`);
