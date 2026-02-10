@@ -89,7 +89,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Result should contain success field' ).
   ENDMETHOD.
 
-  METHOD test_exec_multiple_files.
+  METHOD test_exec_multi_files.
     " Test execute with multiple files
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
