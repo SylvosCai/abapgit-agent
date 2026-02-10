@@ -6,6 +6,17 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
+    " Type for str_results from CL_SUT_AUNIT_RUNNER
+    TYPES: BEGIN OF ty_str_results,
+             cnt_testmethods       TYPE i,
+             cnt_ok_methods        TYPE i,
+             cnt_error_methods     TYPE i,
+             pie_failures          TYPE i,
+             pie_abortions         TYPE i,
+             flg_failure           TYPE c LENGTH 1,
+             flg_abortion          TYPE c LENGTH 1,
+           END OF ty_str_results.
+
     TYPES: BEGIN OF ty_test_result,
              object_type TYPE string,
              object_name TYPE string,
@@ -203,60 +214,32 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get results from tab_objects
-    DATA(lt_objects) = lo_runner->tab_objects.
+    " Get results from str_results
+    DATA: ls_str_results TYPE ty_str_results.
 
-    IF lt_objects IS INITIAL.
-      RETURN.
+    " Cast str_results to local type using field symbols
+    FIELD-SYMBOLS <fs_results> TYPE any.
+    ASSIGN lo_runner->str_results TO <fs_results>.
+    IF <fs_results> IS ASSIGNED.
+      ls_str_results-cnt_testmethods = <fs_results>->cnt_testmethods.
+      ls_str_results-cnt_ok_methods = <fs_results>->cnt_ok_methods.
+      ls_str_results-cnt_error_methods = <fs_results>->cnt_error_methods.
+      ls_str_results-pie_failures = <fs_results>->pie_failures.
+      ls_str_results-pie_abortions = <fs_results>->pie_abortions.
+      ls_str_results-flg_failure = <fs_results>->flg_failure.
+      ls_str_results-flg_abortion = <fs_results>->flg_abortion.
     ENDIF.
 
-    " Process results
-    LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
-      DATA(lv_obj_name) = <ls_object>-obj_name.
-
-      " Loop through test classes
-      LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
-        DATA(lv_tcl_name) = <ls_tcl>-testclass.
-
-        " Loop through test methods
-        LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
-          DATA: lv_methodname TYPE string,
-                lv_kind TYPE string,
-                lv_desc TYPE string,
-                lv_src TYPE string.
-
-          ASSIGN COMPONENT 'METHODNAME' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_mname>).
-          IF sy-subrc = 0 AND <lv_mname> IS ASSIGNED.
-            lv_methodname = <lv_mname>.
-          ENDIF.
-
-          ASSIGN COMPONENT 'KIND' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_kind>).
-          IF sy-subrc = 0 AND <lv_kind> IS ASSIGNED.
-            lv_kind = <lv_kind>.
-          ENDIF.
-
-          ASSIGN COMPONENT 'DESCRIPTION' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_desc>).
-          IF sy-subrc = 0 AND <lv_desc> IS ASSIGNED.
-            lv_desc = <lv_desc>.
-          ENDIF.
-
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_src>).
-          IF sy-subrc = 0 AND <lv_src> IS ASSIGNED.
-            lv_src = <lv_src>.
-          ENDIF.
-
-          DATA(ls_result) = VALUE ty_test_result(
-            object_type = 'CLAS'
-            object_name = lv_obj_name
-            test_method = lv_methodname
-            status = lv_kind
-            message = lv_desc
-            line = lv_src
-          ).
-          APPEND ls_result TO rt_results.
-        ENDLOOP.
-      ENDLOOP.
-    ENDLOOP.
+    " Build result entry from str_results counts
+    DATA(ls_result) = VALUE ty_test_result(
+      object_type = 'CLAS'
+      object_name = 'AUNIT'
+      test_method = 'SUMMARY'
+      status = COND #( WHEN ls_str_results-cnt_error_methods > 0 OR ls_str_results-pie_abortions > 0 THEN 'F' ELSE 'P' )
+      message = |Tests: { ls_str_results-cnt_testmethods }, Passed: { ls_str_results-cnt_ok_methods }, Failed: { ls_str_results-cnt_error_methods }|
+      line = ls_str_results-cnt_testmethods
+    ).
+    APPEND ls_result TO rt_results.
   ENDMETHOD.
 
 ENDCLASS.
