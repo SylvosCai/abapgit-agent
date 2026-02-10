@@ -51,11 +51,11 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
       act = lv_result
       msg = 'Result should not be initial' ).
 
-    " Result should contain success field
+    " Result should contain SUCCESS field (JSON serializes field names to uppercase by default)
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '"success"'
-      msg = 'Result should contain success field' ).
+      exp = '"SUCCESS"'
+      msg = 'Result should contain SUCCESS field' ).
   ENDMETHOD.
 
   METHOD test_exec_files.
