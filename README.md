@@ -36,14 +36,17 @@ abapgit-agent pull --url https://github.com/user/repo --branch main
 # Inspect source file for issues
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
+# Run AUnit tests for test classes
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Run tests for multiple test classes
+abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+
 # Health check
 abapgit-agent health
 
 # Check integration status
 abapgit-agent status
-
-# Run unit tests (TODO: In Progress)
-abapgit-agent unit --files abap/zcl_my_test.clas.abap
 ```
 
 ## Local Development
@@ -59,6 +62,41 @@ node bin/abapgit-agent pull
 # Or use npm script
 npm run pull -- --url <git-url> --branch main
 ```
+
+## Unit Tests
+
+Run AUnit tests for ABAP test classes and view detailed results:
+
+```bash
+# Run unit tests for a test class file
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Run tests for multiple test classes
+abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+```
+
+### Output
+
+Success case:
+```
+✅ ZCL_MY_TEST - All tests passed
+   Tests: 10 | Passed: 10 | Failed: 0
+```
+
+Failure case with details:
+```
+❌ ZCL_MY_TEST - Tests failed
+   Tests: 10 | Passed: 8 | Failed: 2
+   ✗ ZCL_MY_TEST=>TEST_METHOD_1: Error description
+   ✗ ZCL_MY_TEST=>TEST_METHOD_2: Another error
+```
+
+### Supported File Formats
+
+| File Pattern | Description |
+|--------------|-------------|
+| `zcl_my_test.clas.testclasses.abap` | Test class file |
+| `src/tests/zcl_my_test.clas.testclasses.abap` | With subdirectory path |
 
 ## Documentation
 
