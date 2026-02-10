@@ -58,22 +58,8 @@ CLASS zcl_abgagt_resource_pull IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Build params for command (pass files directly, not as JSON string)
-    DATA: BEGIN OF ls_params,
-            url TYPE string,
-            branch TYPE string,
-            username TYPE string,
-            password TYPE string,
-            files TYPE string_table,
-          END OF ls_params.
-    ls_params-url = ls_request-url.
-    ls_params-branch = ls_request-branch.
-    ls_params-username = ls_request-username.
-    ls_params-password = ls_request-password.
-    ls_params-files = ls_request-files.
-
-    " Serialize params to JSON string
-    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_params ).
+    " Serialize params to JSON string for command
+    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_request ).
     DATA(lt_files) = VALUE string_table( ( lv_params_json ) ).
 
     " Execute command
