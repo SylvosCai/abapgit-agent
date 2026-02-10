@@ -450,12 +450,9 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
       objName = objName.substring(lastSlash + 1);
     }
 
-    // Send object info to unit endpoint
+    // Send files array to unit endpoint (ABAP expects string_table of file names)
     const data = {
-      objects: [{
-        object_type: objType,
-        object_name: objName
-      }]
+      files: [sourceFile]
     };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
