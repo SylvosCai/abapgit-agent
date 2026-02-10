@@ -272,8 +272,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           DATA(lv_has_error) = abap_false.
 
           LOOP AT <lt_indices> ASSIGNING FIELD-SYMBOL(<ls_index>).
-            DATA: lt_alerts TYPE any.
-            ASSIGN COMPONENT 'ALERTS' OF STRUCTURE <ls_index> TO <lt_alerts>.
+            ASSIGN COMPONENT 'ALERTS' OF STRUCTURE <ls_index> TO FIELD-SYMBOL(<lt_alerts>).
             IF sy-subrc = 0 AND <lt_alerts> IS ASSIGNED.
               LOOP AT <lt_alerts> ASSIGNING FIELD-SYMBOL(<ls_alert>).
                 DATA: lv_kind TYPE string.
