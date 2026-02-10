@@ -83,14 +83,20 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_intentional_fail.
-    " This test is intentionally designed to fail
-    DATA lv_result TYPE string VALUE 'EXPECTED'.
+    " This test demonstrates failure - parse CLAS but expect INTF
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
 
-    " This will fail because actual = 'EXPECTED' but we assert = 'WRONG'
+    mo_util->zif_abgagt_util~parse_file_to_object(
+      EXPORTING iv_file = 'zcl_my_class.clas.abap'
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    " This will fail because CLAS != INTF
     cl_abap_unit_assert=>assert_equals(
-      act = lv_result
-      exp = 'WRONG'
-      msg = 'Intentionally failing test' ).
+      act = lv_obj_type
+      exp = 'INTF'
+      msg = 'CLAS file should be parsed as INTF (intentional fail)' ).
   ENDMETHOD.
 
 ENDCLASS.
