@@ -261,7 +261,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD extract_error_from_method.
     " Extract STR_ERROR from method and build error structure
-    " typ_str_error contains typ_str_error_core via INCLUDE, so components are directly accessible
+    " typ_str_error contains typ_str_error_core via INCLUDE as STR_ERROR_CORE
 
     " Check if there's an error - only process if error kind is set
     IF is_method-str_error IS INITIAL.
@@ -269,7 +269,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Get error kind (e.g., 'ERROR', 'FAILURE')
-    rs_error-error_kind = is_method-str_error-error_kind.
+    rs_error-error_kind = is_method-str_error-str_error_core-error_kind.
 
     " Only process if there's an actual error
     IF rs_error-error_kind IS INITIAL.
@@ -277,12 +277,12 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Get error text
-    rs_error-error_text = is_method-str_error-errortext.
+    rs_error-error_text = is_method-str_error-str_error_core-errortext.
 
     " If no error text, try tab_messages
     IF rs_error-error_text IS INITIAL.
       DATA lv_messages TYPE string.
-      LOOP AT is_method-str_error-tab_messages ASSIGNING FIELD-SYMBOL(<lv_msg>).
+      LOOP AT is_method-str_error-str_error_core-tab_messages ASSIGNING FIELD-SYMBOL(<lv_msg>).
         IF lv_messages IS NOT INITIAL.
           lv_messages = |{ lv_messages }\n|.
         ENDIF.
