@@ -6,17 +6,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    TYPES: BEGIN OF ty_test_result,
-             object_type TYPE string,
-             object_name TYPE string,
-             test_method TYPE string,
-             status TYPE string,
-             message TYPE string,
-             line TYPE string,
-           END OF ty_test_result.
-
-    TYPES ty_test_results TYPE STANDARD TABLE OF ty_test_result WITH NON-UNIQUE DEFAULT KEY.
-
     TYPES: BEGIN OF ty_unit_params,
              package TYPE string,
              files TYPE string_table,
@@ -28,7 +17,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
              test_count TYPE i,
              passed_count TYPE i,
              failed_count TYPE i,
-             results TYPE ty_test_results,
            END OF ty_unit_result.
 
     TYPES: BEGIN OF ty_key,
@@ -43,7 +31,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
         iv_package TYPE devclass OPTIONAL
         it_keys TYPE ty_keys OPTIONAL
       RETURNING
-        VALUE(rt_results) TYPE ty_test_results.
+        VALUE(rs_result) TYPE ty_unit_result.
 
 ENDCLASS.
 
@@ -110,42 +98,16 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       DELETE ADJACENT DUPLICATES FROM lt_keys COMPARING obj_type obj_name.
     ENDIF.
 
-    " Run tests
-    ls_result-results = run_aunit_tests(
+    " Run tests and get result directly from str_results
+    ls_result = run_aunit_tests(
       iv_package = lv_package
       it_keys = lt_keys ).
 
-    IF ls_result-results IS INITIAL.
+    IF ls_result-test_count = 0 AND ls_result-failed_count = 0.
       ls_result-message = 'No test results returned'.
       rv_result = /ui2/cl_json=>serialize( data = ls_result ).
       RETURN.
     ENDIF.
-
-    " Count results
-    ls_result-test_count = lines( ls_result-results ).
-
-    LOOP AT ls_result-results ASSIGNING FIELD-SYMBOL(<ls_test>).
-      DATA(lv_status) = <ls_test>-status.
-      IF lv_status IS INITIAL.
-        " If status is empty, count as passed (no error info)
-        ls_result-passed_count = ls_result-passed_count + 1.
-      ELSE.
-        CASE lv_status.
-          WHEN 'P' OR 'S' OR 'PASSED' OR 'passed'.
-            ls_result-passed_count = ls_result-passed_count + 1.
-          WHEN 'A' OR 'E' OR 'F' OR 'FAILED' OR 'failed' OR 'ERROR' OR 'error'.
-            ls_result-failed_count = ls_result-failed_count + 1.
-          WHEN OTHERS.
-            " Unknown status - count as passed if no error in message
-            IF <ls_test>-message IS INITIAL OR
-               <ls_test>-message CN 'errorfail'.
-              ls_result-passed_count = ls_result-passed_count + 1.
-            ELSE.
-              ls_result-failed_count = ls_result-failed_count + 1.
-            ENDIF.
-        ENDCASE.
-      ENDIF.
-    ENDLOOP.
 
     IF ls_result-failed_count = 0.
       ls_result-success = abap_true.
@@ -207,16 +169,16 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     DATA: ls_str TYPE cl_sut_aunit_runner=>typ_str_results.
     ls_str = lo_runner->str_results.
 
-    " Build result entry from str_results counts
-    DATA(ls_result) = VALUE ty_test_result(
-      object_type = 'CLAS'
-      object_name = 'AUNIT'
-      test_method = 'SUMMARY'
-      status = COND #( WHEN ls_str-cnt_error_methods > 0 OR ls_str-pie_abortions > 0 THEN 'F' ELSE 'P' )
-      message = |Tests: { ls_str-cnt_testmethods }, Passed: { ls_str-cnt_ok_methods }, Failed: { ls_str-cnt_error_methods }|
-      line = ls_str-cnt_testmethods
-    ).
-    APPEND ls_result TO rt_results.
+    " Fill result directly from str_results counts
+    rs_result-test_count = ls_str-cnt_testmethods.
+    rs_result-passed_count = ls_str-cnt_ok_methods.
+    rs_result-failed_count = ls_str-cnt_error_methods.
+
+    IF rs_result-failed_count > 0 OR ls_str-pie_abortions > 0.
+      rs_result-success = abap_false.
+    ELSE.
+      rs_result-success = abap_true.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.
