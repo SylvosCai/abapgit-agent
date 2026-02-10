@@ -315,29 +315,21 @@ Use `CL_ABAP_UNIT_ASSERT` class:
 - Class/static methods: `zcl_class=>method( )`
 
 ### DATA() vs VALUE #() Rule
-**NEVER use `DATA(var) = VALUE #( ... )`** - ABAP cannot infer the type for VALUE #() without explicit type.
-
-**WRONG:**
-```abap
-DATA(ls_range) = VALUE #( sign = 'I' option = 'EQ' low = lv_value ).
-```
+**When assigning to a typed variable, ABAP can infer the type from the target.**
 
 **CORRECT:**
 ```abap
-" Declare type explicitly first
-DATA ls_range TYPE LINE OF lt_so_class.  " or TYPE range_type
-ls_range-sign = 'I'.
-ls_range-option = 'EQ'.
-ls_range-low = lv_value.
-APPEND ls_range TO lt_so_class.
+" When target has explicit type, VALUE #() infers from it
+DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
+lt_so_class = VALUE #( ( sign = 'I' option = 'EQ' low = lv_value ) ).
 
-" OR use LIKE LINE OF
-DATA ls_range LIKE LINE OF lt_so_class.
-CLEAR ls_range.
-ls_range-sign = 'I'.
-ls_range-option = 'EQ'.
-ls_range-low = lv_value.
-APPEND ls_range TO lt_so_class.
+" Or append with inline VALUE
+APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_value ) TO lt_so_class.
+```
+
+**WRONG (untyped variable):**
+```abap
+DATA(ls_range) = VALUE #( sign = 'I' option = 'EQ' low = lv_value ).  " Type unknown!
 ```
 
 ### Example Test Class
