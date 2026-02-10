@@ -6,11 +6,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    TYPES: BEGIN OF ty_unit_params,
-             package TYPE string,
-             files TYPE string_table,
-           END OF ty_unit_params.
-
     TYPES: BEGIN OF ty_test_result,
              object_type TYPE string,
              object_name TYPE string,
@@ -21,6 +16,11 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_test_result.
 
     TYPES ty_test_results TYPE STANDARD TABLE OF ty_test_result WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_unit_params,
+             package TYPE string,
+             files TYPE string_table,
+           END OF ty_unit_params.
 
     TYPES: BEGIN OF ty_unit_result,
              success TYPE abap_bool,
