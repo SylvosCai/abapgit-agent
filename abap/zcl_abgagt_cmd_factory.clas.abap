@@ -20,11 +20,11 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
   METHOD zif_abgagt_cmd_factory~get_command.
     CASE iv_command.
       WHEN zif_abgagt_command=>gc_pull.
-        ro_command = NEW zcl_abgagt_pull( ).
+        ro_command = NEW zcl_abgagt_command_pull( ).
       WHEN zif_abgagt_command=>gc_inspect.
-        ro_command = NEW zcl_abgagt_inspect( ).
+        ro_command = NEW zcl_abgagt_command_inspect( ).
       WHEN zif_abgagt_command=>gc_unit.
-        ro_command = NEW zcl_abgagt_unit( ).
+        ro_command = NEW zcl_abgagt_command_unit( ).
     ENDCASE.
   ENDMETHOD.
 

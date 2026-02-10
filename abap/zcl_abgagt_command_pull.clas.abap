@@ -1,7 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abgagt_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abgagt_command_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
@@ -15,7 +15,7 @@ CLASS zcl_abgagt_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-CLASS zcl_abgagt_pull IMPLEMENTATION.
+CLASS zcl_abgagt_command_pull IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_pull.

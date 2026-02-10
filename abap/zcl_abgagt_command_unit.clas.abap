@@ -2,7 +2,7 @@
 *"*"Local Interface:
 *"**********************************************************************
 " UNIT command implementation - runs unit tests
-CLASS zcl_abgagt_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
@@ -21,7 +21,7 @@ CLASS zcl_abgagt_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-CLASS zcl_abgagt_unit IMPLEMENTATION.
+CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_unit.
