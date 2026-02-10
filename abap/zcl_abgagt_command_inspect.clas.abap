@@ -74,8 +74,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
     DATA ls_error TYPE ty_error.
+    DATA lo_util TYPE REF TO zcl_abgagt_util.
+    DATA lv_devclass TYPE devclass.
+    DATA ls_obj TYPE scir_objs.
+    DATA lt_objects TYPE scit_objs.
+    DATA lv_name TYPE sci_obobs.
+    DATA lo_objset TYPE REF TO cl_ci_objectset.
+    DATA lo_variant TYPE REF TO cl_ci_checkvariant.
+    DATA lo_inspection TYPE REF TO cl_ci_inspection.
+    DATA lt_list TYPE scit_alvlist.
+    DATA lx_error TYPE REF TO cx_root.
 
-    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+    lo_util = zcl_abgagt_util=>get_instance( ).
     lo_util->zif_abgagt_util~parse_file_to_object(
       EXPORTING iv_file = iv_file
       IMPORTING ev_obj_type = lv_obj_type
@@ -86,7 +96,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     rs_result-object_name = lv_obj_name.
 
     TRY.
-        DATA lv_devclass TYPE devclass.
         SELECT SINGLE devclass FROM tadir
           INTO lv_devclass
           WHERE pgmid = 'R3TR'
@@ -104,21 +113,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-        DATA ls_obj TYPE scir_objs.
         ls_obj-objtype = lv_obj_type.
         ls_obj-objname = lv_obj_name.
 
-        DATA lt_objects TYPE scit_objs.
         APPEND ls_obj TO lt_objects.
 
-        DATA lv_name TYPE sci_obobs.
         CONCATENATE 'SYNT_' sy-uname sy-datum sy-uzeit INTO lv_name.
 
-        DATA(lo_objset) = cl_ci_objectset=>save_from_list(
+        lo_objset = cl_ci_objectset=>save_from_list(
           p_name    = lv_name
           p_objects = lt_objects ).
 
-        DATA(lo_variant) = cl_ci_checkvariant=>get_ref(
+        lo_variant = cl_ci_checkvariant=>get_ref(
           p_user = ''
           p_name = 'SYNTAX_CHECK' ).
 
@@ -127,7 +133,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             p_user = sy-uname
             p_name = lv_name
           RECEIVING
-            p_ref = DATA(lo_inspection) ).
+            p_ref = lo_inspection ).
 
         lo_inspection->set(
           EXPORTING
@@ -142,7 +148,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             invalid_check_version = 1
             OTHERS = 2 ).
 
-        DATA lt_list TYPE scit_alvlist.
         lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
         LOOP AT lt_list INTO DATA(ls_list).
@@ -164,7 +169,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           rs_result-success = abap_false.
         ENDIF.
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         rs_result-success = abap_false.
         rs_result-error_count = 1.
         CLEAR ls_error.
