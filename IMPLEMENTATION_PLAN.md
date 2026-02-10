@@ -21,18 +21,11 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 
 ### 1. ABAP System Components
 
-#### 1.1 Main Class: ZCL_ABAPGIT_AGENT (DONE)
+#### 1.1 Main Class: ZCL_ABGAGT_AGENT (DONE)
 ```abap
-CLASS zcl_abapgit_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
-    INTERFACES: zif_abapgit_agent.
-
-  PRIVATE SECTION.
-    METHODS:
-      configure_credentials,
-      prepare_deserialize_checks,
-      check_inactive_objects,
-      handle_exception.
+    INTERFACES: zif_abgagt_agent.
 ENDCLASS.
 ```
 **Features:**
@@ -40,9 +33,9 @@ ENDCLASS.
 - Check for inactive objects after activation
 - Detailed error reporting with exception chaining
 
-#### 1.2 Interface: ZIF_ABAPGIT_AGENT (DONE)
+#### 1.2 Interface: ZIF_ABGAGT_AGENT (DONE)
 ```abap
-INTERFACE zif_abapgit_agent PUBLIC.
+INTERFACE zif_abgagt_agent PUBLIC.
   TYPES: BEGIN OF ty_result,
     success TYPE abap_bool,
     job_id TYPE string,
@@ -52,6 +45,9 @@ INTERFACE zif_abapgit_agent PUBLIC.
     failed_count TYPE i,
     started_at TYPE timestampl,
     finished_at TYPE timestampl,
+    log_messages TYPE ty_object_list,
+    activated_objects TYPE ty_object_list,
+    failed_objects TYPE ty_object_list,
   END OF ty_result.
 
   TYPES: BEGIN OF ty_pull_params,
@@ -69,20 +65,33 @@ INTERFACE zif_abapgit_agent PUBLIC.
               iv_branch TYPE string DEFAULT 'main'
               iv_username TYPE string OPTIONAL
               iv_password TYPE string OPTIONAL
+              it_files TYPE string_table OPTIONAL
     RETURNING VALUE(rs_result) TYPE ty_result
     RAISING zcx_abapgit_exception.
 
-  METHODS get_repo_status
-    IMPORTING iv_url TYPE string
-    RETURNING VALUE(rv_status) TYPE string.
+  METHODS inspect
+    IMPORTING iv_file TYPE string
+    RETURNING VALUE(rs_result) TYPE ty_inspect_result.
+
+  METHODS run_tests
+    IMPORTING iv_package TYPE devclass OPTIONAL
+              it_objects TYPE ty_object_keys OPTIONAL
+    RETURNING VALUE(rs_result) TYPE ty_unit_result.
 ENDINTERFACE.
 ```
 
-#### 1.3 REST API Handlers (DONE)
-- `ZCL_ABAPGIT_AGENT_HANDLER` - Router for all endpoints
-- `ZCL_ABAPGIT_AGENT_PULL` - POST /pull endpoint
-- `ZCL_ABAPGIT_AGENT_HEALTH` - GET /health endpoint
-- `ZCL_ABAPGIT_AGENT_SYNTAX` - POST /syntax-check endpoint
+#### 1.3 Command Factory Pattern (DONE)
+```
+ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_PULL
+                      → ZCL_ABGAGT_COMMAND_INSPECT
+                      → ZCL_ABGAGT_COMMAND_UNIT
+```
+
+#### 1.4 REST API Handlers (DONE)
+- `ZCL_ABGAGT_REST_HANDLER` - Router for all endpoints
+- `ZCL_ABGAGT_RESOURCE_PULL` - POST /pull endpoint
+- `ZCL_ABGAGT_RESOURCE_INSPECT` - POST /inspect endpoint (uses Code Inspector)
+- `ZCL_ABGAGT_RESOURCE_UNIT` - POST /unit endpoint (uses CL_SUT_AUNIT_RUNNER)
 
 ### 2. Local Agent (Node.js)
 
@@ -90,17 +99,29 @@ ENDINTERFACE.
 ```
 abapgit-agent/
 ├── package.json
+├── bin/
+│   └── abapgit-agent     # CLI entry point
 ├── src/
 │   ├── agent.js          # Main agent class
 │   ├── abap-client.js    # REST client for ABAP
+│   ├── command-client.js # Command-based API client
 │   ├── server.js         # HTTP server for Claude
 │   ├── config.js         # Configuration
 │   └── logger.js         # Logging
 ├── abap/
-│   ├── zcl_abapgit_agent.clas.abap
-│   ├── zif_abapgit_agent.intf.abap
-│   ├── zcl_abapgit_agent_*.clas.abap
-└── README.md
+│   ├── zcl_abgagt_agent.clas.abap
+│   ├── zif_abgagt_agent.intf.abap
+│   ├── zcl_abgagt_cmd_factory.clas.abap
+│   ├── zcl_abgagt_command_*.clas.abap
+│   └── zif_abgagt_command.intf.abap
+├── tests/
+│   ├── agent.test.js
+│   ├── abap-client.test.js
+│   ├── config.test.js
+│   └── server.test.js
+├── API.md
+├── README.md
+└── CLAUDE.md
 ```
 
 #### 2.2 REST API Endpoints (DONE)
@@ -109,8 +130,8 @@ abapgit-agent/
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/syntax-check` | Check syntax of specific ABAP object |
-| POST | `/unit` | **TODO** - Execute unit tests for package or objects |
+| POST | `/inspect` | Syntax check via Code Inspector (SCI) |
+| POST | `/unit` | Execute AUnit tests using CL_SUT_AUNIT_RUNNER |
 
 ## Implementation Status
 
@@ -198,21 +219,20 @@ ENDMETHOD.
 
 #### ABAP System
 - REST handler ICF path: `sap/bc/z_abapgit_agent`
-- Handler class: `ZCL_ABAPGIT_AGENT_HANDLER`
+- Handler class: `ZCL_ABGAGT_REST_HANDLER`
 
 #### Local Agent (.abapGitAgent)
 ```json
 {
   "host": "your-sap-system.com",
-  "sapport": 44300,
+  "sapport": 443,
   "client": "100",
   "user": "TECH_USER",
   "password": "your-password",
   "language": "EN",
-  "agent": {
-    "port": 3000,
-    "pollInterval": 5000
-  }
+  "gitUsername": "git-username",
+  "gitPassword": "git-token",
+  "useCommandApi": false
 }
 ```
 
@@ -231,14 +251,13 @@ ENDMETHOD.
 - [ ] OAuth authentication
 - [ ] Multi-system support
 - [ ] Repository management UI
-- [x] **Syntax Error Detail Parsing**: Extract line numbers, error codes from syntax errors (DONE via `/syntax-check`)
+- [x] **Syntax Error Detail Parsing**: Extract line numbers, error codes from syntax errors (DONE via `/inspect`)
+- [x] **Unit Test Execution**: Execute AUnit tests for test classes (DONE via `/unit`)
 
-## TODO: Unit Test Endpoint (`/unit`)
+## DONE: Unit Test Endpoint (`/unit`)
 
 ### Overview
-Add a new REST endpoint to execute ABAP unit tests for:
-- All tests in a package
-- Specific test objects (classes, function groups)
+Implemented AUnit test execution using `CL_SUT_AUNIT_RUNNER` for test classes.
 
 ### API Design
 
@@ -247,10 +266,7 @@ Add a new REST endpoint to execute ABAP unit tests for:
 Request body:
 ```json
 {
-  "package": "ZMY_PACKAGE",           // Optional: run all tests in package
-  "objects": [                        // Optional: specific objects
-    {"object_type": "CLAS", "object_name": "ZCL_TEST"}
-  ]
+  "files": ["zcl_my_test.clas.testclasses.abap", "zcl_other.clas.testclasses.abap"]
 }
 ```
 
@@ -258,36 +274,46 @@ Response:
 ```json
 {
   "success": "X",
-  "test_count": 5,
-  "passed_count": 4,
-  "failed_count": 1,
-  "results": [
-    {"object_type": "CLAS", "object_name": "ZCL_TEST", "method": "TEST_METHOD", "passed": true},
-    {"object_type": "CLAS", "object_name": "ZCL_TEST", "method": "FAILING_TEST", "passed": false, "error": "Assertion failed"}
+  "test_count": 10,
+  "passed_count": 8,
+  "failed_count": 2,
+  "message": "2 of 10 tests failed",
+  "errors": [
+    {
+      "class_name": "ZCL_MY_TEST",
+      "method_name": "TEST_METHOD_1",
+      "error_kind": "ERROR",
+      "error_text": "Expected X but got Y"
+    }
   ]
 }
 ```
 
-### Implementation Tasks
+### Implementation (COMPLETED)
 
 #### ABAP Side
-- [ ] Create `ZCL_ABAPGIT_AGENT_UNIT_AGENT` - Unit test execution logic
-  - Query SEU_OBJ for test objects in package
-  - Use `CL_AUNIT_ASSERT` or `CL_AUNIT_PROGRESS` for test execution
-  - Parse test results into structured format
-- [ ] Create `ZCL_ABAPGIT_AGENT_UNIT` - REST handler for POST /unit
-  - Accept package or object list in request body
-  - Call unit agent and format response
+- [x] Create `ZCL_ABGAGT_COMMAND_UNIT` - Unit test command using CL_SUT_AUNIT_RUNNER
+- [x] Error extraction from nested structure: TAB_OBJECTS → TAB_TESTCLASSES → TAB_METHODS → STR_ERROR
+- [x] `run_syntax_check()` method for running AUnit tests
 
 #### CLI Side
-- [ ] Add `unitTest()` method to `src/abap-client.js`
-- [ ] Add `unitCheck()` method to `src/agent.js`
-- [ ] Add `unit` command to `bin/abapgit-agent`
-  - `--package <pkg>` - Run all tests in package
-  - `--object <type> <name>` - Run tests for specific object
+- [x] Add `unitTest()` method to `src/command-client.js`
+- [x] Add `unitCheck()` method to `src/agent.js`
+- [x] Add `unit` command to `bin/abapgit-agent`
+  - `--files <file1>,<file2>,...` - Run tests for test class files
 
-### ABAP APIs for Unit Testing
-- `CL_AUNIT_TEST_RUNNER` - Execute unit tests
-- `CL_AUNIT_ASSERT` - Assertions for tests
-- `SE24` - Test class execution
-- `SUTD` - Test suite definitions
+### ABAP APIs Used
+- `CL_SUT_AUNIT_RUNNER` - Main AUnit runner class
+  - `S_CREATE()` - Create runner instance
+  - `RUN()` - Execute tests
+  - `STR_RESULTS` - Test statistics (cnt_testmethods, cnt_ok_methods, cnt_error_methods)
+  - `TAB_OBJECTS` - Detailed results with nested structure
+
+### CLI Commands
+```bash
+# Run unit tests for test class files
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Run tests for multiple test class files
+abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+```
