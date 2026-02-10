@@ -21,6 +21,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_unit_params,
+          lv_package TYPE devclass,
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
@@ -33,6 +34,11 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
       ls_params = CORRESPONDING #( is_param ).
+    ENDIF.
+
+    " Convert package string to devclass
+    IF ls_params-package IS NOT INITIAL.
+      lv_package = ls_params-package.
     ENDIF.
 
     " Parse files to objects
@@ -54,7 +60,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     lo_agent = NEW zcl_abgagt_agent( ).
     ls_result = lo_agent->zif_abgagt_agent~run_tests(
-      iv_package = ls_params-package
+      iv_package = lv_package
       it_objects = lt_objects ).
 
     ls_response-success = ls_result-success.
