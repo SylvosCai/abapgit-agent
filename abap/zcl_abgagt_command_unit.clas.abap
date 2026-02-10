@@ -38,9 +38,12 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_keys TYPE STANDARD TABLE OF ty_key WITH DEFAULT KEY.
 
-    METHODS run_tests
-      IMPORTING it_keys TYPE ty_keys
-      RETURNING VALUE(rt_results) TYPE ty_test_results.
+    METHODS run_aunit_tests
+      IMPORTING
+        iv_package TYPE devclass OPTIONAL
+        it_keys TYPE ty_keys OPTIONAL
+      RETURNING
+        VALUE(rt_results) TYPE ty_test_results.
 
 ENDCLASS.
 
@@ -95,18 +98,22 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ls_result-passed_count = 0.
     ls_result-failed_count = 0.
 
-    IF lt_keys IS INITIAL.
+    IF lt_keys IS INITIAL AND lv_package IS INITIAL.
       ls_result-message = 'No files or package provided'.
       rv_result = /ui2/cl_json=>serialize( data = ls_result ).
       RETURN.
     ENDIF.
 
-    " Remove duplicates
-    SORT lt_keys BY obj_type obj_name.
-    DELETE ADJACENT DUPLICATES FROM lt_keys COMPARING obj_type obj_name.
+    " Remove duplicates from keys
+    IF lt_keys IS NOT INITIAL.
+      SORT lt_keys BY obj_type obj_name.
+      DELETE ADJACENT DUPLICATES FROM lt_keys COMPARING obj_type obj_name.
+    ENDIF.
 
     " Run tests
-    ls_result-results = run_tests( lt_keys ).
+    ls_result-results = run_aunit_tests(
+      iv_package = lv_package
+      it_keys = lt_keys ).
 
     IF ls_result-results IS INITIAL.
       ls_result-message = 'No test results returned'.
@@ -119,9 +126,9 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     LOOP AT ls_result-results ASSIGNING FIELD-SYMBOL(<ls_test>).
       CASE <ls_test>-status.
-        WHEN 'P' OR 'S' OR 'passed'.  " Passed or Success
+        WHEN 'P' OR 'S' OR 'passed'.
           ls_result-passed_count = ls_result-passed_count + 1.
-        WHEN 'A' OR 'E' OR 'F' OR 'failed' OR 'error'.  " Abort, Error, or Failed
+        WHEN 'A' OR 'E' OR 'F' OR 'failed' OR 'error'.
           ls_result-failed_count = ls_result-failed_count + 1.
       ENDCASE.
     ENDLOOP.
@@ -136,182 +143,98 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
 
-  METHOD run_tests.
-    DATA: lo_passport TYPE REF TO object,
-          lo_runner TYPE REF TO object,
-          li_result TYPE REF TO data.
+  METHOD run_aunit_tests.
+    DATA: lo_runner TYPE REF TO cl_sut_aunit_runner.
 
-    FIELD-SYMBOLS: <li_result> TYPE any,
-                   <lt_task_data> TYPE any,
-                   <lt_indices> TYPE any,
-                   <lt_programs> TYPE any,
-                   <ls_program> TYPE any,
-                   <lv_any> TYPE any,
-                   <lt_classes> TYPE any,
-                   <ls_class> TYPE any,
-                   <lt_methods> TYPE any,
-                   <ls_method> TYPE any,
-                   <lt_params> TYPE any.
+    " Create runner
+    cl_sut_aunit_runner=>s_create(
+      EXPORTING
+        p_cov       = abap_false
+        i_flg_api   = abap_true
+      RECEIVING
+        r_ref_runner = lo_runner ).
 
+    " Configure runner
+    lo_runner->p_disp = abap_false.    " Don't show results UI
+    lo_runner->p_save = abap_true.     " Save values
+    lo_runner->p_runmd = 'E'.          " Execute only (not plan)
+
+    " Set test classes from keys
+    DATA lv_test_classes TYPE string.
+    IF it_keys IS NOT INITIAL.
+      LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+        IF lv_test_classes IS INITIAL.
+          lv_test_classes = <ls_key>-obj_name.
+        ELSE.
+          lv_test_classes = |{ lv_test_classes } { <ls_key>-obj_name }|.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    " Run tests
     TRY.
-        " Get passport from SAPLSAUCV_GUI_RUNNER
-        CALL METHOD ('\PROGRAM=SAPLSAUCV_GUI_RUNNER\CLASS=PASSPORT')=>get
-          RECEIVING
-            result = lo_passport.
-
-        " Create runner
-        CALL METHOD ('CL_AUCV_TEST_RUNNER_STANDARD')=>create
+        lo_runner->run(
           EXPORTING
-            i_passport = lo_passport
-          RECEIVING
-            result     = lo_runner.
-      CATCH cx_root.
-        " Fallback: return error message
+            i_flg_select_only = abap_false
+          EXCEPTIONS
+            OTHERS = 1 ).
+      CATCH cx_sut_error.
         RETURN.
     ENDTRY.
 
-    CREATE DATA li_result TYPE REF TO ('IF_SAUNIT_INTERNAL_RESULT').
-    ASSIGN li_result->* TO <li_result>.
-
-    " Run tests for the program keys
-    CALL METHOD lo_runner->('RUN_FOR_PROGRAM_KEYS')
-      EXPORTING
-        i_limit_on_duration_category = '36' " long
-        i_limit_on_risk_level        = '33' " critical
-        i_program_keys               = it_keys
-      IMPORTING
-        e_aunit_result               = <li_result>.
-
-    " Parse results
-    ASSIGN COMPONENT 'F_TASK_DATA' OF STRUCTURE <li_result> TO <lt_task_data>.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    ASSIGN COMPONENT 'ALERTS_BY_INDICIES' OF STRUCTURE <lt_task_data> TO <lt_indices>.
-    ASSIGN COMPONENT 'PROGRAMS' OF STRUCTURE <lt_task_data> TO <lt_programs>.
+    " Get results from tab_objects
+    DATA(lt_objects) = lo_runner->tab_objects.
 
-    IF <lt_programs> IS INITIAL.
+    IF lt_objects IS INITIAL.
       RETURN.
     ENDIF.
 
-    " Loop through programs
-    LOOP AT <lt_programs> ASSIGNING <ls_program>.
-      DATA(lv_program_ndx) = sy-tabix.
-
-      " Get object info
-      DATA(lv_obj_type) = ''.
-      DATA(lv_obj_name) = ''.
-
-      " Try to get KEY field (exists in newer releases)
-      ASSIGN COMPONENT 'INFO-KEY-OBJ_TYPE' OF STRUCTURE <ls_program> TO <lv_any>.
-      IF sy-subrc = 0.
-        lv_obj_type = <lv_any>.
-        ASSIGN COMPONENT 'INFO-KEY-OBJ_NAME' OF STRUCTURE <ls_program> TO <lv_any>.
-        IF sy-subrc = 0.
-          lv_obj_name = <lv_any>.
-        ENDIF.
-      ELSE.
-        " Fallback: use INFO-NAME
-        ASSIGN COMPONENT 'INFO-NAME' OF STRUCTURE <ls_program> TO <lv_any>.
-        IF sy-subrc = 0.
-          lv_obj_name = <lv_any>.
-        ENDIF.
-      ENDIF.
-
-      " Get classes
-      ASSIGN COMPONENT 'CLASSES' OF STRUCTURE <ls_program> TO <lt_classes>.
-      IF <lt_classes> IS NOT ASSIGNED.
-        CONTINUE.
-      ENDIF.
+    " Process results
+    LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
+      DATA(lv_obj_name) = <ls_object>-obj_name.
 
       " Loop through test classes
-      LOOP AT <lt_classes> ASSIGNING <ls_class>.
-        DATA(lv_class_ndx) = sy-tabix.
-
-        " Get class name
-        DATA(lv_class_name) = ''.
-        ASSIGN COMPONENT 'INFO-NAME' OF STRUCTURE <ls_class> TO <lv_any>.
-        IF sy-subrc = 0.
-          lv_class_name = <lv_any>.
-        ENDIF.
-
-        " Get methods
-        ASSIGN COMPONENT 'METHODS' OF STRUCTURE <ls_class> TO <lt_methods>.
-        IF <lt_methods> IS NOT ASSIGNED.
-          CONTINUE.
-        ENDIF.
+      LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
+        DATA(lv_tcl_name) = <ls_tcl>-testclass.
 
         " Loop through test methods
-        LOOP AT <lt_methods> ASSIGNING <ls_method>.
-          DATA(lv_method_name) = ''.
-          DATA(lv_status) = ''.
-          DATA(lv_message) = ''.
-          DATA(lv_source) = ''.
+        LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
+          DATA: lv_methodname TYPE string,
+                lv_kind TYPE string,
+                lv_desc TYPE string,
+                lv_src TYPE string.
 
-          ASSIGN COMPONENT 'INFO-NAME' OF STRUCTURE <ls_method> TO <lv_any>.
-          IF sy-subrc = 0.
-            lv_method_name = <lv_any>.
+          ASSIGN COMPONENT 'METHODNAME' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_mname>).
+          IF sy-subrc = 0 AND <lv_mname> IS ASSIGNED.
+            lv_methodname = <lv_mname>.
           ENDIF.
 
-          ASSIGN COMPONENT 'KIND' OF STRUCTURE <ls_method> TO <lv_any>.
-          IF sy-subrc = 0.
-            lv_status = <lv_any>.
+          ASSIGN COMPONENT 'KIND' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_kind>).
+          IF sy-subrc = 0 AND <lv_kind> IS ASSIGNED.
+            lv_kind = <lv_kind>.
           ENDIF.
 
-          ASSIGN COMPONENT 'DESCRIPTION' OF STRUCTURE <ls_method> TO <lv_any>.
-          IF sy-subrc = 0.
-            lv_message = <lv_any>.
+          ASSIGN COMPONENT 'DESCRIPTION' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_desc>).
+          IF sy-subrc = 0 AND <lv_desc> IS ASSIGNED.
+            lv_desc = <lv_desc>.
           ENDIF.
 
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_method> TO <lv_any>.
-          IF sy-subrc = 0.
-            lv_source = <lv_any>.
+          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_src>).
+          IF sy-subrc = 0 AND <lv_src> IS ASSIGNED.
+            lv_src = <lv_src>.
           ENDIF.
 
-          " Check if this method has alerts (failures)
-          DATA(lv_has_error) = abap_false.
-
-          LOOP AT <lt_indices> ASSIGNING FIELD-SYMBOL(<ls_index>).
-            ASSIGN COMPONENT 'ALERTS' OF STRUCTURE <ls_index> TO FIELD-SYMBOL(<lt_alerts>).
-            IF sy-subrc = 0 AND <lt_alerts> IS ASSIGNED.
-              LOOP AT <lt_alerts> ASSIGNING FIELD-SYMBOL(<ls_alert>).
-                DATA: lv_kind TYPE string.
-                ASSIGN COMPONENT 'KIND' OF STRUCTURE <ls_alert> TO <lv_any>.
-                IF sy-subrc = 0.
-                  lv_kind = <lv_any>.
-                ENDIF.
-                IF lv_kind = 'F' OR lv_kind = 'E'.  " Failed or Error
-                  " Get the error message
-                  DATA lv_param TYPE string.
-                  ASSIGN COMPONENT 'HEADER-PARAMS' OF STRUCTURE <ls_alert> TO <lt_params>.
-                  IF sy-subrc = 0 AND <lt_params> IS ASSIGNED.
-                    LOOP AT <lt_params> INTO lv_param.
-                      IF lv_message IS INITIAL.
-                        lv_message = lv_param.
-                      ELSE.
-                        lv_message = lv_message && | | && lv_param.
-                      ENDIF.
-                    ENDLOOP.
-                  ENDIF.
-                  lv_has_error = abap_true.
-                  EXIT.
-                ENDIF.
-              ENDLOOP.
-              IF lv_has_error = abap_true.
-                EXIT.
-              ENDIF.
-            ENDIF.
-          ENDLOOP.
-
-          " Add result
           DATA(ls_result) = VALUE ty_test_result(
-            object_type = lv_obj_type
+            object_type = 'CLAS'
             object_name = lv_obj_name
-            test_method = lv_method_name
-            status = lv_status
-            message = lv_message
-            line = lv_source
+            test_method = lv_methodname
+            status = lv_kind
+            message = lv_desc
+            line = lv_src
           ).
           APPEND ls_result TO rt_results.
         ENDLOOP.
