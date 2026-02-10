@@ -35,6 +35,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_inspect_params,
           lv_json TYPE string,
+          lo_util TYPE REF TO zcl_abgagt_util,
+          lv_obj_type TYPE string,
+          lv_obj_name TYPE string,
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_result TYPE ty_inspect_result,
           ls_response TYPE ty_inspect_result.
@@ -45,11 +48,17 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         /ui2/cl_json=>deserialize(
           EXPORTING json = lv_json
           CHANGING data = ls_params ).
-      ELSE.
-        ls_params-source_name = lv_json.
       ENDIF.
     ELSEIF lines( it_files ) > 0.
       READ TABLE it_files INDEX 1 INTO ls_params-source_name.
+    ENDIF.
+
+    IF ls_params-source_name IS NOT INITIAL.
+      lo_util = zcl_abgagt_util=>get_instance( ).
+      lo_util->zif_abgagt_util~parse_file_to_object(
+        EXPORTING iv_file = ls_params-source_name
+        IMPORTING ev_obj_type = lv_obj_type
+                  ev_obj_name = lv_obj_name ).
     ENDIF.
 
     lo_agent = NEW zcl_abgagt_agent( ).
