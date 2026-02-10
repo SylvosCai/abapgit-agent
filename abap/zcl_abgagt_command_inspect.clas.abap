@@ -26,6 +26,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              files TYPE string_table,
            END OF ty_inspect_params.
 
+    TYPES ty_object_keys TYPE TABLE OF scir_objs WITH NON-UNIQUE DEFAULT KEY.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
@@ -41,7 +43,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lv_obj_name TYPE string,
           lo_util TYPE REF TO zcl_abgagt_util,
           ls_result TYPE ty_inspect_result,
-          lt_objects TYPE TABLE OF scir_objs,
+          lt_objects TYPE ty_object_keys,
           ls_obj TYPE scir_objs.
 
     " Parse parameters from is_param
