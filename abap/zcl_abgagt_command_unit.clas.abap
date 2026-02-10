@@ -15,7 +15,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE zif_abgagt_agent=>ty_unit_params,
+    DATA: lv_package TYPE devclass,
           lv_json TYPE string,
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_result TYPE zif_abgagt_agent=>ty_unit_result,
@@ -24,16 +24,17 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
+        DATA: ls_params TYPE zif_abgagt_agent=>ty_pull_params.
         /ui2/cl_json=>deserialize(
           EXPORTING json = lv_json
           CHANGING data = ls_params ).
+        lv_package = ls_params-package.
       ENDIF.
     ENDIF.
 
     lo_agent = NEW zcl_abgagt_agent( ).
     ls_result = lo_agent->zif_abgagt_agent~run_tests(
-      iv_package = ls_params-package
-      it_objects = ls_params-objects ).
+      iv_package = lv_package ).
 
     ls_response-success = ls_result-success.
     ls_response-message = ls_result-message.
