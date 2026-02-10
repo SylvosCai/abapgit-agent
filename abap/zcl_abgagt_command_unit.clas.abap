@@ -163,11 +163,15 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     lo_runner->p_seltyp = 'OBJECT'.
 
     " Build SO_CLASS range for test class(es)
-    DATA: lt_so_class TYPE RANGE OF seoaliases-clsname.
+    DATA: lt_so_class TYPE RANGE OF seoaliases-clsname,
+          ls_range LIKE LINE OF lt_so_class.
     IF it_keys IS NOT INITIAL.
       LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
         " Get local test class names for the object
-        DATA(ls_range) = VALUE #( sign = 'I' option = 'EQ' low = <ls_key>-obj_name ).
+        CLEAR ls_range.
+        ls_range-sign = 'I'.
+        ls_range-option = 'EQ'.
+        ls_range-low = <ls_key>-obj_name.
         APPEND ls_range TO lt_so_class.
       ENDLOOP.
     ENDIF.
