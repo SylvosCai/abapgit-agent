@@ -21,6 +21,10 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error_count TYPE i,
              errors TYPE ty_errors,
            END OF ty_inspect_result.
+
+    TYPES: BEGIN OF ty_inspect_params,
+             source_name TYPE string,
+           END OF ty_inspect_params.
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
