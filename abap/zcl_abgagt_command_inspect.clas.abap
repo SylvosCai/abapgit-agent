@@ -35,11 +35,12 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_inspect_params.
+    DATA: ls_params TYPE ty_inspect_params,
+          lv_json TYPE string.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
-      READ TABLE it_files INDEX 1 INTO DATA(lv_json).
+      READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
         /ui2/cl_json=>deserialize(
           EXPORTING json = lv_json

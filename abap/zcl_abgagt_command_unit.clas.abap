@@ -50,7 +50,9 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_unit_params,
           lv_json TYPE string,
-          lv_file TYPE string.
+          lv_file TYPE string,
+          lv_objtp TYPE string,
+          lv_objnm TYPE string.
 
     " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
@@ -62,8 +64,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       ENDIF.
     ELSEIF lines( it_files ) > 0.
       LOOP AT it_files INTO lv_file.
-        DATA lv_objtp TYPE string.
-        DATA lv_objnm TYPE string.
         parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_objtp
@@ -77,8 +77,12 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Run unit tests
-    DATA(lv_package) = COND devclass( WHEN ls_params-package IS NOT INITIAL THEN ls_params-package ).
-    DATA(ls_result) = run_unit_tests(
+    DATA(lv_package) TYPE devclass.
+    IF ls_params-package IS NOT INITIAL.
+      lv_package = ls_params-package.
+    ENDIF.
+    DATA(ls_result) TYPE ty_unit_result.
+    ls_result = run_unit_tests(
       iv_package = lv_package
       it_objects = ls_params-objects ).
 
@@ -108,7 +112,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     rs_result-passed_count = 0.
     rs_result-failed_count = 0.
 
-    DATA(lt_test_classes) = get_test_classes(
+    DATA(lt_test_classes) TYPE ty_object_list.
+    lt_test_classes = get_test_classes(
       iv_package = iv_package
       it_objects = it_objects ).
 
@@ -209,10 +214,12 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
-      DATA(lv_obj_name) = <ls_object>-obj_name.
+      DATA(lv_obj_name) TYPE string.
+      lv_obj_name = <ls_object>-obj_name.
 
       LOOP AT <ls_object>-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
-        DATA(lv_tcl_name) = <ls_tcl>-testclass.
+        DATA(lv_tcl_name) TYPE string.
+        lv_tcl_name = <ls_tcl>-testclass.
 
         LOOP AT <ls_tcl>-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
           DATA: lv_methodname TYPE string,
@@ -240,14 +247,14 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
             lv_src = <lv_src>.
           ENDIF.
 
-          DATA(ls_result) = VALUE ty_test_result(
-            object_type = 'CLAS'
+          DATA(ls_row) TYPE ty_test_result.
+          ls_row = VALUE #( object_type = 'CLAS'
             object_name = lv_obj_name
             test_method = lv_methodname
             status = lv_kind
             message = lv_desc
             line = lv_src ).
-          APPEND ls_result TO rt_results.
+          APPEND ls_row TO rt_results.
         ENDLOOP.
       ENDLOOP.
     ENDLOOP.
@@ -288,7 +295,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
+    DATA lv_last TYPE string.
+    READ TABLE lt_parts INDEX lv_part_count INTO lv_last.
     IF lv_last <> 'ABAP'.
       RETURN.
     ENDIF.
