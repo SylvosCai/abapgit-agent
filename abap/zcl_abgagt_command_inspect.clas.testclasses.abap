@@ -1,6 +1,6 @@
 *"* use this source file for your test class implementation
 *"* local test class
-CLASS ltcl_zcl_abgagt_command_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
     DATA mo_cut TYPE REF TO zcl_abgagt_command_inspect.
 
@@ -9,10 +9,10 @@ CLASS ltcl_zcl_abgagt_command_inspect DEFINITION FOR TESTING DURATION SHORT RISK
     METHODS test_interface FOR TESTING.
     METHODS test_exec_no_files FOR TESTING.
     METHODS test_exec_single_file FOR TESTING.
-    METHODS test_exec_multiple_files FOR TESTING.
+    METHODS test_exec_multi_files FOR TESTING.
 ENDCLASS.
 
-CLASS ltcl_zcl_abgagt_command_inspect IMPLEMENTATION.
+CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD setup.
     CREATE OBJECT mo_cut.
