@@ -299,9 +299,9 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
     // e.g., "zcl_my_class.clas.abap" -> "ZCL_MY_CLASS.CLASS.ABAP"
     const sourceName = pathModule.basename(sourceFile).toUpperCase();
 
-    // Send file name to syntax-check endpoint
+    // Send files array to syntax-check endpoint
     const data = {
-      source_name: sourceName
+      files: [sourceName]
     };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });

@@ -21,6 +21,10 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error_count TYPE i,
              errors TYPE ty_errors,
            END OF ty_inspect_result.
+
+    TYPES: BEGIN OF ty_inspect_params,
+             files TYPE string_table,
+           END OF ty_inspect_params.
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
@@ -29,7 +33,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: lv_json TYPE string,
+    DATA: ls_params TYPE ty_inspect_params,
+          lv_json TYPE string,
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
@@ -37,29 +42,23 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_result TYPE ty_inspect_result,
           ls_file_result TYPE ty_inspect_result,
-          lt_all_errors TYPE ty_errors,
-          lt_files TYPE string_table.
+          lt_all_errors TYPE ty_errors.
 
+    " Parse parameters from JSON (it_files is passed as JSON string)
     IF lines( it_files ) = 1.
       READ TABLE it_files INDEX 1 INTO lv_json.
       IF lv_json CP '*{*' OR lv_json CP '*"*'.
-        DATA: BEGIN OF ls_params,
-                source_name TYPE string,
-              END OF ls_params.
         /ui2/cl_json=>deserialize(
           EXPORTING json = lv_json
           CHANGING data = ls_params ).
-        IF ls_params-source_name IS NOT INITIAL.
-          APPEND ls_params-source_name TO lt_files.
-        ENDIF.
       ELSE.
-        APPEND lv_json TO lt_files.
+        ls_params-files = it_files.
       ENDIF.
-    ELSE.
-      lt_files = it_files.
+    ELSEIF lines( it_files ) > 0.
+      ls_params-files = it_files.
     ENDIF.
 
-    IF lt_files IS INITIAL.
+    IF ls_params-files IS INITIAL.
       ls_result-success = abap_false.
       ls_result-error_count = 1.
       rv_result = /ui2/cl_json=>serialize( data = ls_result ).
@@ -69,7 +68,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     lo_util = zcl_abgagt_util=>get_instance( ).
     lo_agent = NEW zcl_abgagt_agent( ).
 
-    LOOP AT lt_files INTO lv_file.
+    LOOP AT ls_params-files INTO lv_file.
       CLEAR: lv_obj_type, lv_obj_name.
       lo_util->zif_abgagt_util~parse_file_to_object(
         EXPORTING iv_file = lv_file
