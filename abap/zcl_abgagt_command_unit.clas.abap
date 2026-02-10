@@ -61,7 +61,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS extract_errors_from_testclass
       IMPORTING
         is_testclass TYPE cl_sut_aunit_runner=>typ_str_testclass
-        iv_class_name TYPE string
+        iv_class_name TYPE seoclass-clsname
       RETURNING
         VALUE(rt_errors) TYPE ty_errors.
 
