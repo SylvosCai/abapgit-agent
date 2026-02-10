@@ -269,7 +269,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Get error kind (e.g., 'ERROR', 'FAILURE')
-    rs_error-error_kind = is_method-str_error-str_error_core-error_kind.
+    rs_error-error_kind = is_method-str_error-str_error_core-errorkind.
 
     " Only process if there's an actual error
     IF rs_error-error_kind IS INITIAL.
