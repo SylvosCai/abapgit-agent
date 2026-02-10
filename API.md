@@ -9,7 +9,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
 | POST | `/inspect` | Inspect source file for issues |
-| POST | `/unit` | **TODO: In Progress** - Execute unit tests |
+| POST | `/unit` | Execute unit tests (AUnit) |
 
 ## GET /health
 
@@ -160,7 +160,7 @@ The endpoint parses the file name to extract `obj_type` and `obj_name`:
 }
 ```
 
-## POST /unit (TODO: In Progress)
+## POST /unit
 
 Execute unit tests (AUnit) for test class files.
 
@@ -168,11 +168,11 @@ Execute unit tests (AUnit) for test class files.
 
 ```json
 {
-  "files": ["zcl_my_test.clas.abap", "zcl_other_test.clas.abap"]
+  "files": ["zcl_my_test.clas.testclasses.abap", "zcl_other_test.clas.testclasses.abap"]
 }
 ```
 
-The endpoint parses file names to extract `obj_type` and `obj_name`, then runs tests for each test class found.
+The endpoint parses file names to extract `obj_type` and `obj_name`, then runs AUnit tests using `CL_SUT_AUNIT_RUNNER`.
 
 ### Response (success)
 
@@ -183,15 +183,7 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
   "passed_count": 10,
   "failed_count": 0,
   "message": "All 10 tests passed",
-  "results": [
-    {
-      "object_name": "ZCL_MY_TEST",
-      "test_method": "TEST_METHOD_1",
-      "status": "PASSED",
-      "message": "Test passed",
-      "passed": true
-    }
-  ]
+  "errors": []
 }
 ```
 
@@ -204,20 +196,18 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
   "passed_count": 3,
   "failed_count": 2,
   "message": "2 of 5 tests failed",
-  "results": [
+  "errors": [
     {
-      "object_name": "ZCL_MY_TEST",
-      "test_method": "TEST_METHOD_1",
-      "status": "FAILED",
-      "message": "Expected X but got Y",
-      "passed": false
+      "class_name": "ZCL_MY_TEST",
+      "method_name": "TEST_METHOD_1",
+      "error_kind": "ERROR",
+      "error_text": "Expected X but got Y"
     },
     {
-      "object_name": "ZCL_MY_TEST",
-      "test_method": "TEST_METHOD_2",
-      "status": "ERROR",
-      "message": "Reference is initial",
-      "passed": false
+      "class_name": "ZCL_MY_TEST",
+      "method_name": "TEST_METHOD_2",
+      "error_kind": "FAILURE",
+      "error_text": "Reference is initial"
     }
   ]
 }
@@ -251,7 +241,7 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
 | `error_count` | Integer | Number of syntax errors found |
 | `errors` | Array | List of errors with line, column, text |
 
-### Unit Test Response Fields (TODO: In Progress)
+### Unit Test Response Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -260,4 +250,13 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs t
 | `passed_count` | Integer | Number of passed tests |
 | `failed_count` | Integer | Number of failed tests |
 | `message` | String | Status message |
-| `results` | Array | Test results with object_name, test_method, status, message, passed |
+| `errors` | Array | Failed test details (empty if all tests pass) |
+
+### Error Item Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `class_name` | String | Test class name |
+| `method_name` | String | Failed test method name |
+| `error_kind` | String | Error type (e.g., 'ERROR', 'FAILURE') |
+| `error_text` | String | Detailed error message from AUnit |
