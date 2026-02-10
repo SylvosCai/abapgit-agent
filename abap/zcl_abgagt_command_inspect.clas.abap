@@ -13,6 +13,14 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_error.
 
     TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_inspect_result,
+             success TYPE abap_bool,
+             object_type TYPE string,
+             object_name TYPE string,
+             error_count TYPE i,
+             errors TYPE ty_errors,
+           END OF ty_inspect_result.
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
