@@ -171,8 +171,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Remove duplicates
-    SORT rt_classes BY object_name.
-    DELETE ADJACENT DUPLICATES FROM rt_classes COMPARING object_name.
+    SORT rt_classes BY objname.
+    DELETE ADJACENT DUPLICATES FROM rt_classes COMPARING objname.
   ENDMETHOD.
 
   METHOD run_aunit_tests.
@@ -196,9 +196,9 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     DATA lv_test_classes TYPE string.
     LOOP AT it_classes ASSIGNING FIELD-SYMBOL(<ls_class>).
       IF lv_test_classes IS INITIAL.
-        lv_test_classes = <ls_class>-object_name.
+        lv_test_classes = <ls_class>-objname.
       ELSE.
-        lv_test_classes = |{ lv_test_classes } { <ls_class>-object_name }|.
+        lv_test_classes = |{ lv_test_classes } { <ls_class>-objname }|.
       ENDIF.
     ENDLOOP.
 
