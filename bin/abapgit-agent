@@ -306,8 +306,8 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
-    // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
+    // Handle uppercase keys from ABAP - handle both 'X'/true (success) and false
+    const success = result.SUCCESS !== undefined ? result.SUCCESS : (result.success !== undefined ? result.success : null);
     const errorCount = result.ERROR_COUNT || result.error_count || 0;
     const errors = result.ERRORS || result.errors || [];
 
@@ -329,6 +329,8 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
       }
     } else if (success === 'X' || success === true) {
       console.log(`✅ ${pathModule.basename(sourceFile)} - Syntax check passed (0 errors)`);
+    } else if (success === false) {
+      console.log(`❌ ${pathModule.basename(sourceFile)} - Syntax check failed`);
     } else {
       console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
     }

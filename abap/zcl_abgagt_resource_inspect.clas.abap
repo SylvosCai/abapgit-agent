@@ -50,17 +50,8 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Build params JSON for command (use files like PULL command)
-    DATA: BEGIN OF ls_params,
-            files TYPE string_table,
-          END OF ls_params.
-    ls_params-files = ls_request-files.
-
-    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_params ).
-    DATA(lt_files) = VALUE string_table( ( lv_params_json ) ).
-
-    " Execute command
-    DATA(lv_result) = lo_command->execute( lt_files ).
+    " Execute command with files directly (not as JSON string)
+    DATA(lv_result) = lo_command->execute( ls_request-files ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
