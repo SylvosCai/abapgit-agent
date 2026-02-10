@@ -846,7 +846,7 @@ Commands:
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
 
   unit --files <file1>,<file2>,...
-    Run unit tests for ABAP test class files (.clas.abap). [TODO: In Progress]
+    Run AUnit tests for ABAP test class files (.testclasses.abap)
 
   unit --object <type> <name>
     Run unit tests for a specific object.
@@ -863,8 +863,8 @@ Examples:
   abapgit-agent pull --files zcl_my_class.clas.abap  # Pull specific file
   abapgit-agent inspect --files zcl_my_class.clas.abap  # Inspect syntax
   abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_other.clas.abap
-  # abapgit-agent unit --files zcl_my_test.clas.abap  [TODO: In Progress]
-  # abapgit-agent unit --files zcl_my_test.clas.abap,zcl_other_test.clas.abap
+  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap
+  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap,zcl_other.clas.testclasses.abap
   abapgit-agent health
   abapgit-agent status
 `);

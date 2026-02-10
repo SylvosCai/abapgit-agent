@@ -72,6 +72,9 @@ abapgit-agent pull --url <git-url>
 # Syntax check an ABAP file (IMPORTANT for debugging activation errors)
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
+# Run unit tests for ABAP test classes
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
 # Health check
 abapgit-agent health
 
@@ -153,6 +156,81 @@ abapgit-agent health
   "version": "1.0.0"
 }
 ```
+
+## Unit Command
+
+### Description
+Run AUnit tests for ABAP test classes and display detailed results including failed test methods with error messages.
+
+### Usage
+```bash
+# Run unit tests for a single test class file
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Run unit tests for multiple test class files
+abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+
+# Run unit tests for a specific package
+abapgit-agent unit --package $MY_PACKAGE
+```
+
+### File Format
+The command accepts test class files (`.clas.testclasses.abap`):
+- `zcl_my_test.clas.testclasses.abap` → CLAS, ZCL_MY_TEST
+- `src/tests/zcl_my_test.clas.testclasses.abap` → CLAS, ZCL_MY_TEST (with path)
+
+### Output
+```
+✅ ZCL_MY_TEST - All tests passed
+   Tests: 10 | Passed: 10 | Failed: 0
+```
+
+When tests fail:
+```
+❌ ZCL_MY_TEST - Tests failed
+   Tests: 10 | Passed: 8 | Failed: 2
+   ✗ ZCL_MY_TEST=>TEST_METHOD_1: Error description
+   ✗ ZCL_MY_TEST=>TEST_METHOD_2: Another error
+
+Failed Tests:
+────────────────────────────────────────────────────────────────────────────────
+   ✗ ZCL_MY_TEST=>TEST_METHOD_1
+     Error: Expected X but got Y
+```
+
+### Error Details
+When a test fails, the output includes:
+- **Test Class**: The class containing the failed test
+- **Method**: The failed test method name (with `=>` notation)
+- **Error Kind**: Type of error (e.g., 'ERROR', 'FAILURE')
+- **Error Text**: Detailed error message from AUnit
+
+### Response JSON Structure
+```json
+{
+  "success": "X",
+  "message": "2 of 10 tests failed",
+  "test_count": 10,
+  "passed_count": 8,
+  "failed_count": 2,
+  "errors": [
+    {
+      "class_name": "ZCL_MY_TEST",
+      "method_name": "TEST_METHOD_1",
+      "error_kind": "ERROR",
+      "error_text": "Expected X but got Y"
+    }
+  ]
+}
+```
+
+### Implementation
+The unit command uses `CL_SUT_AUNIT_RUNNER` to execute AUnit tests:
+- `CL_SUT_AUNIT_RUNNER=>S_CREATE` - Create test runner
+- `run()` - Execute tests
+- `str_results` - Get test statistics (cnt_testmethods, cnt_ok_methods, cnt_error_methods)
+- `tab_objects` - Get detailed results with nested structure:
+  - `TAB_TESTCLASSES` → `TAB_METHODS` → `STR_ERROR` → `STR_ERROR_CORE`
 
 ## Status Check
 
