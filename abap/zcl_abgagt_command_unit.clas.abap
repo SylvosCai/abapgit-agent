@@ -150,7 +150,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
                    <lt_classes> TYPE any,
                    <ls_class> TYPE any,
                    <lt_methods> TYPE any,
-                   <ls_method> TYPE any.
+                   <ls_method> TYPE any,
+                   <lt_params> TYPE any.
 
     TRY.
         " Get passport from SAPLSAUCV_GUI_RUNNER
@@ -282,8 +283,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
                 ENDIF.
                 IF lv_kind = 'F' OR lv_kind = 'E'.  " Failed or Error
                   " Get the error message
-                  DATA: lt_params TYPE string_table,
-                        lv_param TYPE string.
+                  DATA lv_param TYPE string.
                   ASSIGN COMPONENT 'HEADER-PARAMS' OF STRUCTURE <ls_alert> TO <lt_params>.
                   IF sy-subrc = 0 AND <lt_params> IS ASSIGNED.
                     LOOP AT <lt_params> INTO lv_param.
