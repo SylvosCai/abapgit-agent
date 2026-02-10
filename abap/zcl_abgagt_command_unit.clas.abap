@@ -6,17 +6,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    " Type for str_results from CL_SUT_AUNIT_RUNNER
-    TYPES: BEGIN OF ty_str_results,
-             cnt_testmethods       TYPE i,
-             cnt_ok_methods        TYPE i,
-             cnt_error_methods     TYPE i,
-             pie_failures          TYPE i,
-             pie_abortions         TYPE i,
-             flg_failure           TYPE c LENGTH 1,
-             flg_abortion          TYPE c LENGTH 1,
-           END OF ty_str_results.
-
     TYPES: BEGIN OF ty_test_result,
              object_type TYPE string,
              object_name TYPE string,
@@ -214,8 +203,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get results from str_results - cast to local type
-    DATA: ls_str TYPE ty_str_results.
+    " Get results from str_results - use type from CL_SUT_AUNIT_RUNNER
+    DATA: ls_str TYPE cl_sut_aunit_runner=>typ_str_results.
     ls_str = lo_runner->str_results.
 
     " Build result entry from str_results counts
