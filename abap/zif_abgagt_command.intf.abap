@@ -11,11 +11,11 @@ INTERFACE zif_abgagt_command PUBLIC.
   METHODS get_name
     RETURNING VALUE(rv_name) TYPE string.
 
-  " Execute command with multiple files
-  " @parameter it_files | List of file paths to process
+  " Execute command with optional parameters
+  " @parameter is_param | Generic parameters (structure varies by command)
   " @parameter rv_result | JSON result string
   METHODS execute
-    IMPORTING it_files TYPE string_table
+    IMPORTING is_param TYPE data OPTIONAL
     RETURNING VALUE(rv_result) TYPE string.
 
 ENDINTERFACE.

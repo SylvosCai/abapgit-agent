@@ -50,12 +50,8 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Serialize params to JSON string for command
-    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_request ).
-    DATA(lt_files) = VALUE string_table( ( lv_params_json ) ).
-
-    " Execute command
-    DATA(lv_result) = lo_command->execute( lt_files ).
+    " Execute command with is_param
+    DATA(lv_result) = lo_command->execute( is_param = ls_request ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).

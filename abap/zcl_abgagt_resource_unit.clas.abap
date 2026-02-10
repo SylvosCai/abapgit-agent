@@ -19,7 +19,6 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
     " Parse JSON using /ui2/cl_json
     DATA: BEGIN OF ls_request,
             package TYPE string,
-            objects TYPE STANDARD TABLE OF string,
             files TYPE string_table,
           END OF ls_request.
 
@@ -31,8 +30,8 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
 
     DATA lv_json_resp TYPE string.
 
-    IF ls_request-package IS INITIAL AND ls_request-objects IS INITIAL.
-      lv_json_resp = '{"success":"","message":"Package or objects required"}'.
+    IF ls_request-package IS INITIAL AND ( ls_request-files IS INITIAL OR lines( ls_request-files ) = 0 ).
+      lv_json_resp = '{"success":"","message":"Package or files required"}'.
       DATA(lo_entity) = mo_response->create_entity( ).
       lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
       lo_entity->set_string_data( lv_json_resp ).
@@ -53,21 +52,8 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Build params JSON for command
-    DATA: BEGIN OF ls_params,
-            package TYPE string,
-            objects TYPE STANDARD TABLE OF string,
-            files TYPE string_table,
-          END OF ls_params.
-    ls_params-package = ls_request-package.
-    ls_params-objects = ls_request-objects.
-    ls_params-files = ls_request-files.
-
-    DATA(lv_params_json) = /ui2/cl_json=>serialize( data = ls_params ).
-    DATA(lt_files) = VALUE string_table( ( lv_params_json ) ).
-
-    " Execute command
-    DATA(lv_result) = lo_command->execute( lt_files ).
+    " Execute command with is_param
+    DATA(lv_result) = lo_command->execute( is_param = ls_request ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).

@@ -34,7 +34,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_inspect_params,
-          lv_json TYPE string,
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
@@ -44,18 +43,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           ls_file_result TYPE ty_inspect_result,
           lt_all_errors TYPE ty_errors.
 
-    " Parse parameters from JSON (it_files is passed as JSON string)
-    IF lines( it_files ) = 1.
-      READ TABLE it_files INDEX 1 INTO lv_json.
-      IF lv_json CP '*{*' OR lv_json CP '*"*'.
-        /ui2/cl_json=>deserialize(
-          EXPORTING json = lv_json
-          CHANGING data = ls_params ).
-      ELSE.
-        ls_params-files = it_files.
-      ENDIF.
-    ELSEIF lines( it_files ) > 0.
-      ls_params-files = it_files.
+    " Parse parameters from is_param
+    IF is_param IS SUPPLIED.
+      ls_params = CORRESPONDING #( is_param ).
     ENDIF.
 
     IF ls_params-files IS INITIAL.

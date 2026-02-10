@@ -6,6 +6,11 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
+    TYPES: BEGIN OF ty_unit_params,
+             package TYPE string,
+             files TYPE string_table,
+           END OF ty_unit_params.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_unit IMPLEMENTATION.
@@ -15,8 +20,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: lv_package TYPE devclass,
-          lv_json TYPE string,
+    DATA: ls_params TYPE ty_unit_params,
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
@@ -26,20 +30,15 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           ls_response TYPE zif_abgagt_agent=>ty_unit_result,
           lt_objects TYPE zif_abgagt_agent=>ty_object_keys.
 
-    IF lines( it_files ) = 1.
-      READ TABLE it_files INDEX 1 INTO lv_json.
-      IF lv_json CP '*{*' OR lv_json CP '*"*'.
-        DATA: ls_params TYPE zif_abgagt_agent=>ty_pull_params.
-        /ui2/cl_json=>deserialize(
-          EXPORTING json = lv_json
-          CHANGING data = ls_params ).
-        lv_package = ls_params-package.
-      ENDIF.
+    " Parse parameters from is_param
+    IF is_param IS SUPPLIED.
+      ls_params = CORRESPONDING #( is_param ).
     ENDIF.
 
-    IF lines( it_files ) > 0.
+    " Parse files to objects
+    IF ls_params-files IS NOT INITIAL.
       lo_util = zcl_abgagt_util=>get_instance( ).
-      LOOP AT it_files INTO lv_file.
+      LOOP AT ls_params-files INTO lv_file.
         CLEAR: lv_obj_type, lv_obj_name.
         lo_util->zif_abgagt_util~parse_file_to_object(
           EXPORTING iv_file = lv_file
@@ -55,7 +54,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     lo_agent = NEW zcl_abgagt_agent( ).
     ls_result = lo_agent->zif_abgagt_agent~run_tests(
-      iv_package = lv_package
+      iv_package = ls_params-package
       it_objects = lt_objects ).
 
     ls_response-success = ls_result-success.
