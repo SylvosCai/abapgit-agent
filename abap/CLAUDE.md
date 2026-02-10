@@ -385,3 +385,76 @@ CLASS-METHODS get_instance
 ```
 
 **Why?** Interface types provide better abstraction, easier testing, and follow the dependency inversion principle. Callers depend on the interface (abstraction), not the concrete class.
+
+## Unit Testing with Local Test Classes
+
+### File Structure
+
+For ABAP local unit tests, use a **separate file** with `.testclasses.abap` extension:
+
+```
+abap/
+  zcl_my_class.clas.abap          <- Main class (no test code)
+  zcl_my_class.clas.testclasses.abap  <- Local test class
+  zcl_my_class.clas.xml           <- XML with WITH_UNIT_TESTS = X
+```
+
+### Required Elements
+
+1. **Test class file** (`zcl_my_class.clas.testclasses.abap`):
+   ```abap
+   *"* use this source file for your test class implementation
+   *"* local test class
+   CLASS ltcl_zcl_my_class DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+     PRIVATE SECTION.
+       DATA mo_cut TYPE REF TO zcl_my_class.
+       METHODS setup.
+       METHODS test_method1 FOR TESTING.
+       METHODS test_method2 FOR TESTING.
+   ENDCLASS.
+
+   CLASS ltcl_zcl_my_class IMPLEMENTATION.
+     METHOD setup.
+       CREATE OBJECT mo_cut.
+     ENDMETHOD.
+     METHOD test_method1.
+       " Test code using cl_abap_unit_assert
+     ENDMETHOD.
+   ENDCLASS.
+   ```
+
+2. **XML metadata** (`zcl_my_class.clas.xml`):
+   ```xml
+   <VSEOCLASS>
+     ...
+     <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+   </VSEOCLASS>
+   ```
+
+### Naming Conventions
+
+- Test class name: `LTCL_ZCL_<CLASSNAME>` (e.g., `LTCL_ZCL_COMMAND_PULL`)
+- Test methods: `TEST_<methodname> FOR TESTING` or simply `test_method FOR TESTING`
+- Test file: `<classname>.clas.testclasses.abap`
+
+### Common Assertions
+
+```abap
+cl_abap_unit_assert=>assert_equals( act = lv_actual exp = lv_expected msg = 'Error message' ).
+cl_abap_unit_assert=>assert_not_initial( act = lv_data msg = 'Should not be initial' ).
+cl_abap_unit_assert=>assert_bound( act = lo_ref msg = 'Should be bound' ).
+cl_abap_unit_assert=>assert_true( act = lv_bool msg = 'Should be true' ).
+```
+
+### What NOT To Do
+
+- ❌ Don't add test methods directly in the main `.clas.abap` file
+- ❌ Don't use `CLASS ... DEFINITION ...` without the special comment header
+- ❌ Don't reference `<TESTCLASS>` in XML - abapGit auto-detects `.testclasses.abap`
+- ❌ Don't use nested local classes inside the main class definition
+
+### Running Tests
+
+In ABAP: SE24 → Test → Execute Unit Tests
+
+Or via abapGit: Pull the files and run tests in the ABAP system.
