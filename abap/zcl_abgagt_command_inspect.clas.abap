@@ -33,6 +33,27 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
+    DATA: ls_params TYPE ty_inspect_params,
+          lv_json TYPE string.
+
+    IF lines( it_files ) = 1.
+      READ TABLE it_files INDEX 1 INTO lv_json.
+      IF lv_json CP '*{*' OR lv_json CP '*"*'.
+        /ui2/cl_json=>deserialize(
+          EXPORTING json = lv_json
+          CHANGING data = ls_params ).
+      ELSE.
+        ls_params-source_name = lv_json.
+      ENDIF.
+    ELSEIF lines( it_files ) > 0.
+      READ TABLE it_files INDEX 1 INTO ls_params-source_name.
+    ENDIF.
+
+    DATA(ls_result) = run_syntax_check( ls_params-source_name ).
     rv_result = 'test'.
+  ENDMETHOD.
+
+  METHOD run_syntax_check
+    RETURNING VALUE(rs_result) TYPE ty_inspect_result.
   ENDMETHOD.
 ENDCLASS.
