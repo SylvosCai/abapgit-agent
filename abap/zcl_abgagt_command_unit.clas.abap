@@ -214,20 +214,28 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Get results from str_results
-    DATA: ls_str_results TYPE ty_str_results.
+    " Get results from str_results - access directly
+    DATA: lv_testmethods TYPE i,
+          lv_ok_methods TYPE i,
+          lv_error_methods TYPE i,
+          lv_failures TYPE i,
+          lv_abortions TYPE i,
+          lv_flg_failure TYPE c LENGTH 1,
+          lv_flg_abortion TYPE c LENGTH 1.
 
-    " Cast str_results to local type using field symbols
-    FIELD-SYMBOLS <fs_results> TYPE any.
-    ASSIGN lo_runner->str_results TO <fs_results>.
+    " Access str_results components using dynamic assignment
+    DATA lo_aunit TYPE REF TO data.
+    CREATE DATA lo_aunit TYPE (cl_sut_aunit_runner=>typ_str_results).
+    ASSIGN lo_aunit->* TO FIELD-SYMBOL(<fs_results>).
     IF <fs_results> IS ASSIGNED.
-      ls_str_results-cnt_testmethods = <fs_results>->cnt_testmethods.
-      ls_str_results-cnt_ok_methods = <fs_results>->cnt_ok_methods.
-      ls_str_results-cnt_error_methods = <fs_results>->cnt_error_methods.
-      ls_str_results-pie_failures = <fs_results>->pie_failures.
-      ls_str_results-pie_abortions = <fs_results>->pie_abortions.
-      ls_str_results-flg_failure = <fs_results>->flg_failure.
-      ls_str_results-flg_abortion = <fs_results>->flg_abortion.
+      <fs_results> = lo_runner->str_results.
+      lv_testmethods = <fs_results>-cnt_testmethods.
+      lv_ok_methods = <fs_results>-cnt_ok_methods.
+      lv_error_methods = <fs_results>-cnt_error_methods.
+      lv_failures = <fs_results>-pie_failures.
+      lv_abortions = <fs_results>-pie_abortions.
+      lv_flg_failure = <fs_results>-flg_failure.
+      lv_flg_abortion = <fs_results>-flg_abortion.
     ENDIF.
 
     " Build result entry from str_results counts
@@ -235,9 +243,9 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       object_type = 'CLAS'
       object_name = 'AUNIT'
       test_method = 'SUMMARY'
-      status = COND #( WHEN ls_str_results-cnt_error_methods > 0 OR ls_str_results-pie_abortions > 0 THEN 'F' ELSE 'P' )
-      message = |Tests: { ls_str_results-cnt_testmethods }, Passed: { ls_str_results-cnt_ok_methods }, Failed: { ls_str_results-cnt_error_methods }|
-      line = ls_str_results-cnt_testmethods
+      status = COND #( WHEN lv_error_methods > 0 OR lv_abortions > 0 THEN 'F' ELSE 'P' )
+      message = |Tests: { lv_testmethods }, Passed: { lv_ok_methods }, Failed: { lv_error_methods }|
+      line = lv_testmethods
     ).
     APPEND ls_result TO rt_results.
   ENDMETHOD.
