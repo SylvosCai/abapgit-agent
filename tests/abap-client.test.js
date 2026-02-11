@@ -150,11 +150,6 @@ describe('ABAPClient', () => {
   });
 
   describe('pull method', () => {
-    beforeEach(() => {
-      // Force use of legacy endpoint (not command API)
-      jest.spyOn(client, 'shouldUseCommandApi').mockReturnValue(false);
-    });
-
     test('pull method includes transport_request in request data when specified', async () => {
       // Mock the request method to capture the data
       client.request = jest.fn().mockResolvedValue({

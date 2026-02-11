@@ -71,8 +71,7 @@ describe('Config', () => {
       password: 'pass',
       language: 'EN',
       gitUsername: 'git-user',
-      gitPassword: 'git-pass',
-      useCommandApi: true
+      gitPassword: 'git-pass'
     }));
 
     const { getAbapConfig } = require('../src/config');
@@ -86,8 +85,7 @@ describe('Config', () => {
       password: 'pass',
       language: 'EN',
       gitUsername: 'git-user',
-      gitPassword: 'git-pass',
-      useCommandApi: true
+      gitPassword: 'git-pass'
     });
   });
 });
