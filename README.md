@@ -114,6 +114,12 @@ Failure case with details:
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
 | claude-mem Knowledge Management | [CLAUDE_MEM.md](CLAUDE_MEM.md) |
 
+## Dependent Projects
+
+This tool depends on and is designed to work with:
+
+- [abapGit](https://github.com/abapGit/abapGit) - The foundation for managing ABAP code in git
+
 ## License
 
 MIT License
