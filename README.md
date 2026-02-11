@@ -14,7 +14,8 @@ This project provides a bridge between AI coding tools and your ABAP system:
 
 ## Quick Start
 
-1. **Install CLI**: From this repo, run `sudo npm link`
+1. **Install CLI**: Run `sudo npm install -g abapgit-agent`
+   - For local development, use `sudo npm link` from this repo instead
 2. **Configure repo**: Add `.abapGitAgent` with SAP credentials
 3. **Validate code**: Run `abapgit-agent pull` after pushing
 
