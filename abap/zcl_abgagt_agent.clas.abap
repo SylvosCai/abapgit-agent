@@ -427,11 +427,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
     " Set transport request if provided
     IF iv_transport_request IS NOT INITIAL.
-      " Use field with dash notation as per abapGit definitions
-      ASSIGN COMPONENT 'TRANSPORT-REQUEST' OF STRUCTURE rs_checks TO FIELD-SYMBOL(<lv_trans>).
-      IF sy-subrc = 0.
-        <lv_trans> = iv_transport_request.
-      ENDIF.
+      rs_checks-transport-transport = iv_transport_request.
     ENDIF.
 
     " If specific files requested, build lookup table of (obj_type, obj_name)
