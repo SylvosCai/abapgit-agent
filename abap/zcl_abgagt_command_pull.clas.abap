@@ -10,6 +10,7 @@ CLASS zcl_abgagt_command_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
              branch TYPE string,
              username TYPE string,
              password TYPE string,
+             transport_request TYPE string,
              files TYPE string_table,
            END OF ty_pull_params.
 
@@ -37,11 +38,12 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
 
     TRY.
         ls_pull_result = lo_agent->zif_abgagt_agent~pull(
-          iv_url      = ls_params-url
-          iv_branch   = ls_params-branch
-          iv_username = ls_params-username
-          iv_password = ls_params-password
-          it_files    = ls_params-files ).
+          iv_url            = ls_params-url
+          iv_branch         = ls_params-branch
+          iv_username       = ls_params-username
+          iv_password       = ls_params-password
+          iv_transport_request = ls_params-transport_request
+          it_files          = ls_params-files ).
       CATCH zcx_abapgit_exception INTO lx_error.
         ls_pull_result-success = abap_false.
         ls_pull_result-message = lx_error->get_text( ).
@@ -53,6 +55,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
             job_id TYPE string,
             message TYPE string,
             error_detail TYPE string,
+            transport_request TYPE string,
             activated_count TYPE i,
             failed_count TYPE i,
             log_messages TYPE zif_abgagt_agent=>ty_object_list,
@@ -64,6 +67,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
     ls_response-job_id = ls_pull_result-job_id.
     ls_response-message = ls_pull_result-message.
     ls_response-error_detail = ls_pull_result-error_detail.
+    ls_response-transport_request = ls_pull_result-transport_request.
     ls_response-activated_count = ls_pull_result-activated_count.
     ls_response-failed_count = ls_pull_result-failed_count.
     ls_response-log_messages = ls_pull_result-log_messages.

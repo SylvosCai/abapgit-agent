@@ -39,6 +39,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS prepare_deserialize_checks
       IMPORTING
         it_files TYPE string_table OPTIONAL
+        iv_transport_request TYPE string OPTIONAL
       RETURNING
         VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
       RAISING zcx_abapgit_exception.
@@ -89,6 +90,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
     rs_result-job_id = lv_job_id.
     rs_result-success = abap_false.
+    rs_result-transport_request = iv_transport_request.
     GET TIME STAMP FIELD rs_result-started_at.
 
     IF iv_url IS INITIAL.
@@ -113,7 +115,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
 
-          DATA(ls_checks) = prepare_deserialize_checks( it_files = it_files ).
+          DATA(ls_checks) = prepare_deserialize_checks(
+            it_files = it_files
+            iv_transport_request = iv_transport_request ).
 
           mo_repo->create_new_log( ).
 
@@ -420,6 +424,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
   METHOD prepare_deserialize_checks.
     rs_checks = mo_repo->deserialize_checks( ).
+
+    " Set transport request if provided
+    IF iv_transport_request IS NOT INITIAL.
+      rs_checks-transport_request = iv_transport_request.
+    ENDIF.
 
     " If specific files requested, build lookup table of (obj_type, obj_name)
     DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature

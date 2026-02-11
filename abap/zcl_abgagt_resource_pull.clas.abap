@@ -22,6 +22,7 @@ CLASS zcl_abgagt_resource_pull IMPLEMENTATION.
             branch TYPE string,
             username TYPE string,
             password TYPE string,
+            transport_request TYPE string,
             files TYPE string_table,
           END OF ls_request.
 

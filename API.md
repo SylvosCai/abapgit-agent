@@ -62,6 +62,7 @@ curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/pull" \
   "branch": "main",
   "username": "git-username",
   "password": "git-token",
+  "transport_request": "DEVK900001",
   "files": ["zcl_my_class.clas.abap", "zcl_other.clas.abap"]
 }
 ```
@@ -72,6 +73,12 @@ Files are parsed to extract `(obj_type, obj_name)`:
 - `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
 - `src/zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS (subdirectory support)
 
+### Transport Request
+
+The optional `transport_request` field specifies a transport request number to use for activation:
+- If provided, objects are activated in the specified transport
+- If omitted, abapGit creates/uses a default transport
+
 ### Response (success)
 
 ```json
@@ -79,6 +86,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
   "success": "X",
   "job_id": "CAIS20260208115649",
   "message": "Pull completed successfully",
+  "transport_request": "DEVK900001",
   "activated_count": 10,
   "failed_count": 0,
   "activated_objects": [...],
@@ -94,6 +102,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
   "job_id": "CAIS20260209041349",
   "message": "Pull completed with errors",
   "error_detail": "CLAS ZCL_MY_CLASS: Syntax error\nException: The statement...",
+  "transport_request": "DEVK900001",
   "activated_count": 9,
   "failed_count": 2,
   "activated_objects": [...],

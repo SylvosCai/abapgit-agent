@@ -227,14 +227,21 @@ class ABAPClient {
   /**
    * Pull repository and activate
    * Uses command API if useCommandApi config is enabled, otherwise uses legacy /pull endpoint
+   * @param {string} repoUrl - Repository URL
+   * @param {string} branch - Branch name (default: 'main')
+   * @param {string} gitUsername - Git username (optional)
+   * @param {string} gitPassword - Git password/token (optional)
+   * @param {Array} files - Array of file paths to pull (optional)
+   * @param {string} transportRequest - Transport request number (optional)
+   * @returns {object} Pull result
    */
-  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null) {
+  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null, transportRequest = null) {
     const cfg = this.getConfig();
 
     // Use command API if enabled
     if (this.shouldUseCommandApi()) {
       logger.info('Using command API for pull', { repoUrl, branch });
-      return await getCommandClient().pull(repoUrl, branch, gitUsername, gitPassword, files);
+      return await getCommandClient().pull(repoUrl, branch, gitUsername, gitPassword, files, transportRequest);
     }
 
     // Legacy /pull endpoint
@@ -251,11 +258,16 @@ class ABAPClient {
       data.files = files;
     }
 
+    // Add transport request if specified
+    if (transportRequest) {
+      data.transport_request = transportRequest;
+    }
+
     // Use config git credentials if no override provided
     data.username = gitUsername || cfg.gitUsername;
     data.password = gitPassword || cfg.gitPassword;
 
-    logger.info('Starting pull operation (legacy endpoint)', { repoUrl, branch, service: 'abapgit-agent' });
+    logger.info('Starting pull operation (legacy endpoint)', { repoUrl, branch, transportRequest, service: 'abapgit-agent' });
 
     return await this.request('POST', '/pull', data, { csrfToken: this.csrfToken });
   }

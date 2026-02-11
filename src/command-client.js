@@ -231,8 +231,15 @@ class CommandClient {
 
   /**
    * Pull repository and activate (using command API)
+   * @param {string} repoUrl - Repository URL
+   * @param {string} branch - Branch name (default: 'main')
+   * @param {string} gitUsername - Git username (optional)
+   * @param {string} gitPassword - Git password/token (optional)
+   * @param {Array} files - Array of file paths to pull (optional)
+   * @param {string} transportRequest - Transport request number (optional)
+   * @returns {object} Pull result
    */
-  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null) {
+  async pull(repoUrl, branch = 'main', gitUsername = null, gitPassword = null, files = null, transportRequest = null) {
     const cfg = this.getConfig();
 
     const params = {
@@ -245,11 +252,16 @@ class CommandClient {
       params.files = files;
     }
 
+    // Add transport request if specified
+    if (transportRequest) {
+      params.transport_request = transportRequest;
+    }
+
     // Use config git credentials if no override provided
     params.username = gitUsername || cfg.gitUsername;
     params.password = gitPassword || cfg.gitPassword;
 
-    logger.info('Starting pull operation via command API', { repoUrl, branch, service: 'abapgit-agent' });
+    logger.info('Starting pull operation via command API', { repoUrl, branch, transportRequest, service: 'abapgit-agent' });
 
     return await this.execute(COMMANDS.PULL, params);
   }

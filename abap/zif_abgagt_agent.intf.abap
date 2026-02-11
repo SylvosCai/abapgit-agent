@@ -24,6 +24,7 @@ INTERFACE zif_abgagt_agent PUBLIC.
     job_id TYPE string,
     message TYPE string,
     error_detail TYPE string,
+    transport_request TYPE string,
     activated_count TYPE i,
     failed_count TYPE i,
     log_messages TYPE ty_object_list,
@@ -104,6 +105,7 @@ INTERFACE zif_abgagt_agent PUBLIC.
       iv_branch TYPE string DEFAULT 'main'
       iv_username TYPE string OPTIONAL
       iv_password TYPE string OPTIONAL
+      iv_transport_request TYPE string OPTIONAL
       it_files TYPE string_table OPTIONAL
     RETURNING
       VALUE(rs_result) TYPE ty_result
