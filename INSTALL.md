@@ -40,6 +40,12 @@ The REST API approach provides several advantages:
 
 ## ABAP System Setup
 
+### Prerequisites
+
+The developer version of abapGit is required to deploy the REST handler. Follow the [abapGit developer version installation guide](https://docs.abapgit.org/user-guide/getting-started/install.html#install-developer-version).
+
+### Deploy ABAP Objects
+
 Deploy ABAP objects using abapGit:
 
 1. Use abapGit to deploy the ABAP objects in `/abap` folder
