@@ -43,6 +43,20 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 # 5. Repeat until done
 ```
 
+### Transport Request Support
+
+When working with development packages that require transport requests:
+
+```bash
+# Pull with specific transport request
+abapgit-agent pull --files abap/zcl_my_class.clas.abap --transport DEVK900001
+
+# Pull all files with transport request
+abapgit-agent pull --transport DEVK900001
+```
+
+If `--transport` is not specified, abapGit will use its default behavior (create a new transport or use the default transport for the user).
+
 **Important:** Only run `abapgit-agent pull` when ABAP code has actually changed. If you're only modifying JavaScript, JSON, or markdown files, skip the pull step.
 
 **Syntax Check Command:**

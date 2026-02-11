@@ -33,6 +33,12 @@ abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
 # Override git URL if needed
 abapgit-agent pull --url https://github.com/user/repo --branch main
 
+# Pull with a specific transport request
+abapgit-agent pull --transport DEVK900001
+
+# Combine options: files + transport request
+abapgit-agent pull --files zcl_my_class.clas.abap --transport DEVK900001
+
 # Inspect source file for issues
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
