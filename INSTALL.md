@@ -62,11 +62,11 @@ Deploy ABAP objects using abapGit:
 
 ```bash
 # Option A: Install globally for system-level integration
-sudo npm link
+sudo npm install -g abapgit-agent
 
-# Option B: Use from cloned repo
+# Option B: For local development, use npm link instead
 cd abapgit-agent
-npm install
+sudo npm link
 ```
 
 ## Configuration
@@ -100,7 +100,7 @@ cp .abapGitAgent.example .abapGitAgent
 
 This package supports **system-level integration**, meaning any ABAP git repository can use it without cloning this repository:
 
-1. **Install globally**: `sudo npm link`
+1. **Install globally**: `sudo npm install -g abapgit-agent`
 2. **Configure**: Add `.abapGitAgent` to your ABAP repo
 3. **Use**: Run `abapgit-agent` from your repo directory
 
