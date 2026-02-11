@@ -148,4 +148,62 @@ describe('ABAPClient', () => {
       expect(result.abap).toBe('disconnected');
     });
   });
+
+  describe('pull method', () => {
+    beforeEach(() => {
+      // Force use of legacy endpoint (not command API)
+      jest.spyOn(client, 'shouldUseCommandApi').mockReturnValue(false);
+    });
+
+    test('pull method includes transport_request in request data when specified', async () => {
+      // Mock the request method to capture the data
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        message: 'Pull completed successfully',
+        activated_count: 1,
+        failed_count: 0
+      });
+
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.pull(
+        'https://github.com/test/repo.git',
+        'main',
+        'gituser',
+        'gittoken',
+        ['zcl_test.clas.abap'],
+        'DEVK900001'
+      );
+
+      // Verify request was called with transport_request
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2]).toHaveProperty('transport_request');
+      expect(callArgs[2].transport_request).toBe('DEVK900001');
+    });
+
+    test('pull method does not include transport_request when not specified', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        message: 'Pull completed successfully',
+        activated_count: 1,
+        failed_count: 0
+      });
+
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.pull(
+        'https://github.com/test/repo.git',
+        'main',
+        'gituser',
+        'gittoken',
+        ['zcl_test.clas.abap']
+      );
+
+      // Verify request was called without transport_request
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2]).not.toHaveProperty('transport_request');
+    });
+  });
 });
