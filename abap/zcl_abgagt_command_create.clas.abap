@@ -1,24 +1,38 @@
-*"*"Use this source text module for your ABAP class
-*"*"Local class for implementing ABAP Git Agent create command
+*"*"use source
+*"*"Local Interface:
+*"**********************************************************************
 CLASS zcl_abgagt_command_create DEFINITION PUBLIC FINAL CREATE PUBLIC.
+
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
+
+    TYPES: BEGIN OF ty_create_params,
+             url TYPE string,
+             branch TYPE string,
+             package TYPE string,
+             display_name TYPE string,
+             name TYPE string,
+             folder_logic TYPE string,
+             username TYPE string,
+             password TYPE string,
+           END OF ty_create_params.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_create IMPLEMENTATION.
+
   METHOD zif_abgagt_command~get_name.
     rv_name = 'CREATE'.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute
     RAISING zcx_abapgit_exception.
-    DATA ls_params TYPE string.
-    DATA lv_package TYPE devclass.
-    DATA li_repo TYPE REF TO zif_abapgit_repo.
-    DATA ls_response TYPE string.
+    DATA: ls_params TYPE ty_create_params,
+          lv_package TYPE devclass,
+          li_repo TYPE REF TO zif_abapgit_repo.
 
     IF is_param IS SUPPLIED.
-      ls_params = is_param.
+      ls_params = CORRESPONDING #( is_param ).
     ENDIF.
 
     IF ls_params-folder_logic IS INITIAL.
@@ -56,11 +70,13 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
       iv_package        = lv_package
       iv_folder_logic   = ls_params-folder_logic ).
 
-    ls_response = '{"success":"X",'.
-    ls_response = ls_response && '"repo_key":"' && li_repo->get_key( ) && '",'.
-    ls_response = ls_response && '"repo_name":"' && li_repo->get_name( ) && '",'.
-    ls_response = ls_response && '"message":"Repository created successfully"}'.
+    DATA lv_response TYPE string.
+    lv_response = '{"success":"X",'.
+    lv_response = lv_response && '"repo_key":"' && li_repo->get_key( ) && '",'.
+    lv_response = lv_response && '"repo_name":"' && li_repo->get_name( ) && '",'.
+    lv_response = lv_response && '"message":"Repository created successfully"}'.
 
-    rv_result = ls_response.
+    rv_result = lv_response.
   ENDMETHOD.
+
 ENDCLASS.
