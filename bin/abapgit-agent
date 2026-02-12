@@ -153,7 +153,7 @@ function saveCookies(cookies, host) {
  */
 async function fetchCsrfToken(config) {
   const https = require('https');
-  const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${config.host}:${config.sapport}`);
+  const url = new URL(`/sap/bc/z_abapgit_agent/pull`, `https://${config.host}:${config.sapport}`);
 
   return new Promise((resolve, reject) => {
     // Clear stale cookies before fetching new token
