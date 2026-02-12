@@ -1,47 +1,30 @@
-*"*"use source
-*"*"Local Interface:
-*"**********************************************************************
+*"*"Use this source text module for your ABAP class
+*"*"Local class for implementing ABAP Git Agent create command
 CLASS zcl_abgagt_command_create DEFINITION PUBLIC FINAL CREATE PUBLIC.
-
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
-
-    TYPES: BEGIN OF ty_create_params,
-             url TYPE string,
-             branch TYPE string,
-             package TYPE string,
-             display_name TYPE string,
-             name TYPE string,
-             folder_logic TYPE string,
-             username TYPE string,
-             password TYPE string,
-           END OF ty_create_params.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_command_create IMPLEMENTATION.
-
   METHOD zif_abgagt_command~get_name.
     rv_name = 'CREATE'.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute
     RAISING zcx_abapgit_exception.
-    DATA: ls_params TYPE ty_create_params,
-          lv_package TYPE devclass,
-          li_repo TYPE REF TO zif_abapgit_repo.
+    DATA ls_params TYPE string.
+    DATA lv_package TYPE devclass.
+    DATA li_repo TYPE REF TO zif_abapgit_repo.
+    DATA ls_response TYPE string.
 
-    " Parse parameters from is_param
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      ls_params = is_param.
     ENDIF.
 
-    " Set default folder logic if not specified
     IF ls_params-folder_logic IS INITIAL.
       ls_params-folder_logic = 'PREFIX'.
     ENDIF.
 
-    " Validate required parameters
     IF ls_params-url IS INITIAL.
       rv_result = '{"success":"","error":"URL is required"}'.
       RETURN.
@@ -52,10 +35,8 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Convert package to devclass type
     lv_package = ls_params-package.
 
-    " Configure credentials if provided
     IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
       zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
         iv_url = ls_params-url iv_username = ls_params-username ).
@@ -67,7 +48,6 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
         iv_password = ls_params-password ).
     ENDIF.
 
-    " Create online repository using abapGit API
     li_repo = zcl_abapgit_repo_srv=>get_instance( )->new_online(
       iv_url            = ls_params-url
       iv_branch_name    = ls_params-branch
@@ -76,21 +56,11 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
       iv_package        = lv_package
       iv_folder_logic   = ls_params-folder_logic ).
 
-    " Build response
-    DATA: BEGIN OF ls_response,
-            success TYPE string,
-            repo_key TYPE string,
-            repo_name TYPE string,
-            message TYPE string,
-          END OF ls_response.
+    ls_response = '{"success":"X",'.
+    ls_response = ls_response && '"repo_key":"' && li_repo->get_key( ) && '",'.
+    ls_response = ls_response && '"repo_name":"' && li_repo->get_name( ) && '",'.
+    ls_response = ls_response && '"message":"Repository created successfully"}'.
 
-    ls_response-success = 'X'.
-    ls_response-repo_key = li_repo->get_key( ).
-    ls_response-repo_name = li_repo->get_name( ).
-    ls_response-message = 'Repository created successfully'.
-
-    rv_result = /ui2/cl_json=>serialize( data = ls_response ).
-
+    rv_result = ls_response.
   ENDMETHOD.
-
 ENDCLASS.
