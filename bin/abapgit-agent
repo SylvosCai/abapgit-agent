@@ -864,10 +864,82 @@ To enable integration:
         await runInit(args);
         return;  // Don't check ABAP integration for init
 
-      case 'create':
-        // TODO: Implement create command
-        console.log('TODO: create command not yet implemented');
-        process.exit(1);
+      case 'create': {
+        const urlArgIndex = args.indexOf('--url');
+        const branchArgIndex = args.indexOf('--branch');
+        const packageArgIndex = args.indexOf('--package');
+        const nameArgIndex = args.indexOf('--name');
+        const folderArgIndex = args.indexOf('--folder');
+
+        // Get parameters
+        const repoUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
+        const branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : 'main';
+        const packageName = packageArgIndex !== -1 ? args[packageArgIndex + 1] : null;
+        const displayName = nameArgIndex !== -1 ? args[nameArgIndex + 1] : null;
+        const folderLogic = folderArgIndex !== -1 ? args[folderArgIndex + 1] : 'PREFIX';
+
+        // Validate required parameters
+        if (!repoUrl) {
+          console.error('Error: --url parameter is required');
+          console.error('Usage: abapgit-agent create --url <git-url> --package <abap-package> [--branch <branch>] [--name <name>] [--folder <prefix|full>]');
+          process.exit(1);
+        }
+
+        if (!packageName) {
+          console.error('Error: --package parameter is required');
+          console.error('Usage: abapgit-agent create --url <git-url> --package <abap-package> [--branch <branch>] [--name <name>] [--folder <prefix|full>]');
+          process.exit(1);
+        }
+
+        console.log(`\n🚀 Creating online repository`);
+        console.log(`   URL: ${repoUrl}`);
+        console.log(`   Package: ${packageName}`);
+        console.log(`   Branch: ${branch}`);
+        if (displayName) {
+          console.log(`   Display Name: ${displayName}`);
+        }
+        console.log(`   Folder Logic: ${folderLogic}`);
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        const data = {
+          url: repoUrl,
+          package: packageName,
+          branch: branch
+        };
+
+        if (displayName) {
+          data.display_name = displayName;
+        }
+
+        if (folderLogic) {
+          data.folder_logic = folderLogic;
+        }
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/create', data, { csrfToken });
+
+        console.log('\n');
+
+        // Handle uppercase keys from ABAP
+        const success = result.SUCCESS || result.success;
+        const repoKey = result.REPO_KEY || result.repo_key;
+        const repoName = result.REPO_NAME || result.repo_name;
+        const message = result.MESSAGE || result.message;
+        const error = result.ERROR || result.error;
+
+        if (success === 'X' || success === true) {
+          console.log(`✅ Repository created successfully!`);
+          console.log(`   Repository Key: ${repoKey || 'N/A'}`);
+          console.log(`   Repository Name: ${repoName || 'N/A'}`);
+          console.log(`   Message: ${message || 'N/A'}`);
+        } else {
+          console.log(`❌ Failed to create repository`);
+          console.log(`   Error: ${error || message || 'Unknown error'}`);
+          process.exit(1);
+        }
+        break;
+      }
 
       case 'pull':
         const urlArgIndex = args.indexOf('--url');

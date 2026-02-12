@@ -296,6 +296,43 @@ class ABAPClient {
 
     return await this.request('POST', '/unit', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * Create a new online repository
+   * @param {string} repoUrl - Git repository URL
+   * @param {string} packageName - ABAP package name
+   * @param {string} branch - Branch name (default: 'main')
+   * @param {string} displayName - Display name for the repository (optional)
+   * @param {string} name - Repository name (optional)
+   * @param {string} folderLogic - Folder logic: 'PREFIX' or 'FULL' (default: 'PREFIX')
+   * @returns {object} Create result
+   */
+  async create(repoUrl, packageName, branch = 'main', displayName = null, name = null, folderLogic = 'PREFIX') {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      url: repoUrl,
+      package: packageName,
+      branch: branch
+    };
+
+    if (displayName) {
+      data.display_name = displayName;
+    }
+
+    if (name) {
+      data.name = name;
+    }
+
+    if (folderLogic) {
+      data.folder_logic = folderLogic;
+    }
+
+    logger.info('Creating repository', { repoUrl, packageName, branch, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/create', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

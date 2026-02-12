@@ -112,6 +112,34 @@ class ABAPGitAgent {
       throw new Error(`Unit tests failed: ${error.message}`);
     }
   }
+
+  /**
+   * Create a new online repository
+   * @param {string} repoUrl - Git repository URL
+   * @param {string} packageName - ABAP package name
+   * @param {string} branch - Branch name (default: 'main')
+   * @param {string} displayName - Display name for the repository (optional)
+   * @param {string} name - Repository name (optional)
+   * @param {string} folderLogic - Folder logic: 'PREFIX' or 'FULL' (default: 'PREFIX')
+   * @returns {object} Create result with success, repo_key, repo_name, message
+   */
+  async create(repoUrl, packageName, branch = 'main', displayName = null, name = null, folderLogic = 'PREFIX') {
+    logger.info('Creating repository', { repoUrl, packageName, branch });
+
+    try {
+      const result = await this.abap.create(repoUrl, packageName, branch, displayName, name, folderLogic);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        repo_key: result.REPO_KEY || result.repo_key,
+        repo_name: result.REPO_NAME || result.repo_name,
+        message: result.MESSAGE || result.message || '',
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('Create failed', { error: error.message });
+      throw new Error(`Create failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {
