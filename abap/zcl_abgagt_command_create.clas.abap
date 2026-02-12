@@ -9,10 +9,10 @@ CLASS zcl_abgagt_command_create DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_create_params,
              url TYPE string,
              branch TYPE string,
-             package TYPE devclass,
+             package TYPE string,
              display_name TYPE string,
              name TYPE string,
-             folder_logic TYPE string DEFAULT 'PREFIX',
+             folder_logic TYPE string,
              username TYPE string,
              password TYPE string,
            END OF ty_create_params.
@@ -33,6 +33,11 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
       ls_params = CORRESPONDING #( is_param ).
+    ENDIF.
+
+    " Set default folder logic if not specified
+    IF ls_params-folder_logic IS INITIAL.
+      ls_params-folder_logic = 'PREFIX'.
     ENDIF.
 
     " Validate required parameters
