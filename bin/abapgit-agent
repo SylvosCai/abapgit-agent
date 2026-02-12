@@ -149,11 +149,11 @@ function saveCookies(cookies, host) {
 }
 
 /**
- * Fetch CSRF token using GET /pull with X-CSRF-Token: fetch
+ * Fetch CSRF token using GET /health with X-CSRF-Token: fetch
  */
 async function fetchCsrfToken(config) {
   const https = require('https');
-  const url = new URL(`/sap/bc/z_abapgit_agent/pull`, `https://${config.host}:${config.sapport}`);
+  const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${config.host}:${config.sapport}`);
 
   return new Promise((resolve, reject) => {
     // Clear stale cookies before fetching new token
@@ -922,6 +922,14 @@ Examples:
           package: config.package,
           branch: branch
         };
+
+        if (config.gitUsername) {
+          data.username = config.gitUsername;
+        }
+
+        if (config.gitPassword) {
+          data.password = config.gitPassword;
+        }
 
         const result = await request('POST', '/sap/bc/z_abapgit_agent/create', data, { csrfToken });
 
