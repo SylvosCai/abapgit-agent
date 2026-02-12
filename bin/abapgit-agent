@@ -710,12 +710,12 @@ async function runInit(args) {
     ? args[folderArgIndex + 1]
     : '/src';
 
-  const package = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
+  const packageName = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
     ? args[packageArgIndex + 1]
     : null;
 
   // Validate package is required
-  if (!package) {
+  if (!packageName) {
     console.error('Error: --package is required');
     console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
     process.exit(1);
@@ -723,7 +723,7 @@ async function runInit(args) {
 
   console.log(`\n🚀 Initializing abapGit Agent for local repository`);
   console.log(`   Folder: ${folder}`);
-  console.log(`   Package: ${package}`);
+  console.log(`   Package: ${packageName}`);
   console.log('');
 
   // Check if current folder is git repo root
@@ -762,7 +762,7 @@ async function runInit(args) {
     // Read sample and update with package/folder
     const sampleContent = fs.readFileSync(samplePath, 'utf8');
     const config = JSON.parse(sampleContent);
-    config.package = package;
+    config.package = packageName;
     config.folder = folder;
 
     // Write updated config
