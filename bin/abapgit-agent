@@ -909,9 +909,13 @@ Examples:
         const doImport = importIndex !== -1;
         const branch = getGitBranch();
 
+        // Extract repo name from git URL
+        const repoName = repoUrl.split('/').pop().replace('.git', '');
+
         console.log(`\n🚀 Creating online repository`);
         console.log(`   URL: ${repoUrl}`);
         console.log(`   Package: ${config.package}`);
+        console.log(`   Name: ${repoName}`);
         console.log(`   Branch: ${branch}`);
         console.log(`   Import: ${doImport ? 'Yes' : 'No'}`);
 
@@ -920,6 +924,7 @@ Examples:
         const data = {
           url: repoUrl,
           package: config.package,
+          name: repoName,
           branch: branch
         };
 
