@@ -3,6 +3,8 @@
  * ABAP Git Agent - CLI Tool
  *
  * Usage:
+ *   abapgit-agent init --folder <folder> --package <package>
+ *   abapgit-agent create [--import]
  *   abapgit-agent pull [--branch <branch>]
  *   abapgit-agent pull --url <git-url> [--branch <branch>]
  *   abapgit-agent health
@@ -697,6 +699,120 @@ async function pull(gitUrl, branch = 'main', files = null, transportRequest = nu
 }
 
 /**
+ * Run init command - Initialize local configuration
+ */
+async function runInit(args) {
+  const folderArgIndex = args.indexOf('--folder');
+  const packageArgIndex = args.indexOf('--package');
+
+  // Get parameters
+  const folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
+    ? args[folderArgIndex + 1]
+    : '/src';
+
+  const package = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
+    ? args[packageArgIndex + 1]
+    : null;
+
+  // Validate package is required
+  if (!package) {
+    console.error('Error: --package is required');
+    console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
+    process.exit(1);
+  }
+
+  console.log(`\n🚀 Initializing abapGit Agent for local repository`);
+  console.log(`   Folder: ${folder}`);
+  console.log(`   Package: ${package}`);
+  console.log('');
+
+  // Check if current folder is git repo root
+  const gitDir = pathModule.join(process.cwd(), '.git');
+  if (!fs.existsSync(gitDir)) {
+    console.error('Error: Current folder is not a git repository.');
+    console.error('Run this command from the root folder of your git repository.');
+    process.exit(1);
+  }
+
+  // Detect git remote URL
+  const gitUrl = getGitRemoteUrl();
+  if (!gitUrl) {
+    console.error('Error: No git remote configured.');
+    console.error('Configure a remote with: git remote add origin <url>');
+    process.exit(1);
+  }
+  console.log(`📌 Git remote: ${gitUrl}`);
+
+  // Check if .abapGitAgent already exists
+  const configPath = pathModule.join(process.cwd(), '.abapGitAgent');
+  if (fs.existsSync(configPath)) {
+    console.error('Error: .abapGitAgent already exists.');
+    console.error('To reinitialize, delete the existing file first.');
+    process.exit(1);
+  }
+
+  // Copy .abapGitAgent.sample to .abapGitAgent
+  const samplePath = pathModule.join(__dirname, '..', '.abapGitAgent.sample');
+  if (!fs.existsSync(samplePath)) {
+    console.error('Error: .abapGitAgent.sample not found.');
+    process.exit(1);
+  }
+
+  try {
+    // Read sample and update with package/folder
+    const sampleContent = fs.readFileSync(samplePath, 'utf8');
+    const config = JSON.parse(sampleContent);
+    config.package = package;
+    config.folder = folder;
+
+    // Write updated config
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+    console.log(`✅ Created .abapGitAgent`);
+  } catch (error) {
+    console.error(`Error creating .abapGitAgent: ${error.message}`);
+    process.exit(1);
+  }
+
+  // Copy CLAUDE.md
+  const claudeMdPath = pathModule.join(__dirname, '..', 'abap', 'CLAUDE.md');
+  const localClaudeMdPath = pathModule.join(process.cwd(), 'CLAUDE.md');
+  try {
+    if (fs.existsSync(claudeMdPath)) {
+      fs.copyFileSync(claudeMdPath, localClaudeMdPath);
+      console.log(`✅ Created CLAUDE.md`);
+    } else {
+      console.log(`⚠️  CLAUDE.md not found in abap/ directory`);
+    }
+  } catch (error) {
+    console.error(`Error copying CLAUDE.md: ${error.message}`);
+  }
+
+  // Create folder
+  const folderPath = pathModule.join(process.cwd(), folder);
+  try {
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+      console.log(`✅ Created folder: ${folder}`);
+
+      // Create .gitkeep
+      const gitkeepPath = pathModule.join(folderPath, '.gitkeep');
+      fs.writeFileSync(gitkeepPath, '');
+    } else {
+      console.log(`✅ Folder already exists: ${folder}`);
+    }
+  } catch (error) {
+    console.error(`Error creating folder: ${error.message}`);
+  }
+
+  console.log(`
+📋 Next steps:
+   1. Edit .abapGitAgent with your ABAP credentials (host, user, password)
+   2. Run 'abapgit-agent create --import' to create online repository
+   3. Run 'abapgit-agent pull' to activate objects
+`);
+}
+
+/**
  * Check agent health
  */
 async function healthCheck() {
@@ -718,8 +834,10 @@ async function main() {
   const command = args[0];
 
   // Check if ABAP integration is enabled for this repo
-  if (!isAbapIntegrationEnabled()) {
-    console.log(`
+  // (skip for init, help commands)
+  if (command && command !== 'init' && command !== 'help' && command !== '--help' && command !== '-h') {
+    if (!isAbapIntegrationEnabled()) {
+      console.log(`
 ⚠️  ABAP Git Agent not configured for this repository.
 
 To enable integration:
@@ -736,13 +854,21 @@ To enable integration:
 2. Or set environment variables:
    - ABAP_HOST, ABAP_PORT, ABAP_CLIENT, ABAP_USER, ABAP_PASSWORD
 `);
-    if (command !== 'help' && command !== '--help' && command !== '-h') {
       process.exit(1);
     }
   }
 
   try {
     switch (command) {
+      case 'init':
+        await runInit(args);
+        return;  // Don't check ABAP integration for init
+
+      case 'create':
+        // TODO: Implement create command
+        console.log('TODO: create command not yet implemented');
+        process.exit(1);
+
       case 'pull':
         const urlArgIndex = args.indexOf('--url');
         const branchArgIndex = args.indexOf('--branch');
@@ -852,6 +978,12 @@ Usage:
   abapgit-agent <command> [options]
 
 Commands:
+  init --folder <folder> --package <package>
+    Initialize local configuration for an existing git repository.
+
+  create [--import]
+    Create abapGit online repository in ABAP system.
+
   pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
     Pull and activate repository in ABAP system.
     Auto-detects git remote and branch from current directory.
@@ -864,9 +996,6 @@ Commands:
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
 
-  unit --object <type> <name>
-    Run unit tests for a specific object.
-
   health
     Check if ABAP REST API is healthy
 
@@ -874,15 +1003,14 @@ Commands:
     Check if ABAP integration is configured for this repo
 
 Examples:
-  abapgit-agent pull                                       # Auto-detect from git repo
-  abapgit-agent pull --branch develop                      # Use specific branch
-  abapgit-agent pull --files zcl_my_class.clas.abap        # Pull specific file
-  abapgit-agent pull --transport DEVK900001                # Use specific transport request
-  abapgit-agent pull --files zcl_my_class.clas.abap --transport DEVK900001
-  abapgit-agent inspect --files zcl_my_class.clas.abap      # Inspect syntax
-  abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_other.clas.abap
-  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap
-  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap,zcl_other.clas.testclasses.abap
+  abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
+  abapgit-agent create --import                               # Create repo
+  abapgit-agent pull                                         # Auto-detect from git
+  abapgit-agent pull --branch develop                        # Specific branch
+  abapgit-agent pull --files zcl_my_class.clas.abap          # Specific file
+  abapgit-agent pull --transport DEVK900001                  # With transport
+  abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
+  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
   abapgit-agent health
   abapgit-agent status
 `);

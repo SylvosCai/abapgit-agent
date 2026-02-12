@@ -6,7 +6,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description | File |
 |---------|--------|-------------|------|
-| [init](init-command.md) | TODO | Initialize local configuration | Initialize local configuration for git repo |
+| [init](init-command.md) | ✅ | Initialize local configuration | Initialize local configuration for git repo |
 | [create](create-command.md) | TODO | Create online repository | Create abapGit repo in ABAP system |
 | [pull](pull-command.md) | ✅ | Pull and activate | Pull objects from git and activate in ABAP |
 | [inspect](inspect-command.md) | ✅ | Syntax check | Check ABAP source files for errors |

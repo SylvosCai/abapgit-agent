@@ -1,8 +1,4 @@
-# init Command Requirements
-
-## Overview
-
-> **TODO**: This command is not yet implemented.
+# init Command
 
 Initialize local configuration for an existing git repository.
 
