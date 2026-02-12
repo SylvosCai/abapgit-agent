@@ -943,7 +943,7 @@ Examples:
         // Handle uppercase keys from ABAP
         const success = result.SUCCESS || result.success;
         const repoKey = result.REPO_KEY || result.repo_key;
-        const repoName = result.REPO_NAME || result.repo_name;
+        const createdRepoName = result.REPO_NAME || result.repo_name;
         const message = result.MESSAGE || result.message;
         const error = result.ERROR || result.error;
 
@@ -951,7 +951,7 @@ Examples:
           console.log(`✅ Repository created successfully!`);
           console.log(`   URL: ${repoUrl}`);
           console.log(`   Package: ${config.package}`);
-          console.log(`   Name: ${repoName || 'N/A'}`);
+          console.log(`   Name: ${createdRepoName || repoName}`);
         } else {
           console.log(`❌ Failed to create repository`);
           console.log(`   Error: ${error || message || 'Unknown error'}`);
