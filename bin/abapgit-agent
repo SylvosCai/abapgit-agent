@@ -751,8 +751,8 @@ async function runInit(args) {
     process.exit(1);
   }
 
-  // Copy .abapGitAgent.sample to .abapGitAgent
-  const samplePath = pathModule.join(__dirname, '..', '.abapGitAgent.sample');
+  // Copy .abapGitAgent.example to .abapGitAgent
+  const samplePath = pathModule.join(__dirname, '..', '.abapGitAgent.example');
   if (!fs.existsSync(samplePath)) {
     console.error('Error: .abapGitAgent.sample not found.');
     process.exit(1);

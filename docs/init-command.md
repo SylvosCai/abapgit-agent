@@ -33,7 +33,7 @@ git remote get-url origin
 ### 2. Copy Configuration Template
 
 ```bash
-cp .abapGitAgent.sample .abapGitAgent
+cp .abapGitAgent.example .abapGitAgent
 ```
 
 ### 3. Update Configuration
