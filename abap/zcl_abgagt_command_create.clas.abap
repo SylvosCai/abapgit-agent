@@ -25,8 +25,7 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
     rv_name = 'CREATE'.
   ENDMETHOD.
 
-  METHOD zif_abgagt_command~execute
-    RAISING zcx_abapgit_exception.
+  METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_create_params,
           lv_package TYPE devclass,
           li_repo TYPE REF TO zif_abapgit_repo.
@@ -62,13 +61,18 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
         iv_password = ls_params-password ).
     ENDIF.
 
-    li_repo = zcl_abapgit_repo_srv=>get_instance( )->new_online(
-      iv_url            = ls_params-url
-      iv_branch_name    = ls_params-branch
-      iv_display_name   = ls_params-display_name
-      iv_name           = ls_params-name
-      iv_package        = lv_package
-      iv_folder_logic   = ls_params-folder_logic ).
+    TRY.
+        li_repo = zcl_abapgit_repo_srv=>get_instance( )->new_online(
+          iv_url            = ls_params-url
+          iv_branch_name    = ls_params-branch
+          iv_display_name   = ls_params-display_name
+          iv_name           = ls_params-name
+          iv_package        = lv_package
+          iv_folder_logic   = ls_params-folder_logic ).
+      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+        rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
+        RETURN.
+    ENDTRY.
 
     DATA lv_response TYPE string.
     lv_response = '{"success":"X",'.
