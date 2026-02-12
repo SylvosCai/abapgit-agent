@@ -865,57 +865,63 @@ To enable integration:
         return;  // Don't check ABAP integration for init
 
       case 'create': {
-        const urlArgIndex = args.indexOf('--url');
-        const branchArgIndex = args.indexOf('--branch');
-        const packageArgIndex = args.indexOf('--package');
-        const nameArgIndex = args.indexOf('--name');
-        const folderArgIndex = args.indexOf('--folder');
+        const importIndex = args.indexOf('--import');
+        const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
 
-        // Get parameters
-        const repoUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
-        const branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : 'main';
-        const packageName = packageArgIndex !== -1 ? args[packageArgIndex + 1] : null;
-        const displayName = nameArgIndex !== -1 ? args[nameArgIndex + 1] : null;
-        const folderLogic = folderArgIndex !== -1 ? args[folderArgIndex + 1] : 'PREFIX';
+        // Show help if requested
+        if (helpIndex !== -1) {
+          console.log(`
+Usage:
+  abapgit-agent create [--import]
 
-        // Validate required parameters
+Options:
+  --import    Import existing objects from package to git repo
+
+Description:
+  Create abapGit online repository in ABAP system.
+  Auto-detects URL from git remote and package from .abapGitAgent.
+
+Prerequisites:
+  - Run "abapgit-agent init" first
+  - Edit .abapGitAgent with credentials (host, user, password)
+
+Examples:
+  abapgit-agent create                    # Create repo only
+  abapgit-agent create --import           # Create repo and import objects
+`);
+          return;
+        }
+
+        // Get parameters from config
+        const config = loadConfig();
+        const repoUrl = getGitRemoteUrl();
+
         if (!repoUrl) {
-          console.error('Error: --url parameter is required');
-          console.error('Usage: abapgit-agent create --url <git-url> --package <abap-package> [--branch <branch>] [--name <name>] [--folder <prefix|full>]');
+          console.error('Error: No git remote configured. Please configure a remote origin.');
           process.exit(1);
         }
 
-        if (!packageName) {
-          console.error('Error: --package parameter is required');
-          console.error('Usage: abapgit-agent create --url <git-url> --package <abap-package> [--branch <branch>] [--name <name>] [--folder <prefix|full>]');
+        if (!config.package) {
+          console.error('Error: Package not configured. Run "abapgit-agent init" first or set package in .abapGitAgent.');
           process.exit(1);
         }
+
+        const doImport = importIndex !== -1;
+        const branch = getGitBranch();
 
         console.log(`\n🚀 Creating online repository`);
         console.log(`   URL: ${repoUrl}`);
-        console.log(`   Package: ${packageName}`);
+        console.log(`   Package: ${config.package}`);
         console.log(`   Branch: ${branch}`);
-        if (displayName) {
-          console.log(`   Display Name: ${displayName}`);
-        }
-        console.log(`   Folder Logic: ${folderLogic}`);
+        console.log(`   Import: ${doImport ? 'Yes' : 'No'}`);
 
-        const config = loadConfig();
         const csrfToken = await fetchCsrfToken(config);
 
         const data = {
           url: repoUrl,
-          package: packageName,
+          package: config.package,
           branch: branch
         };
-
-        if (displayName) {
-          data.display_name = displayName;
-        }
-
-        if (folderLogic) {
-          data.folder_logic = folderLogic;
-        }
 
         const result = await request('POST', '/sap/bc/z_abapgit_agent/create', data, { csrfToken });
 
@@ -930,9 +936,9 @@ To enable integration:
 
         if (success === 'X' || success === true) {
           console.log(`✅ Repository created successfully!`);
-          console.log(`   Repository Key: ${repoKey || 'N/A'}`);
-          console.log(`   Repository Name: ${repoName || 'N/A'}`);
-          console.log(`   Message: ${message || 'N/A'}`);
+          console.log(`   URL: ${repoUrl}`);
+          console.log(`   Package: ${config.package}`);
+          console.log(`   Name: ${repoName || 'N/A'}`);
         } else {
           console.log(`❌ Failed to create repository`);
           console.log(`   Error: ${error || message || 'Unknown error'}`);
@@ -1055,6 +1061,7 @@ Commands:
 
   create [--import]
     Create abapGit online repository in ABAP system.
+    Auto-detects URL from git remote and package from .abapGitAgent.
 
   pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
     Pull and activate repository in ABAP system.
