@@ -2,6 +2,8 @@
 
 ## Overview
 
+> **TODO**: This command is not yet implemented.
+
 Initialize local configuration for an existing git repository.
 
 ## Command

@@ -111,8 +111,8 @@ Failure case with details:
 
 | Topic | File |
 |-------|------|
-| CLI Commands Overview | [docs/commands.md](docs/commands.md) |
 | Installation & Setup | [INSTALL.md](INSTALL.md) |
+| CLI Commands Overview | [docs/commands.md](docs/commands.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
