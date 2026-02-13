@@ -333,6 +333,29 @@ class ABAPClient {
 
     return await this.request('POST', '/create', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * Import existing objects from package to git repository
+   * @param {string} repoUrl - Git repository URL
+   * @param {string} message - Commit message (optional)
+   * @returns {object} Import result with success, files_staged, commit_sha
+   */
+  async import(repoUrl, message = null) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      url: repoUrl
+    };
+
+    if (message) {
+      data.message = message;
+    }
+
+    logger.info('Starting import operation', { repoUrl, message, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/import', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

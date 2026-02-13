@@ -140,6 +140,30 @@ class ABAPGitAgent {
       throw new Error(`Create failed: ${error.message}`);
     }
   }
+
+  /**
+   * Import existing objects from package to git repository
+   * @param {string} repoUrl - Git repository URL
+   * @param {string} message - Commit message (optional)
+   * @returns {object} Import result with success, files_staged, commit_sha
+   */
+  async import(repoUrl, message = null) {
+    logger.info('Starting import operation', { repoUrl, message });
+
+    try {
+      const result = await this.abap.import(repoUrl, message);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        files_staged: result.FILES_STAGED || result.files_staged || 0,
+        commit_sha: result.COMMIT_SHA || result.commit_sha || '',
+        message: result.MESSAGE || result.message || '',
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('Import failed', { error: error.message });
+      throw new Error(`Import failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

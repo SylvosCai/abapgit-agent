@@ -6,7 +6,8 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_pull TYPE string VALUE 'PULL',
     gc_inspect TYPE string VALUE 'INSPECT',
     gc_unit TYPE string VALUE 'UNIT',
-    gc_create TYPE string VALUE 'CREATE'.
+    gc_create TYPE string VALUE 'CREATE',
+    gc_import TYPE string VALUE 'IMPORT'.
 
   " Get command name
   METHODS get_name
