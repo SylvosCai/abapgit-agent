@@ -1028,13 +1028,13 @@ Examples:
         // Handle uppercase keys from ABAP
         const success = result.SUCCESS || result.success;
         const filesStaged = result.FILES_STAGED || result.files_staged;
-        const commitMessage = result.COMMIT_MESSAGE || result.commit_message;
+        const abapCommitMessage = result.COMMIT_MESSAGE || result.commit_message;
         const error = result.ERROR || result.error;
 
         if (success === 'X' || success === true) {
           console.log(`✅ Objects imported successfully!`);
           console.log(`   Files staged: ${filesStaged}`);
-          console.log(`   Commit: ${commitMessage}`);
+          console.log(`   Commit: ${commitMessage || abapCommitMessage}`);
         } else {
           console.log(`❌ Import failed`);
           console.log(`   Error: ${error || resultMessage || 'Unknown error'}`);
