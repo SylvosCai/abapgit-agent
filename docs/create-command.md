@@ -33,11 +33,18 @@ None. The command auto-detects all settings from:
 ### Success
 
 ```
+🚀 Creating online repository
+   URL: https://github.tools.sap/I045696/abgagt-import
+   Package: AUD_TAG
+   Folder: /abap/
+   Name: abgagt-import
+   Branch: main
+
+
 ✅ Repository created successfully!
-   URL: https://github.com/org/repo.git
-   Package: ZMY_PACKAGE
-   Folder: /src/
-   Name: repo
+   URL: https://github.tools.sap/I045696/abgagt-import
+   Package: AUD_TAG
+   Name: abgagt-import
 
 Next steps:
    abapgit-agent import
