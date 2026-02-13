@@ -23,8 +23,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     DATA: ls_params TYPE ty_import_params,
           li_repo TYPE REF TO zif_abapgit_repo,
           lv_package TYPE devclass,
-          lv_message TYPE string,
-          lv_files_staged TYPE i.
+          lv_message TYPE string.
 
     IF is_param IS SUPPLIED.
       ls_params = CORRESPONDING #( is_param ).
@@ -42,7 +41,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           EXPORTING iv_url = ls_params-url
           IMPORTING ei_repo = li_repo ).
       CATCH zcx_abapgit_exception.
-        rv_result = '{"success":"","error":"Repository not found. Run create command or create in abapGit UI first."}'.
+        rv_result = '{"success":"","error":"Repository not found"}'.
         RETURN.
     ENDTRY.
 
@@ -61,43 +60,27 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
       lv_message = ls_params-message.
     ENDIF.
 
-    " Refresh repository to get latest local files
+    " Refresh repository
     li_repo->refresh( ).
 
-    " Get local files count
+    " Get local files
     DATA(lo_files) = li_repo->get_files_local( ).
-    DATA(lt_all_files) = lo_files->get_files( ).
-    lv_files_staged = lines( lt_all_files ).
 
-    " Check if there are files to import
-    IF lv_files_staged = 0.
-      rv_result = '{"success":"","error":"No objects found in package"}'.
-      RETURN.
-    ENDIF.
-
-    " Stage and commit files
+    " Stage all files
     DATA(lo_stage) = zcl_abapgit_stage=>new( ii_repo = li_repo ).
-
-    LOOP AT lt_all_files ASSIGNING FIELD-SYMBOL(<ls_file>).
-      lo_stage->add(
-        iv_path     = <ls_file>-path
-        iv_file     = <ls_file>-file ).
-    ENDLOOP.
 
     " Get user details for committer
     DATA(lo_user) = zcl_abapgit_persist_factory=>get_user( )->read( iv_name = sy-uname ).
-    DATA(lv_committer_name) = lo_user-name.
-    DATA(lv_committer_email) = lo_user-email.
 
     " Commit and push
     zcl_abapgit_services_git=>commit(
       io_repo   = li_repo
       io_stage   = lo_stage
       iv_comment = lv_message
-      iv_committer_name  = lv_committer_name
-      iv_committer_email = lv_committer_email ).
+      iv_committer_name  = lo_user-name
+      iv_committer_email = lo_user-email ).
 
-    rv_result = '{"success":"X","files_staged":"' && lv_files_staged && '","message":"Objects imported successfully"}'.
+    rv_result = '{"success":"X","message":"Objects imported successfully"}'.
 
   ENDMETHOD.
 
