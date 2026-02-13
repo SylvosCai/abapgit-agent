@@ -1,163 +1,69 @@
-# create Command Requirements
-
-## Overview
-
-> **TODO**: This command is not yet implemented.
+# create Command
 
 Create a new abapGit online repository in the ABAP system.
 
 ## Command
 
 ```bash
-# Create online repo only
 abapgit-agent create
-
-# Create online repo and import existing objects
-abapgit-agent create --import
 ```
 
 ## Prerequisite
 
 - `init` command has been run successfully
-- `.abapGitAgent` file exists
-- User has edited `.abapGitAgent` with correct credentials (host, user, password)
+- `.abapGitAgent` file exists with credentials (host, user, password, gitUsername, gitPassword)
 - Current folder is git repo root
+
+## What It Does
+
+1. **Detect git remote** - Gets URL from `git remote get-url origin`
+2. **Get package** - Reads from `.abapGitAgent`
+3. **Get folder** - Reads from `.abapGitAgent` (default: `/src/`)
+4. **Create repository** - Calls ABAP REST API to create online repository
+5. **Set starting folder** - Configures the folder path in repository settings
 
 ## Parameters
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--import` | No | Import existing objects from package to git repo |
-
----
-
-## Tasks
-
-### 1. Validate Configuration
-
-```bash
-abapgit-agent status
-```
-
-- Verify `.abapGitAgent` exists
-- Verify git repo is configured
-
-```bash
-abapgit-agent health
-```
-
-- Verify ABAP connection is healthy
-
-### 2. Read Configuration
-
-Read `.abapGitAgent` and extract:
-- `host`, `sapport`, `client`, `user`, `password`, `language`
-- `package`
-- `folder`
-
-### 3. Get Git Remote URL
-
-```bash
-git remote get-url origin
-```
-
-### 4. Create abapGit Online Repository
-
-**Endpoint:** `POST /create`
-
-**Request Body:**
-```json
-{
-  "url": "https://github.com/org/repo.git",
-  "package": "ZMY_PACKAGE",
-  "folder_logic": "FULL",
-  "folder": "/src"
-}
-```
-
-### 5. If `--import`: Pull Existing Objects
-
-- Use `folder` from `.abapGitAgent`
-- Pull existing objects from package (no objects if package is empty)
-- Write files to folder
-- Git commit
-
----
+None. The command auto-detects all settings from:
+- Git remote URL
+- `.abapGitAgent` configuration
 
 ## Output
 
-### Success (without --import)
+### Success
 
 ```
-✅ Online repository created successfully
+✅ Repository created successfully!
    URL: https://github.com/org/repo.git
    Package: ZMY_PACKAGE
+   Folder: /src/
    Name: repo
 
 Next steps:
-   abapgit-agent pull
+   abapgit-agent import
 ```
 
-### Success (with --import)
+### Error - Repository Already Exists
 
 ```
-✅ Online repository created successfully
-   URL: https://github.com/org/repo.git
-   Package: ZMY_PACKAGE
-   Name: repo
-
-✅ Objects imported from package
-   Files: 15
-   Commit: feat: initial import from ABAP package ZMY_PACKAGE
-
-Next steps:
-   git push
-   abapgit-agent pull
+❌ Failed to create repository
+   Error: Repository already exists
 ```
 
----
-
-## Error Handling
-
-| Error | Message |
-|-------|---------|
-| No .abapGitAgent | Run `init` command first |
-| Missing credentials | Edit .abapGitAgent (host, user, password) |
-| Health check failed | Check ABAP system connection |
-| Repo already exists | Repository already exists in ABAP |
-| Package not found | Package ZMY_PACKAGE does not exist |
-| API error | Failed to create repository |
-
----
-
-## Full Workflow
+### Error - Missing Configuration
 
 ```
-1. abapgit-agent init --folder /src --package ZMY_PACKAGE
-   └─> Creates .abapGitAgent, CLAUDE.md, /src/
-
-2. Edit .abapGitAgent (host, user, password)
-
-3. abapgit-agent online --import
-   └─> Creates repo in ABAP, imports objects, commits
-
-4. git push origin main
-
-5. abapgit-agent pull
-   └─> Activates objects in ABAP
+❌ Failed to create repository
+   Error: Package not configured
 ```
 
-## Example
+## Post-Create Steps
+
+After creating the repository:
 
 ```bash
-# Initialize
-abapgit-agent init --folder /abap --package ZMYPROJECT
-
-# Edit config
-vim .abapGitAgent
-
-# Create online repo with import
-abapgit-agent online --import
+# Import objects from ABAP package to git
+abapgit-agent import
 
 # Push to git
 git push origin main
@@ -166,46 +72,51 @@ git push origin main
 abapgit-agent pull
 ```
 
-## API Reference
-
-### Create Online Repository
-
-**Endpoint:** `POST /create`
-
-**Request:**
-```
-POST /online
-Content-Type: application/json
-
-{
-  "url": "https://github.com/org/repo.git",
-  "package": "ZMY_PACKAGE",
-  "folder_logic": "FULL",
-  "folder": "/src"
-}
-```
-
-**Response:**
-```
-HTTP/2 201 Created
-Content-Type: application/json
-
-{
-  "key": "REPO_KEY_123",
-  "url": "https://github.com/org/repo.git",
-  "package": "ZMY_PACKAGE",
-  "name": "repo"
-}
-```
-
-### Error Response
+## Full Workflow
 
 ```
-HTTP/4xx
-Content-Type: application/json
+1. abapgit-agent init --folder /src/ --package ZMY_PACKAGE
+   └─> Creates .abapGitAgent, CLAUDE.md, /src/, updates .gitignore
 
-{
-  "error": "Repository already exists",
-  "message": "Repository with URL https://github.com/org/repo.git already exists"
-}
+2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
+
+3. abapgit-agent create
+   └─> Creates online repository in ABAP
+
+4. abapgit-agent import
+   └─> Stages, commits, and pushes all objects from ZMY_PACKAGE
+
+5. git pull
+   └─> Optionally pull to local folder
+
+6. abapgit-agent pull
+   └─> Activate objects in ABAP
 ```
+
+## Example
+
+```bash
+# Initialize
+abapgit-agent init --folder /src/ --package ZMYPROJECT
+
+# Edit config
+vim .abapGitAgent
+
+# Create repo in ABAP
+abapgit-agent create
+
+# Import objects to git
+abapgit-agent import
+
+# Pull to local folder
+git pull origin main
+
+# Activate in ABAP
+abapgit-agent pull
+```
+
+## Related Commands
+
+- [`init`](init-command.md) - Initialize local configuration
+- [`import`](import-command.md) - Import objects from package to git
+- [`pull`](pull-command.md) - Pull and activate objects in ABAP
