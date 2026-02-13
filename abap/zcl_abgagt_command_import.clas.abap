@@ -65,7 +65,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
         " Check if there are files to import
         IF lo_files->is_empty( ) = abap_true.
-          rv_result = |{{"success":"","error":"No objects found in package { lv_package }"}}|.
+          rv_result = '{"success":"","error":"No objects found in package "' && lv_package && '"".
           RETURN.
         ENDIF.
 
