@@ -97,7 +97,7 @@ abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
 abapgit-agent pull --branch develop
 
 # Pull from specific URL (useful for CI/CD)
-abapgit-agent pull --url https://github.com/I045696/my-repo.git
+abapgit-agent pull --url https://github.com/org/my-repo.git
 
 # Combined options
 abapgit-agent pull --branch develop --files src/zcl_my_class.clas.abap

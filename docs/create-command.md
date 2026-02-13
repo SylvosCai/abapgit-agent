@@ -34,7 +34,7 @@ None. The command auto-detects all settings from:
 
 ```
 🚀 Creating online repository
-   URL: https://github.tools.sap/I045696/abgagt-import
+   URL: https://github.com/org/repo.git
    Package: AUD_TAG
    Folder: /abap/
    Name: abgagt-import
@@ -42,7 +42,7 @@ None. The command auto-detects all settings from:
 
 
 ✅ Repository created successfully!
-   URL: https://github.tools.sap/I045696/abgagt-import
+   URL: https://github.com/org/repo.git
    Package: AUD_TAG
    Name: abgagt-import
 
