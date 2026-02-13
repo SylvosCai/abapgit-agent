@@ -910,6 +910,7 @@ Examples:
         console.log(`\n🚀 Creating online repository`);
         console.log(`   URL: ${repoUrl}`);
         console.log(`   Package: ${config.package}`);
+        console.log(`   Folder: ${config.folder || '/src/'}`);
         console.log(`   Name: ${repoName}`);
         console.log(`   Branch: ${branch}`);
 
@@ -919,7 +920,8 @@ Examples:
           url: repoUrl,
           package: config.package,
           name: repoName,
-          branch: branch
+          branch: branch,
+          folder: config.folder || '/src/'
         };
 
         if (config.gitUsername) {
