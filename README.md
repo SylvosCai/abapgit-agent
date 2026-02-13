@@ -14,14 +14,61 @@ This project provides a bridge between AI coding tools and your ABAP system:
 
 ## Quick Start
 
-1. **Install CLI**: Run `sudo npm install -g abapgit-agent`
-   - For local development, use `sudo npm link` from this repo instead
-2. **Configure repo**: Add `.abapGitAgent` with SAP credentials
-3. **Validate code**: Run `abapgit-agent pull` after pushing
+### For Existing Repositories
+
+```bash
+# 1. Install CLI
+npm install -g abapgit-agent
+
+# 2. Clone repo
+git clone https://github.com/user/abap-project.git
+cd abap-project
+
+# 3. Initialize configuration
+abapgit-agent init --folder /abap --package ZMY_PACKAGE
+
+# 4. Edit .abapGitAgent with credentials
+
+# 5. Import objects from ABAP to git
+abapgit-agent import
+
+# 6. Pull to activate in ABAP
+abapgit-agent pull
+```
+
+### Development Cycle
+
+```
+1. Develop in ABAP (SAP GUI/ADT)
+      │
+      ▼
+2. abapgit-agent import ─→ Commit & push to git
+      │
+      ▼
+3. git pull (optional) ─→ Get files locally
+      │
+      ▼
+4. Repeat
+```
 
 See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.
 
 ## CLI Commands
+
+### Setup Commands
+
+```bash
+# Initialize local configuration for existing git repo
+abapgit-agent init --folder /abap --package ZMY_PACKAGE
+
+# Create online repository in ABAP
+abapgit-agent create
+
+# Create repository and import existing objects
+abapgit-agent create --import
+```
+
+### Development Commands
 
 ```bash
 # Pull and activate (auto-detects git remote and branch)
@@ -39,9 +86,16 @@ abapgit-agent pull --url https://github.com/user/repo --branch main
 # Pull with a specific transport request
 abapgit-agent pull --transport DEVK900001
 
-# Combine options: files + transport request
-abapgit-agent pull --files zcl_my_class.clas.abap --transport DEVK900001
+# Import objects from ABAP package to git
+abapgit-agent import
 
+# Import with custom commit message
+abapgit-agent import --message "feat: add new feature"
+```
+
+### Validation Commands
+
+```bash
 # Inspect source file for issues
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
@@ -50,7 +104,11 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 
 # Run tests for multiple test classes
 abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+```
 
+### Utility Commands
+
+```bash
 # Health check
 abapgit-agent health
 
@@ -112,11 +170,15 @@ Failure case with details:
 | Topic | File |
 |-------|------|
 | Installation & Setup | [INSTALL.md](INSTALL.md) |
-| CLI Commands Overview | [docs/commands.md](docs/commands.md) |
+| init Command | [docs/init-command.md](docs/init-command.md) |
+| create Command | [docs/create-command.md](docs/create-command.md) |
+| import Command | [docs/import-command.md](docs/import-command.md) |
+| pull Command | [docs/pull-command.md](docs/pull-command.md) |
+| inspect Command | [docs/inspect-command.md](docs/inspect-command.md) |
+| unit Command | [docs/unit-command.md](docs/unit-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
-| claude-mem Knowledge Management | [CLAUDE_MEM.md](CLAUDE_MEM.md) |
 
 ## Dependent Projects
 
