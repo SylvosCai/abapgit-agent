@@ -25,7 +25,7 @@ git clone https://github.com/user/abap-project.git
 cd abap-project
 
 # 3. Initialize configuration
-abapgit-agent init --folder /abap --package ZMY_PACKAGE
+abapgit-agent init --folder /abap/ --package ZMY_PACKAGE
 
 # 4. Edit .abapGitAgent with credentials
 
@@ -47,7 +47,7 @@ See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set u
 
 ```bash
 # Initialize local configuration for existing git repo
-abapgit-agent init --folder /abap --package ZMY_PACKAGE
+abapgit-agent init --folder /abap/ --package ZMY_PACKAGE
 
 # Create online repository in ABAP
 abapgit-agent create
