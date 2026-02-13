@@ -40,13 +40,17 @@ abapgit-agent status
 
 Read `.abapGitAgent` and extract:
 - `package`
-- `folder`
+
+Get git remote URL:
+```bash
+git remote get-url origin
+```
 
 ### 3. Get Repository Key
 
 Find the repository key from:
-- Persistence layer (ZABAPGIT)
-- URL matching
+- Git remote URL (abapGit repos are keyed by URL)
+- Use `zcl_abapgit_repo_srv=>get_instance( )->get( iv_url )`
 
 ### 4. Import Process (All in ABAP)
 
@@ -77,7 +81,8 @@ The entire import happens in the ABAP system:
 **Request:**
 ```json
 {
-  "repo_key": "REPO_KEY_123",
+  "url": "https://github.tools.sap/I045696/abgagt-import",
+  "package": "ZMY_PACKAGE",
   "message": "feat: initial import from ABAP package ZMY_PACKAGE"
 }
 ```
@@ -149,11 +154,11 @@ The entire import happens in the ABAP system:
    Commit: My custom import message
 ```
 
-### Error - No repository configured
+### Error - Repository not found
 
 ```
-❌ No repository configured
-   Run "abapgit-agent init" first or create repository in abapGit UI
+❌ Repository not found
+   Run "abapgit-agent create" or create in abapGit UI first
 ```
 
 ### Error - No objects to import
@@ -168,7 +173,7 @@ The entire import happens in the ABAP system:
 
 | Error | Message |
 |-------|---------|
-| No repository | `No repository configured. Run "abapgit-agent create" first or create repository in abapGit UI.` |
+| Repository not found | `Repository not found. Run "abapgit-agent create" or create in abapGit UI first.` |
 | Package empty | `No objects found in package <package>` |
 | API error | `Failed to import objects: <error message>` |
 | Git push failed | `Failed to push to remote: <error message>` |
