@@ -10,7 +10,7 @@ This project provides a bridge between AI coding tools and your ABAP system:
 2. **Local agent pulls from git** → Activates in ABAP system
 3. **Returns activation results** → Claude fixes errors if any
 
-![Claude using abapgit-agent](img/claude.png)
+![Using abapgit-agent in Claude Code](https://raw.githubusercontent.com/SylvosCai/abapgit-agent/master/img/claude.png)
 
 ## Quick Start
 
