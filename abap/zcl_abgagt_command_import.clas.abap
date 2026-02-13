@@ -23,6 +23,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     DATA: ls_params TYPE ty_import_params,
           li_repo TYPE REF TO zif_abapgit_repo,
           li_repo_online TYPE REF TO zif_abapgit_repo_online,
+          lo_stage TYPE REF TO zcl_abapgit_stage,
           lv_package TYPE devclass,
           lv_message TYPE string,
           lv_files_staged TYPE i.
