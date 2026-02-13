@@ -36,26 +36,9 @@ jobs:
       - name: Generate release notes
         id: release_notes
         run: |
-          # Get current tag
           CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-          echo "Current tag: $CURRENT_TAG"
-
-          # Fetch all tags
-          git fetch --tags
-
-          # Get previous tag (the tag before current)
-          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | head -2 | tail -1)
-
-          echo "Previous tag: $PREV_TAG"
-
-          if [ -z "$PREV_TAG" ]; then
-            # First release - list all commits
-            CHANGES=$(git log --pretty=format:"- %s (%h)" -10)
-          else
-            # Get changes since last tag
-            CHANGES=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..${CURRENT_TAG})
-          fi
-
+          # List all commits since the repo began (or use a fixed starting point)
+          CHANGES=$(git log --pretty=format:"- %s (%h)" -20)
           echo "CHANGES=$CHANGES" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
