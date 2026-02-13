@@ -9,6 +9,8 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_import_params,
              url TYPE string,
              message TYPE string,
+             username TYPE string,
+             password TYPE string,
            END OF ty_import_params.
 
 ENDCLASS.
@@ -43,6 +45,18 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
         IF ls_params-url IS INITIAL.
           rv_result = '{"success":"","error":"URL is required"}'.
           RETURN.
+        ENDIF.
+
+        " Configure credentials if provided
+        IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
+          zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
+            iv_url = ls_params-url iv_username = ls_params-username ).
+          zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
+            iv_url = ls_params-url iv_login = ls_params-username ).
+          zcl_abapgit_login_manager=>set_basic(
+            iv_uri      = ls_params-url
+            iv_username = ls_params-username
+            iv_password = ls_params-password ).
         ENDIF.
 
         " Find repository by URL

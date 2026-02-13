@@ -1013,6 +1013,14 @@ Examples:
           data.message = commitMessage;
         }
 
+        if (config.gitUsername) {
+          data.username = config.gitUsername;
+        }
+
+        if (config.gitPassword) {
+          data.password = config.gitPassword;
+        }
+
         const result = await request('POST', '/sap/bc/z_abapgit_agent/import', data, { csrfToken });
 
         console.log('\n');
