@@ -11,7 +11,9 @@ All available CLI commands for abapGit Agent.
 | [import](import-command.md) | ✅ | Import objects from ABAP package to git |
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
 | [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
+| [tree](tree-command.md) | 🔲 | Display package hierarchy tree |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
+| [view](view-command.md) | 🔲 | View ABAP object source code from system |
 | [health](health-command.md) | ✅ | Health check |
 | [status](status-command.md) | ✅ | Status check |
 
@@ -23,21 +25,24 @@ All available CLI commands for abapGit Agent.
 
 ```bash
 # 1. Initialize local configuration
-abapgit-agent init --folder /src --package ZMY_PACKAGE
+abapgit-agent init --folder /src/ --package ZMY_PACKAGE
 
 # 2. Edit .abapGitAgent with credentials
 vim .abapGitAgent
 
-# 3. Create online repository in ABAP
+# 3. Commit and push new files to git
+git add . && git commit -m "Initial commit" && git push origin main
+
+# 4. Create online repository in ABAP
 abapgit-agent create
 
-# 4. Import objects from ABAP package to git
+# 5. Import objects from ABAP package to git
 abapgit-agent import
 
-# 5. Push to git
-git push origin main
+# 6. Pull new objects imported from ABAP package
+git pull origin main
 
-# 6. Activate in ABAP
+# 7. Activate in ABAP
 abapgit-agent pull
 ```
 
@@ -77,6 +82,12 @@ abapgit-agent health
                         │
                         ▼
 ┌─────────────────────────────────────────────────┐
+│  git add && git commit && git push              │
+│  └── Push initial files to git                  │
+└─────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
 │  create                                         │
 │  └── Creates online repo in ABAP               │
 └─────────────────────────────────────────────────┘
@@ -84,12 +95,13 @@ abapgit-agent health
                         ▼
 ┌─────────────────────────────────────────────────┐
 │  import                                         │
-│  └── Stages, commits, pushes objects to git     │
+│  └── Stages, commits, pushes objects to git    │
 └─────────────────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────┐
-│  git push                                       │
+│  git pull                                       │
+│  └── Pull imported objects from ABAP package   │
 └─────────────────────────────────────────────────┘
                         │
                         ▼
