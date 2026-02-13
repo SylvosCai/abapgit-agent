@@ -36,35 +36,20 @@ jobs:
         id: get_tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Check for release notes file
-        id: check_release_notes
+      - name: Prepare release notes
+        id: release_notes
         run: |
           if [ -f "RELEASE_NOTES.md" ]; then
-            echo "RELEASE_FILE=true" >> $GITHUB_OUTPUT
+            echo "CONTENT<<EOF" >> $GITHUB_OUTPUT
+            cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
-            echo "RELEASE_FILE=false" >> $GITHUB_OUTPUT
+            echo "CONTENT=No release notes" >> $GITHUB_OUTPUT
           fi
-
-      - name: Read release notes from file
-        if: steps.check_release_notes.outputs.RELEASE_FILE == 'true'
-        id: release_notes_file
-        run: |
-          {
-            echo 'RELEASE_NOTES<<EOF'
-            cat RELEASE_NOTES.md
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
-
-      - name: Generate default release notes
-        if: steps.check_release_notes.outputs.RELEASE_FILE == 'false'
-        id: release_notes_default
-        run: |
-          CHANGES=$(git log --pretty=format:"- %s (%h)" -20)
-          echo "CHANGES=$CHANGES" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           name: Release ${{ steps.get_tag.outputs.VERSION }}
-          body: ${{ steps.release_notes_file.outputs.CONTENT }}
+          body: ${{ steps.release_notes.outputs.CONTENT }}
