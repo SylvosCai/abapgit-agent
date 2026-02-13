@@ -41,7 +41,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     TRY.
         li_repo = zcl_abapgit_repo_srv=>get_instance( )->get( iv_url = ls_params-url ).
       CATCH zcx_abapgit_exception.
-        rv_result = '{"success":"","error":"Repository not found. Run \"abapgit-agent create\" or create in abapGit UI first."}'.
+        rv_result = '{"success":"","error":"Repository not found. Run create command or create in abapGit UI first."}'.
         RETURN.
     ENDTRY.
 
@@ -65,7 +65,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
         " Check if there are files to import
         IF lo_files->is_empty( ) = abap_true.
-          rv_result = '{"success":"","error":"No objects found in package "' && lv_package && '"".
+          rv_result = '{"success":"","error":"No objects found in package"}'.
           RETURN.
         ENDIF.
 
@@ -100,13 +100,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
         " Get commit SHA
         lv_commit_sha = li_repo->get_current_remote_commit( ).
 
-        DATA lv_response TYPE string.
-        lv_response = '{"success":"X",'.
-        lv_response = lv_response && '"files_staged":"' && lv_files_staged && '",'.
-        lv_response = lv_response && '"commit_sha":"' && lv_commit_sha && '",'.
-        lv_response = lv_response && '"message":"Objects imported successfully"}'.
-
-        rv_result = lv_response.
+        rv_result = '{"success":"X","files_staged":"' && lv_files_staged && '","commit_sha":"' && lv_commit_sha && '","message":"Objects imported successfully"}'.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_error).
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
