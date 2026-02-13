@@ -47,13 +47,7 @@ Add to `.abapGitAgent`:
 }
 ```
 
-### 4. Create Documentation
-
-```bash
-cp /path/to/abapgit-agent/abap/CLAUDE.md .
-```
-
-### 5. Create Folder
+### 4. Create Folder
 
 ```bash
 mkdir -p /src
@@ -65,11 +59,27 @@ Add `.gitkeep` (optional):
 touch /src/.gitkeep
 ```
 
+### 5. Update .gitignore
+
+Add sensitive files to `.gitignore`:
+
+```
+.abapGitAgent
+.abapgit_agent_cookies.txt
+```
+
+### 6. Copy Documentation
+
+```bash
+cp /path/to/abapgit-agent/abap/CLAUDE.md .
+```
+
 ## Output Files
 
 | File | Description |
 |------|-------------|
 | `.abapGitAgent` | Configuration (user must edit host, user, password, gitUsername, gitPassword) |
+| `.gitignore` | Updated with sensitive files |
 | `CLAUDE.md` | ABAP coding guidelines |
 | `/src/` | Folder for ABAP source files |
 
@@ -104,7 +114,7 @@ For the `import` command to work, you need to configure GitHub credentials:
 
 ```json
 {
-  "gitUsername": "I045696",
+  "gitUsername": "<your-github-username>",
   "gitPassword": "ghp_your_token_here"
 }
 ```
@@ -112,7 +122,7 @@ For the `import` command to work, you need to configure GitHub credentials:
 Or set environment variables:
 
 ```bash
-export GIT_USERNAME="I045696"
+export GIT_USERNAME="<your-github-username>"
 export GIT_PASSWORD="ghp_your_token_here"
 ```
 
@@ -133,7 +143,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 ```
 1. abapgit-agent init --folder /src --package ZMY_PACKAGE
-   └─> Creates .abapGitAgent, CLAUDE.md, /src/
+   └─> Creates .abapGitAgent, CLAUDE.md, /src/, updates .gitignore
 
 2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
 
