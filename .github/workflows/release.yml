@@ -50,12 +50,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
-          release_name: Release ${{ steps.get_tag.outputs.VERSION }}
+          name: Release ${{ steps.get_tag.outputs.VERSION }}
           body: |
             ## What's New
 
@@ -66,5 +64,7 @@ jobs:
             ```bash
             npm install -g abapgit-agent
             ```
-        draft: false
-        prerelease: false
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
