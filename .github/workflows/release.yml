@@ -64,13 +64,4 @@ jobs:
         with:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           name: Release ${{ steps.get_tag.outputs.VERSION }}
-          body: |
-            ${{ steps.release_notes_file.outputs.CONTENT || format('## What's New
-
-{0}
-
-## Installation
-
-```bash
-npm install -g abapgit-agent
-```', steps.release_notes_default.outputs.CHANGES) }}
+          body: ${{ steps.release_notes_file.outputs.CONTENT }}
