@@ -13,6 +13,7 @@ CLASS zcl_abgagt_command_create DEFINITION PUBLIC FINAL CREATE PUBLIC.
              display_name TYPE string,
              name TYPE string,
              folder_logic TYPE string,
+             folder TYPE string,
              username TYPE string,
              password TYPE string,
            END OF ty_create_params.
@@ -68,11 +69,19 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
           iv_display_name   = ls_params-display_name
           iv_name           = ls_params-name
           iv_package        = lv_package
-          iv_folder_logic   = ls_params-folder_logic ).
+          iv_folder_logic  = ls_params-folder_logic ).
       CATCH zcx_abapgit_exception INTO DATA(lx_error).
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
         RETURN.
     ENDTRY.
+
+    " Set starting folder if provided
+    IF ls_params-folder IS NOT INITIAL.
+      DATA(lo_dot) = li_repo->get_dot_abapgit( ).
+      lo_dot->set_starting_folder( ls_params-folder ).
+      li_repo->set_dot_abapgit( lo_dot ).
+      COMMIT WORK AND WAIT.
+    ENDIF.
 
     DATA lv_response TYPE string.
     lv_response = '{"success":"X",'.

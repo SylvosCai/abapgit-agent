@@ -24,6 +24,7 @@ CLASS zcl_abgagt_resource_create IMPLEMENTATION.
             display_name TYPE string,
             name TYPE string,
             folder_logic TYPE string,
+            folder TYPE string,
             username TYPE string,
             password TYPE string,
           END OF ls_request.
