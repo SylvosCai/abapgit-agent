@@ -774,6 +774,36 @@ async function runInit(args) {
     process.exit(1);
   }
 
+  // Update .gitignore
+  const gitignorePath = pathModule.join(process.cwd(), '.gitignore');
+  const ignoreEntries = ['.abapGitAgent', '.abapgit_agent_cookies.txt'];
+  let existingIgnore = '';
+
+  if (fs.existsSync(gitignorePath)) {
+    existingIgnore = fs.readFileSync(gitignorePath, 'utf8');
+  }
+
+  let updated = false;
+  let newIgnoreContent = existingIgnore;
+
+  for (const entry of ignoreEntries) {
+    if (!newIgnoreContent.includes(entry)) {
+      if (newIgnoreContent && !newIgnoreContent.endsWith('\n')) {
+        newIgnoreContent += '\n';
+      }
+      newIgnoreContent += entry + '\n';
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    fs.writeFileSync(gitignorePath, newIgnoreContent);
+    console.log(`✅ Updated .gitignore`);
+  } else {
+    fs.writeFileSync(gitignorePath, newIgnoreContent);
+    console.log(`✅ .gitignore already up to date`);
+  }
+
   // Copy CLAUDE.md
   const claudeMdPath = pathModule.join(__dirname, '..', 'abap', 'CLAUDE.md');
   const localClaudeMdPath = pathModule.join(process.cwd(), 'CLAUDE.md');
