@@ -126,7 +126,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
         COMMIT WORK.
 
-        rv_result = '{"success":"X","files_staged":"' && lv_files_staged && '","message":"Objects imported successfully"}'.
+        rv_result = '{"success":"X","files_staged":"' && lv_files_staged && '","commit_message":"' && lv_message && '"}'.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_error).
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
