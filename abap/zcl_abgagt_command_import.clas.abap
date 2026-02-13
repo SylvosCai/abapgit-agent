@@ -24,6 +24,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           li_repo TYPE REF TO zif_abapgit_repo,
           li_repo_online TYPE REF TO zif_abapgit_repo_online,
           lo_stage TYPE REF TO zcl_abapgit_stage,
+          lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt,
           lv_package TYPE devclass,
           lv_message TYPE string,
           lv_files_staged TYPE i.
@@ -70,7 +71,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     li_repo->refresh( ).
 
     " Get local files
-    DATA(lt_files) = li_repo->get_files_local( ).
+    lt_files = li_repo->get_files_local( ).
 
     " Check if there are files to import
     lv_files_staged = lines( lt_files ).
