@@ -39,24 +39,6 @@ abapgit-agent import
 abapgit-agent pull
 ```
 
-### Development Cycle
-
-```
-1. Develop in ABAP (SAP GUI/ADT)
-      │
-      ▼
-2. abapgit-agent import ─→ Commit & push to git
-      │
-      ▼
-3. git pull (optional) ─→ Get files locally
-      │
-      ▼
-4. abapgit-agent pull ─→ Activate in ABAP
-      │
-      ▼
-5. Repeat
-```
-
 See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.
 
 ## CLI Commands
@@ -70,8 +52,8 @@ abapgit-agent init --folder /abap --package ZMY_PACKAGE
 # Create online repository in ABAP
 abapgit-agent create
 
-# Create repository and import existing objects
-abapgit-agent create --import
+# Import objects from ABAP package to git
+abapgit-agent import
 ```
 
 ### Development Commands

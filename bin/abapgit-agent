@@ -883,7 +883,7 @@ Prerequisites:
   - Edit .abapGitAgent with credentials (host, user, password)
 
 Examples:
-  abapgit-agent create                    # Create repo only
+  abapgit-agent create                    # Create repo in ABAP
 `);
           return;
         }
