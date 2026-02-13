@@ -5,7 +5,7 @@ Initialize local configuration for an existing git repository.
 ## Command
 
 ```bash
-abapgit-agent init --folder /src --package ZMY_PACKAGE
+abapgit-agent init --folder /src/ --package ZMY_PACKAGE
 ```
 
 ## Prerequisite
@@ -17,7 +17,7 @@ abapgit-agent init --folder /src --package ZMY_PACKAGE
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `--folder` | No | `/src` | Subfolder path for ABAP source files |
+| `--folder` | No | `/src/` | Subfolder path for ABAP source files |
 | `--package` | Yes | - | Target ABAP package |
 
 ## Tasks
@@ -43,14 +43,14 @@ Add to `.abapGitAgent`:
 ```json
 {
   "package": "ZMY_PACKAGE",
-  "folder": "/src"
+  "folder": "/src/"
 }
 ```
 
 ### 4. Create Folder
 
 ```bash
-mkdir -p /src
+mkdir -p /src/
 ```
 
 Add `.gitkeep` (optional):
@@ -85,20 +85,21 @@ cp /path/to/abapgit-agent/abap/CLAUDE.md .
 
 ## .abapGitAgent Contents
 
-After `init` command:
+After `init` command, `.abapGitAgent` contains:
 
 ```json
 {
-  "host": "<user must edit>",
+  "host": "your-sap-system.com",
   "sapport": 443,
   "client": "100",
-  "user": "<user must edit>",
-  "password": "<user must edit>",
+  "user": "TECH_USER",
+  "password": "your-password",
   "language": "EN",
-  "gitUsername": "<user must edit for GitHub>",
-  "gitPassword": "<user must edit for GitHub>",
+  "gitUsername": "github-username",
+  "gitPassword": "github-token",
+  "referenceFolder": "~/abap-reference",
   "package": "ZMY_PACKAGE",
-  "folder": "/src"
+  "folder": "/src/"
 }
 ```
 
@@ -142,7 +143,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 ## Full Workflow
 
 ```
-1. abapgit-agent init --folder /src --package ZMY_PACKAGE
+1. abapgit-agent init --folder /src/ --package ZMY_PACKAGE
    └─> Creates .abapGitAgent, CLAUDE.md, /src/, updates .gitignore
 
 2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
@@ -164,7 +165,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 ```bash
 # Initialize
-abapgit-agent init --folder /abap --package ZMYPROJECT
+abapgit-agent init --folder /abap/ --package ZMYPROJECT
 
 # Edit config
 vim .abapGitAgent

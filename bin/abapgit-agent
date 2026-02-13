@@ -709,7 +709,7 @@ async function runInit(args) {
   // Get parameters
   const folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
     ? args[folderArgIndex + 1]
-    : '/src';
+    : '/src/';
 
   const packageName = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
     ? args[packageArgIndex + 1]
