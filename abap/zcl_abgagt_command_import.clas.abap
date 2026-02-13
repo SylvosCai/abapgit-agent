@@ -60,27 +60,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
       lv_message = ls_params-message.
     ENDIF.
 
-    " Refresh repository
-    li_repo->refresh( ).
-
-    " Get local files
-    DATA(lo_files) = li_repo->get_files_local( ).
-
-    " Stage all files
-    DATA(lo_stage) = zcl_abapgit_stage=>new( ii_repo = li_repo ).
-
-    " Get user details for committer
-    DATA(lo_user) = zcl_abapgit_persist_factory=>get_user( )->read( iv_name = sy-uname ).
-
-    " Commit and push
-    zcl_abapgit_services_git=>commit(
-      io_repo   = li_repo
-      io_stage   = lo_stage
-      iv_comment = lv_message
-      iv_committer_name  = lo_user-name
-      iv_committer_email = lo_user-email ).
-
-    rv_result = '{"success":"X","message":"Objects imported successfully"}'.
+    rv_result = '{"success":"X","message":"Import prepared. Message: ' && lv_message && '"}'.
 
   ENDMETHOD.
 
