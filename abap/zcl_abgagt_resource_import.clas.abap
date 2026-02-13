@@ -20,6 +20,8 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
     DATA: BEGIN OF ls_request,
             url TYPE string,
             message TYPE string,
+            username TYPE string,
+            password TYPE string,
           END OF ls_request.
 
     /ui2/cl_json=>deserialize(
