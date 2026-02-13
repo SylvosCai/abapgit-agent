@@ -118,41 +118,6 @@ node bin/abapgit-agent pull
 npm run pull -- --url <git-url> --branch main
 ```
 
-## Unit Tests
-
-Run AUnit tests for ABAP test classes and view detailed results:
-
-```bash
-# Run unit tests for a test class file
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
-
-# Run tests for multiple test classes
-abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
-```
-
-### Output
-
-Success case:
-```
-✅ ZCL_MY_TEST - All tests passed
-   Tests: 10 | Passed: 10 | Failed: 0
-```
-
-Failure case with details:
-```
-❌ ZCL_MY_TEST - Tests failed
-   Tests: 10 | Passed: 8 | Failed: 2
-   ✗ ZCL_MY_TEST=>TEST_METHOD_1: Error description
-   ✗ ZCL_MY_TEST=>TEST_METHOD_2: Another error
-```
-
-### Supported File Formats
-
-| File Pattern | Description |
-|--------------|-------------|
-| `zcl_my_test.clas.testclasses.abap` | Test class file |
-| `src/tests/zcl_my_test.clas.testclasses.abap` | With subdirectory path |
-
 ## Documentation
 
 | Topic | File |
