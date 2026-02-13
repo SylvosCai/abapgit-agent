@@ -29,10 +29,13 @@ abapgit-agent init --folder /abap --package ZMY_PACKAGE
 
 # 4. Edit .abapGitAgent with credentials
 
-# 5. Import objects from ABAP to git
+# 5. Create online repository in ABAP
+abapgit-agent create
+
+# 6. Import objects from ABAP to git
 abapgit-agent import
 
-# 6. Pull to activate in ABAP
+# 7. Pull to activate in ABAP
 abapgit-agent pull
 ```
 
@@ -48,7 +51,10 @@ abapgit-agent pull
 3. git pull (optional) ─→ Get files locally
       │
       ▼
-4. Repeat
+4. abapgit-agent pull ─→ Activate in ABAP
+      │
+      ▼
+5. Repeat
 ```
 
 See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.

@@ -884,7 +884,6 @@ Prerequisites:
 
 Examples:
   abapgit-agent create                    # Create repo only
-  abapgit-agent import                   # Import objects from package to git
 `);
           return;
         }

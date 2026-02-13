@@ -145,6 +145,9 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 5. git pull
    └─> Optionally pull to local folder
+
+6. abapgit-agent pull
+   └─> Activate objects in ABAP
 ```
 
 ## Example
