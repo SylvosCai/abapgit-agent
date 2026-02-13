@@ -38,19 +38,16 @@ abapgit-agent status
 
 ### 2. Read Configuration
 
-Read `.abapGitAgent` and extract:
-- `package`
-
 Get git remote URL:
 ```bash
 git remote get-url origin
 ```
 
-### 3. Get Repository Key
+### 3. Get Repository and Package
 
-Find the repository key from:
-- Git remote URL (abapGit repos are keyed by URL)
-- Use `zcl_abapgit_repo_srv=>get_instance( )->get( iv_url )`
+1. **Find repository** by git URL using `zcl_abapgit_repo_srv=>get_instance( )->get( iv_url )`
+2. **Get package** from repository using `ii_repo->get_package( )`
+3. **Validate package** has objects to import
 
 ### 4. Import Process (All in ABAP)
 
@@ -82,10 +79,11 @@ The entire import happens in the ABAP system:
 ```json
 {
   "url": "https://github.tools.sap/I045696/abgagt-import",
-  "package": "ZMY_PACKAGE",
   "message": "feat: initial import from ABAP package ZMY_PACKAGE"
 }
 ```
+
+> **Note:** The package is read from the repository configuration in abapGit (`ii_repo->get_package()`).
 
 **Response:**
 ```json
