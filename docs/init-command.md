@@ -109,7 +109,6 @@ For the `import` command to work, you need to configure GitHub credentials:
 
 1. Create a GitHub Personal Access Token (PAT):
    - GitHub.com: https://github.com/settings/tokens
-   - GitHub Enterprise: https://github.tools.sap/settings/tokens
 
 2. Add to `.abapGitAgent`:
 
