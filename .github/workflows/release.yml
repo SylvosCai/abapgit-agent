@@ -36,11 +36,26 @@ jobs:
         id: get_tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
-        id: release_notes
+      - name: Check for release notes file
+        id: check_release_notes
         run: |
-          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-          # List all commits since the repo began (or use a fixed starting point)
+          if [ -f "RELEASE_NOTES.md" ]; then
+            echo "RELEASE_FILE=true" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_FILE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Read release notes from file
+        if: steps.check_release_notes.outputs.RELEASE_FILE == 'true'
+        id: release_notes_file
+        run: |
+          CONTENT=$(cat RELEASE_NOTES.md)
+          echo "CONTENT=$CONTENT" >> $GITHUB_OUTPUT
+
+      - name: Generate default release notes
+        if: steps.check_release_notes.outputs.RELEASE_FILE == 'false'
+        id: release_notes_default
+        run: |
           CHANGES=$(git log --pretty=format:"- %s (%h)" -20)
           echo "CHANGES=$CHANGES" >> $GITHUB_OUTPUT
 
@@ -50,12 +65,12 @@ jobs:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           name: Release ${{ steps.get_tag.outputs.VERSION }}
           body: |
-            ## What's New
+            ${{ steps.release_notes_file.outputs.CONTENT || format('## What's New
 
-            ${{ steps.release_notes.outputs.CHANGES }}
+{0}
 
-            ## Installation
+## Installation
 
-            ```bash
-            npm install -g abapgit-agent
-            ```
+```bash
+npm install -g abapgit-agent
+```', steps.release_notes_default.outputs.CHANGES) }}
