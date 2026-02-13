@@ -1,6 +1,7 @@
 # ABAP Git Bridge - Implementation Plan
 
 ## Overview
+
 Create an automated workflow where Claude generates ABAP code, pushes to git, and a local agent pulls/activates the code in the ABAP system with proper error handling.
 
 ## Architecture
@@ -29,25 +30,44 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 
 ## Implemented Features
 
-- Pull and activate repository
-- Syntax check via Code Inspector (`/inspect`)
-- AUnit test execution (`/unit`)
+### CLI Commands
+- `init` - Initialize local configuration
+- `create` - Create online repository in ABAP
+- `import` - Import objects from ABAP package to git
+- `pull` - Pull and activate repository
+- `inspect` - Syntax check via Code Inspector
+- `unit` - AUnit test execution
+- `health` - Health check
+- `status` - Status check
+
+### Backend (ABAP)
 - Command factory pattern for extensibility
+- REST resource handlers (/pull, /inspect, /unit, /create, /import)
+- abapGit integration for repository operations
+
+### CI/CD
+- GitHub Actions workflow for automated npm releases
 
 ## Future Enhancements
 
-1. **Extended Inspect Command**
+1. **ABAP Lint Command**
+   - Run static code analysis on ABAP source files
+   - Integrate with abaplint (https://github.com/abaplint/abaplint)
+   - Support for CI/CD quality gates
+   - Custom lint rules
+
+2. **Extended Inspect Command**
    - ATC checks (Assessment Task Controller)
    - Code Inspector checks (SCI)
    - Custom rule sets
    - Quality gates
 
-2. **Package-Level Unit Tests**
+3. **Package-Level Unit Tests**
    - Run all AUnit tests in a package
    - `--package $MY_PACKAGE` support
    - Aggregate results across all test classes
 
-3. **Source Code Viewer**
+4. **Source Code Viewer**
    - View ABAP source from CLI
    - Navigate to type definitions
    - Cross-reference lookups
