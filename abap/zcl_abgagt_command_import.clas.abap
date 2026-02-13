@@ -79,7 +79,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     ENDIF.
 
     " Create stage
-    DATA(lo_stage) = zcl_abapgit_stage=>new( ).
+    CREATE OBJECT lo_stage.
 
     " Add all files to stage
     LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_file>).
