@@ -49,8 +49,11 @@ jobs:
         if: steps.check_release_notes.outputs.RELEASE_FILE == 'true'
         id: release_notes_file
         run: |
-          CONTENT=$(cat RELEASE_NOTES.md)
-          echo "CONTENT=$CONTENT" >> $GITHUB_OUTPUT
+          {
+            echo 'RELEASE_NOTES<<EOF'
+            cat RELEASE_NOTES.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
       - name: Generate default release notes
         if: steps.check_release_notes.outputs.RELEASE_FILE == 'false'
