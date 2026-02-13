@@ -44,7 +44,7 @@ describe('Init Command Integration', () => {
     expect(config.folder).toBe('/myabap');
   });
 
-  test('init uses default /src folder', () => {
+  test('init uses default /src/ folder', () => {
     // Setup git repo
     execSync('git init', { cwd: testDir, stdio: 'pipe' });
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
@@ -59,7 +59,7 @@ describe('Init Command Integration', () => {
     // Verify .abapGitAgent was created
     const configPath = path.join(testDir, '.abapGitAgent');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    expect(config.folder).toBe('/src');
+    expect(config.folder).toBe('/src/');
   });
 
   test('init creates folder and .gitkeep', () => {
@@ -137,5 +137,49 @@ describe('Init Command Integration', () => {
         stdio: 'pipe'
       });
     }).toThrow();
+  });
+
+  test('init creates .gitignore with sensitive files', () => {
+    // Setup git repo
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    // Run init command
+    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    // Verify .gitignore was created
+    const gitignorePath = path.join(testDir, '.gitignore');
+    expect(fs.existsSync(gitignorePath)).toBe(true);
+
+    const content = fs.readFileSync(gitignorePath, 'utf8');
+    expect(content).toContain('.abapGitAgent');
+    expect(content).toContain('.abapgit_agent_cookies.txt');
+  });
+
+  test('init updates existing .gitignore with sensitive files', () => {
+    // Setup git repo
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    // Create existing .gitignore
+    const gitignorePath = path.join(testDir, '.gitignore');
+    fs.writeFileSync(gitignorePath, 'node_modules/\n');
+
+    // Run init command
+    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    // Verify .gitignore was updated
+    const content = fs.readFileSync(gitignorePath, 'utf8');
+    expect(content).toContain('node_modules/');
+    expect(content).toContain('.abapGitAgent');
+    expect(content).toContain('.abapgit_agent_cookies.txt');
   });
 });

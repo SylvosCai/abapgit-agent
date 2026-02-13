@@ -201,4 +201,101 @@ describe('ABAPClient', () => {
       expect(callArgs[2]).not.toHaveProperty('transport_request');
     });
   });
+
+  describe('create method', () => {
+    test('create method exists and is callable', () => {
+      expect(typeof client.create).toBe('function');
+    });
+
+    test('create sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        repo_key: 'REPO123',
+        repo_name: 'test-repo'
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.create(
+        'https://github.com/org/repo.git',
+        'ZTEST_PACKAGE',
+        'main',
+        'test-repo'
+      );
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/create');
+      expect(callArgs[2].url).toBe('https://github.com/org/repo.git');
+      expect(callArgs[2].package).toBe('ZTEST_PACKAGE');
+      expect(callArgs[2].branch).toBe('main');
+      expect(callArgs[2].display_name).toBe('test-repo');
+    });
+
+    test('create includes name when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.create(
+        'https://github.com/org/repo.git',
+        'ZTEST_PACKAGE',
+        'main',
+        'My Display',
+        'my-repo-name'
+      );
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].display_name).toBe('My Display');
+      expect(callArgs[2].name).toBe('my-repo-name');
+    });
+
+    test('create includes folder_logic when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.create(
+        'https://github.com/org/repo.git',
+        'ZTEST_PACKAGE',
+        'main',
+        null,
+        null,
+        'FULL'
+      );
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].folder_logic).toBe('FULL');
+    });
+  });
+
+  describe('import method', () => {
+    test('import method exists and is callable', () => {
+      expect(typeof client.import).toBe('function');
+    });
+
+    test('import sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        files_staged: '15'
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.import('https://github.com/org/repo.git');
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/import');
+      expect(callArgs[2].url).toBe('https://github.com/org/repo.git');
+    });
+
+    test('import includes custom message when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.import('https://github.com/org/repo.git', 'Custom commit message');
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].message).toBe('Custom commit message');
+    });
+  });
 });

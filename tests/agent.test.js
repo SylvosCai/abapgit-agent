@@ -7,6 +7,8 @@ const mockPull = jest.fn();
 const mockHealthCheck = jest.fn();
 const mockSyntaxCheck = jest.fn();
 const mockUnitTest = jest.fn();
+const mockCreate = jest.fn();
+const mockImport = jest.fn();
 
 // Mock abap-client before requiring agent
 jest.mock('../src/abap-client', () => ({
@@ -14,7 +16,9 @@ jest.mock('../src/abap-client', () => ({
     pull: mockPull,
     healthCheck: mockHealthCheck,
     syntaxCheck: mockSyntaxCheck,
-    unitTest: mockUnitTest
+    unitTest: mockUnitTest,
+    create: mockCreate,
+    import: mockImport
   }))
 }));
 
@@ -35,7 +39,9 @@ describe('ABAPGitAgent', () => {
         pull: mockPull,
         healthCheck: mockHealthCheck,
         syntaxCheck: mockSyntaxCheck,
-        unitTest: mockUnitTest
+        unitTest: mockUnitTest,
+        create: mockCreate,
+        import: mockImport
       }))
     }));
 
@@ -301,6 +307,121 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(true);
       expect(result.test_count).toBe(5);
       expect(result.passed_count).toBe(5);
+    });
+  });
+
+  describe('create', () => {
+    test('returns success=true for X response', async () => {
+      mockCreate.mockResolvedValue({
+        success: 'X',
+        repo_key: 'REPO123',
+        repo_name: 'test-repo',
+        message: 'Repository created successfully'
+      });
+
+      const result = await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE', 'test-repo', 'main');
+
+      expect(result.success).toBe(true);
+      expect(result.repo_key).toBe('REPO123');
+      expect(result.repo_name).toBe('test-repo');
+    });
+
+    test('returns success=false for error response', async () => {
+      mockCreate.mockResolvedValue({
+        success: '',
+        error: 'Repository already exists'
+      });
+
+      const result = await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Repository already exists');
+    });
+
+    test('throws error on exception', async () => {
+      mockCreate.mockRejectedValue(new Error('Network error'));
+
+      await expect(agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE'))
+        .rejects.toThrow('Create failed: Network error');
+    });
+
+    test('calls abap.create with correct parameters', async () => {
+      mockCreate.mockResolvedValue({
+        success: 'X',
+        repo_key: 'REPO123',
+        repo_name: 'test-repo'
+      });
+
+      await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE', 'test-repo', 'develop', 'gituser', 'gitpass');
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        'https://github.com/org/repo.git',
+        'ZTEST_PACKAGE',
+        'test-repo',
+        'develop',
+        'gituser',
+        'gitpass'
+      );
+    });
+  });
+
+  describe('import', () => {
+    test('returns success=true for X response', async () => {
+      mockImport.mockResolvedValue({
+        success: 'X',
+        files_staged: '15',
+        commit_message: 'feat: initial import from ABAP package ZTEST'
+      });
+
+      const result = await agent.import('https://github.com/org/repo.git');
+
+      expect(result.success).toBe(true);
+      expect(result.files_staged).toBe('15');
+    });
+
+    test('returns success=true with custom message', async () => {
+      mockImport.mockResolvedValue({
+        success: 'X',
+        files_staged: '10',
+        commit_message: 'My custom message'
+      });
+
+      const result = await agent.import('https://github.com/org/repo.git', 'My custom message');
+
+      expect(result.success).toBe(true);
+    });
+
+    test('returns success=false for error response', async () => {
+      mockImport.mockResolvedValue({
+        success: '',
+        error: 'Repository not found'
+      });
+
+      const result = await agent.import('https://github.com/org/repo.git');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Repository not found');
+    });
+
+    test('throws error on exception', async () => {
+      mockImport.mockRejectedValue(new Error('Git push failed'));
+
+      await expect(agent.import('https://github.com/org/repo.git'))
+        .rejects.toThrow('Import failed: Git push failed');
+    });
+
+    test('calls abap.import with correct parameters', async () => {
+      mockImport.mockResolvedValue({
+        success: 'X',
+        files_staged: '5'
+      });
+
+      await agent.import('https://github.com/org/repo.git', 'Custom commit message');
+
+      expect(mockImport).toHaveBeenCalledWith(
+        'https://github.com/org/repo.git',
+        'Custom commit message'
+      );
     });
   });
 });
