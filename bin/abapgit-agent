@@ -4,7 +4,8 @@
  *
  * Usage:
  *   abapgit-agent init --folder <folder> --package <package>
- *   abapgit-agent create [--import]
+ *   abapgit-agent create
+ *   abapgit-agent import [--message <message>]
  *   abapgit-agent pull [--branch <branch>]
  *   abapgit-agent pull --url <git-url> [--branch <branch>]
  *   abapgit-agent health
@@ -865,17 +866,13 @@ To enable integration:
         return;  // Don't check ABAP integration for init
 
       case 'create': {
-        const importIndex = args.indexOf('--import');
         const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
 
         // Show help if requested
         if (helpIndex !== -1) {
           console.log(`
 Usage:
-  abapgit-agent create [--import]
-
-Options:
-  --import    Import existing objects from package to git repo
+  abapgit-agent create
 
 Description:
   Create abapGit online repository in ABAP system.
@@ -887,7 +884,7 @@ Prerequisites:
 
 Examples:
   abapgit-agent create                    # Create repo only
-  abapgit-agent create --import           # Create repo and import objects
+  abapgit-agent import                   # Import objects from package to git
 `);
           return;
         }
@@ -906,7 +903,6 @@ Examples:
           process.exit(1);
         }
 
-        const doImport = importIndex !== -1;
         const branch = getGitBranch();
 
         // Extract repo name from git URL
@@ -917,7 +913,6 @@ Examples:
         console.log(`   Package: ${config.package}`);
         console.log(`   Name: ${repoName}`);
         console.log(`   Branch: ${branch}`);
-        console.log(`   Import: ${doImport ? 'Yes' : 'No'}`);
 
         const csrfToken = await fetchCsrfToken(config);
 
@@ -1072,9 +1067,13 @@ Commands:
   init --folder <folder> --package <package>
     Initialize local configuration for an existing git repository.
 
-  create [--import]
+  create
     Create abapGit online repository in ABAP system.
     Auto-detects URL from git remote and package from .abapGitAgent.
+
+  import [--message <message>]
+    Import existing objects from package to git repository.
+    Uses the git remote URL to find the abapGit online repository.
 
   pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
     Pull and activate repository in ABAP system.
@@ -1096,7 +1095,9 @@ Commands:
 
 Examples:
   abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
-  abapgit-agent create --import                               # Create repo
+  abapgit-agent create                                       # Create repo
+  abapgit-agent import                                       # Import objects to git
+  abapgit-agent import --message "Initial import"            # Import with message
   abapgit-agent pull                                         # Auto-detect from git
   abapgit-agent pull --branch develop                        # Specific branch
   abapgit-agent pull --files zcl_my_class.clas.abap          # Specific file
