@@ -30,7 +30,7 @@ Add GitHub credentials to `.abapGitAgent`:
 
 ```json
 {
-  "gitUsername": "I045696",
+  "gitUsername": "<your-github-username>",
   "gitPassword": "ghp_your_github_token"
 }
 ```
@@ -38,7 +38,7 @@ Add GitHub credentials to `.abapGitAgent`:
 ### Environment Variables
 
 ```bash
-export GIT_USERNAME="I045696"
+export GIT_USERNAME="<your-github-username>"
 export GIT_PASSWORD="ghp_your_github_token"
 ```
 
@@ -46,7 +46,6 @@ export GIT_PASSWORD="ghp_your_github_token"
 
 1. Create a PAT at:
    - GitHub.com: https://github.com/settings/tokens
-   - GitHub Enterprise: https://github.tools.sap/settings/tokens
 
 2. Select scopes:
    - `repo` - Full control of private repositories
@@ -129,7 +128,7 @@ GitHub credentials not configured or invalid:
 
 ```json
 {
-  "gitUsername": "I045696",
+  "gitUsername": "<your-github-username>",
   "gitPassword": "ghp_your_token"
 }
 ```
