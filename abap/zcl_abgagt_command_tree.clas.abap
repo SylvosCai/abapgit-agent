@@ -200,10 +200,8 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
         INTO TABLE @rt_counts
         WHERE devclass = @iv_package
           AND object NOT IN ('DEVC', 'PACK')
-        GROUP BY object object.
+        GROUP BY object.
 
-
-        ORDER BY      " Convert to string keys
       LOOP AT rt_counts ASSIGNING FIELD-SYMBOL(<ls_count>).
         <ls_count>-object = <ls_count>-object.
       ENDLOOP.
