@@ -164,6 +164,33 @@ class ABAPGitAgent {
       throw new Error(`Import failed: ${error.message}`);
     }
   }
+
+  /**
+   * Get package hierarchy tree
+   * @param {string} packageName - ABAP package name
+   * @param {number} depth - Maximum depth to traverse (default: 3)
+   * @param {boolean} includeObjects - Include object counts breakdown
+   * @returns {object} Tree result with hierarchy, summary, and metadata
+   */
+  async tree(packageName, depth = 3, includeObjects = false) {
+    logger.info('Getting package tree', { package: packageName, depth, includeObjects });
+
+    try {
+      const result = await this.abap.tree(packageName, depth, includeObjects);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        command: result.COMMAND || result.command || 'TREE',
+        package: result.PACKAGE || result.package,
+        message: result.MESSAGE || result.message || '',
+        hierarchy: result.HIERARCHY || result.hierarchy || null,
+        summary: result.SUMMARY || result.summary || null,
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('Tree command failed', { error: error.message });
+      throw new Error(`Tree command failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

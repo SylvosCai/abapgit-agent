@@ -356,6 +356,28 @@ class ABAPClient {
 
     return await this.request('POST', '/import', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * Get package hierarchy tree
+   * @param {string} packageName - ABAP package name
+   * @param {number} depth - Maximum depth to traverse (default: 3, max: 10)
+   * @param {boolean} includeObjects - Include object counts breakdown
+   * @returns {object} Tree result with hierarchy and summary
+   */
+  async tree(packageName, depth = 3, includeObjects = false) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      package: packageName,
+      depth: Math.min(Math.max(1, depth), 10),
+      include_objects: includeObjects
+    };
+
+    logger.info('Getting package tree', { package: packageName, depth: data.depth, includeObjects, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/tree', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

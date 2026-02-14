@@ -496,6 +496,109 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
 }
 
 /**
+ * Run tree command and return raw result
+ */
+async function runTreeCommand(packageName, depth, includeObjects, csrfToken, config) {
+  const data = {
+    package: packageName,
+    depth: depth,
+    include_objects: includeObjects
+  };
+
+  return await request('POST', '/sap/bc/z_abapgit_agent/tree', data, { csrfToken });
+}
+
+/**
+ * Display tree output in human-readable format with AI metadata
+ */
+async function displayTreeOutput(packageName, depth, includeObjects) {
+  const config = loadConfig();
+  const csrfToken = await fetchCsrfToken(config);
+
+  console.log(`\n  Getting package tree for: ${packageName}`);
+
+  const result = await runTreeCommand(packageName, depth, includeObjects, csrfToken, config);
+
+  // Handle uppercase keys from ABAP
+  const success = result.SUCCESS || result.success;
+  const hierarchy = result.HIERARCHY || result.hierarchy || {};
+  const summary = result.SUMMARY || result.summary || {};
+  const error = result.ERROR || result.error;
+
+  if (!success || error) {
+    console.error(`\n  ❌ Error: ${error || 'Failed to get tree'}`);
+    return;
+  }
+
+  console.log(`\n  Package Tree: ${hierarchy.package || packageName}`);
+
+  if (hierarchy.parent_description) {
+    console.log(`  ⬆️  Parent: ${hierarchy.parent_description || ''}`);
+  }
+
+  console.log('');
+
+  // Build and display tree
+  const lines = buildTreeLines(hierarchy, '', true, includeObjects);
+  for (const line of lines) {
+    console.log(`  ${line}`);
+  }
+
+  console.log('');
+  console.log('  Summary');
+  console.log(`  PACKAGES: ${summary.total_packages || 1}`);
+  console.log(`  OBJECTS: ${summary.total_objects || 0}`);
+
+  // Display object types if available
+  const objectTypes = summary.objects_by_type || result.types || hierarchy.objects || [];
+  if (includeObjects && objectTypes.length > 0) {
+    const typeStr = objectTypes.map(t => `${t.object}=${t.count}`).join(' ');
+    console.log(`  TYPES: ${typeStr}`);
+  }
+
+  // AI metadata block
+  const aiMetadata = {
+    package: hierarchy.package || packageName,
+    parent: hierarchy.parent || null,
+    total_packages: summary.total_packages || 1,
+    total_objects: summary.total_objects || 0,
+    types: {}
+  };
+
+  if (objectTypes.length > 0) {
+    objectTypes.forEach(t => {
+      aiMetadata.types[t.object] = t.count;
+    });
+  }
+
+  console.log('');
+  console.log(`<!-- AI_METADATA_START -->${JSON.stringify(aiMetadata)}<!-- AI_METADATA_END -->`);
+}
+
+/**
+ * Build tree display lines recursively
+ */
+function buildTreeLines(node, prefix, isLast, includeObjects) {
+  const lines = [];
+
+  const icon = '📦';
+  const desc = node.description ? ` (${node.description})` : '';
+  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${node.package}${desc}`);
+
+  const newPrefix = prefix + (isLast ? '   ' : '│  ');
+
+  const subpackages = node.subpackages || [];
+  for (let i = 0; i < subpackages.length; i++) {
+    const sub = subpackages[i];
+    const isSubLast = i === subpackages.length - 1;
+    const subLines = buildTreeLines(sub, newPrefix, isSubLast, includeObjects);
+    lines.push(...subLines);
+  }
+
+  return lines;
+}
+
+/**
  * Pull and activate repository
  */
 async function pull(gitUrl, branch = 'main', files = null, transportRequest = null) {
@@ -1192,6 +1295,45 @@ Examples:
         break;
       }
 
+      case 'tree': {
+        const packageArgIndex = args.indexOf('--package');
+        if (packageArgIndex === -1 || packageArgIndex + 1 >= args.length) {
+          console.error('Error: --package parameter required');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Example: abapgit-agent tree --package $ZMY_PACKAGE');
+          process.exit(1);
+        }
+
+        const packageName = args[packageArgIndex + 1];
+
+        // Optional depth parameter
+        const depthArgIndex = args.indexOf('--depth');
+        let depth = 3;
+        if (depthArgIndex !== -1 && depthArgIndex + 1 < args.length) {
+          depth = parseInt(args[depthArgIndex + 1], 10);
+          if (isNaN(depth) || depth < 1) {
+            console.error('Error: --depth must be a positive number');
+            process.exit(1);
+          }
+        }
+
+        // Optional include-objects parameter
+        const includeObjects = args.includes('--include-objects');
+
+        // Optional json parameter
+        const jsonOutput = args.includes('--json');
+
+        if (jsonOutput) {
+          const config = loadConfig();
+          const csrfToken = await fetchCsrfToken(config);
+          const result = await runTreeCommand(packageName, depth, includeObjects, csrfToken, config);
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          await displayTreeOutput(packageName, depth, includeObjects);
+        }
+        break;
+      }
+
       case 'help':
       case '--help':
       case '-h':
@@ -1225,6 +1367,9 @@ Commands:
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
 
+  tree --package <package> [--depth <n>] [--include-objects] [--json]
+    Display package hierarchy tree from ABAP system
+
   health
     Check if ABAP REST API is healthy
 
@@ -1242,6 +1387,10 @@ Examples:
   abapgit-agent pull --transport DEVK900001                  # With transport
   abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
   abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
+  abapgit-agent tree --package $ZMY_PACKAGE                      # Show package tree
+  abapgit-agent tree --package $ZMY_PACKAGE --depth 2             # Shallow tree
+  abapgit-agent tree --package $ZMY_PACKAGE --include-objects     # With object counts
+  abapgit-agent tree --package $ZMY_PACKAGE --json                # JSON output
   abapgit-agent health
   abapgit-agent status
 `);

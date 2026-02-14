@@ -27,6 +27,7 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
       ( command = zif_abgagt_command=>gc_unit   class_name = 'ZCL_ABGAGT_COMMAND_UNIT' )
       ( command = zif_abgagt_command=>gc_create class_name = 'ZCL_ABGAGT_COMMAND_CREATE' )
       ( command = zif_abgagt_command=>gc_import class_name = 'ZCL_ABGAGT_COMMAND_IMPORT' )
+      ( command = zif_abgagt_command=>gc_tree   class_name = 'ZCL_ABGAGT_COMMAND_TREE' )
     ).
   ENDMETHOD.
 
