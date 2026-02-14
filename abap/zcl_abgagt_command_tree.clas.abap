@@ -87,7 +87,10 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
   METHOD build_tree.
     DATA: lv_package TYPE string,
-          lv_max_depth TYPE i.
+          lv_max_depth TYPE i,
+          lv_total_packages TYPE i,
+          lv_total_objects TYPE i,
+          lt_all_types TYPE ty_object_counts.
 
     lv_package = is_params-package.
     lv_max_depth = is_params-depth.
@@ -132,26 +135,26 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-hierarchy-object_count = get_object_count(
       iv_package = lv_package
       iv_include_details = is_params-include_objects
-      RT_counts = rs_result-hierarchy-objects ).
+      rt_counts = rs_result-hierarchy-objects ).
 
-    " Calculate summary
+    " Calculate summary recursively
     calculate_summary(
       is_hierarchy = rs_result-hierarchy
-      rs_summary = rs_result-summary ).
+      iv_parent_package = lv_package
+      cv_total_packages = rs_result-summary-total_packages
+      cv_total_objects = rs_result-summary-total_objects
+      ct_types = rs_result-summary-objects_by_type ).
 
   ENDMETHOD.
 
   METHOD get_subpackages.
-    DATA: lt_subpackages TYPE TABLE OF ty_subpackage,
-          lv_package TYPE string.
-
-    lv_package = iv_parent.
+    DATA: lt_subpackages TYPE TABLE OF ty_subpackage.
 
     " Get direct subpackages
     SELECT devclass, as4text
       FROM tdevc
       INTO TABLE @DATA(lt_direct_subs)
-      WHERE parent_pack = @lv_package
+      WHERE parent_pack = @iv_parent
       ORDER BY devclass.
 
     LOOP AT lt_direct_subs INTO DATA(ls_direct).
@@ -164,7 +167,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       ls_subpackage-object_count = get_object_count(
         iv_package = ls_direct-devclass
         iv_include_details = iv_include_objects
-        RT_counts = ls_subpackage-objects ).
+        rt_counts = ls_subpackage-objects ).
 
       " Recursively get subpackages if not at max depth
       IF iv_current_depth < iv_max_depth.
@@ -201,46 +204,28 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
         WHERE devclass = @iv_package
           AND object NOT IN ('DEVC', 'PACK')
         GROUP BY object.
-
-      LOOP AT rt_counts ASSIGNING FIELD-SYMBOL(<ls_count>).
-        <ls_count>-object = <ls_count>-object.
-      ENDLOOP.
     ENDIF.
   ENDMETHOD.
 
   METHOD calculate_summary.
-    " Count total packages and objects recursively
-    rs_summary-total_packages = 1. " Root package
+    " Start with root package
+    cv_total_packages = 1.
+    cv_total_objects = is_hierarchy-object_count.
 
-    LOOP AT is_hierarchy-subpackages INTO DATA(ls_sub).
-      rs_summary-total_packages = rs_summary-total_packages + 1.
-      rs_summary-total_objects = rs_summary-total_objects + ls_sub-object_count.
-
-      " Recursively count subpackages
-      count_subpackages(
-        it_subpackages = ls_sub-subpackages
-        CHANGING cv_total_packages = rs_summary-total_packages
-                 cv_total_objects = rs_summary-total_objects
-                 ct_types = rs_summary-objects_by_type ).
-    ENDLOOP.
-
-    " Add root package objects
-    rs_summary-total_objects = rs_summary-total_objects + is_hierarchy-object_count.
-
-    " Merge object types from root
+    " Add object types from root
     LOOP AT is_hierarchy-objects INTO DATA(ls_root_obj).
-      READ TABLE rs_summary-objects_by_type
-        WITH KEY object = ls_root_obj-object
-        ASSIGNING FIELD-SYMBOL(<ls_existing>).
-      IF sy-subrc = 0.
-        <ls_existing>-count = <ls_existing>-count + ls_root_obj-count.
-      ELSE.
-        APPEND ls_root_obj TO rs_summary-objects_by_type.
-      ENDIF.
+      APPEND ls_root_obj TO ct_types.
     ENDLOOP.
+
+    " Process subpackages recursively
+    process_subpackages(
+      it_subpackages = is_hierarchy-subpackages
+      cv_total_packages = cv_total_packages
+      cv_total_objects = cv_total_objects
+      ct_types = ct_types ).
   ENDMETHOD.
 
-  METHOD count_subpackages.
+  METHOD process_subpackages.
     LOOP AT it_subpackages INTO DATA(ls_sub).
       cv_total_packages = cv_total_packages + 1.
       cv_total_objects = cv_total_objects + ls_sub-object_count.
@@ -256,13 +241,13 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
 
-      " Recurse
+      " Process nested subpackages
       IF ls_sub-subpackages IS NOT INITIAL.
-        count_subpackages(
+        process_subpackages(
           it_subpackages = ls_sub-subpackages
-          CHANGING cv_total_packages = cv_total_packages
-                   cv_total_objects = cv_total_objects
-                   ct_types = ct_types ).
+          cv_total_packages = cv_total_packages
+          cv_total_objects = cv_total_objects
+          ct_types = ct_types ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
