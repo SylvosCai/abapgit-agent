@@ -49,6 +49,10 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_package TYPE string
       RETURNING VALUE(rv_count) TYPE i.
 
+    METHODS get_package_description
+      IMPORTING iv_package TYPE string
+      RETURNING VALUE(rv_description) TYPE string.
+
     METHODS get_object_counts_by_type
       IMPORTING iv_package TYPE string
       CHANGING ct_counts TYPE ty_object_counts.
@@ -111,7 +115,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     lv_package = is_params-package.
     lv_max_depth = is_params-depth.
 
-    SELECT SINGLE devclass parent_pack as4text FROM tdevc
+    SELECT SINGLE devclass parentcl FROM tdevc
       INTO ls_package
       WHERE devclass = lv_package.
 
@@ -128,8 +132,8 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
     " Add root package
     ls_root-package = lv_package.
-    ls_root-parent = ls_package-parent_pack.
-    ls_root-description = ls_package-as4text.
+    ls_root-parent = ls_package-parentcl.
+    ls_root-description = get_package_description( lv_package ).
     ls_root-depth = 0.
     ls_root-object_count = get_object_count( lv_package ).
     APPEND ls_root TO lt_nodes.
@@ -162,6 +166,18 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-objects = lt_all_types.
   ENDMETHOD.
 
+  METHOD get_package_description.
+    DATA: lv_desc TYPE string.
+
+    SELECT SINGLE as4text FROM tdevc
+      INTO lv_desc
+      WHERE devclass = iv_package.
+    IF lv_desc IS INITIAL.
+      lv_desc = iv_package.
+    ENDIF.
+    rv_description = lv_desc.
+  ENDMETHOD.
+
   METHOD get_object_count.
     DATA lv_count TYPE i.
     SELECT COUNT(*) FROM tadir
@@ -186,16 +202,16 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
           ls_direct TYPE tdevc,
           ls_node TYPE ty_package_node.
 
-    SELECT devclass parent_pack as4text FROM tdevc
+    SELECT devclass parentcl FROM tdevc
       INTO TABLE lt_direct_subs
-      WHERE parent_pack = iv_parent
+      WHERE parentcl = iv_parent
       ORDER BY devclass.
 
     LOOP AT lt_direct_subs INTO ls_direct.
       CLEAR ls_node.
       ls_node-package = ls_direct-devclass.
-      ls_node-parent = ls_direct-parent_pack.
-      ls_node-description = ls_direct-as4text.
+      ls_node-parent = ls_direct-parentcl.
+      ls_node-description = get_package_description( ls_direct-devclass ).
       ls_node-depth = iv_current_depth.
       ls_node-object_count = get_object_count( ls_direct-devclass ).
 
@@ -204,9 +220,10 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
       " Add object types
       IF iv_include_objects = abap_true.
+        DATA lt_types TYPE ty_object_counts.
         get_object_counts_by_type(
           EXPORTING iv_package = ls_direct-devclass
-          CHANGING ct_counts = DATA(lt_types) ).
+          CHANGING ct_counts = lt_types ).
         LOOP AT lt_types INTO DATA(ls_type).
           READ TABLE ct_types WITH KEY object = ls_type-object
             ASSIGNING FIELD-SYMBOL(<ls_existing>).
