@@ -24,7 +24,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
              depth TYPE i,
              object_count TYPE i,
-             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
+             subpackages TYPE ty_subpackages,
            END OF ty_subpackage.
 
     TYPES: BEGIN OF ty_tree_result,
@@ -38,7 +38,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              hierarchy_parent_desc TYPE string,
              hierarchy_depth TYPE i,
              hierarchy_object_count TYPE i,
-             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
+             subpackages TYPE ty_subpackages,
              total_packages TYPE i,
              total_objects TYPE i,
              objects TYPE ty_object_counts,
@@ -65,7 +65,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rt_subpackages) TYPE ty_subpackages.
 
     METHODS count_all_packages
-      IMPORTING it_subpackages TYPE TABLE OF ty_subpackage
+      IMPORTING it_subpackages TYPE ty_subpackages
       CHANGING cv_total_packages TYPE i
                cv_total_objects TYPE i
                ct_types TYPE ty_object_counts.
