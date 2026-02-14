@@ -818,6 +818,25 @@ async function runInit(args) {
     console.error(`Error copying CLAUDE.md: ${error.message}`);
   }
 
+  // Copy copilot-instructions.md for GitHub Copilot
+  const copilotMdPath = pathModule.join(__dirname, '..', 'abap', 'copilot-instructions.md');
+  const githubDir = pathModule.join(process.cwd(), '.github');
+  const localCopilotMdPath = pathModule.join(githubDir, 'copilot-instructions.md');
+  try {
+    if (fs.existsSync(copilotMdPath)) {
+      // Ensure .github directory exists
+      if (!fs.existsSync(githubDir)) {
+        fs.mkdirSync(githubDir, { recursive: true });
+      }
+      fs.copyFileSync(copilotMdPath, localCopilotMdPath);
+      console.log(`✅ Created .github/copilot-instructions.md`);
+    } else {
+      console.log(`⚠️  copilot-instructions.md not found in abap/ directory`);
+    }
+  } catch (error) {
+    console.error(`Error copying copilot-instructions.md: ${error.message}`);
+  }
+
   // Create folder
   const folderPath = pathModule.join(process.cwd(), folder);
   try {
