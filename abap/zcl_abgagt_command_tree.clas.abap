@@ -62,7 +62,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_current_depth TYPE i
                 iv_max_depth TYPE i
                 iv_include_objects TYPE abap_bool
-      RETURNING VALUE(rt_subpackages) TYPE TABLE OF ty_subpackage.
+      RETURNING VALUE(rt_subpackages) TYPE ty_subpackages.
 
     METHODS count_all_packages
       IMPORTING it_subpackages TYPE TABLE OF ty_subpackage
