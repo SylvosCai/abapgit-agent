@@ -521,8 +521,11 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
 
   // Handle uppercase keys from ABAP
   const success = result.SUCCESS || result.success;
-  const hierarchy = result.HIERARCHY || result.hierarchy || {};
-  const summary = result.SUMMARY || result.summary || {};
+  const rootPackage = result.PACKAGE || result.package || packageName;
+  const nodes = result.NODES || result.nodes || [];
+  const totalPackages = result.TOTAL_PACKAGES || result.total_packages || 0;
+  const totalObjects = result.TOTAL_OBJECTS || result.total_objects || 0;
+  const objectTypes = result.OBJECTS || result.objects || [];
   const error = result.ERROR || result.error;
 
   if (!success || error) {
@@ -530,69 +533,107 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
     return;
   }
 
-  console.log(`\n  Package Tree: ${hierarchy.package || packageName}`);
-
-  if (hierarchy.parent_description) {
-    console.log(`  ⬆️  Parent: ${hierarchy.parent_description || ''}`);
-  }
+  console.log(`\n  Package Tree: ${rootPackage}`);
 
   console.log('');
 
-  // Build and display tree
-  const lines = buildTreeLines(hierarchy, '', true, includeObjects);
+  // Build and display tree from flat nodes list
+  const lines = buildTreeLinesFromNodes(nodes, '', true);
   for (const line of lines) {
     console.log(`  ${line}`);
   }
 
   console.log('');
   console.log('  Summary');
-  console.log(`  PACKAGES: ${summary.total_packages || 1}`);
-  console.log(`  OBJECTS: ${summary.total_objects || 0}`);
+  console.log(`  PACKAGES: ${totalPackages}`);
+  console.log(`  OBJECTS: ${totalObjects}`);
 
   // Display object types if available
-  const objectTypes = summary.objects_by_type || result.types || hierarchy.objects || [];
   if (includeObjects && objectTypes.length > 0) {
-    const typeStr = objectTypes.map(t => `${t.object}=${t.count}`).join(' ');
+    const typeStr = objectTypes.map(t => `${t.OBJECT || t.object}=${t.COUNT || t.count}`).join(' ');
     console.log(`  TYPES: ${typeStr}`);
   }
 
   // AI metadata block
   const aiMetadata = {
-    package: hierarchy.package || packageName,
-    parent: hierarchy.parent || null,
-    total_packages: summary.total_packages || 1,
-    total_objects: summary.total_objects || 0,
+    package: rootPackage,
+    parent: null,
+    total_packages: totalPackages,
+    total_objects: totalObjects,
     types: {}
   };
 
-  if (objectTypes.length > 0) {
-    objectTypes.forEach(t => {
-      aiMetadata.types[t.object] = t.count;
-    });
-  }
+  objectTypes.forEach(t => {
+    const key = t.OBJECT || t.object;
+    const count = t.COUNT || t.count;
+    if (key) {
+      aiMetadata.types[key] = count;
+    }
+  });
 
   console.log('');
   console.log(`<!-- AI_METADATA_START -->${JSON.stringify(aiMetadata)}<!-- AI_METADATA_END -->`);
 }
 
 /**
- * Build tree display lines recursively
+ * Build tree display lines from flat nodes list
  */
-function buildTreeLines(node, prefix, isLast, includeObjects) {
+function buildTreeLinesFromNodes(nodes, prefix, isLast) {
   const lines = [];
 
-  const icon = '📦';
-  const desc = node.description ? ` (${node.description})` : '';
-  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${node.package}${desc}`);
+  if (nodes.length === 0) {
+    return lines;
+  }
 
+  // First node is the root
+  const root = nodes[0];
+  const icon = '📦';
+  const desc = root.DESCRIPTION || root.description ? ` (${root.DESCRIPTION || root.description})` : '';
+  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${root.PACKAGE || root.package}${desc}`);
+
+  // Get children (nodes with depth > 0, grouped by depth)
+  const children = nodes.filter(n => (n.DEPTH || n.depth) > 0);
+
+  // Group children by depth
+  const byDepth = {};
+  children.forEach(n => {
+    const d = n.DEPTH || n.depth;
+    if (!byDepth[d]) byDepth[d] = [];
+    byDepth[d].push(n);
+  });
+
+  // Process depth 1 children
+  const depth1 = byDepth[1] || [];
   const newPrefix = prefix + (isLast ? '   ' : '│  ');
 
-  const subpackages = node.subpackages || [];
-  for (let i = 0; i < subpackages.length; i++) {
-    const sub = subpackages[i];
-    const isSubLast = i === subpackages.length - 1;
-    const subLines = buildTreeLines(sub, newPrefix, isSubLast, includeObjects);
-    lines.push(...subLines);
+  for (let i = 0; i < depth1.length; i++) {
+    const child = depth1[i];
+    const isSubLast = i === depth1.length - 1;
+    const childLines = buildChildLines(child, newPrefix, isSubLast, byDepth);
+    lines.push(...childLines);
+  }
+
+  return lines;
+}
+
+function buildChildLines(node, prefix, isLast, byDepth) {
+  const lines = [];
+  const icon = '📦';
+  const desc = node.DESCRIPTION || node.description ? ` (${node.DESCRIPTION || node.description})` : '';
+  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${node.PACKAGE || node.package}${desc}`);
+
+  const newPrefix = prefix + (isLast ? '   ' : '│  ');
+  const nodeDepth = node.DEPTH || node.depth;
+  const children = byDepth[nodeDepth + 1] || [];
+
+  // Find children of this node
+  const myChildren = children.filter(n => (n.PARENT || n.parent) === (node.PACKAGE || node.package));
+
+  for (let i = 0; i < myChildren.length; i++) {
+    const child = myChildren[i];
+    const isSubLast = i === myChildren.length - 1;
+    const childLines = buildChildLines(child, newPrefix, isSubLast, byDepth);
+    lines.push(...childLines);
   }
 
   return lines;
