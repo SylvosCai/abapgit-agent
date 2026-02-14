@@ -104,15 +104,16 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
           lv_max_depth TYPE i,
           lv_total_objects TYPE i,
           lt_all_types TYPE ty_object_counts,
-          lt_nodes TYPE ty_package_nodes.
+          lt_nodes TYPE ty_package_nodes,
+          ls_package TYPE tdevc,
+          ls_root TYPE ty_package_node.
 
     lv_package = is_params-package.
     lv_max_depth = is_params-depth.
 
-    SELECT SINGLE devclass, parent_pack, as4text
-      FROM tdevc
-      INTO @DATA(ls_package)
-      WHERE devclass = @lv_package.
+    SELECT SINGLE devclass parent_pack as4text FROM tdevc
+      INTO ls_package
+      WHERE devclass = lv_package.
 
     IF sy-subrc <> 0.
       rs_result-success = abap_false.
@@ -126,12 +127,11 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-message = 'Tree retrieved successfully'.
 
     " Add root package
-    DATA(ls_root) = VALUE ty_package_node(
-      package = lv_package
-      parent = ls_package-parent_pack
-      description = ls_package-as4text
-      depth = 0
-      object_count = get_object_count( lv_package ) ).
+    ls_root-package = lv_package.
+    ls_root-parent = ls_package-parent_pack.
+    ls_root-description = ls_package-as4text.
+    ls_root-depth = 0.
+    ls_root-object_count = get_object_count( lv_package ).
     APPEND ls_root TO lt_nodes.
 
     lv_total_objects = ls_root-object_count.
@@ -163,31 +163,36 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_object_count.
+    DATA lv_count TYPE i.
     SELECT COUNT(*) FROM tadir
-      INTO @DATA(lv_count)
-      WHERE devclass = @iv_package
+      INTO lv_count
+      WHERE devclass = iv_package
         AND object NOT IN ('DEVC', 'PACK').
     rv_count = lv_count.
   ENDMETHOD.
 
   METHOD get_object_counts_by_type.
-    SELECT object, COUNT(*) AS count
-      FROM tadir
-      INTO TABLE @ct_counts
-      WHERE devclass = @iv_package
+    DATA lt_counts TYPE ty_object_counts.
+    SELECT object COUNT(*) AS count FROM tadir
+      INTO TABLE lt_counts
+      WHERE devclass = iv_package
         AND object NOT IN ('DEVC', 'PACK')
       GROUP BY object.
+    ct_counts = lt_counts.
   ENDMETHOD.
 
   METHOD collect_subpackages.
-    SELECT devclass, parent_pack, as4text
-      FROM tdevc
-      INTO TABLE @DATA(lt_direct_subs)
-      WHERE parent_pack = @iv_parent
+    DATA: lt_direct_subs TYPE TABLE OF tdevc,
+          ls_direct TYPE tdevc,
+          ls_node TYPE ty_package_node.
+
+    SELECT devclass parent_pack as4text FROM tdevc
+      INTO TABLE lt_direct_subs
+      WHERE parent_pack = iv_parent
       ORDER BY devclass.
 
-    LOOP AT lt_direct_subs INTO DATA(ls_direct).
-      DATA ls_node TYPE ty_package_node.
+    LOOP AT lt_direct_subs INTO ls_direct.
+      CLEAR ls_node.
       ls_node-package = ls_direct-devclass.
       ls_node-parent = ls_direct-parent_pack.
       ls_node-description = ls_direct-as4text.
