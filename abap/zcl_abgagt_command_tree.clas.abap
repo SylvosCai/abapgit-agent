@@ -42,6 +42,29 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error TYPE string,
            END OF ty_tree_result.
 
+    METHODS build_tree
+      IMPORTING is_params TYPE ty_tree_params
+      RETURNING VALUE(rs_result) TYPE ty_tree_result.
+
+    METHODS get_subpackages
+      IMPORTING iv_parent TYPE string
+                iv_current_depth TYPE i
+                iv_max_depth TYPE i
+                iv_include_objects TYPE abap_bool
+      RETURNING VALUE(rt_subpackages) TYPE TABLE OF ty_subpackage.
+
+    METHODS get_object_count
+      IMPORTING iv_package TYPE string
+                iv_include_details TYPE abap_bool
+      EXPORTING rv_count TYPE i
+                rt_counts TYPE ty_object_counts.
+
+    METHODS process_all_subpackages
+      IMPORTING it_subpackages TYPE TABLE OF ty_subpackage
+      CHANGING cv_total_packages TYPE i
+               cv_total_objects TYPE i
+               ct_types TYPE ty_object_counts.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_tree IMPLEMENTATION.
@@ -90,7 +113,8 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
           lv_max_depth TYPE i,
           lv_total_packages TYPE i,
           lv_total_objects TYPE i,
-          lt_all_types TYPE ty_object_counts.
+          lt_all_types TYPE ty_object_counts,
+          lt_subpackages TYPE TABLE OF ty_subpackage.
 
     lv_package = is_params-package.
     lv_max_depth = is_params-depth.
@@ -132,23 +156,37 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       iv_include_objects = is_params-include_objects ).
 
     " Get object counts for root
-    rs_result-hierarchy-object_count = get_object_count(
-      iv_package = lv_package
-      iv_include_details = is_params-include_objects
-      rt_counts = rs_result-hierarchy-objects ).
+    get_object_count(
+      EXPORTING iv_package = lv_package
+                iv_include_details = is_params-include_objects
+      IMPORTING rv_count = rs_result-hierarchy-object_count
+                rt_counts = rs_result-hierarchy-objects ).
 
-    " Calculate summary recursively
-    calculate_summary(
-      is_hierarchy = rs_result-hierarchy
-      iv_parent_package = lv_package
-      cv_total_packages = rs_result-summary-total_packages
-      cv_total_objects = rs_result-summary-total_objects
-      ct_types = rs_result-summary-objects_by_type ).
+    " Calculate summary
+    lv_total_packages = 1.
+    lv_total_objects = rs_result-hierarchy-object_count.
+
+    " Add object types from root
+    LOOP AT rs_result-hierarchy-objects INTO DATA(ls_root_obj).
+      APPEND ls_root_obj TO lt_all_types.
+    ENDLOOP.
+
+    " Process all subpackages recursively
+    process_all_subpackages(
+      EXPORTING it_subpackages = rs_result-hierarchy-subpackages
+      CHANGING cv_total_packages = lv_total_packages
+               cv_total_objects = lv_total_objects
+               ct_types = lt_all_types ).
+
+    " Set summary
+    rs_result-summary-total_packages = lv_total_packages.
+    rs_result-summary-total_objects = lv_total_objects.
+    rs_result-summary-objects_by_type = lt_all_types.
 
   ENDMETHOD.
 
   METHOD get_subpackages.
-    DATA: lt_subpackages TYPE TABLE OF ty_subpackage.
+    DATA: lt_result TYPE TABLE OF ty_subpackage.
 
     " Get direct subpackages
     SELECT devclass, as4text
@@ -164,10 +202,11 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       ls_subpackage-depth = iv_current_depth.
 
       " Get object count for subpackage
-      ls_subpackage-object_count = get_object_count(
-        iv_package = ls_direct-devclass
-        iv_include_details = iv_include_objects
-        rt_counts = ls_subpackage-objects ).
+      get_object_count(
+        EXPORTING iv_package = ls_direct-devclass
+                  iv_include_details = iv_include_objects
+        IMPORTING rv_count = ls_subpackage-object_count
+                  rt_counts = ls_subpackage-objects ).
 
       " Recursively get subpackages if not at max depth
       IF iv_current_depth < iv_max_depth.
@@ -178,10 +217,10 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
           iv_include_objects = iv_include_objects ).
       ENDIF.
 
-      APPEND ls_subpackage TO lt_subpackages.
+      APPEND ls_subpackage TO lt_result.
     ENDLOOP.
 
-    rt_subpackages = lt_subpackages.
+    rt_subpackages = lt_result.
   ENDMETHOD.
 
   METHOD get_object_count.
@@ -197,7 +236,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rv_count = lv_count.
 
     " Get breakdown by type if requested
-    IF iv_include_objects = abap_true.
+    IF iv_include_details = abap_true.
       SELECT object, COUNT(*) AS count
         FROM tadir
         INTO TABLE @rt_counts
@@ -207,25 +246,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD calculate_summary.
-    " Start with root package
-    cv_total_packages = 1.
-    cv_total_objects = is_hierarchy-object_count.
-
-    " Add object types from root
-    LOOP AT is_hierarchy-objects INTO DATA(ls_root_obj).
-      APPEND ls_root_obj TO ct_types.
-    ENDLOOP.
-
-    " Process subpackages recursively
-    process_subpackages(
-      it_subpackages = is_hierarchy-subpackages
-      cv_total_packages = cv_total_packages
-      cv_total_objects = cv_total_objects
-      ct_types = ct_types ).
-  ENDMETHOD.
-
-  METHOD process_subpackages.
+  METHOD process_all_subpackages.
     LOOP AT it_subpackages INTO DATA(ls_sub).
       cv_total_packages = cv_total_packages + 1.
       cv_total_objects = cv_total_objects + ls_sub-object_count.
@@ -243,11 +264,11 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
       " Process nested subpackages
       IF ls_sub-subpackages IS NOT INITIAL.
-        process_subpackages(
-          it_subpackages = ls_sub-subpackages
-          cv_total_packages = cv_total_packages
-          cv_total_objects = cv_total_objects
-          ct_types = ct_types ).
+        process_all_subpackages(
+          EXPORTING it_subpackages = ls_sub-subpackages
+          CHANGING cv_total_packages = cv_total_packages
+                   cv_total_objects = cv_total_objects
+                   ct_types = ct_types ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
