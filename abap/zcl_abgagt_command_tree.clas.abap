@@ -24,9 +24,8 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
              depth TYPE i,
              object_count TYPE i,
+             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
            END OF ty_subpackage.
-
-    TYPES ty_subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_tree_result,
              success TYPE abap_bool,
@@ -39,7 +38,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              hierarchy_parent_desc TYPE string,
              hierarchy_depth TYPE i,
              hierarchy_object_count TYPE i,
-             subpackages TYPE ty_subpackages,
+             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
              total_packages TYPE i,
              total_objects TYPE i,
              objects TYPE ty_object_counts,
@@ -63,10 +62,10 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_current_depth TYPE i
                 iv_max_depth TYPE i
                 iv_include_objects TYPE abap_bool
-      RETURNING VALUE(rt_subpackages) TYPE ty_subpackages.
+      RETURNING VALUE(rt_subpackages) TYPE TABLE OF ty_subpackage.
 
     METHODS count_all_packages
-      IMPORTING it_subpackages TYPE ty_subpackages
+      IMPORTING it_subpackages TYPE TABLE OF ty_subpackage
       CHANGING cv_total_packages TYPE i
                cv_total_objects TYPE i
                ct_types TYPE ty_object_counts.
@@ -146,7 +145,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
     rs_result-hierarchy_object_count = get_object_count( lv_package ).
 
-    IF iv_include_objects = abap_true.
+    IF is_params-include_objects = abap_true.
       get_object_counts_by_type(
         EXPORTING iv_package = lv_package
         CHANGING ct_counts = rs_result-objects ).
@@ -156,7 +155,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       iv_parent = lv_package
       iv_current_depth = 1
       iv_max_depth = lv_max_depth
-      iv_include_objects = ls_params-include_objects ).
+      iv_include_objects = is_params-include_objects ).
 
     lv_total_packages = 1.
     lv_total_objects = rs_result-hierarchy_object_count.
@@ -166,10 +165,10 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     ENDLOOP.
 
     count_all_packages(
-      it_subpackages = rs_result-subpackages
-      cv_total_packages = lv_total_packages
-      cv_total_objects = lv_total_objects
-      ct_types = lt_all_types ).
+      EXPORTING it_subpackages = rs_result-subpackages
+      CHANGING cv_total_packages = lv_total_packages
+               cv_total_objects = lv_total_objects
+               ct_types = lt_all_types ).
 
     rs_result-total_packages = lv_total_packages.
     rs_result-total_objects = lv_total_objects.
@@ -194,7 +193,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_subpackages.
-    DATA: lt_result TYPE ty_subpackages.
+    DATA: lt_result TYPE TABLE OF ty_subpackage.
 
     SELECT devclass, as4text
       FROM tdevc
@@ -210,7 +209,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       ls_sub-object_count = get_object_count( ls_direct-devclass ).
 
       IF iv_current_depth < iv_max_depth.
-        ls_subpackage-next_subs = get_subpackages(
+        ls_sub-subpackages = get_subpackages(
           iv_parent = ls_direct-devclass
           iv_current_depth = iv_current_depth + 1
           iv_max_depth = iv_max_depth
@@ -230,10 +229,10 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
       IF ls_sub-subpackages IS NOT INITIAL.
         count_all_packages(
-          it_subpackages = ls_sub-subpackages
-          cv_total_packages = cv_total_packages
-          cv_total_objects = cv_total_objects
-          ct_types = ct_types ).
+          EXPORTING it_subpackages = ls_sub-subpackages
+          CHANGING cv_total_packages = cv_total_packages
+                   cv_total_objects = cv_total_objects
+                   ct_types = ct_types ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
