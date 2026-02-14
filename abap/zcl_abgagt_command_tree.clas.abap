@@ -7,14 +7,14 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
     INTERFACES zif_abgagt_command.
 
     TYPES: BEGIN OF ty_tree_params,
-             package TYPE string,
+             package TYPE tdevc-devclass,
              depth TYPE i,
              include_objects TYPE abap_bool,
            END OF ty_tree_params.
 
     TYPES: BEGIN OF ty_package_node,
-             package TYPE string,
-             parent TYPE string,
+             package TYPE tdevc-devclass,
+             parent TYPE tdevc-devclass,
              description TYPE string,
              depth TYPE i,
              object_count TYPE i,
@@ -23,7 +23,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_package_nodes TYPE TABLE OF ty_package_node WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_object_count,
-             object TYPE string,
+             object TYPE tadir-object,
              count TYPE i,
            END OF ty_object_count.
 
@@ -32,7 +32,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_tree_result,
              success TYPE abap_bool,
              command TYPE string,
-             package TYPE string,
+             package TYPE tdevc-devclass,
              message TYPE string,
              nodes TYPE ty_package_nodes,
              total_packages TYPE i,
@@ -46,19 +46,15 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rs_result) TYPE ty_tree_result.
 
     METHODS get_object_count
-      IMPORTING iv_package TYPE string
+      IMPORTING iv_package TYPE tdevc-devclass
       RETURNING VALUE(rv_count) TYPE i.
 
-    METHODS get_package_description
-      IMPORTING iv_package TYPE string
-      RETURNING VALUE(rv_description) TYPE string.
-
     METHODS get_object_counts_by_type
-      IMPORTING iv_package TYPE string
+      IMPORTING iv_package TYPE tdevc-devclass
       CHANGING ct_counts TYPE ty_object_counts.
 
     METHODS collect_subpackages
-      IMPORTING iv_parent TYPE string
+      IMPORTING iv_parent TYPE tdevc-devclass
                 iv_current_depth TYPE i
                 iv_max_depth TYPE i
                 iv_include_objects TYPE abap_bool
@@ -104,7 +100,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_tree.
-    DATA: lv_package TYPE string,
+    DATA: lv_package TYPE tdevc-devclass,
           lv_max_depth TYPE i,
           lv_total_objects TYPE i,
           lt_all_types TYPE ty_object_counts,
@@ -133,7 +129,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     " Add root package
     ls_root-package = lv_package.
     ls_root-parent = ls_package-parentcl.
-    ls_root-description = get_package_description( lv_package ).
+    ls_root-description = lv_package.
     ls_root-depth = 0.
     ls_root-object_count = get_object_count( lv_package ).
     APPEND ls_root TO lt_nodes.
@@ -164,18 +160,6 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-total_packages = lines( lt_nodes ).
     rs_result-total_objects = lv_total_objects.
     rs_result-objects = lt_all_types.
-  ENDMETHOD.
-
-  METHOD get_package_description.
-    DATA: lv_desc TYPE string.
-
-    SELECT SINGLE as4text FROM tdevc
-      INTO lv_desc
-      WHERE devclass = iv_package.
-    IF lv_desc IS INITIAL.
-      lv_desc = iv_package.
-    ENDIF.
-    rv_description = lv_desc.
   ENDMETHOD.
 
   METHOD get_object_count.
@@ -211,7 +195,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       CLEAR ls_node.
       ls_node-package = ls_direct-devclass.
       ls_node-parent = ls_direct-parentcl.
-      ls_node-description = get_package_description( ls_direct-devclass ).
+      ls_node-description = ls_direct-devclass.
       ls_node-depth = iv_current_depth.
       ls_node-object_count = get_object_count( ls_direct-devclass ).
 
