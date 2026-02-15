@@ -19,7 +19,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
-             source TYPE string,
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
@@ -149,8 +148,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD get_object_info.
     DATA lv_obj_name TYPE string.
     DATA lv_devclass TYPE tadir-devclass.
-    DATA lv_source TYPE string.
-    DATA lt_source TYPE TABLE OF string.
 
     rs_object-name = iv_name.
     rs_object-type = iv_type.
@@ -169,20 +166,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
             AND object = iv_type.
         IF sy-subrc = 0.
           rs_object-description = |{ rs_object-type_text } { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-        " Get source code using READ REPORT (class pools have different naming)
-        DATA lv_progname TYPE program.
-        CONCATENATE 'SAPL' iv_name INTO lv_progname.
-        READ REPORT lv_progname INTO lt_source.
-        IF sy-subrc = 0.
-          LOOP AT lt_source INTO lv_source.
-            IF rs_object-source IS INITIAL.
-              rs_object-source = lv_source.
-            ELSE.
-              CONCATENATE rs_object-source lv_source INTO rs_object-source SEPARATED BY cl_abap_char_utilities=>newline.
-            ENDIF.
-          ENDLOOP.
         ENDIF.
 
       WHEN 'TABL'.
