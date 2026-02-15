@@ -21,7 +21,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
            END OF ty_component.
 
-    TYPES ty_components TYPE TABLE OF ty_component.
+    TYPES ty_components TYPE STANDARD TABLE OF ty_component.
 
     TYPES: BEGIN OF ty_view_object,
              name TYPE string,
