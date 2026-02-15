@@ -29,10 +29,10 @@ For quick ABAP code changes:
 
 ```bash
 # 1. Make small change to ABAP file
-# 2. Commit and push
+# 2. Commit and push to git
 git add abap/zcl_my_class.clas.abap
 git commit -m "fix: ..."
-git push
+git push    # CRITICAL: Push BEFORE pulling!
 
 # 3. Pull only changed file (seconds, not minutes)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
@@ -240,7 +240,12 @@ For `zif_abgagt_util.intf.abap`, create `zif_abgagt_util.intf.xml`:
 
 ### Important Notes
 
-1. **Only pull ABAP files** - The XML metadata stays in git:
+1. **CRITICAL: Push to git BEFORE pulling into ABAP**
+   - Always commit and push ABAP files to git first
+   - Then run `abapgit-agent pull` to activate in ABAP
+   - Never run `abapgit-agent pull` without pushing changes first
+
+2. **Only pull ABAP files** - The XML metadata stays in git:
    ```bash
    abapgit-agent pull --files zcl_my_class.clas.abap
    ```
@@ -251,9 +256,9 @@ For `zif_abgagt_util.intf.abap`, create `zif_abgagt_util.intf.xml`:
 # After making changes to ABAP files
 git add .
 git commit -m "Describe changes"
-git push
+git push    # CRITICAL: Push BEFORE pulling
 
-# Validate in ABAP system (single file - fast)
+# Then validate in ABAP system (single file - fast)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
 
 # Or validate all files
