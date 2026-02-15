@@ -155,31 +155,31 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     CASE iv_type.
       WHEN 'CLAS'.
         rs_object-type_text = 'Class'.
-        SELECT SINGLE descr FROM seoclass INTO lv_descr
+        SELECT SINGLE seoclass~descr FROM seoclass INTO lv_descr
           WHERE clsname = iv_name.
         rs_object-description = lv_descr.
 
       WHEN 'INTF'.
         rs_object-type_text = 'Interface'.
-        SELECT SINGLE descr FROM seoclass INTO lv_descr
+        SELECT SINGLE seoclass~descr FROM seoclass INTO lv_descr
           WHERE clsname = iv_name.
         rs_object-description = lv_descr.
 
       WHEN 'TABL'.
         rs_object-type_text = 'Table'.
-        SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+        SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
           WHERE tabname = iv_name.
         rs_object-description = lv_ddtext.
 
       WHEN 'STRU'.
         rs_object-type_text = 'Structure'.
-        SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+        SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
           WHERE tabname = iv_name.
         rs_object-description = lv_ddtext.
 
       WHEN 'DTEL'.
         rs_object-type_text = 'Data Element'.
-        SELECT SINGLE ddtext FROM dd04l INTO lv_ddtext
+        SELECT SINGLE dd04l~ddtext FROM dd04l INTO lv_ddtext
           WHERE rollname = iv_name.
         rs_object-description = lv_ddtext.
 
