@@ -172,7 +172,9 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         ENDIF.
 
         " Get source code using READ REPORT
-        READ REPORT iv_name INTO lt_source.
+        DATA lv_progname TYPE program.
+        lv_progname = iv_name.
+        READ REPORT lv_progname INTO lt_source.
         IF sy-subrc = 0.
           LOOP AT lt_source INTO lv_source.
             IF rs_object-source IS INITIAL.
