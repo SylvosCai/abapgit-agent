@@ -27,6 +27,8 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
         AND object = 'DTEL'.
     IF sy-subrc = 0.
       rs_info-description = |Data Element { iv_name } in { lv_devclass }|.
+    ELSE.
+      rs_info-not_found = abap_true.
     ENDIF.
 
     " Get data element details from DD04V

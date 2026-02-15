@@ -245,10 +245,10 @@ DATA ELEMENT S_CARR_ID:
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL
       "DOMAIN_TYPE": "string",      // For DTEL
-      "DOMAIN_LENGTH": number,     // For DTEL
-      "DOMAIN_DECIMALS": number,   // For DTEL
-      "SOURCE": "string",          // Full ABAP source (CLAS/INTF)
-      "DEFINITION": "string",       // Reserved
+      "DOMAIN_LENGTH": number,      // For DTEL
+      "DOMAIN_DECIMALS": number,    // For DTEL
+      "SOURCE": "string",           // Full ABAP source (CLAS/INTF)
+      "NOT_FOUND": boolean,         // true if object does not exist
       "COMPONENTS": [              // For TABL/STRU
         {
           "FIELD": "string",

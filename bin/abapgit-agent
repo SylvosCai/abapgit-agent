@@ -1436,6 +1436,14 @@ Examples:
             const description = obj.DESCRIPTION || obj.description || '';
             const methods = obj.METHODS || obj.methods || [];
             const components = obj.COMPONENTS || obj.components || [];
+            const notFound = obj.NOT_FOUND || obj.not_found || false;
+
+            // Check if object was not found
+            if (notFound) {
+              console.log(`  ❌ ${objName} (${objTypeText})`);
+              console.log(`     Object not found: ${objName}`);
+              continue;
+            }
 
             console.log(`  📖 ${objName} (${objTypeText})`);
             if (description) {

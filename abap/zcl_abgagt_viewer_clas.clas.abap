@@ -26,6 +26,11 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       rs_info-type = 'CLAS'.
       rs_info-type_text = 'Class'.
       rs_info-description = |Class { iv_name } in { lv_devclass }|.
+    ELSE.
+      rs_info-name = iv_name.
+      rs_info-type = 'CLAS'.
+      rs_info-type_text = 'Class'.
+      rs_info-not_found = abap_true.
     ENDIF.
 
     " Get class public section program name using CL_OO_CLASSNAME_SERVICE

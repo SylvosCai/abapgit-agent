@@ -26,6 +26,11 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
       rs_info-type = 'INTF'.
       rs_info-type_text = 'Interface'.
       rs_info-description = |Interface { iv_name } in { lv_devclass }|.
+    ELSE.
+      rs_info-name = iv_name.
+      rs_info-type = 'INTF'.
+      rs_info-type_text = 'Interface'.
+      rs_info-not_found = abap_true.
     ENDIF.
 
     " Get interface section program name using CL_OO_CLASSNAME_SERVICE

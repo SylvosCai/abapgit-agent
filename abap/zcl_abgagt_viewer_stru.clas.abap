@@ -23,6 +23,11 @@ CLASS zcl_abgagt_viewer_stru IMPLEMENTATION.
       rs_info-type = 'STRU'.
       rs_info-type_text = 'Structure'.
       rs_info-description = |Structure { iv_name } in { lv_devclass }|.
+    ELSE.
+      rs_info-name = iv_name.
+      rs_info-type = 'STRU'.
+      rs_info-type_text = 'Structure'.
+      rs_info-not_found = abap_true.
     ENDIF.
 
     " Build components table with data element and description

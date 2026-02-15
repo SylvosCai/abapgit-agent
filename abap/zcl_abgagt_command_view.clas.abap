@@ -32,6 +32,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              domain_decimals TYPE int4,
              source TYPE string,
              definition TYPE string,
+             not_found TYPE abap_bool,
              components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
 
