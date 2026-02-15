@@ -6,17 +6,17 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_viewer.
 
-  PRIVATE SECTION.
     TYPES: BEGIN OF ty_table_field,
-             fieldname(30) TYPE c,
+             fieldname TYPE string,
              position TYPE i,
-             datatype(4) TYPE c,
+             datatype TYPE string,
              leng TYPE i,
              decimals TYPE i,
            END OF ty_table_field.
 
     TYPES ty_table_fields TYPE STANDARD TABLE OF ty_table_field.
 
+  PRIVATE SECTION.
     METHODS get_table_fields
       IMPORTING iv_tabname TYPE string
       RETURNING VALUE(rt_result) TYPE ty_table_fields.
