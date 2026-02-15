@@ -378,6 +378,24 @@ abapgit-agent view --objects ZCL_UNKNOWN_CLASS
 abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
 ```
 
+### When to Use View Command
+
+AI assistant SHOULD call `view` command when:
+
+- User asks to "check", "look up", or "explore" an unfamiliar object
+- Working with a table/structure and you don't know the field names/types
+- Calling a class/interface method and you don't know the parameters
+- User provides an object name that may not exist in the git repository
+- You need to verify an object exists before using it
+
+**Example workflow:**
+```
+User: "Check if SFLIGHT table has a PRICE field"
+
+Assistant: <calls `abapgit-agent view --objects SFLIGHT --type TABL`>
+→ Shows table structure with all fields including PRICE
+```
+
 ### Usage
 ```bash
 # View single object (auto-detect type from TADIR)
@@ -401,29 +419,35 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, FUGR, PROG). Auto-detected from name prefix if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ### Supported Object Types
 
-| Type | Description | Detection Pattern |
-|------|-------------|-------------------|
-| CLAS | Class | ZCL_* |
-| INTF | Interface | ZIF_* |
-| TABL | Table | Z* (from DD02L) |
-| STRU | Structure | Z* (from DD02L) |
-| DTEL | Data Element | ZTY_*, ZS_* |
+| Type | Description |
+|------|-------------|
+| CLAS | Class |
+| INTF | Interface |
+| TABL | Table |
+| STRU | Structure |
+| DTEL | Data Element |
+
+**Note:** Object type is automatically detected from TADIR. Use `--type` only when you know the type and want to override auto-detection.
 
 ### Output
 
 **Human-readable:**
 ```
 📖 ZCL_MY_CLASS (Class)
-   My Custom Configuration Class
-   Methods: 3
-     - PUBLIC CONSTRUCTOR
-     - PUBLIC GET_CONFIG
-     - PUBLIC SET_CONFIG
+   Class ZCL_MY_CLASS in $PACKAGE
+
+CLASS zcl_my_class DEFINITION PUBLIC.
+
+  PUBLIC SECTION.
+    INTERFACES: zif_my_interface.
+    METHODS: constructor,
+      get_value RETURNING VALUE(rv_result) TYPE string.
+ENDCLASS.
 ```
 
 **JSON Output:**
@@ -431,14 +455,15 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 {
   "success": true,
   "command": "VIEW",
-  "message": "Retrieved 1 object(s)",
+  "message": "Retrieved object(s)",
   "objects": [
     {
       "name": "ZCL_MY_CLASS",
       "type": "CLAS",
       "type_text": "Class",
-      "description": "My Custom Configuration Class",
-      "methods": [...]
+      "description": "Class ZCL_MY_CLASS in $PACKAGE",
+      "source": "CLASS zcl_my_class DEFINITION PUBLIC...",
+      "not_found": false
     }
   ],
   "summary": { "total": 1 }
@@ -518,6 +543,11 @@ export GIT_PASSWORD="git-token"
 ## Development Workflow
 
 ### Exploring Unknown ABAP Objects
+
+**Check package structure:**
+```bash
+abapgit-agent tree --package $MY_PACKAGE
+```
 
 **Before working with an unfamiliar table, structure, class, or interface:**
 
