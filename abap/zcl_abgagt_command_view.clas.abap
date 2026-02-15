@@ -193,7 +193,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD get_class_info.
     DATA: lv_name TYPE string,
           lv_descript TYPE string,
-          lv_expos TYPE seocompodf-expos,
+          lv_exposure TYPE seocompodf-exposure,
           lv_cmpname TYPE seocompodf-cmpname,
           lv_cmpdescript TYPE seocompodf-descript.
 
@@ -203,12 +203,12 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     SELECT clsname FROM seocompodf
       INTO lv_name
       WHERE clsname = iv_name
-        AND expos IN ('0','1','2')
+        AND exposure IN ('0','1','2')
         AND type = '0'.
       CLEAR ls_method.
       ls_method-name = lv_cmpname.
       ls_method-descript = lv_cmpdescript.
-      CASE lv_expos.
+      CASE lv_exposure.
         WHEN '0'. ls_method-visibility = 'PUBLIC'.
         WHEN '1'. ls_method-visibility = 'PROTECTED'.
         WHEN '2'. ls_method-visibility = 'PRIVATE'.
