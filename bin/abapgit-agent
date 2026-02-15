@@ -1391,7 +1391,7 @@ Examples:
           process.exit(1);
         }
 
-        const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim());
+        const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim().toUpperCase());
         const typeArg = args.indexOf('--type');
         const type = typeArg !== -1 ? args[typeArg + 1] : null;
         const jsonOutput = args.includes('--json');
