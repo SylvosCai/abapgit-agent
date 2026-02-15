@@ -12,7 +12,8 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass.
+          lv_devclass TYPE tadir-devclass,
+          lt_fields TYPE TABLE OF dd03l.
 
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
@@ -30,7 +31,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       WHERE tabname = iv_name
         AND as4local = 'A'
       ORDER BY position
-      INTO TABLE @DATA(lt_fields).
+      INTO TABLE lt_fields.
 
     rs_info-components = /ui2/cl_json=>serialize( data = lt_fields ).
   ENDMETHOD.
