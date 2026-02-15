@@ -55,7 +55,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
     SELECT cmpname exposure FROM seocompodf
       INTO TABLE @lt_methods
       WHERE clsname = @lv_clsname
-        AND exposure = '0'.  " Public methods only
+        AND exposure = '0'.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
       DATA lv_method_name TYPE string.
