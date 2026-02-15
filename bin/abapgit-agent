@@ -1552,12 +1552,13 @@ Examples:
             console.log('');
           }
 
-          // AI metadata block
+          // AI metadata block - include full object data for AI context
           const summary = result.SUMMARY || result.summary || {};
           const totalObjects = summary.TOTAL || summary.total || viewObjects.length;
           const aiMetadata = {
             command: 'VIEW',
-            total: totalObjects
+            total: totalObjects,
+            objects: viewObjects
           };
 
           console.log(`<!-- AI_METADATA_START -->${JSON.stringify(aiMetadata)}<!-- AI_METADATA_END -->`);
