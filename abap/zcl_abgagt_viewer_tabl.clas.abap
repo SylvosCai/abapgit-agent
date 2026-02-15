@@ -18,8 +18,8 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     lv_tabname = iv_name.
 
     SELECT SINGLE obj_name devclass FROM tadir
-      INTO (lv_obj_name, lv_devclass)
-      WHERE obj_name = lv_tabname
+      INTO (@lv_obj_name, @lv_devclass)
+      WHERE obj_name = @lv_tabname
         AND object = 'TABL'.
     IF sy-subrc = 0.
       rs_info-name = iv_name.
@@ -30,8 +30,8 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
     " Build components table
     SELECT fieldname AS fieldname, datatype AS type, keyflag AS key FROM dd03l
-      INTO CORRESPONDING FIELDS OF TABLE rs_info-components
-      WHERE tabname = lv_tabname
+      INTO CORRESPONDING FIELDS OF TABLE @rs_info-components
+      WHERE tabname = @lv_tabname
         AND as4local = 'A'
       ORDER BY position.
   ENDMETHOD.
