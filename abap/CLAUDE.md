@@ -66,6 +66,36 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 ```
 This will show detailed syntax errors including line numbers and error messages.
 
+## View ABAP Object Definitions
+
+Use the `view` command to inspect ABAP object definitions (classes, interfaces, tables) directly from the ABAP system. **Very useful when working with unfamiliar tables** - shows complete structure including fields, types, and descriptions.
+
+```bash
+# View a table definition
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# View a class definition
+abapgit-agent view --objects ZCL_MY_CLASS
+
+# View multiple objects
+abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
+
+# JSON output for scripting
+abapgit-agent view --objects ZMY_TABLE --type TABL --json
+```
+
+**Table Output Example:**
+```
+TABLE ZCAIS_D1:
+|----------------+-----+----------------+----------+----------------+----------------------|
+| Field          | Key | Type           |   Length | Data Elem      | Description          |
+|----------------+-----+----------------+----------+----------------+----------------------|
+| CLIENT         | X   | CLNT           |        3 | MANDT          | Client               |
+| ID             | X   | NUMC           |        4 | NUMC4          | Count parameters     |
+| NAME           |     | CHAR           |       50 | CHAR50         | Comment              |
+|----------------+-----+----------------+----------+----------------+----------------------|
+```
+
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
 **CRITICAL**: Always use `/ui2/cl_json` for JSON serialization and deserialization.
@@ -138,7 +168,16 @@ ENDCLASS.
 
 ## Creating New ABAP Objects - XML Metadata Required
 
-**IMPORTANT**: When creating new ABAP objects in abapGit format, you MUST create XML metadata files alongside the `.clas.abap` and `.intf.abap` files.
+**CRITICAL CHECKLIST - Never Forget!**
+
+When creating ANY new ABAP object file, you MUST also create its XML metadata file:
+
+| ABAP File | Required XML File |
+|-----------|------------------|
+| `zcl_my_class.clas.abap` | `zcl_my_class.clas.xml` |
+| `zif_my_intf.intf.abap` | `zif_my_intf.intf.xml` |
+
+**Without XML files**, abapGit will NOT recognize the objects during pull, and they won't be activated.
 
 ### XML Metadata Format for CLAS
 
@@ -184,7 +223,14 @@ For `zif_abgagt_util.intf.abap`, create `zif_abgagt_util.intf.xml`:
 </abapGit>
 ```
 
-**Without XML files**, abapGit will NOT recognize the objects during pull, and they won't be activated in the ABAP system.
+### Important Notes
+
+1. **Only pull ABAP files** - The XML metadata stays in git:
+   ```bash
+   abapgit-agent pull --files zcl_my_class.clas.abap
+   ```
+2. abapGit reads the XML from git to deserialize the ABAP code
+3. XML files are NOT activated in ABAP - they are only for abapGit
 
 ```bash
 # After making changes to ABAP files
