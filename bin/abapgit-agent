@@ -1455,38 +1455,49 @@ Examples:
             }
 
             if (components.length > 0) {
-              // Check if this is a data element (DTEL) - show domain info
+              // Check if this is a data element (DTEL) - show domain info in table format
               if (objType === 'DTEL' || objType === 'Data Element') {
+                // Build table display for DTEL with Domain, Type, Length, Description
+                const colWidths = {
+                  field: 14,
+                  type: 14,
+                  length: 8,
+                  domain: 14,
+                  description: 20,
+                };
+
+                // Helper to build row
+                const buildDtelRow = (field, type, length, domain, description) => {
+                  return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' +
+                         String(type || '').padEnd(colWidths.type) + ' | ' +
+                         String(length || '').padStart(colWidths.length) + ' | ' +
+                         String(domain || '').padEnd(colWidths.domain) + ' | ' +
+                         String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
+                };
+
+                // Build separator line
+                const sep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
+                            '-'.repeat(colWidths.type + 2) + '+' +
+                            '-'.repeat(colWidths.length + 2) + '+' +
+                            '-'.repeat(colWidths.domain + 2) + '+' +
+                            '-'.repeat(colWidths.description + 2) + '|';
+
                 console.log(`  DATA ELEMENT ${objName}:`);
+                console.log(sep);
+                console.log(buildDtelRow('Field', 'Type', 'Length', 'Domain', 'Description'));
+                console.log(sep);
 
                 // Show domain info from the viewer's components
                 for (const comp of components) {
                   const field = comp.FIELD || comp.field || '';
                   const type = comp.TYPE || comp.type || '';
                   const length = comp.LENGTH || comp.length || '';
-                  const dataelement = comp.DATAELEMENT || comp.dataelement || '';
+                  const domain = comp.DATAELEMENT || comp.dataelement || '';
                   const description = comp.DESCRIPTION || comp.description || '';
-                  console.log(`     ${field}: ${description}`);
+                  console.log(buildDtelRow(field, type, length, domain, description));
                 }
 
-                // Also show top-level domain fields if available
-                const domain = obj.DOMAIN || obj.domain || '';
-                const domainType = obj.DOMAIN_TYPE || obj.domain_type || '';
-                const domainLength = obj.DOMAIN_LENGTH || obj.domain_length || 0;
-                const domainDecimals = obj.DOMAIN_DECIMALS || obj.domain_decimals || 0;
-
-                if (domain) {
-                  console.log(`     Domain: ${domain}`);
-                }
-                if (domainType) {
-                  console.log(`     Type: ${domainType}`);
-                }
-                if (domainLength) {
-                  console.log(`     Length: ${domainLength}`);
-                }
-                if (domainDecimals) {
-                  console.log(`     Decimals: ${domainDecimals}`);
-                }
+                console.log(sep);
               } else {
                 // Build table display for TABL/STRU with Data Element and Description
                 const colWidths = {
