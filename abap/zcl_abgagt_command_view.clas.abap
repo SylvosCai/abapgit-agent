@@ -28,6 +28,10 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
+             domain TYPE string,            " Domain name (for DTEL)
+             domain_type TYPE string,       " Domain data type (for DTEL)
+             domain_length TYPE int4,       " Domain length (for DTEL)
+             domain_decimals TYPE int4,    " Domain decimals (for DTEL)
              source TYPE string,           " Full ABAP source code (if requested)
              definition TYPE string,       " Parsed definition block (for CLAS/INTF)
              methods TYPE string_table,   " Method list (for CLAS/INTF)

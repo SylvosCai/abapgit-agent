@@ -1455,44 +1455,78 @@ Examples:
             }
 
             if (components.length > 0) {
-              // Build table display for TABL/STRU with Data Element and Description
-              const colWidths = {
-                field: 14,
-                key: 3,
-                type: 14,
-                length: 8,
-                dataelement: 14,
-                description: 20,
-              };
+              // Check if this is a data element (DTEL) - show domain info
+              if (objType === 'DTEL' || objType === 'Data Element') {
+                console.log(`  DATA ELEMENT ${objName}:`);
 
-              // Helper to build row
-              const buildRow = (field, key, type, length, dataelement, description) => {
-                return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' + String(key || '').padEnd(colWidths.key) + ' | ' + String(type || '').padEnd(colWidths.type) + ' | ' + String(length || '').padStart(colWidths.length) + ' | ' + String(dataelement || '').padEnd(colWidths.dataelement) + ' | ' + String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
-              };
+                // Show domain info from the viewer's components
+                for (const comp of components) {
+                  const field = comp.FIELD || comp.field || '';
+                  const type = comp.TYPE || comp.type || '';
+                  const length = comp.LENGTH || comp.length || '';
+                  const dataelement = comp.DATAELEMENT || comp.dataelement || '';
+                  const description = comp.DESCRIPTION || comp.description || '';
+                  console.log(`     ${field}: ${description}`);
+                }
 
-              // Build separator line (matches row structure with | at ends and + between columns)
-              const sep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
-                          '-'.repeat(colWidths.key + 2) + '+' +
-                          '-'.repeat(colWidths.type + 2) + '+' +
-                          '-'.repeat(colWidths.length + 2) + '+' +
-                          '-'.repeat(colWidths.dataelement + 2) + '+' +
-                          '-'.repeat(colWidths.description + 2) + '|';
+                // Also show top-level domain fields if available
+                const domain = obj.DOMAIN || obj.domain || '';
+                const domainType = obj.DOMAIN_TYPE || obj.domain_type || '';
+                const domainLength = obj.DOMAIN_LENGTH || obj.domain_length || 0;
+                const domainDecimals = obj.DOMAIN_DECIMALS || obj.domain_decimals || 0;
 
-              // Header
-              console.log(`  TABLE ${objName}:`);
-              console.log(sep);
-              console.log(buildRow('Field', 'Key', 'Type', 'Length', 'Data Elem', 'Description'));
-              console.log(sep);
+                if (domain) {
+                  console.log(`     Domain: ${domain}`);
+                }
+                if (domainType) {
+                  console.log(`     Type: ${domainType}`);
+                }
+                if (domainLength) {
+                  console.log(`     Length: ${domainLength}`);
+                }
+                if (domainDecimals) {
+                  console.log(`     Decimals: ${domainDecimals}`);
+                }
+              } else {
+                // Build table display for TABL/STRU with Data Element and Description
+                const colWidths = {
+                  field: 14,
+                  key: 3,
+                  type: 14,
+                  length: 8,
+                  dataelement: 14,
+                  description: 20,
+                };
 
-              // Rows
-              for (const comp of components) {
-                const key = comp.KEY || comp.key || false ? 'X' : '';
-                const dataelement = comp.DATAELEMENT || comp.dataelement || '';
-                const description = comp.DESCRIPTION || comp.description || '';
-                console.log(buildRow(comp.FIELD || comp.field, key, comp.TYPE || comp.type, comp.LENGTH || comp.length, dataelement, description));
+                // Helper to build row
+                const buildRow = (field, key, type, length, dataelement, description) => {
+                  return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' + String(key || '').padEnd(colWidths.key) + ' | ' + String(type || '').padEnd(colWidths.type) + ' | ' + String(length || '').padStart(colWidths.length) + ' | ' + String(dataelement || '').padEnd(colWidths.dataelement) + ' | ' + String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
+                };
+
+                // Build separator line (matches row structure with | at ends and + between columns)
+                const sep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
+                            '-'.repeat(colWidths.key + 2) + '+' +
+                            '-'.repeat(colWidths.type + 2) + '+' +
+                            '-'.repeat(colWidths.length + 2) + '+' +
+                            '-'.repeat(colWidths.dataelement + 2) + '+' +
+                            '-'.repeat(colWidths.description + 2) + '|';
+
+                // Header
+                console.log(`  TABLE ${objName}:`);
+                console.log(sep);
+                console.log(buildRow('Field', 'Key', 'Type', 'Length', 'Data Elem', 'Description'));
+                console.log(sep);
+
+                // Rows
+                for (const comp of components) {
+                  const key = comp.KEY || comp.key || false ? 'X' : '';
+                  const dataelement = comp.DATAELEMENT || comp.dataelement || '';
+                  const description = comp.DESCRIPTION || comp.description || '';
+                  console.log(buildRow(comp.FIELD || comp.field, key, comp.TYPE || comp.type, comp.LENGTH || comp.length, dataelement, description));
+                }
+
+                console.log(sep);
               }
-
-              console.log(sep);
             }
 
             console.log('');

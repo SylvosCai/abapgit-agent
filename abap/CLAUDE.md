@@ -68,11 +68,14 @@ This will show detailed syntax errors including line numbers and error messages.
 
 ## View ABAP Object Definitions
 
-Use the `view` command to inspect ABAP object definitions (classes, interfaces, tables) directly from the ABAP system. **Very useful when working with unfamiliar tables** - shows complete structure including fields, types, and descriptions.
+Use the `view` command to inspect ABAP object definitions (classes, interfaces, tables, data elements) directly from the ABAP system. **Very useful when working with unfamiliar tables** - shows complete structure including fields, types, and descriptions.
 
 ```bash
 # View a table definition
 abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# View a data element definition
+abapgit-agent view --objects ZMY_DTEL --type DTEL
 
 # View a class definition
 abapgit-agent view --objects ZCL_MY_CLASS
@@ -94,6 +97,18 @@ TABLE ZCAIS_D1:
 | ID             | X   | NUMC           |        4 | NUMC4          | Count parameters     |
 | NAME           |     | CHAR           |       50 | CHAR50         | Comment              |
 |----------------+-----+----------------+----------+----------------+----------------------|
+```
+
+**Data Element Output Example:**
+```
+DATA ELEMENT ZMY_DTEL:
+|----------------+----------------+----------+----------------+----------------------|
+| Field          | Type           |   Length | Domain         | Description          |
+|----------------+----------------+----------+----------------+----------------------|
+| DOMAIN         | CHAR           |       20 | ZMY_DOMAIN     | Domain: ZMY_DOMAIN   |
+| DATA_TYPE      | CHAR           |       10 |                | ABAP Type: CHAR      |
+| LENGTH         | NUMC           |        5 |                | Length: 20           |
+|----------------+----------------+----------+----------------+----------------------|
 ```
 
 ## JSON Handling - ALWAYS Use /ui2/cl_json
