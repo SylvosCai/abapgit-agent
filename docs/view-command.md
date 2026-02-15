@@ -17,7 +17,7 @@ View ABAP object source code directly from the ABAP system. This command retriev
 ## Command
 
 ```bash
-# View single object (auto-detect type from name prefix)
+# View single object (auto-detect type from TADIR)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects ZIF_MY_INTERFACE
 abapgit-agent view --objects ZMY_TABLE

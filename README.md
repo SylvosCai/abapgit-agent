@@ -94,6 +94,18 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
 ```
 
+### Explore Commands
+
+```bash
+# Display package hierarchy tree
+abapgit-agent tree --package $MY_PACKAGE
+
+# View object definitions from ABAP system (classes, interfaces, tables, data elements)
+abapgit-agent view --objects ZCL_MY_CLASS
+abapgit-agent view --objects SFLIGHT --type TABL
+abapgit-agent view --objects S_CARR_ID --type DTEL
+```
+
 ### Utility Commands
 
 ```bash
@@ -129,6 +141,8 @@ npm run pull -- --url <git-url> --branch main
 | pull Command | [docs/pull-command.md](docs/pull-command.md) |
 | inspect Command | [docs/inspect-command.md](docs/inspect-command.md) |
 | unit Command | [docs/unit-command.md](docs/unit-command.md) |
+| tree Command | [docs/tree-command.md](docs/tree-command.md) |
+| view Command | [docs/view-command.md](docs/view-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
