@@ -31,7 +31,7 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
     SELECT SINGLE dd04v~rollname dd04v~ddtext dd04v~domname
                   dd04v~datatype dd04v~leng dd04v~decimals
       INTO (rs_info-name, rs_info-description, rs_info-domain,
-            rs_info-domain_type, rs_info-domain_length, rs_info-domain_decimals)
+            rs_info-domain_type, CONV int4( dd04v~leng ), CONV int4( dd04v~decimals ))
       FROM dd04v
       WHERE rollname = iv_name
         AND ddlanguage = 'E'.
@@ -39,7 +39,7 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
       " Fallback: try without language filter
       SELECT SINGLE rollname ddtext domname datatype leng decimals
         INTO (rs_info-name, rs_info-description, rs_info-domain,
-              rs_info-domain_type, rs_info-domain_length, rs_info-domain_decimals)
+              rs_info-domain_type, CONV int4( leng ), CONV int4( decimals ))
         FROM dd04v
         WHERE rollname = iv_name.
     ENDIF.
