@@ -1456,37 +1456,34 @@ Examples:
 
             if (components.length > 0) {
               // Build table display for TABL/STRU
-              const termWidth = Math.min(process.stdout.columns || 80, 70);
               const colWidths = {
-                field: 12,
-                key: 4,
-                type: 12,
+                field: 14,
+                key: 3,
+                type: 14,
                 length: 8,
-                description: termWidth - 12 - 4 - 12 - 8 - 8  // Account for borders
               };
+
+              // Helper to build row
+              const buildRow = (field, key, type, length) => {
+                return `  | ${String(field || '').padEnd(colWidths.field)} | ${String(key || '').padEnd(colWidths.key)} | ${String(type || '').padEnd(colWidths.type)} | ${String(length || '').padStart(colWidths.length)} |`;
+              };
+
+              // Build separator line
+              const sep = `  +${'-'.repeat(colWidths.field)}+${'-'.repeat(colWidths.key)}+${'-'.repeat(colWidths.type)}+${'-'.repeat(colWidths.length)}+`;
 
               // Header
               console.log(`  TABLE ${objName}:`);
-              const headerLine = `  ├${'─'.repeat(colWidths.field)}┬${'─'.repeat(colWidths.key)}┬${'─'.repeat(colWidths.type)}┬${'─'.repeat(colWidths.length)}┤`;
-              console.log(`  ├${'─'.repeat(colWidths.field)}┬${'─'.repeat(colWidths.key)}┬${'─'.repeat(colWidths.type)}┬${'─'.repeat(colWidths.length)}┤`);
-
-              const header = `  │ ${'Field'.padEnd(colWidths.field)} │ ${'Key'.padEnd(colWidths.key)} │ ${'Type'.padEnd(colWidths.type)} │ ${'Length'.padEnd(colWidths.length)} │`;
-              console.log(header);
-              console.log(`  ├${'─'.repeat(colWidths.field)}┼${'─'.repeat(colWidths.key)}┼${'─'.repeat(colWidths.type)}┼${'─'.repeat(colWidths.length)}┤`);
+              console.log(sep);
+              console.log(buildRow('Field', 'Key', 'Type', 'Length'));
+              console.log(sep);
 
               // Rows
               for (const comp of components) {
-                const name = comp.FIELD || comp.field || '';
-                const key = comp.KEY || comp.key || false;
-                const datatype = comp.TYPE || comp.type || '';
-                const length = comp.LENGTH || comp.length || 0;
-                const desc = (comp.DESCRIPTION || comp.description || '').substring(0, colWidths.description);
-
-                const row = `  │ ${name.substring(0, colWidths.field).padEnd(colWidths.field)} │ ${key ? 'X' : ' '.repeat(colWidths.key - 1)} │ ${datatype.substring(0, colWidths.type).padEnd(colWidths.type)} │ ${String(length).padStart(colWidths.length)} │`;
-                console.log(row);
+                const key = comp.KEY || comp.key || false ? 'X' : '';
+                console.log(buildRow(comp.FIELD || comp.field, key, comp.TYPE || comp.type, comp.LENGTH || comp.length));
               }
 
-              console.log(`  └${'─'.repeat(colWidths.field)}┴${'─'.repeat(colWidths.key)}┴${'─'.repeat(colWidths.type)}┴${'─'.repeat(colWidths.length)}┘`);
+              console.log(sep);
             }
 
             console.log('');
