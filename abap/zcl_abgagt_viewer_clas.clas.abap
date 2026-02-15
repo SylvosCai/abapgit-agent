@@ -55,8 +55,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     SELECT cmpname exposure FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
-      WHERE clsname = lv_clsname
-        AND exposure = '0'.
+      WHERE clsname = lv_clsname.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
       DATA lv_method_name TYPE string.
