@@ -112,6 +112,9 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD detect_object_type.
     DATA lv_prefix TYPE string.
+    DATA lv_tab TYPE dd02l-tabname.
+    DATA lv_dtel TYPE dd04l-rollname.
+
     lv_prefix = iv_name(4).
 
     CASE lv_prefix.
@@ -120,13 +123,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        SELECT SINGLE tabname FROM dd02l INTO @DATA(lv_tab)
-          WHERE tabname = @iv_name.
+        SELECT SINGLE tabname FROM dd02l INTO lv_tab
+          WHERE tabname = iv_name.
         IF sy-subrc = 0.
           rv_type = 'TABL'.
         ELSE.
-          SELECT SINGLE rollname FROM dd04l INTO @DATA(lv_dtel)
-            WHERE rollname = @iv_name.
+          SELECT SINGLE rollname FROM dd04l INTO lv_dtel
+            WHERE rollname = iv_name.
           IF sy-subrc = 0.
             rv_type = 'DTEL'.
           ELSE.
@@ -143,38 +146,41 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_object_info.
+    DATA lv_descr TYPE string.
+    DATA lv_ddtext TYPE string.
+
     rs_object-name = iv_name.
     rs_object-type = iv_type.
 
     CASE iv_type.
       WHEN 'CLAS'.
         rs_object-type_text = 'Class'.
-        SELECT SINGLE descr FROM seoclass INTO @DATA(lv_descr)
-          WHERE clsname = @iv_name.
+        SELECT SINGLE descr FROM seoclass INTO lv_descr
+          WHERE clsname = iv_name.
         rs_object-description = lv_descr.
 
       WHEN 'INTF'.
         rs_object-type_text = 'Interface'.
-        SELECT SINGLE descr FROM seoclass INTO @DATA(lv_descr)
-          WHERE clsname = @iv_name.
+        SELECT SINGLE descr FROM seoclass INTO lv_descr
+          WHERE clsname = iv_name.
         rs_object-description = lv_descr.
 
       WHEN 'TABL'.
         rs_object-type_text = 'Table'.
-        SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
-          WHERE tabname = @iv_name.
+        SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+          WHERE tabname = iv_name.
         rs_object-description = lv_ddtext.
 
       WHEN 'STRU'.
         rs_object-type_text = 'Structure'.
-        SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
-          WHERE tabname = @iv_name.
+        SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+          WHERE tabname = iv_name.
         rs_object-description = lv_ddtext.
 
       WHEN 'DTEL'.
         rs_object-type_text = 'Data Element'.
-        SELECT SINGLE ddtext FROM dd04l INTO @DATA(lv_ddtext)
-          WHERE rollname = @iv_name.
+        SELECT SINGLE ddtext FROM dd04l INTO lv_ddtext
+          WHERE rollname = iv_name.
         rs_object-description = lv_ddtext.
 
       WHEN OTHERS.
