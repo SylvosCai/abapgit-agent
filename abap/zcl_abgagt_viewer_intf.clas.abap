@@ -28,10 +28,10 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
       rs_info-description = |Interface { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Get interface program name using CL_OO_CLASSNAME_SERVICE
+    " Get interface section program name using CL_OO_CLASSNAME_SERVICE
     DATA lv_clsname TYPE seoclsname.
     lv_clsname = iv_name.
-    CALL METHOD cl_oo_classname_service=>get_interfacepool_name
+    CALL METHOD cl_oo_classname_service=>get_intsec_name
       EXPORTING
         clsname = lv_clsname
       RECEIVING
