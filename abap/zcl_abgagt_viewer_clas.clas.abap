@@ -48,34 +48,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
     ENDIF.
-
-    " Extract method information from SEOCOMPT
-    DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
-
-    SELECT cmpname exposure FROM seocompodf
-      INTO TABLE @lt_methods
-      WHERE clsname = @lv_clsname
-        AND exposure = '0'.  " Public methods only
-
-    LOOP AT lt_methods INTO DATA(ls_comp).
-      DATA lv_method_name TYPE string.
-      DATA lv_method_desc TYPE string.
-      DATA lv_visibility TYPE string.
-      CLEAR lv_method_name.
-      CLEAR lv_method_desc.
-      lv_method_name = ls_comp-cmpname.
-
-      " Map exposure to visibility
-      CASE ls_comp-exposure.
-        WHEN '0'. lv_visibility = 'PUBLIC'.
-        WHEN '1'. lv_visibility = 'PROTECTED'.
-        WHEN '2'. lv_visibility = 'PRIVATE'.
-      ENDCASE.
-
-      " Build method string: "PUBLIC METHOD_NAME"
-      CONCATENATE lv_visibility lv_method_name INTO lv_method_desc SEPARATED BY space.
-      APPEND lv_method_desc TO rs_info-methods.
-    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
