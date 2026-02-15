@@ -1455,20 +1455,38 @@ Examples:
             }
 
             if (components.length > 0) {
-              console.log(`     Fields: ${components.length}`);
-              for (const comp of components.slice(0, 10)) {
-                const name = comp.FIELD || comp.field || comp.FIELDNAME || comp.fieldname || '';
-                const datatype = comp.TYPE || comp.type || comp.DATATYPE || comp.datatype || '';
+              // Build table display for TABL/STRU
+              const termWidth = Math.min(process.stdout.columns || 80, 70);
+              const colWidths = {
+                field: 12,
+                key: 4,
+                type: 12,
+                length: 8,
+                description: termWidth - 12 - 4 - 12 - 8 - 8  // Account for borders
+              };
+
+              // Header
+              console.log(`  TABLE ${objName}:`);
+              const headerLine = `  ├${'─'.repeat(colWidths.field)}┬${'─'.repeat(colWidths.key)}┬${'─'.repeat(colWidths.type)}┬${'─'.repeat(colWidths.length)}┤`;
+              console.log(`  ├${'─'.repeat(colWidths.field)}┬${'─'.repeat(colWidths.key)}┬${'─'.repeat(colWidths.type)}┬${'─'.repeat(colWidths.length)}┤`);
+
+              const header = `  │ ${'Field'.padEnd(colWidths.field)} │ ${'Key'.padEnd(colWidths.key)} │ ${'Type'.padEnd(colWidths.type)} │ ${'Length'.padEnd(colWidths.length)} │`;
+              console.log(header);
+              console.log(`  ├${'─'.repeat(colWidths.field)}┼${'─'.repeat(colWidths.key)}┼${'─'.repeat(colWidths.type)}┼${'─'.repeat(colWidths.length)}┤`);
+
+              // Rows
+              for (const comp of components) {
+                const name = comp.FIELD || comp.field || '';
                 const key = comp.KEY || comp.key || false;
-                const description = comp.DESCRIPTION || comp.description || '';
-                console.log(`     - ${name} : ${datatype} ${key ? '[Key]' : ''}`);
-                if (description) {
-                  console.log(`       ${description}`);
-                }
+                const datatype = comp.TYPE || comp.type || '';
+                const length = comp.LENGTH || comp.length || 0;
+                const desc = (comp.DESCRIPTION || comp.description || '').substring(0, colWidths.description);
+
+                const row = `  │ ${name.substring(0, colWidths.field).padEnd(colWidths.field)} │ ${key ? 'X' : ' '.repeat(colWidths.key - 1)} │ ${datatype.substring(0, colWidths.type).padEnd(colWidths.type)} │ ${String(length).padStart(colWidths.length)} │`;
+                console.log(row);
               }
-              if (components.length > 10) {
-                console.log(`       ... and ${components.length - 10} more`);
-              }
+
+              console.log(`  └${'─'.repeat(colWidths.field)}┴${'─'.repeat(colWidths.key)}┴${'─'.repeat(colWidths.type)}┴${'─'.repeat(colWidths.length)}┘`);
             }
 
             console.log('');
