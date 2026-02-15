@@ -29,7 +29,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_object_keys TYPE TABLE OF scir_objs WITH NON-UNIQUE DEFAULT KEY.
 
     " Type for DDLS objects (name only, no objtype needed)
-    TYPES ty_ddls_names TYPE TABLE OF ddlname WITH NON-UNIQUE DEFAULT KEY.
+    TYPES ty_ddls_names TYPE TABLE OF tadir-obj_name WITH NON-UNIQUE DEFAULT KEY.
 
     METHODS run_syntax_check
       IMPORTING it_objects TYPE ty_object_keys
@@ -131,99 +131,48 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_ddls_validation.
-    " Validate DDLS (CDS views/view entities) using DDL validation API
-    DATA: lv_ddls_name TYPE ddlname,
-          lo_validator TYPE REF TO object,
-          lv_source TYPE string,
-          lt_messages TYPE STANDARD TABLE OF string,
-          ls_error TYPE ty_error.
+    " Validate DDLS (CDS views/view entities) - check existence in TADIR
+    " Note: Full DDL syntax validation requires ADT/Eclipse
+    DATA: lv_ddls_name TYPE tadir-obj_name,
+          lv_objname TYPE tadir-obj_name,
+          ls_error TYPE ty_error,
+          ls_result TYPE ty_inspect_result.
 
-    rs_result-success = abap_true.
+    ls_result-success = abap_true.
 
-    " Try to use RUT_DDL_VALIDATE for DDL validation
-    TRY.
-        " Create validator instance
-        CALL METHOD cl_dd_validator_factory=>create_validator
-          RECEIVING
-            r_validator = lo_validator.
+    " Check if DDLS objects exist in TADIR
+    LOOP AT it_ddls_names INTO lv_ddls_name.
+      CLEAR lv_objname.
+      SELECT SINGLE obj_name
+        FROM tadir
+        INTO lv_objname
+        WHERE obj_name = lv_ddls_name
+          AND object = 'DDLS'.
 
-        IF lo_validator IS BOUND.
-          " Validate each DDLS
-          LOOP AT it_ddls_names INTO lv_ddls_name.
-            CLEAR: lt_messages, lv_source.
-
-            " Get the DDL source
-            SELECT SINGLE ddltext
-              FROM dddls
-              INTO lv_source
-              WHERE ddlname = lv_ddls_name.
-
-            IF sy-subrc = 0 AND lv_source IS NOT INITIAL.
-              " Validate the DDL source
-              CALL METHOD lo_validator->validate_ddl
-                EXPORTING
-                  ddl_name  = lv_ddls_name
-                  ddl_text  = lv_source
-                IMPORTING
-                  messages  = lt_messages.
-
-              " Parse messages into errors
-              LOOP AT lt_messages INTO DATA(lv_message).
-                CLEAR ls_error.
-                ls_error-line = '1'.
-                ls_error-column = '1'.
-                ls_error-text = lv_message.
-                APPEND ls_error TO rs_result-errors.
-              ENDLOOP.
-            ENDIF.
-          ENDLOOP.
-        ELSE.
-          " Validator not available - try alternative approach
-          rs_result-error_count = 1.
-          ls_error-line = '1'.
-          ls_error-column = '1'.
-          ls_error-text = 'DDL validator not available in this system'.
-          APPEND ls_error TO rs_result-errors.
-          rs_result-success = abap_false.
-        ENDIF.
-
-      CATCH cx_root INTO DATA(lx_error).
-        " Fallback: Try to get error from DDLS runtime
-        rs_result-error_count = 1.
+      IF sy-subrc <> 0.
+        CLEAR ls_error.
         ls_error-line = '1'.
         ls_error-column = '1'.
-        ls_error-text = lx_error->get_text( ).
-        APPEND ls_error TO rs_result-errors.
-        rs_result-success = abap_false.
-    ENDTRY.
-
-    " If no errors from validation but we want to check activation
-    IF rs_result-success = abap_true AND rs_result-errors IS INITIAL.
-      " Try alternative: check if objects are active
-      DATA lv_objname TYPE tadir-objname.
-      LOOP AT it_ddls_names INTO lv_ddls_name.
-        CLEAR lv_objname.
-        SELECT SINGLE objname
-          FROM tadir
-          INTO lv_objname
-          WHERE objname = lv_ddls_name
-            AND object = 'DDLS'.
-
-        IF sy-subrc <> 0.
-          CLEAR ls_error.
-          ls_error-line = '1'.
-          ls_error-column = '1'.
-          ls_error-text = |DDLS { lv_ddls_name } not found in repository|.
-          APPEND ls_error TO rs_result-errors.
-        ENDIF.
-      ENDLOOP.
-
-      IF rs_result-errors IS NOT INITIAL.
-        rs_result-success = abap_false.
+        ls_error-text = |DDLS { lv_ddls_name } not found in TADIR. Check if the object exists|.
+        APPEND ls_error TO ls_result-errors.
+      ELSE.
+        " Object exists - note that we can't do full syntax validation via Code Inspector
+        CLEAR ls_error.
+        ls_error-line = '0'.
+        ls_error-column = '0'.
+        ls_error-text = |DDLS { lv_ddls_name } found in TADIR (full validation requires ADT/Eclipse)|.
+        APPEND ls_error TO ls_result-errors.
       ENDIF.
+    ENDLOOP.
+
+    IF ls_result-errors IS NOT INITIAL.
+      ls_result-success = abap_false.
     ENDIF.
 
-    rs_result-error_count = lines( rs_result-errors ).
+    ls_result-error_count = lines( ls_result-errors ).
+
+    " Copy to returning parameter
+    rs_result = ls_result.
   ENDMETHOD.
 
   METHOD run_syntax_check.
