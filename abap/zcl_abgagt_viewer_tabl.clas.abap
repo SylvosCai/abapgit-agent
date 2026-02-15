@@ -6,29 +6,13 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_viewer.
 
-    TYPES: BEGIN OF ty_table_field,
-             fieldname TYPE string,
-             position TYPE i,
-             datatype TYPE string,
-             leng TYPE i,
-             decimals TYPE i,
-           END OF ty_table_field.
-
-    TYPES ty_table_fields TYPE STANDARD TABLE OF ty_table_field.
-
-  PRIVATE SECTION.
-    METHODS get_table_fields
-      IMPORTING iv_tabname TYPE string
-      RETURNING VALUE(rt_result) TYPE ty_table_fields.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass,
-          lt_fields TYPE ty_table_fields.
+          lv_devclass TYPE tadir-devclass.
 
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
@@ -41,21 +25,27 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       rs_info-description = |Table { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Get table fields and serialize to JSON
-    lt_fields = get_table_fields( iv_name ).
-    rs_info-details = /ui2/cl_json=>serialize( data = lt_fields ).
-  ENDMETHOD.
+    " Build field list as JSON array
+    DATA lv_json TYPE string.
+    lv_json = '['.
 
-  METHOD get_table_fields.
-    DATA lv_tabname TYPE dd02l-tabname.
-    lv_tabname = iv_tabname.
-
-    SELECT fieldname position datatype leng decimals
-      FROM dd03l
-      WHERE tabname = lv_tabname
+    SELECT fieldname position datatype leng FROM dd03l
+      WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position
-      INTO CORRESPONDING FIELDS OF TABLE rt_result.
+      INTO TABLE @DATA(lt_fields).
+
+    DATA lv_first TYPE abap_bool VALUE abap_true.
+    LOOP AT lt_fields ASSIGNING FIELD-SYMBOL(<ls_field>).
+      IF lv_first = abap_false.
+        lv_json = lv_json && ','.
+      ENDIF.
+      lv_first = abap_false.
+      lv_json = lv_json && |\{\"fieldname\":\"{<ls_field>-fieldname}\",\"position\":{<ls_field>-position},\"datatype\":\"{<ls_field>-datatype}\",\"length\":{<ls_field>-leng}\}|.
+    ENDLOOP.
+
+    lv_json = lv_json && ']'.
+    rs_info-details = lv_json.
   ENDMETHOD.
 
 ENDCLASS.
