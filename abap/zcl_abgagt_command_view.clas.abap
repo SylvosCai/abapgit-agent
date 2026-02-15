@@ -153,7 +153,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        rv_type = 'CLAS'.
+        " Query TADIR to find actual object type for unknown prefixes (e.g., SAP tables like SFLIGHT)
+        SELECT SINGLE object FROM tadir
+          INTO rv_type
+          WHERE obj_name = iv_name
+            AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'PROG', 'FUGR').
+        IF sy-subrc <> 0.
+          rv_type = 'CLAS'.  " Default fallback
+        ENDIF.
     ENDCASE.
   ENDMETHOD.
 
