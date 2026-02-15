@@ -194,11 +194,11 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_class_info.
     DATA lv_descript TYPE string.
-    SELECT SINGLE descript FROM seoclass INTO lv_descript
+    SELECT SINGLE descr FROM seoclass INTO lv_descript
       WHERE clsname = iv_name.
 
     DATA lt_methods TYPE ty_methods.
-    SELECT cmpname descript expos FROM seocompodf
+    SELECT cmpname descr expos FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
       WHERE clsname = iv_name
         AND expos IN ('0','1','2')
@@ -211,6 +211,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         WHEN '1'. ls_method-visibility = 'PROTECTED'.
         WHEN '2'. ls_method-visibility = 'PRIVATE'.
       ENDCASE.
+      ls_method-descript = ls_method-descr.  " Copy descr to descript
       MODIFY lt_methods FROM ls_method.
     ENDLOOP.
 
@@ -223,17 +224,18 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_interface_info.
     DATA lv_descript TYPE string.
-    SELECT SINGLE descript FROM seoclass INTO lv_descript
+    SELECT SINGLE descr FROM seoclass INTO lv_descript
       WHERE clsname = iv_name.
 
     DATA lt_methods TYPE ty_methods.
-    SELECT cmpname descript FROM seocompodf
+    SELECT cmpname descr FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
       WHERE clsname = iv_name.
 
     DATA ls_method LIKE LINE OF lt_methods.
     LOOP AT lt_methods INTO ls_method.
       ls_method-visibility = 'PUBLIC'.
+      ls_method-descript = ls_method-descr.
       MODIFY lt_methods FROM ls_method.
     ENDLOOP.
 
@@ -246,7 +248,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_table_info.
     DATA lv_ddtext TYPE string.
-    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+    SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
       WHERE tabname = iv_name.
 
     DATA: BEGIN OF ls_field,
@@ -288,7 +290,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_structure_info.
     DATA lv_ddtext TYPE string.
-    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+    SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
       WHERE tabname = iv_name.
 
     DATA: BEGIN OF ls_field,
