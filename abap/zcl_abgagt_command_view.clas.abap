@@ -168,15 +168,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        DATA lv_tab TYPE dd02l-tabname.
-        SELECT SINGLE tabname FROM dd02l INTO lv_tab
-          WHERE tabname = iv_name.
+        SELECT SINGLE tabname FROM dd02l INTO @DATA(lv_tab)
+          WHERE tabname = @iv_name.
         IF sy-subrc = 0.
           rv_type = 'TABL'.
         ELSE.
-          DATA lv_dtel TYPE dd04l-rollname.
-          SELECT SINGLE rollname FROM dd04l INTO lv_dtel
-            WHERE rollname = iv_name.
+          SELECT SINGLE rollname FROM dd04l INTO @DATA(lv_dtel)
+            WHERE rollname = @iv_name.
           IF sy-subrc = 0.
             rv_type = 'DTEL'.
           ELSE.
@@ -194,25 +192,28 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_class_info.
     DATA lv_descript TYPE string.
-    SELECT SINGLE descr FROM seoclass INTO lv_descript
+
+    SELECT SINGLE descript FROM seoclass INTO lv_descript
       WHERE clsname = iv_name.
 
     DATA lt_methods TYPE ty_methods.
-    SELECT cmpname descr expos FROM seocompodf
+
+    SELECT cmpname descript expos FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
       WHERE clsname = iv_name
         AND expos IN ('0','1','2')
         AND type = '0'.
 
-    DATA ls_method LIKE LINE OF lt_methods.
-    LOOP AT lt_methods INTO ls_method.
-      CASE ls_method-expos.
+    DATA ls_method TYPE ty_method.
+    LOOP AT lt_methods INTO DATA(ls_tmp).
+      ls_method-name = ls_tmp-name.
+      ls_method-descript = ls_tmp-descript.
+      CASE ls_tmp-expos.
         WHEN '0'. ls_method-visibility = 'PUBLIC'.
         WHEN '1'. ls_method-visibility = 'PROTECTED'.
         WHEN '2'. ls_method-visibility = 'PRIVATE'.
       ENDCASE.
-      ls_method-descript = ls_method-descr.  " Copy descr to descript
-      MODIFY lt_methods FROM ls_method.
+      MODIFY lt_methods FROM ls_method INDEX sy-tabix.
     ENDLOOP.
 
     rs_object-name = iv_name.
@@ -224,19 +225,22 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_interface_info.
     DATA lv_descript TYPE string.
-    SELECT SINGLE descr FROM seoclass INTO lv_descript
+
+    SELECT SINGLE descript FROM seoclass INTO lv_descript
       WHERE clsname = iv_name.
 
     DATA lt_methods TYPE ty_methods.
-    SELECT cmpname descr FROM seocompodf
+
+    SELECT cmpname descript FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
       WHERE clsname = iv_name.
 
-    DATA ls_method LIKE LINE OF lt_methods.
-    LOOP AT lt_methods INTO ls_method.
+    DATA ls_method TYPE ty_method.
+    LOOP AT lt_methods INTO DATA(ls_tmp).
+      ls_method-name = ls_tmp-name.
+      ls_method-descript = ls_tmp-descript.
       ls_method-visibility = 'PUBLIC'.
-      ls_method-descript = ls_method-descr.
-      MODIFY lt_methods FROM ls_method.
+      MODIFY lt_methods FROM ls_method INDEX sy-tabix.
     ENDLOOP.
 
     rs_object-name = iv_name.
@@ -248,36 +252,24 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_table_info.
     DATA lv_ddtext TYPE string.
-    SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
+
+    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
       WHERE tabname = iv_name.
 
-    DATA: BEGIN OF ls_field,
-            fieldname TYPE dd03l-fieldname,
-            keyflag TYPE dd03l-keyflag,
-            datatype TYPE dd03l-datatype,
-            leng TYPE dd03l-leng,
-          END OF ls_field.
-    DATA lt_fields LIKE TABLE OF ls_field.
+    DATA lt_components TYPE ty_components.
 
     SELECT fieldname keyflag datatype leng FROM dd03l
-      INTO CORRESPONDING FIELDS OF TABLE lt_fields
-      WHERE tabname = iv_name
+      INTO CORRESPONDING FIELDS OF TABLE @DATA(lt_fields)
+      WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position.
 
-    DATA lt_components TYPE ty_components.
     DATA ls_component TYPE ty_component.
-    DATA lv_desc TYPE string.
-
-    LOOP AT lt_fields INTO ls_field.
-      CLEAR lv_desc.
-      SELECT SINGLE ddtext FROM dd04l INTO lv_desc
-        WHERE rollname = ls_field-datatype.
+    LOOP AT lt_fields INTO DATA(ls_field).
       ls_component-fieldname = ls_field-fieldname.
       ls_component-keyflag = ls_field-keyflag.
       ls_component-datatype = ls_field-datatype.
       ls_component-leng = ls_field-leng.
-      ls_component-description = lv_desc.
       APPEND ls_component TO lt_components.
     ENDLOOP.
 
@@ -290,36 +282,24 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_structure_info.
     DATA lv_ddtext TYPE string.
-    SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
+
+    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
       WHERE tabname = iv_name.
 
-    DATA: BEGIN OF ls_field,
-            fieldname TYPE dd03l-fieldname,
-            keyflag TYPE dd03l-keyflag,
-            datatype TYPE dd03l-datatype,
-            leng TYPE dd03l-leng,
-          END OF ls_field.
-    DATA lt_fields LIKE TABLE OF ls_field.
+    DATA lt_components TYPE ty_components.
 
     SELECT fieldname keyflag datatype leng FROM dd03l
-      INTO CORRESPONDING FIELDS OF TABLE lt_fields
-      WHERE tabname = iv_name
+      INTO CORRESPONDING FIELDS OF TABLE @DATA(lt_fields)
+      WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position.
 
-    DATA lt_components TYPE ty_components.
     DATA ls_component TYPE ty_component.
-    DATA lv_desc TYPE string.
-
-    LOOP AT lt_fields INTO ls_field.
-      CLEAR lv_desc.
-      SELECT SINGLE ddtext FROM dd04l INTO lv_desc
-        WHERE rollname = ls_field-datatype.
+    LOOP AT lt_fields INTO DATA(ls_field).
       ls_component-fieldname = ls_field-fieldname.
       ls_component-keyflag = ls_field-keyflag.
       ls_component-datatype = ls_field-datatype.
       ls_component-leng = ls_field-leng.
-      ls_component-description = lv_desc.
       APPEND ls_component TO lt_components.
     ENDLOOP.
 
@@ -331,25 +311,20 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_data_element_info.
-    DATA: BEGIN OF ls_dtel,
-            ddtext TYPE dd04l-ddtext,
-            datatype TYPE dd04l-datatype,
-            leng TYPE dd04l-leng,
-            outputlen TYPE dd04l-outputlen,
-          END OF ls_dtel.
+    DATA ls_dtel TYPE string.
+    DATA lv_desc TYPE string.
 
-    SELECT ddtext datatype leng outputlen FROM dd04l
-      INTO ls_dtel
+    SELECT SINGLE ddtext datatype leng FROM dd04l
+      INTO CORRESPONDING FIELDS OF @DATA(ls_data)
       WHERE rollname = iv_name.
 
-    DATA lv_desc TYPE string.
-    CONCATENATE ls_dtel-ddtext '(Type:' ls_dtel-datatype 'Length:' ls_dtel-leng ')' INTO lv_desc SEPARATED BY SPACE.
+    CONCATENATE ls_data-ddtext '(Type:' ls_data-datatype 'Length:' ls_data-leng ')' INTO lv_desc SEPARATED BY SPACE.
 
     DATA ls_component TYPE ty_component.
     ls_component-fieldname = iv_name.
-    ls_component-datatype = ls_dtel-datatype.
-    ls_component-leng = ls_dtel-leng.
-    ls_component-description = ls_dtel-ddtext.
+    ls_component-datatype = ls_data-datatype.
+    ls_component-leng = ls_data-leng.
+    ls_component-description = ls_data-ddtext.
 
     rs_object-name = iv_name.
     rs_object-type = 'DTEL'.
@@ -359,14 +334,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_summary.
-    DATA ls_obj LIKE LINE OF it_objects.
+    rs_summary-total = lines( it_objects ).
+
     DATA lv_type TYPE string.
     DATA lv_found.
     DATA ls_type TYPE string.
 
-    rs_summary-total = lines( it_objects ).
-
-    LOOP AT it_objects INTO ls_obj.
+    LOOP AT it_objects INTO DATA(ls_obj).
       lv_type = ls_obj-type.
       lv_found = abap_false.
       LOOP AT rs_summary-by_type INTO ls_type.
