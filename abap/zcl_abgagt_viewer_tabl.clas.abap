@@ -12,7 +12,8 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass.
+          lv_devclass TYPE tadir-devclass,
+          lt_fields TYPE TABLE OF dd03l.
 
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
@@ -30,10 +31,10 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     lv_json = '['.
 
     SELECT fieldname position datatype leng FROM dd03l
-      WHERE tabname = @iv_name
+      WHERE tabname = iv_name
         AND as4local = 'A'
       ORDER BY position
-      INTO TABLE @DATA(lt_fields).
+      INTO TABLE lt_fields.
 
     DATA lv_first TYPE abap_bool VALUE abap_true.
     LOOP AT lt_fields ASSIGNING FIELD-SYMBOL(<ls_field>).
