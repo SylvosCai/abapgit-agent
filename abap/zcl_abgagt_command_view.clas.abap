@@ -177,8 +177,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        SELECT SINGLE tabname tabclass FROM dd02l INTO (lv_tab, DATA(lv_tabclass))
-          WHERE tabname = iv_name.
+        SELECT SINGLE tabname tabclass FROM dd02l INTO (@lv_tab, @DATA(lv_tabclass))
+          WHERE tabname = @iv_name.
         IF sy-subrc = 0.
           " Distinguish between tables and structures
           IF lv_tabclass = 'INTTAB'.
