@@ -521,13 +521,6 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
 
   // Handle uppercase keys from ABAP
   const success = result.SUCCESS || result.success;
-  const rootPackage = result.PACKAGE || result.package || packageName;
-  const parentPackage = result.PARENT_PACKAGE || result.parent_package;
-  const parentDescription = result.PARENT_DESCRIPTION || result.parent_description;
-  const nodes = result.NODES || result.nodes || [];
-  const totalPackages = result.TOTAL_PACKAGES || result.total_packages || 0;
-  const totalObjects = result.TOTAL_OBJECTS || result.total_objects || 0;
-  const objectTypes = result.OBJECTS || result.objects || [];
   const error = result.ERROR || result.error;
 
   if (!success || error) {
@@ -535,30 +528,41 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
     return;
   }
 
+  // Parse hierarchy structure
+  const hierarchy = result.HIERARCHY || result.hierarchy || {};
+  const summary = result.SUMMARY || result.summary || {};
+
+  const rootPackage = hierarchy.PACKAGE || hierarchy.package || packageName;
+  const parentPackage = hierarchy.PARENT_PACKAGE || hierarchy.parent_package;
+  const parentDescription = hierarchy.PARENT_DESCRIPTION || hierarchy.parent_description;
+  const subpackages = hierarchy.SUBPACKAGES || hierarchy.subpackages || [];
+  const rootObjectCount = hierarchy.OBJECT_COUNT || hierarchy.object_count || 0;
+
   console.log(`\n  Package Tree: ${rootPackage}`);
 
   // Display parent info if available
   if (parentPackage && parentPackage !== rootPackage) {
-    const parentInfo = parentDescription && parentDescription !== parentPackage
-      ? `${parentPackage} (${parentDescription})`
-      : parentPackage;
-    console.log(`  ⬆️  Parent: ${parentInfo}`);
+    console.log(`  ⬆️  Parent: ${parentPackage}`);
   }
 
   console.log('');
 
-  // Build and display tree from flat nodes list
-  const lines = buildTreeLinesFromNodes(nodes, '', true);
-  for (const line of lines) {
-    console.log(`  ${line}`);
+  // Display root package
+  const icon = '📦';
+  console.log(`  ${icon} ${rootPackage}`);
+
+  // Display subpackages recursively
+  if (subpackages.length > 0) {
+    displaySubpackages(subpackages, '  ');
   }
 
   console.log('');
   console.log('  Summary');
-  console.log(`  PACKAGES: ${totalPackages}`);
-  console.log(`  OBJECTS: ${totalObjects}`);
+  console.log(`  PACKAGES: ${summary.TOTAL_PACKAGES || summary.total_packages || subpackages.length + 1}`);
+  console.log(`  OBJECTS: ${summary.TOTAL_OBJECTS || summary.total_objects || rootObjectCount}`);
 
   // Display object types if available
+  const objectTypes = summary.OBJECTS_BY_TYPE || summary.objects_by_type || [];
   if (includeObjects && objectTypes.length > 0) {
     const typeStr = objectTypes.map(t => `${t.OBJECT || t.object}=${t.COUNT || t.count}`).join(' ');
     console.log(`  TYPES: ${typeStr}`);
@@ -568,8 +572,8 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   const aiMetadata = {
     package: rootPackage,
     parent: parentPackage || null,
-    total_packages: totalPackages,
-    total_objects: totalObjects,
+    total_packages: summary.TOTAL_PACKAGES || summary.total_packages || subpackages.length + 1,
+    total_objects: summary.TOTAL_OBJECTS || summary.total_objects || rootObjectCount,
     types: {}
   };
 
@@ -586,69 +590,27 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
 }
 
 /**
- * Build tree display lines from flat nodes list
+ * Display subpackages recursively with proper indentation
  */
-function buildTreeLinesFromNodes(nodes, prefix, isLast) {
-  const lines = [];
+function displaySubpackages(subpackages, indent) {
+  for (let i = 0; i < subpackages.length; i++) {
+    const sub = subpackages[i];
+    const isLast = i === subpackages.length - 1;
+    const prefix = `${indent}${isLast ? '└─ ' : '├─ '}`;
+    const childIndent = `${indent}${isLast ? '   ' : '│  '}`;
 
-  if (nodes.length === 0) {
-    return lines;
+    const pkgName = sub.PACKAGE || sub.package;
+    const desc = sub.DESCRIPTION || sub.description;
+    const descStr = desc && desc !== pkgName ? ` (${desc})` : '';
+
+    console.log(`${prefix}📦 ${pkgName}${descStr}`);
+
+    // Recursively display children
+    const children = sub.SUBPACKAGES || sub.subpackages;
+    if (children && children.length > 0) {
+      displaySubpackages(children, childIndent);
+    }
   }
-
-  // First node is the root
-  const root = nodes[0];
-  const icon = '📦';
-  const desc = (root.DESCRIPTION || root.description) && (root.DESCRIPTION || root.description) !== (root.PACKAGE || root.package)
-    ? ` (${root.DESCRIPTION || root.description})` : '';
-  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${root.PACKAGE || root.package}${desc}`);
-
-  // Get children (nodes with depth > 0, grouped by depth)
-  const children = nodes.filter(n => (n.DEPTH || n.depth) > 0);
-
-  // Group children by depth
-  const byDepth = {};
-  children.forEach(n => {
-    const d = n.DEPTH || n.depth;
-    if (!byDepth[d]) byDepth[d] = [];
-    byDepth[d].push(n);
-  });
-
-  // Process depth 1 children
-  const depth1 = byDepth[1] || [];
-  const newPrefix = prefix + (isLast ? '   ' : '│  ');
-
-  for (let i = 0; i < depth1.length; i++) {
-    const child = depth1[i];
-    const isSubLast = i === depth1.length - 1;
-    const childLines = buildChildLines(child, newPrefix, isSubLast, byDepth);
-    lines.push(...childLines);
-  }
-
-  return lines;
-}
-
-function buildChildLines(node, prefix, isLast, byDepth) {
-  const lines = [];
-  const icon = '📦';
-  const desc = (node.DESCRIPTION || node.description) && (node.DESCRIPTION || node.description) !== (node.PACKAGE || node.package)
-    ? ` (${node.DESCRIPTION || node.description})` : '';
-  lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${node.PACKAGE || node.package}${desc}`);
-
-  const newPrefix = prefix + (isLast ? '   ' : '│  ');
-  const nodeDepth = node.DEPTH || node.depth;
-  const children = byDepth[nodeDepth + 1] || [];
-
-  // Find children of this node
-  const myChildren = children.filter(n => (n.PARENT || n.parent) === (node.PACKAGE || node.package));
-
-  for (let i = 0; i < myChildren.length; i++) {
-    const child = myChildren[i];
-    const isSubLast = i === myChildren.length - 1;
-    const childLines = buildChildLines(child, newPrefix, isSubLast, byDepth);
-    lines.push(...childLines);
-  }
-
-  return lines;
 }
 
 /**
