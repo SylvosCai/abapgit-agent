@@ -99,7 +99,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_inspection TYPE REF TO cl_ci_inspection,
           lt_list TYPE scit_alvlist,
           ls_error TYPE ty_error,
-          ls_list TYPE scit_alvlist,
+          ls_list TYPE scir_alvlist,
           lx_error TYPE REF TO cx_root.
 
     rs_result-success = abap_true.
