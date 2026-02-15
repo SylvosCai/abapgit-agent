@@ -14,31 +14,11 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              include_docs TYPE abap_bool,
            END OF ty_view_params.
 
-    TYPES: BEGIN OF ty_method,
-             name TYPE string,
-             visibility TYPE string,
-             descript TYPE string,
-           END OF ty_method.
-
-    TYPES ty_methods TYPE TABLE OF ty_method WITH NON-UNIQUE DEFAULT KEY.
-
-    TYPES: BEGIN OF ty_component,
-             fieldname TYPE string,
-             keyflag TYPE abap_bool,
-             datatype TYPE string,
-             leng TYPE string,
-             description TYPE string,
-           END OF ty_component.
-
-    TYPES ty_components TYPE TABLE OF ty_component WITH NON-UNIQUE DEFAULT KEY.
-
     TYPES: BEGIN OF ty_view_object,
              name TYPE string,
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
-             methods TYPE ty_methods,
-             components TYPE ty_components,
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
@@ -61,24 +41,9 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_name TYPE string
       RETURNING VALUE(rv_type) TYPE string.
 
-    METHODS get_class_info
+    METHODS get_object_info
       IMPORTING iv_name TYPE string
-      RETURNING VALUE(rs_object) TYPE ty_view_object.
-
-    METHODS get_interface_info
-      IMPORTING iv_name TYPE string
-      RETURNING VALUE(rs_object) TYPE ty_view_object.
-
-    METHODS get_table_info
-      IMPORTING iv_name TYPE string
-      RETURNING VALUE(rs_object) TYPE ty_view_object.
-
-    METHODS get_structure_info
-      IMPORTING iv_name TYPE string
-      RETURNING VALUE(rs_object) TYPE ty_view_object.
-
-    METHODS get_data_element_info
-      IMPORTING iv_name TYPE string
+                iv_type TYPE string
       RETURNING VALUE(rs_object) TYPE ty_view_object.
 
     METHODS build_summary
@@ -132,20 +97,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         WHEN OTHERS. ls_object-type_text = ls_object-type.
       ENDCASE.
 
-      CASE ls_object-type.
-        WHEN 'CLAS'.
-          ls_object = get_class_info( lv_object ).
-        WHEN 'INTF'.
-          ls_object = get_interface_info( lv_object ).
-        WHEN 'TABL'.
-          ls_object = get_table_info( lv_object ).
-        WHEN 'STRU'.
-          ls_object = get_structure_info( lv_object ).
-        WHEN 'DTEL'.
-          ls_object = get_data_element_info( lv_object ).
-        WHEN OTHERS.
-          ls_object-description = 'Unsupported object type'.
-      ENDCASE.
+      ls_object = get_object_info( iv_name = lv_object iv_type = ls_object-type ).
 
       APPEND ls_object TO lt_objects.
     ENDLOOP.
@@ -190,147 +142,44 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD get_class_info.
-    DATA: lv_name TYPE string,
-          lv_descr TYPE string,
-          lv_exposure TYPE seocompodf-exposure,
-          lv_cmpname TYPE seocompodf-cmpname,
-          lv_cmpdescript TYPE seocompodf-descript.
-
-    DATA lt_methods TYPE ty_methods.
-    DATA ls_method TYPE ty_method.
-
-    SELECT clsname FROM seocompodf
-      INTO lv_name
-      WHERE clsname = iv_name
-        AND exposure IN ('0','1','2')
-        AND type = '0'.
-      CLEAR ls_method.
-      ls_method-name = lv_cmpname.
-      ls_method-descript = lv_cmpdescript.
-      CASE lv_exposure.
-        WHEN '0'. ls_method-visibility = 'PUBLIC'.
-        WHEN '1'. ls_method-visibility = 'PROTECTED'.
-        WHEN '2'. ls_method-visibility = 'PRIVATE'.
-      ENDCASE.
-      APPEND ls_method TO lt_methods.
-    ENDSELECT.
-
-    SELECT descr FROM seoclass INTO lv_descr
-      WHERE clsname = iv_name.
-
+  METHOD get_object_info.
     rs_object-name = iv_name.
-    rs_object-type = 'CLAS'.
-    rs_object-type_text = 'Class'.
-    rs_object-description = lv_descr.
-    rs_object-methods = lt_methods.
-  ENDMETHOD.
+    rs_object-type = iv_type.
 
-  METHOD get_interface_info.
-    DATA: lv_name TYPE string,
-          lv_descr TYPE string,
-          lv_cmpname TYPE seocompodf-cmpname,
-          lv_cmpdescript TYPE seocompodf-descript.
+    CASE iv_type.
+      WHEN 'CLAS'.
+        rs_object-type_text = 'Class'.
+        SELECT SINGLE descr FROM seoclass INTO @DATA(lv_descr)
+          WHERE clsname = @iv_name.
+        rs_object-description = lv_descr.
 
-    DATA lt_methods TYPE ty_methods.
-    DATA ls_method TYPE ty_method.
+      WHEN 'INTF'.
+        rs_object-type_text = 'Interface'.
+        SELECT SINGLE descr FROM seoclass INTO @DATA(lv_descr)
+          WHERE clsname = @iv_name.
+        rs_object-description = lv_descr.
 
-    SELECT clsname FROM seocompodf
-      INTO lv_name
-      WHERE clsname = iv_name.
-      CLEAR ls_method.
-      ls_method-name = lv_cmpname.
-      ls_method-descript = lv_cmpdescript.
-      ls_method-visibility = 'PUBLIC'.
-      APPEND ls_method TO lt_methods.
-    ENDSELECT.
+      WHEN 'TABL'.
+        rs_object-type_text = 'Table'.
+        SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
+          WHERE tabname = @iv_name.
+        rs_object-description = lv_ddtext.
 
-    SELECT descr FROM seoclass INTO lv_descr
-      WHERE clsname = iv_name.
+      WHEN 'STRU'.
+        rs_object-type_text = 'Structure'.
+        SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
+          WHERE tabname = @iv_name.
+        rs_object-description = lv_ddtext.
 
-    rs_object-name = iv_name.
-    rs_object-type = 'INTF'.
-    rs_object-type_text = 'Interface'.
-    rs_object-description = lv_descr.
-    rs_object-methods = lt_methods.
-  ENDMETHOD.
+      WHEN 'DTEL'.
+        rs_object-type_text = 'Data Element'.
+        SELECT SINGLE ddtext FROM dd04l INTO @DATA(lv_ddtext)
+          WHERE rollname = @iv_name.
+        rs_object-description = lv_ddtext.
 
-  METHOD get_table_info.
-    DATA: lv_ddtext TYPE string,
-          lv_fieldname TYPE dd03l-fieldname,
-          lv_keyflag TYPE dd03l-keyflag,
-          lv_datatype TYPE dd03l-datatype,
-          lv_leng TYPE dd03l-leng.
-
-    DATA lt_components TYPE ty_components.
-    DATA ls_component TYPE ty_component.
-
-    SELECT ddtext FROM dd02l INTO lv_ddtext
-      WHERE tabname = iv_name.
-
-    SELECT fieldname FROM dd03l
-      INTO lv_fieldname
-      WHERE tabname = iv_name
-        AND as4local = 'A'.
-      CLEAR ls_component.
-      ls_component-fieldname = lv_fieldname.
-      APPEND ls_component TO lt_components.
-    ENDSELECT.
-
-    rs_object-name = iv_name.
-    rs_object-type = 'TABL'.
-    rs_object-type_text = 'Table'.
-    rs_object-description = lv_ddtext.
-    rs_object-components = lt_components.
-  ENDMETHOD.
-
-  METHOD get_structure_info.
-    DATA lv_ddtext TYPE string.
-
-    SELECT ddtext FROM dd02l INTO lv_ddtext
-      WHERE tabname = iv_name.
-
-    DATA lt_components TYPE ty_components.
-    DATA ls_component TYPE ty_component.
-
-    SELECT fieldname FROM dd03l
-      INTO DATA(lv_fieldname)
-      WHERE tabname = iv_name
-        AND as4local = 'A'.
-      CLEAR ls_component.
-      ls_component-fieldname = lv_fieldname.
-      APPEND ls_component TO lt_components.
-    ENDSELECT.
-
-    rs_object-name = iv_name.
-    rs_object-type = 'STRU'.
-    rs_object-type_text = 'Structure'.
-    rs_object-description = lv_ddtext.
-    rs_object-components = lt_components.
-  ENDMETHOD.
-
-  METHOD get_data_element_info.
-    DATA: lv_ddtext TYPE dd04l-ddtext,
-          lv_datatype TYPE dd04l-datatype,
-          lv_leng TYPE dd04l-leng.
-
-    SELECT ddtext FROM dd04l INTO lv_ddtext
-      WHERE rollname = iv_name.
-
-    DATA ls_component TYPE ty_component.
-    ls_component-fieldname = iv_name.
-    ls_component-datatype = lv_datatype.
-    ls_component-leng = lv_leng.
-    ls_component-description = lv_ddtext.
-
-    DATA lv_desc TYPE string.
-    CONCATENATE lv_ddtext '(Type:' lv_datatype 'Length:' lv_leng ')' INTO lv_desc SEPARATED BY SPACE.
-
-    rs_object-name = iv_name.
-    rs_object-type = 'DTEL'.
-    rs_object-type_text = 'Data Element'.
-    rs_object-description = lv_desc.
-    APPEND ls_component TO rs_object-components.
+      WHEN OTHERS.
+        rs_object-type_text = iv_type.
+    ENDCASE.
   ENDMETHOD.
 
   METHOD build_summary.
