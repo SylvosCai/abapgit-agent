@@ -31,7 +31,7 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     " Get interface section program name using CL_OO_CLASSNAME_SERVICE
     DATA lv_clsname TYPE seoclsname.
     lv_clsname = iv_name.
-    CALL METHOD cl_oo_classname_service=>get_intsec_name
+    CALL METHOD cl_oo_classname_service=>get_intfsec_name
       EXPORTING
         clsname = lv_clsname
       RECEIVING
