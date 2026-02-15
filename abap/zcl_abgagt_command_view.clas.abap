@@ -58,11 +58,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     rv_name = zif_abgagt_command=>gc_view.
   ENDMETHOD.
 
-  METHOD zif_abgagt_command~execute.
+  METHODS zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_view_params,
           ls_result TYPE ty_view_result,
           lt_objects TYPE ty_view_objects,
-          lv_object TYPE string.
+          lv_object TYPE string,
+          lo_factory TYPE REF TO zcl_abgagt_viewer_factory,
+          lo_viewer TYPE REF TO zif_abgagt_viewer,
+          ls_info TYPE ty_view_object.
 
     ls_result-command = zif_abgagt_command=>gc_view.
 
@@ -77,29 +80,43 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    lo_factory = zcl_abgagt_viewer_factory=>get_instance( ).
+
     LOOP AT ls_params-objects INTO lv_object.
-      DATA(ls_object) = VALUE ty_view_object( name = lv_object ).
+      ls_info-name = lv_object.
 
-      IF ls_params-type IS NOT INITIAL.
-        ls_object-type = ls_params-type.
-      ELSE.
-        ls_object-type = detect_object_type( lv_object ).
+      DATA(lv_type) = ls_params-type.
+      IF lv_type IS INITIAL.
+        lv_type = detect_object_type( lv_object ).
       ENDIF.
+      ls_info-type = lv_type.
 
-      CASE ls_object-type.
-        WHEN 'CLAS'. ls_object-type_text = 'Class'.
-        WHEN 'INTF'. ls_object-type_text = 'Interface'.
-        WHEN 'TABL'. ls_object-type_text = 'Table'.
-        WHEN 'STRU'. ls_object-type_text = 'Structure'.
-        WHEN 'DTEL'. ls_object-type_text = 'Data Element'.
-        WHEN 'FUGR'. ls_object-type_text = 'Function Group'.
-        WHEN 'PROG'. ls_object-type_text = 'Program'.
-        WHEN OTHERS. ls_object-type_text = ls_object-type.
+      " Set type text
+      CASE lv_type.
+        WHEN 'CLAS'. ls_info-type_text = 'Class'.
+        WHEN 'INTF'. ls_info-type_text = 'Interface'.
+        WHEN 'TABL'. ls_info-type_text = 'Table'.
+        WHEN 'STRU'. ls_info-type_text = 'Structure'.
+        WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
+        WHEN 'FUGR'. ls_info-type_text = 'Function Group'.
+        WHEN 'PROG'. ls_info-type_text = 'Program'.
+        WHEN OTHERS. ls_info-type_text = lv_type.
       ENDCASE.
 
-      ls_object = get_object_info( iv_name = lv_object iv_type = ls_object-type ).
+      " Get viewer and retrieve info
+      TRY.
+          lo_viewer = lo_factory->get_viewer( lv_type ).
+          IF lo_viewer IS BOUND.
+            ls_info = lo_viewer->get_info( lv_object ).
+          ELSE.
+            ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
+          ENDIF.
+        CATCH cx_sy_create_object_class.
+          " Fallback for unknown types
+          ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
+      ENDTRY.
 
-      APPEND ls_object TO lt_objects.
+      APPEND ls_info TO lt_objects.
     ENDLOOP.
 
     ls_result-success = abap_true.
