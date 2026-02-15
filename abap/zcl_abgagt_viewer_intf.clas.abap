@@ -24,19 +24,6 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
       rs_info-type_text = 'Interface'.
       rs_info-description = |Interface { iv_name } in { lv_devclass }|.
     ENDIF.
-
-    " Get interface methods using RTTS
-    DATA lo_type TYPE REF TO cl_abap_classdescr.
-    DATA lt_methods TYPE abap_parmdescr_tab.
-    DATA lv_method TYPE string.
-
-    lo_type ?= cl_abap_classdescr=>describe_by_name( iv_name ).
-    lt_methods = lo_type->methods.
-
-    LOOP AT lt_methods INTO DATA(ls_method).
-      lv_method = |PUBLIC { ls_method-name }|.
-      APPEND lv_method TO rs_info-methods.
-    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
