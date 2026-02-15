@@ -10,8 +10,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_view_params,
              objects TYPE string_table,
              type TYPE string,
-             include_methods TYPE abap_bool,
-             include_docs TYPE abap_bool,
            END OF ty_view_params.
 
     TYPES: BEGIN OF ty_component,
@@ -34,7 +32,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              domain_decimals TYPE int4,
              source TYPE string,
              definition TYPE string,
-             methods TYPE string_table,
              components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
 
