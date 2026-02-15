@@ -14,6 +14,15 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              include_docs TYPE abap_bool,
            END OF ty_view_params.
 
+    TYPES: BEGIN OF ty_component,
+             fieldname TYPE string,
+             type TYPE string,
+             key TYPE abap_bool,
+             description TYPE string,
+           END OF ty_component.
+
+    TYPES ty_components TYPE TABLE OF ty_component.
+
     TYPES: BEGIN OF ty_view_object,
              name TYPE string,
              type TYPE string,
@@ -22,7 +31,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              source TYPE string,           " Full ABAP source code (if requested)
              definition TYPE string,       " Parsed definition block (for CLAS/INTF)
              methods TYPE string_table,   " Method list (for CLAS/INTF)
-             components TYPE string,      " Field list as JSON (for TABL/STRU)
+             components TYPE ty_components, " Field list (for TABL/STRU)
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
