@@ -8,11 +8,11 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
     TYPES: BEGIN OF ty_table_field,
-             fieldname TYPE dd03l-fieldname,
-             position TYPE dd03l-position,
-             datatype TYPE dd03l-datatype,
-             leng TYPE dd03l-leng,
-             decimals TYPE dd03l-decimals,
+             fieldname(30) TYPE c,
+             position TYPE i,
+             datatype(4) TYPE c,
+             leng TYPE i,
+             decimals TYPE i,
            END OF ty_table_field.
 
     TYPES ty_table_fields TYPE STANDARD TABLE OF ty_table_field.
