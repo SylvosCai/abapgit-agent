@@ -1467,11 +1467,16 @@ Examples:
 
               // Helper to build row
               const buildRow = (field, key, type, length, dataelement, description) => {
-                return `  | ${String(field || '').padEnd(colWidths.field)} | ${String(key || '').padEnd(colWidths.key)} | ${String(type || '').padEnd(colWidths.type)} | ${String(length || '').padStart(colWidths.length)} | ${String(dataelement || '').padEnd(colWidths.dataelement)} | ${String(description || '').substring(0, colWidths.description).padEnd(colWidths.description)} |`;
+                return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' + String(key || '').padEnd(colWidths.key) + ' | ' + String(type || '').padEnd(colWidths.type) + ' | ' + String(length || '').padStart(colWidths.length) + ' | ' + String(dataelement || '').padEnd(colWidths.dataelement) + ' | ' + String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
               };
 
-              // Build separator line
-              const sep = `  +${'-'.repeat(colWidths.field)}+${'-'.repeat(colWidths.key)}+${'-'.repeat(colWidths.type)}+${'-'.repeat(colWidths.length)}+${'-'.repeat(colWidths.dataelement)}+${'-'.repeat(colWidths.description)}+`;
+              // Build separator line (matches row structure with | at ends and + between columns)
+              const sep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
+                          '-'.repeat(colWidths.key + 2) + '+' +
+                          '-'.repeat(colWidths.type + 2) + '+' +
+                          '-'.repeat(colWidths.length + 2) + '+' +
+                          '-'.repeat(colWidths.dataelement + 2) + '+' +
+                          '-'.repeat(colWidths.description + 2) + '|';
 
               // Header
               console.log(`  TABLE ${objName}:`);
