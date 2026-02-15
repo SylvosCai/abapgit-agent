@@ -32,13 +32,14 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
         AND as4local = 'A'
       ORDER BY position.
 
-    " Add length separately
+    " Add length separately using work area
     LOOP AT rs_info-components ASSIGNING FIELD-SYMBOL(<ls_comp>).
-      SELECT SINGLE leng FROM dd03l
-        INTO <ls_comp>-length
+      DATA ls_dd03l TYPE dd03l.
+      SELECT SINGLE * FROM dd03l INTO ls_dd03l
         WHERE tabname = iv_name
           AND fieldname = <ls_comp>-field
           AND as4local = 'A'.
+      <ls_comp>-length = ls_dd03l-leng.
     ENDLOOP.
   ENDMETHOD.
 
