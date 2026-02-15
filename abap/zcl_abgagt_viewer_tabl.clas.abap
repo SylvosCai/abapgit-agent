@@ -47,22 +47,13 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     DATA lv_tabname TYPE dd02l-tabname.
     lv_tabname = iv_tabname.
 
-    DATA lt_fields TYPE TABLE OF dd03l.
+    DATA lt_components TYPE ty_components.
+
     SELECT fieldname datatype keyflag FROM dd03l
-      INTO TABLE lt_fields
+      INTO CORRESPONDING FIELDS OF TABLE lt_components
       WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position.
-
-    DATA lt_components TYPE ty_components.
-    LOOP AT lt_fields ASSIGNING FIELD-SYMBOL(<ls_field>).
-      APPEND VALUE #(
-        fieldname = <ls_field>-fieldname
-        type = <ls_field>-datatype
-        key = COND #( WHEN <ls_field>-keyflag = 'X' THEN abap_true ELSE abap_false )
-        description = <ls_field>-fieldname
-      ) TO lt_components.
-    ENDLOOP.
 
     rv_json = /ui2/cl_json=>serialize( data = lt_components ).
   ENDMETHOD.
