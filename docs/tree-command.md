@@ -259,9 +259,6 @@ abapgit-agent tree --package $ZMY_PACKAGE --depth 1
 # JSON for scripting
 abapgit-agent tree --package $ZMY_PACKAGE --json > tree.json
 
-# AI-friendly extract
-abapgit-agent tree --package $ZMY_PACKAGE | grep -oP '(?<=<!-- AI_METADATA_START -->).*(?=<!-- AI_METADATA_END -->)' | jq '.total_objects'
-
 # CI/CD usage with jq
 COUNT=$(abapgit-agent tree --package $ZMY_PACKAGE --json | jq '.TOTAL_OBJECTS')
 echo "Package contains $COUNT objects"
