@@ -603,6 +603,10 @@ For quick ABAP code changes:
 4. Verify activation results
 5. Repeat until done
 
+## Creating CDS Views
+
+For guidelines on creating CDS views and CDS view entities, see **ABAP Code Generation** below.
+
 ## For ABAP Code Generation
 
 **NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see `/abap/CLAUDE.md`. Copy that file to your ABAP repository root when setting up new projects.
