@@ -58,6 +58,12 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
       DATA lv_method_desc TYPE string.
+
+      " Skip constants (GC_*)
+      IF ls_comp-cmpname+0(3) = 'GC_'.
+        CONTINUE.
+      ENDIF.
+
       CONCATENATE 'PUBLIC' ls_comp-cmpname INTO lv_method_desc SEPARATED BY space.
       APPEND lv_method_desc TO rs_info-methods.
     ENDLOOP.

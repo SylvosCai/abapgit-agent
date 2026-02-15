@@ -55,13 +55,20 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     SELECT cmpname exposure FROM seocompodf
       INTO CORRESPONDING FIELDS OF TABLE lt_methods
-      WHERE clsname = lv_clsname.
+      WHERE clsname = lv_clsname
+        AND exposure = '0'.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
       DATA lv_method_name TYPE string.
       DATA lv_method_desc TYPE string.
       DATA lv_visibility TYPE string.
       lv_method_name = ls_comp-cmpname.
+
+      " Skip constants (GC_*) and attributes (MO_*, MV_*, etc.)
+      IF lv_method_name+0(3) = 'GC_' OR lv_method_name+0(3) = 'MO_' OR
+         lv_method_name+0(3) = 'MV_' OR lv_method_name+0(3) = 'MTD_'.
+        CONTINUE.
+      ENDIF.
 
       " Map exposure to visibility
       CASE ls_comp-exposure.
