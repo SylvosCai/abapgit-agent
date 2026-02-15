@@ -99,6 +99,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_inspection TYPE REF TO cl_ci_inspection,
           lt_list TYPE scit_alvlist,
           ls_error TYPE ty_error,
+          ls_list TYPE scit_alvlist,
           lx_error TYPE REF TO cx_root.
 
     rs_result-success = abap_true.
@@ -146,7 +147,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
         " Parse results - aggregate all errors
-        LOOP AT lt_list INTO DATA(ls_list).
+        LOOP AT lt_list INTO ls_list.
           CLEAR ls_error.
           ls_error-line = ls_list-line.
           ls_error-column = ls_list-col.
