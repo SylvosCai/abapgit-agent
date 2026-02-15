@@ -12,7 +12,9 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass.
+          lv_devclass TYPE tadir-devclass,
+          lv_leng TYPE dd04v-leng,
+          lv_decimals TYPE dd04v-decimals.
 
     rs_info-name = iv_name.
     rs_info-type = 'DTEL'.
@@ -31,7 +33,7 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
     SELECT SINGLE dd04v~rollname dd04v~ddtext dd04v~domname
                   dd04v~datatype dd04v~leng dd04v~decimals
       INTO (rs_info-name, rs_info-description, rs_info-domain,
-            rs_info-domain_type, CONV int4( dd04v~leng ), CONV int4( dd04v~decimals ))
+            rs_info-domain_type, lv_leng, lv_decimals)
       FROM dd04v
       WHERE rollname = iv_name
         AND ddlanguage = 'E'.
@@ -39,10 +41,13 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
       " Fallback: try without language filter
       SELECT SINGLE rollname ddtext domname datatype leng decimals
         INTO (rs_info-name, rs_info-description, rs_info-domain,
-              rs_info-domain_type, CONV int4( leng ), CONV int4( decimals ))
+              rs_info-domain_type, lv_leng, lv_decimals)
         FROM dd04v
         WHERE rollname = iv_name.
     ENDIF.
+
+    rs_info-domain_length = lv_leng.
+    rs_info-domain_decimals = lv_decimals.
 
     " Build components table for additional info
     IF rs_info-domain IS NOT INITIAL.
