@@ -355,7 +355,28 @@ TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
 ## View Command
 
 ### Description
-View ABAP object definitions directly from the ABAP system without pulling from git. Useful for understanding class definitions, method signatures, table structures, and data elements.
+View ABAP object definitions directly from the ABAP system without pulling from git. **This is the PRIMARY way to explore unfamiliar ABAP objects** - tables, structures, classes, interfaces, and data elements.
+
+**When you encounter an unknown table or structure, use this command instead of guessing!**
+
+### Explore Unknown Tables/Structures
+
+```bash
+# View table fields - see all columns, keys, and descriptions
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# View structure components
+abapgit-agent view --objects ZMY_STRUCT --type STRU
+
+# View data element type information
+abapgit-agent view --objects ZMY_DTEL --type DTEL
+
+# View class interface and methods
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS
+
+# View interface definition
+abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
+```
 
 ### Usage
 ```bash
@@ -495,6 +516,32 @@ export GIT_PASSWORD="git-token"
 ```
 
 ## Development Workflow
+
+### Exploring Unknown ABAP Objects
+
+**Before working with an unfamiliar table, structure, class, or interface:**
+
+```bash
+# Don't guess! Use view command to explore:
+
+# Check table structure
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# Check structure components
+abapgit-agent view --objects ZMY_STRUCT --type STRU
+
+# Check class methods and interface
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS
+
+# Check interface definition
+abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
+
+# Check data element type
+abapgit-agent view --objects ZMY_DTEL --type DTEL
+
+# JSON output for programmatic use
+abapgit-agent view --objects ZMY_TABLE --type TABL --json
+```
 
 ### CLI Tool Development
 
