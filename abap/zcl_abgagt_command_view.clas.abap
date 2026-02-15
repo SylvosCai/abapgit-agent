@@ -111,32 +111,30 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         ls_info-type_text = 'Unknown'.
       ELSE.
         ls_info-type = lv_type.
-      ENDIF.
 
-      " Set type text
-      CASE lv_type.
-        WHEN 'CLAS'. ls_info-type_text = 'Class'.
-        WHEN 'INTF'. ls_info-type_text = 'Interface'.
-        WHEN 'TABL'. ls_info-type_text = 'Table'.
-        WHEN 'STRU'. ls_info-type_text = 'Structure'.
-        WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
-        WHEN 'FUGR'. ls_info-type_text = 'Function Group'.
-        WHEN 'PROG'. ls_info-type_text = 'Program'.
-        WHEN OTHERS. ls_info-type_text = lv_type.
-      ENDCASE.
+        " Set type text
+        CASE lv_type.
+          WHEN 'CLAS'. ls_info-type_text = 'Class'.
+          WHEN 'INTF'. ls_info-type_text = 'Interface'.
+          WHEN 'TABL'. ls_info-type_text = 'Table'.
+          WHEN 'STRU'. ls_info-type_text = 'Structure'.
+          WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
+          WHEN OTHERS. ls_info-type_text = lv_type.
+        ENDCASE.
 
-      " Get viewer and retrieve info
-      TRY.
-          lo_viewer = lo_factory->get_viewer( lv_type ).
-          IF lo_viewer IS BOUND.
-            ls_info = lo_viewer->get_info( lv_object ).
-          ELSE.
+        " Get viewer and retrieve info only if object was found
+        TRY.
+            lo_viewer = lo_factory->get_viewer( lv_type ).
+            IF lo_viewer IS BOUND.
+              ls_info = lo_viewer->get_info( lv_object ).
+            ELSE.
+              ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
+            ENDIF.
+          CATCH cx_sy_create_object_error.
+            " Fallback for unknown types
             ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
-          ENDIF.
-        CATCH cx_sy_create_object_error.
-          " Fallback for unknown types
-          ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
-      ENDTRY.
+        ENDTRY.
+      ENDIF.
 
       APPEND ls_info TO lt_objects.
     ENDLOOP.
