@@ -1508,7 +1508,7 @@ Examples:
                   type: 8,
                   length: 8,
                   dataelement: 30, // Max data element name length
-                  description: 18,
+                  description: 60, // Max field description length
                 };
 
                 // Helper to truncate with ellipsis if needed
