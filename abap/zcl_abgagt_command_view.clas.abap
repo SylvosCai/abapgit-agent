@@ -171,9 +171,9 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           rs_object-description = |{ rs_object-type_text } { iv_name } in { lv_devclass }|.
         ENDIF.
 
-        " Get source code using READ REPORT
+        " Get source code using READ REPORT (class pools have different naming)
         DATA lv_progname TYPE program.
-        lv_progname = iv_name.
+        CONCATENATE 'SAPL' iv_name INTO lv_progname.
         READ REPORT lv_progname INTO lt_source.
         IF sy-subrc = 0.
           LOOP AT lt_source INTO lv_source.
