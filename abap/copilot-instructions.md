@@ -10,6 +10,34 @@ You are working on an ABAP project using abapGit for version control.
 | `abapgit-agent pull --files <file>` | Pull and activate specific file only |
 | `abapgit-agent inspect --files <file>` | Syntax check ABAP source |
 | `abapgit-agent unit --files <file>` | Run AUnit tests |
+| `abapgit-agent tree --package <package>` | Display package hierarchy |
+| `abapgit-agent view --objects <name>` | View object definitions |
+
+## Explore Unknown Objects
+
+**Before working with unfamiliar objects, use `view` command:**
+
+```bash
+# Check table structure
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# Check class definition
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS
+
+# Check interface
+abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
+
+# Check data element
+abapgit-agent view --objects ZMY_DTEL --type DTEL
+```
+
+## When to Use View Command
+
+AI assistant SHOULD call `view` command when:
+- User asks to "check", "look up", or "explore" an unfamiliar object
+- Working with a table/structure and you don't know the fields
+- Calling a class/interface method and you don't know the parameters
+- You need to verify an object exists before using it
 
 ## Key ABAP Rules
 
