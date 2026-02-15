@@ -194,7 +194,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     LOOP AT lt_direct_subs INTO ls_direct.
       CLEAR ls_node.
       ls_node-package = ls_direct-devclass.
-      ls_node-parent = ls_direct-parentcl.
+      ls_node-parent = iv_parent.
       ls_node-description = ls_direct-devclass.
       ls_node-depth = iv_current_depth.
       ls_node-object_count = get_object_count( ls_direct-devclass ).
