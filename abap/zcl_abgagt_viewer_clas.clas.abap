@@ -51,10 +51,11 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     " Extract method information from SEOCOMPODF
     DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
+    DATA ls_method LIKE LINE OF lt_methods.
 
     SELECT cmpname exposure FROM seocompodf
-      INTO TABLE @lt_methods
-      WHERE clsname = @lv_clsname
+      INTO CORRESPONDING FIELDS OF TABLE lt_methods
+      WHERE clsname = lv_clsname
         AND exposure = '0'.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
