@@ -20,8 +20,6 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
     DATA: BEGIN OF ls_request,
             objects TYPE string_table,
             type TYPE string,
-            include_methods TYPE abap_bool,
-            include_docs TYPE abap_bool,
           END OF ls_request.
 
     /ui2/cl_json=>deserialize(
@@ -58,8 +56,6 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
     DATA ls_params TYPE zcl_abgagt_command_view=>ty_view_params.
     ls_params-objects = ls_request-objects.
     ls_params-type = ls_request-type.
-    ls_params-include_methods = ls_request-include_methods.
-    ls_params-include_docs = ls_request-include_docs.
 
     DATA(lv_result) = lo_command->execute( is_param = ls_params ).
 
