@@ -150,47 +150,37 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     DATA lv_obj_name TYPE string.
     DATA lv_devclass TYPE tadir-devclass.
     DATA lv_source TYPE string.
+    DATA lt_source TYPE TABLE OF string.
 
     rs_object-name = iv_name.
     rs_object-type = iv_type.
 
     CASE iv_type.
-      WHEN 'CLAS'.
-        rs_object-type_text = 'Class'.
+      WHEN 'CLAS' OR 'INTF'.
+        IF iv_type = 'CLAS'.
+          rs_object-type_text = 'Class'.
+        ELSE.
+          rs_object-type_text = 'Interface'.
+        ENDIF.
+
         SELECT SINGLE obj_name devclass FROM tadir
           INTO (lv_obj_name, lv_devclass)
           WHERE obj_name = iv_name
-            AND object = 'CLAS'.
+            AND object = iv_type.
         IF sy-subrc = 0.
-          rs_object-description = |Class { iv_name } in { lv_devclass }|.
+          rs_object-description = |{ rs_object-type_text } { iv_name } in { lv_devclass }|.
         ENDIF.
 
-        " Get source code from SEOP_SOURCE
-        SELECT source FROM seop_source
-          INTO lv_source
-          WHERE clsname = iv_name
-            AND version = 'active'.
+        " Get source code using READ REPORT
+        READ REPORT iv_name INTO lt_source.
         IF sy-subrc = 0.
-          rs_object-source = lv_source.
-        ENDIF.
-
-      WHEN 'INTF'.
-        rs_object-type_text = 'Interface'.
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = iv_name
-            AND object = 'INTF'.
-        IF sy-subrc = 0.
-          rs_object-description = |Interface { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-        " Get source code from SEOP_SOURCE
-        SELECT source FROM seop_source
-          INTO lv_source
-          WHERE clsname = iv_name
-            AND version = 'active'.
-        IF sy-subrc = 0.
-          rs_object-source = lv_source.
+          LOOP AT lt_source INTO lv_source.
+            IF rs_object-source IS INITIAL.
+              rs_object-source = lv_source.
+            ELSE.
+              CONCATENATE rs_object-source lv_source INTO rs_object-source SEPARATED BY cl_abap_char_utilities=>newline.
+            ENDIF.
+          ENDLOOP.
         ENDIF.
 
       WHEN 'TABL'.
