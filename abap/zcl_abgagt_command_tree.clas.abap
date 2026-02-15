@@ -26,6 +26,12 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
            END OF ty_subpackage.
 
+    TYPES: BEGIN OF ty_summary,
+             total_packages TYPE i,
+             total_objects TYPE i,
+             objects_by_type TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY,
+           END OF ty_summary.
+
     TYPES: BEGIN OF ty_hierarchy,
              package TYPE tdevc-devclass,
              description TYPE string,
@@ -43,11 +49,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              package TYPE tdevc-devclass,
              message TYPE string,
              hierarchy TYPE ty_hierarchy,
-             summary TYPE BEGIN OF ty_summary,
-               total_packages TYPE i,
-               total_objects TYPE i,
-               objects_by_type TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY,
-             END OF ty_summary,
+             summary TYPE ty_summary,
              error TYPE string,
            END OF ty_tree_result.
 
