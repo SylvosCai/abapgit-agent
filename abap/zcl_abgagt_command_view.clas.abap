@@ -143,25 +143,11 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    DATA lv_prefix TYPE string.
-
-    lv_prefix = iv_name(4).
-
-    CASE lv_prefix.
-      WHEN 'ZCL_'. rv_type = 'CLAS'.
-      WHEN 'ZIF_'. rv_type = 'INTF'.
-      WHEN 'ZTY_'. rv_type = 'DTEL'.
-      WHEN 'ZS__'. rv_type = 'DTEL'.
-      WHEN OTHERS.
-        " Query TADIR to find actual object type for unknown prefixes (e.g., SAP tables like SFLIGHT)
-        SELECT SINGLE object FROM tadir
-          INTO rv_type
-          WHERE obj_name = iv_name
-            AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'PROG', 'FUGR').
-        IF sy-subrc <> 0.
-          rv_type = 'CLAS'.  " Default fallback
-        ENDIF.
-    ENDCASE.
+    " Query TADIR to find actual object type
+    SELECT SINGLE object FROM tadir
+      INTO rv_type
+      WHERE obj_name = iv_name
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'PROG', 'FUGR').
   ENDMETHOD.
 
   METHOD get_object_info.
