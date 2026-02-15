@@ -153,9 +153,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             CLEAR: lt_messages, lv_source.
 
             " Get the DDL source
-            SELECT SINGLE ddlname, ddltext
+            SELECT SINGLE ddltext
               FROM dddls
-              INTO (lv_ddls_name, lv_source)
+              INTO lv_source
               WHERE ddlname = lv_ddls_name.
 
             IF sy-subrc = 0 AND lv_source IS NOT INITIAL.
@@ -200,11 +200,13 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " If no errors from validation but we want to check activation
     IF rs_result-success = abap_true AND rs_result-errors IS INITIAL.
       " Try alternative: check if objects are active
+      DATA lv_objname TYPE tadir-objname.
       LOOP AT it_ddls_names INTO lv_ddls_name.
+        CLEAR lv_objname.
         SELECT SINGLE objname
           FROM tadir
-          INTO @DATA(lv_objname)
-          WHERE objname = @lv_ddls_name
+          INTO lv_objname
+          WHERE objname = lv_ddls_name
             AND object = 'DDLS'.
 
         IF sy-subrc <> 0.
