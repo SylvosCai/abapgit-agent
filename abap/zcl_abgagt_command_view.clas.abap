@@ -146,8 +146,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD detect_object_type.
     DATA lv_prefix TYPE string.
-    DATA lv_tab TYPE dd02l-tabname.
-    DATA lv_dtel TYPE dd04l-rollname.
 
     lv_prefix = iv_name(4).
 
@@ -157,31 +155,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        SELECT SINGLE tabname tabclass FROM dd02l INTO (@lv_tab, @DATA(lv_tabclass))
-          WHERE tabname = @iv_name.
-        IF sy-subrc = 0.
-          " Distinguish between tables and structures
-          IF lv_tabclass = 'INTTAB'.
-            rv_type = 'STRU'.
-          ELSE.
-            rv_type = 'TABL'.
-          ENDIF.
-        ELSE.
-          SELECT SINGLE rollname FROM dd04l INTO @lv_dtel
-            WHERE rollname = @iv_name.
-          IF sy-subrc = 0.
-            rv_type = 'DTEL'.
-          ELSE.
-            rv_type = 'CLAS'.
-          ENDIF.
-        ENDIF.
+        rv_type = 'CLAS'.
     ENDCASE.
-
-    IF iv_name CP 'ZCL_*' OR iv_name CP 'ZCL*'.
-      rv_type = 'CLAS'.
-    ELSEIF iv_name CP 'ZIF_*' OR iv_name CP 'ZIF*'.
-      rv_type = 'INTF'.
-    ENDIF.
   ENDMETHOD.
 
   METHOD get_object_info.
