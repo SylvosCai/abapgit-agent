@@ -13,7 +13,6 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
              datatype TYPE dd03l-datatype,
              leng TYPE dd03l-leng,
              decimals TYPE dd03l-decimals,
-             fieldtext TYPE dd04t-fieldtext,
            END OF ty_table_field.
 
     TYPES ty_table_fields TYPE TABLE OF ty_table_field WITH NON-UNIQUE DEFAULT KEY.
