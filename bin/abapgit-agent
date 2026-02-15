@@ -1442,6 +1442,18 @@ Examples:
               console.log(`     ${description}`);
             }
 
+            // Display source code for classes and interfaces
+            const source = obj.SOURCE || obj.source || '';
+            if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class')) {
+              console.log('');
+              // Replace escaped newlines with actual newlines and display
+              const displaySource = source.replace(/\\n/g, '\n');
+              const lines = displaySource.split('\n');
+              for (const line of lines) {
+                console.log(`  ${line}`);
+              }
+            }
+
             if (methods.length > 0) {
               console.log(`     Methods: ${methods.length}`);
               for (const method of methods.slice(0, 5)) {
