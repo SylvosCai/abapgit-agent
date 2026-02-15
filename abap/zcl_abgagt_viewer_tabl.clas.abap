@@ -29,7 +29,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Build components table
-    SELECT fieldname datatype keyflag FROM dd03l
+    SELECT fieldname AS fieldname, datatype AS type, keyflag AS key FROM dd03l
       INTO CORRESPONDING FIELDS OF TABLE rs_info-components
       WHERE tabname = lv_tabname
         AND as4local = 'A'
