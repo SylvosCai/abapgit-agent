@@ -12,8 +12,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass,
-          lt_fields TYPE TABLE OF dd03l.
+          lv_devclass TYPE tadir-devclass.
 
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
@@ -26,28 +25,14 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       rs_info-description = |Table { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Build field list as JSON array
-    DATA lv_json TYPE string.
-    lv_json = '['.
-
-    SELECT fieldname position datatype leng FROM dd03l
+    " Build components JSON
+    SELECT fieldname datatype leng AS length FROM dd03l
       WHERE tabname = iv_name
         AND as4local = 'A'
       ORDER BY position
-      INTO TABLE lt_fields.
+      INTO TABLE @DATA(lt_fields).
 
-    DATA lv_first TYPE abap_bool VALUE abap_true.
-    LOOP AT lt_fields ASSIGNING FIELD-SYMBOL(<ls_field>).
-      IF lv_first = abap_false.
-        lv_json = lv_json && ','.
-      ENDIF.
-      lv_first = abap_false.
-      DATA(lv_line) = |"{ <ls_field>-fieldname }",{ <ls_field>-position },"{ <ls_field>-datatype }",{ <ls_field>-leng }|.
-      lv_json = lv_json && lv_line.
-    ENDLOOP.
-
-    lv_json = lv_json && ']'.
-    rs_info-details = lv_json.
+    rs_info-components = /ui2/cl_json=>serialize( data = lt_fields ).
   ENDMETHOD.
 
 ENDCLASS.

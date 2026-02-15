@@ -19,7 +19,10 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
-             details TYPE string,
+             source TYPE string,           " Full ABAP source code (if requested)
+             definition TYPE string,       " Parsed definition block (for CLAS/INTF)
+             methods TYPE string_table,   " Method list (for CLAS/INTF)
+             components TYPE string,      " Field list as JSON (for TABL/STRU)
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
