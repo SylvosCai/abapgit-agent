@@ -146,8 +146,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_object_info.
-    DATA lv_descr TYPE string.
-    DATA lv_ddtext TYPE string.
+    DATA lv_obj_name TYPE string.
+    DATA lv_devclass TYPE tadir-devclass.
 
     rs_object-name = iv_name.
     rs_object-type = iv_type.
@@ -155,33 +155,53 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     CASE iv_type.
       WHEN 'CLAS'.
         rs_object-type_text = 'Class'.
-        SELECT SINGLE seoclass~descr FROM seoclass INTO lv_descr
-          WHERE clsname = iv_name.
-        rs_object-description = lv_descr.
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = iv_name
+            AND object = 'CLAS'.
+        IF sy-subrc = 0.
+          rs_object-description = |Class { iv_name } in { lv_devclass }|.
+        ENDIF.
 
       WHEN 'INTF'.
         rs_object-type_text = 'Interface'.
-        SELECT SINGLE seoclass~descr FROM seoclass INTO lv_descr
-          WHERE clsname = iv_name.
-        rs_object-description = lv_descr.
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = iv_name
+            AND object = 'INTF'.
+        IF sy-subrc = 0.
+          rs_object-description = |Interface { iv_name } in { lv_devclass }|.
+        ENDIF.
 
       WHEN 'TABL'.
         rs_object-type_text = 'Table'.
-        SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
-          WHERE tabname = iv_name.
-        rs_object-description = lv_ddtext.
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = iv_name
+            AND object = 'TABL'.
+        IF sy-subrc = 0.
+          rs_object-description = |Table { iv_name } in { lv_devclass }|.
+        ENDIF.
 
       WHEN 'STRU'.
         rs_object-type_text = 'Structure'.
-        SELECT SINGLE dd02l~ddtext FROM dd02l INTO lv_ddtext
-          WHERE tabname = iv_name.
-        rs_object-description = lv_ddtext.
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = iv_name
+            AND object = 'TABL'.
+        IF sy-subrc = 0.
+          rs_object-description = |Structure { iv_name } in { lv_devclass }|.
+        ENDIF.
 
       WHEN 'DTEL'.
         rs_object-type_text = 'Data Element'.
-        SELECT SINGLE dd04l~ddtext FROM dd04l INTO lv_ddtext
-          WHERE rollname = iv_name.
-        rs_object-description = lv_ddtext.
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = iv_name
+            AND object = 'DTEL'.
+        IF sy-subrc = 0.
+          rs_object-description = |Data Element { iv_name } in { lv_devclass }|.
+        ENDIF.
 
       WHEN OTHERS.
         rs_object-type_text = iv_type.
