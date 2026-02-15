@@ -104,7 +104,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type( lv_object ).
       ENDIF.
-      ls_info-type = lv_type.
+
+      " Check if object was not found in TADIR
+      IF lv_type IS INITIAL.
+        ls_info-not_found = abap_true.
+        ls_info-type_text = 'Unknown'.
+      ELSE.
+        ls_info-type = lv_type.
+      ENDIF.
 
       " Set type text
       CASE lv_type.
