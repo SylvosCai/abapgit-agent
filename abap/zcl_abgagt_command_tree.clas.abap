@@ -119,10 +119,12 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       rs_result-success = abap_false.
       rs_result-package = lv_package.
       rs_result-error = |Package { lv_package } does not exist|.
+      rv_result = /ui2/cl_json=>serialize( data = rs_result ).
       RETURN.
     ENDIF.
 
     rs_result-success = abap_true.
+    rs_result-command = 'TREE'.
     rs_result-package = lv_package.
     rs_result-message = 'Tree retrieved successfully'.
     rs_result-parent_package = ls_package-parentcl.
