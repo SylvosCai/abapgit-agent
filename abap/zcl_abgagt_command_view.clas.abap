@@ -23,21 +23,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
            END OF ty_component.
 
-    TYPES: BEGIN OF ty_view_object,
-             name TYPE string,
-             type TYPE string,
-             type_text TYPE string,
-             description TYPE string,
-             domain TYPE string,            " Domain name (for DTEL)
-             domain_type TYPE string,       " Domain data type (for DTEL)
-             domain_length TYPE int4,       " Domain length (for DTEL)
-             domain_decimals TYPE int4,    " Domain decimals (for DTEL)
-             source TYPE string,           " Full ABAP source code (if requested)
-             definition TYPE string,       " Parsed definition block (for CLAS/INTF)
-             methods TYPE STANDARD TABLE OF ty_method WITH DEFAULT KEY,
-             components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
-           END OF ty_view_object.
-
     TYPES: BEGIN OF ty_method_param,
              name TYPE string,
              type TYPE string,
@@ -57,6 +42,21 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              parameters TYPE STANDARD TABLE OF ty_method_param WITH DEFAULT KEY,
              return TYPE ty_method_return,
            END OF ty_method.
+
+    TYPES: BEGIN OF ty_view_object,
+             name TYPE string,
+             type TYPE string,
+             type_text TYPE string,
+             description TYPE string,
+             domain TYPE string,            " Domain name (for DTEL)
+             domain_type TYPE string,       " Domain data type (for DTEL)
+             domain_length TYPE int4,       " Domain length (for DTEL)
+             domain_decimals TYPE int4,    " Domain decimals (for DTEL)
+             source TYPE string,           " Full ABAP source code (if requested)
+             definition TYPE string,       " Parsed definition block (for CLAS/INTF)
+             methods TYPE STANDARD TABLE OF ty_method WITH DEFAULT KEY,
+             components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
+           END OF ty_view_object.
 
     TYPES ty_view_objects TYPE STANDARD TABLE OF ty_view_object WITH DEFAULT KEY.
 
