@@ -1505,8 +1505,8 @@ Examples:
                 const colWidths = {
                   field: 14,
                   key: 3,
-                  type: 14,
-                  length: 8,
+                  type: 6,
+                  length: 5,
                   dataelement: 14,
                   description: 20,
                 };
