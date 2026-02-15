@@ -18,7 +18,7 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_table_fields TYPE TABLE OF ty_table_field WITH NON-UNIQUE DEFAULT KEY.
 
     METHODS get_table_fields
-      IMPORTING iv_tabname TYPE dd02l-tabname
+      IMPORTING iv_tabname TYPE string
       RETURNING VALUE(rt_fields) TYPE ty_table_fields.
 
 ENDCLASS.
@@ -47,12 +47,15 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_fields.
+    DATA lv_tabname TYPE dd02l-tabname.
+    lv_tabname = iv_tabname.
+
     SELECT fieldname position datatype leng decimals
       FROM dd03l
-      WHERE tabname = @iv_tabname
+      WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position
-      INTO CORRESPONDING FIELDS OF TABLE @rt_fields.
+      INTO CORRESPONDING FIELDS OF TABLE rt_fields.
   ENDMETHOD.
 
 ENDCLASS.
