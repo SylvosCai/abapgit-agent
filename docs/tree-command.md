@@ -139,59 +139,75 @@ TYPES: CLAS=5 PROG=10
 
 ```json
 {
-  "success": "X",
-  "command": "TREE",
-  "package": "$ZMAIN_PACKAGE",
-  "message": "Tree retrieved successfully",
-  "hierarchy": {
-    "package": "$ZMAIN_PACKAGE",
-    "description": "Main Package",
-    "parent": {
-      "package": "$ZSAP_BASE",
-      "description": "SAP Base Package"
+  "SUCCESS": true,
+  "COMMAND": "TREE",
+  "PACKAGE": "$ZMAIN_PACKAGE",
+  "MESSAGE": "Tree retrieved successfully",
+  "PARENT_PACKAGE": "$ZSAP_BASE",
+  "NODES": [
+    {
+      "PACKAGE": "$ZMAIN_PACKAGE",
+      "PARENT": "",
+      "DESCRIPTION": "$ZMAIN_PACKAGE",
+      "DEPTH": 0,
+      "OBJECT_COUNT": 11
     },
-    "subpackages": [
-      {
-        "package": "$ZMAIN_SUB1",
-        "description": "Sub Package 1",
-        "depth": 1,
-        "object_count": 10,
-        "objects": {
-          "CLAS": 5,
-          "INTF": 2,
-          "PROG": 3
-        },
-        "subpackages": [
-          {
-            "package": "$ZMAIN_SUB1_A",
-            "description": "Sub Package 1A",
-            "depth": 2,
-            "object_count": 3,
-            "objects": {
-              "CLAS": 2,
-              "TABL": 1
-            },
-            "subpackages": []
-          }
-        ]
-      }
-    ],
-    "total_subpackages": 5,
-    "total_objects": 127
-  },
-  "summary": {
-    "total_packages": 6,
-    "total_objects": 127,
-    "objects_by_type": {
-      "CLAS": 10,
-      "INTF": 2,
-      "PROG": 11,
-      "FUGR": 1,
-      "TABL": 3
+    {
+      "PACKAGE": "$ZMAIN_SUB1",
+      "PARENT": "$ZMAIN_PACKAGE",
+      "DESCRIPTION": "Sub Package 1",
+      "DEPTH": 1,
+      "OBJECT_COUNT": 10
+    },
+    {
+      "PACKAGE": "$ZMAIN_SUB1_A",
+      "PARENT": "$ZMAIN_SUB1",
+      "DESCRIPTION": "Sub Package 1A",
+      "DEPTH": 2,
+      "OBJECT_COUNT": 3
     }
-  }
+  ],
+  "TOTAL_PACKAGES": 6,
+  "TOTAL_OBJECTS": 127,
+  "OBJECTS": [
+    { "OBJECT": "CLAS", "COUNT": 10 },
+    { "OBJECT": "INTF", "COUNT": 2 },
+    { "OBJECT": "PROG", "COUNT": 11 },
+    { "OBJECT": "FUGR", "COUNT": 1 },
+    { "OBJECT": "TABL", "COUNT": 3 }
+  ],
+  "ERROR": ""
 }
 ```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `SUCCESS` | boolean | Whether the request succeeded |
+| `COMMAND` | string | Command name ("TREE") |
+| `PACKAGE` | string | Root package name |
+| `MESSAGE` | string | Status message |
+| `PARENT_PACKAGE` | string | Parent package (empty if root) |
+| `NODES` | array | Flat list of all packages with parent refs |
+| `TOTAL_PACKAGES` | number | Total packages in tree |
+| `TOTAL_OBJECTS` | number | Total objects in tree |
+| `OBJECTS` | array | Object counts by type [{OBJECT, COUNT}] |
+| `ERROR` | string | Error message (empty if success) |
+
+**Node Structure:**
+
+Each entry in `NODES` array:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `PACKAGE` | string | Package name |
+| `PARENT` | string | Parent package name |
+| `DESCRIPTION` | string | Package description |
+| `DEPTH` | number | Depth in tree (0 = root) |
+| `OBJECT_COUNT` | number | Objects in this package |
+
+**Note:** The `NODES` array is flat - children are identified by `PARENT` reference. The CLI builds the tree display by grouping nodes by depth and parent.
 
 ---
 
@@ -232,34 +248,23 @@ The default output includes an HTML-style comment block for reliable AI parsing:
 
 ```json
 {
-  "success": "X",
-  "command": "TREE",
-  "package": "$ZMAIN_PACKAGE",
-  "message": "Tree retrieved successfully",
-  "hierarchy": {
-    "package": "$ZMAIN_PACKAGE",
-    "description": "Main Package",
-    "parent": {
-      "package": "$ZSAP_BASE",
-      "description": "SAP Base Package"
-    },
-    "subpackages": [...],
-    "total_subpackages": 5,
-    "total_objects": 127
-  },
-  "summary": {
-    "total_packages": 6,
-    "total_objects": 127,
-    "objects_by_type": {
-      "CLAS": 10,
-      "INTF": 2,
-      "PROG": 11,
-      "FUGR": 1,
-      "TABL": 3
-    }
-  }
+  "SUCCESS": true,
+  "COMMAND": "TREE",
+  "PACKAGE": "$ZMAIN_PACKAGE",
+  "MESSAGE": "Tree retrieved successfully",
+  "PARENT_PACKAGE": "$ZSAP_BASE",
+  "NODES": [...],
+  "TOTAL_PACKAGES": 6,
+  "TOTAL_OBJECTS": 127,
+  "OBJECTS": [
+    { "OBJECT": "CLAS", "COUNT": 10 },
+    { "OBJECT": "INTF", "COUNT": 2 }
+  ],
+  "ERROR": ""
 }
 ```
+
+See [JSON Output](#json-output-pure-scripting) for full schema.
 
 ### AI Metadata (Default Mode)
 
@@ -319,7 +324,7 @@ abapgit-agent tree --package $ZMY_PACKAGE --json > tree.json
 abapgit-agent tree --package $ZMY_PACKAGE | grep -oP '(?<=<!-- AI_METADATA_START -->).*(?=<!-- AI_METADATA_END -->)' | jq '.total_objects'
 
 # CI/CD usage with jq
-COUNT=$(abapgit-agent tree --package $ZMY_PACKAGE --json | jq '.summary.total_objects')
+COUNT=$(abapgit-agent tree --package $ZMY_PACKAGE --json | jq '.TOTAL_OBJECTS')
 echo "Package contains $COUNT objects"
 ```
 
@@ -331,29 +336,32 @@ echo "Package contains $COUNT objects"
 
 | Table | Purpose |
 |-------|---------|
-| **TDEVC** | Package definitions (contains `PARENT_PACK` for hierarchy) |
+| **TDEVC** | Package definitions (contains `PARENTCL` for hierarchy) |
 | **TADIR** | Object directory (for object counts per package) |
 
 ### Query Logic
 
 ```abap
-" Get direct parent
-SELECT SINGLE devclass, parent_pack, as4text
-  FROM tdevc
- INTO @DATA(ls_parent)
- WHERE devclass = @iv_package.
+" Get root package with parent
+SELECT SINGLE devclass parentcl FROM tdevc
+  INTO ls_package
+ WHERE devclass = lv_package.
 
-" Get sub-packages recursively (up to depth)
-SELECT devclass, parent_pack, as4text
-  FROM tdevc
- INTO TABLE @DATA(lt_subpackages)
- WHERE parent_pack = @iv_package
-    OR parent_pack IN ( SELECT devclass FROM tdevc WHERE parent_pack = @iv_package ).
+" Get direct sub-packages recursively (up to depth)
+SELECT devclass parentcl FROM tdevc
+  INTO TABLE lt_direct_subs
+ WHERE parentcl = iv_parent.
 
-" Get object counts per package
-SELECT devclass, object, COUNT(*)
-  FROM tadir
- INTO TABLE @DATA(lt_counts)
- WHERE devclass = @iv_package
- GROUP BY devclass, object.
+" Get object count per package
+SELECT COUNT(*) FROM tadir
+  INTO lv_count
+ WHERE devclass = iv_package
+   AND object NOT IN ('DEVC', 'PACK').
+
+" Get object counts by type
+SELECT object COUNT(*) AS count FROM tadir
+  INTO TABLE lt_counts
+ WHERE devclass = iv_package
+   AND object NOT IN ('DEVC', 'PACK')
+ GROUP BY object.
 ```
