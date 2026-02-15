@@ -49,7 +49,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL). Auto-detected from name prefix if not specified |
+| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---

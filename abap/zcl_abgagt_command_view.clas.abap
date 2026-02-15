@@ -147,7 +147,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     SELECT SINGLE object FROM tadir
       INTO rv_type
       WHERE obj_name = iv_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'PROG', 'FUGR').
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU').
   ENDMETHOD.
 
   METHOD get_object_info.
