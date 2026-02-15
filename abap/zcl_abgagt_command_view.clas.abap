@@ -18,7 +18,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              field TYPE string,
              key TYPE abap_bool,
              type TYPE string,
-             length TYPE i,
+             length TYPE int4,
              description TYPE string,
            END OF ty_component.
 
