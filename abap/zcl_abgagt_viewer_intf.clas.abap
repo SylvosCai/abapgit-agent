@@ -27,10 +27,10 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     ENDIF.
 
     " Fetch interface methods from SEOU table
-    SELECT methodname exposure
-      FROM seou
-      INTO TABLE @DATA(lt_methods)
-      WHERE clsname = @iv_name.
+    DATA lt_methods TYPE STANDARD TABLE OF seou WITH DEFAULT KEY.
+    SELECT methodname FROM seou
+      INTO TABLE lt_methods
+      WHERE clsname = iv_name.
     IF sy-subrc = 0.
       LOOP AT lt_methods INTO DATA(ls_method).
         lv_method = |PUBLIC { ls_method-methodname }|.
