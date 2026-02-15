@@ -47,8 +47,9 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     DATA lv_tabname TYPE dd02l-tabname.
     lv_tabname = iv_tabname.
 
+    DATA lt_fields TYPE TABLE OF dd03l.
     SELECT fieldname datatype keyflag FROM dd03l
-      INTO TABLE @DATA(lt_fields)
+      INTO TABLE lt_fields
       WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position.
