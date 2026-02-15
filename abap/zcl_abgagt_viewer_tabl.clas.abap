@@ -43,7 +43,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       <ls_comp>-length = ls_dd03l-leng.
 
       " Get description from DD04T
-      SELECT SINGLE fieldtext FROM dd04t
+      SELECT SINGLE ddtext FROM dd04t
         INTO <ls_comp>-description
         WHERE rollname = <ls_comp>-dataelement
           AND ddlanguage = 'E'
