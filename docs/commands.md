@@ -66,6 +66,10 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 # Display package hierarchy
 abapgit-agent tree --package $MY_PACKAGE
 
+# View object definitions (classes, interfaces, tables, data elements)
+abapgit-agent view --objects ZCL_MY_CLASS
+abapgit-agent view --objects SFLIGHT --type TABL
+
 # Check configuration
 abapgit-agent status
 
