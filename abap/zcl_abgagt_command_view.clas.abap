@@ -96,7 +96,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_view_params,
           ls_result TYPE ty_view_result,
-          lt_objects TYPE ty_view_objects.
+          lt_objects TYPE ty_view_objects,
+          lv_object TYPE string.
 
     ls_result-command = zif_abgagt_command=>gc_view.
 
@@ -111,18 +112,15 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Process each object
-    LOOP AT ls_params-objects INTO DATA(lv_object).
+    LOOP AT ls_params-objects INTO lv_object.
       DATA(ls_object) = VALUE ty_view_object( name = lv_object ).
 
-      " Detect or use specified type
       IF ls_params-type IS NOT INITIAL.
         ls_object-type = ls_params-type.
       ELSE.
         ls_object-type = detect_object_type( lv_object ).
       ENDIF.
 
-      " Set type text
       CASE ls_object-type.
         WHEN 'CLAS'. ls_object-type_text = 'Class'.
         WHEN 'INTF'. ls_object-type_text = 'Interface'.
@@ -134,7 +132,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         WHEN OTHERS. ls_object-type_text = ls_object-type.
       ENDCASE.
 
-      " Get object info based on type
       CASE ls_object-type.
         WHEN 'CLAS'.
           ls_object = get_class_info( lv_object ).
@@ -162,8 +159,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    " Auto-detect object type from name prefix
-    DATA(lv_prefix) = iv_name(4).
+    DATA lv_prefix TYPE string.
+    lv_prefix = iv_name(4).
 
     CASE lv_prefix.
       WHEN 'ZCL_'. rv_type = 'CLAS'.
@@ -171,23 +168,23 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        " Check for table/structure patterns
-        SELECT SINGLE tabname FROM dd02l INTO @DATA(lv_tab)
-          WHERE tabname = @iv_name.
+        DATA lv_tab TYPE dd02l-tabname.
+        SELECT SINGLE tabname FROM dd02l INTO lv_tab
+          WHERE tabname = iv_name.
         IF sy-subrc = 0.
           rv_type = 'TABL'.
         ELSE.
-          SELECT SINGLE rollname FROM dd04l INTO @DATA(lv_dtel)
-            WHERE rollname = @iv_name.
+          DATA lv_dtel TYPE dd04l-rollname.
+          SELECT SINGLE rollname FROM dd04l INTO lv_dtel
+            WHERE rollname = iv_name.
           IF sy-subrc = 0.
             rv_type = 'DTEL'.
           ELSE.
-            rv_type = 'CLAS'. " Default to CLAS
+            rv_type = 'CLAS'.
           ENDIF.
         ENDIF.
     ENDCASE.
 
-    " Override with type parameter if specified
     IF iv_name CP 'ZCL_*' OR iv_name CP 'ZCL*'.
       rv_type = 'CLAS'.
     ELSEIF iv_name CP 'ZIF_*' OR iv_name CP 'ZIF*'.
@@ -196,167 +193,181 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_class_info.
+    DATA lv_descript TYPE string.
+    SELECT SINGLE descript FROM seoclass INTO lv_descript
+      WHERE clsname = iv_name.
+
+    DATA lt_methods TYPE ty_methods.
+    SELECT cmpname descript expos FROM seocompodf
+      INTO CORRESPONDING FIELDS OF TABLE lt_methods
+      WHERE clsname = iv_name
+        AND expos IN ('0','1','2')
+        AND type = '0'.
+
+    DATA ls_method LIKE LINE OF lt_methods.
+    LOOP AT lt_methods INTO ls_method.
+      CASE ls_method-expos.
+        WHEN '0'. ls_method-visibility = 'PUBLIC'.
+        WHEN '1'. ls_method-visibility = 'PROTECTED'.
+        WHEN '2'. ls_method-visibility = 'PRIVATE'.
+      ENDCASE.
+      MODIFY lt_methods FROM ls_method.
+    ENDLOOP.
+
     rs_object-name = iv_name.
     rs_object-type = 'CLAS'.
     rs_object-type_text = 'Class'.
-
-    " Get class description
-    SELECT SINGLE descript FROM seoclass INTO @DATA(lv_descript)
-      WHERE clsname = @iv_name.
-    IF sy-subrc = 0.
-      rs_object-description = lv_descript.
-    ENDIF.
-
-    " Get method definitions
-    SELECT cmpname descript expos FROM seocompodf
-      INTO TABLE @DATA(lt_methods)
-      WHERE clsname = @iv_name
-        AND expos IN ('0','1','2')
-        AND type = '0'.
-    IF sy-subrc = 0.
-      LOOP AT lt_methods INTO DATA(ls_method).
-        DATA(ls_method_out) = VALUE ty_method(
-          name = ls_method-cmpname
-          descript = ls_method-descript
-        ).
-        CASE ls_method-expos.
-          WHEN '0'. ls_method_out-visibility = 'PUBLIC'.
-          WHEN '1'. ls_method_out-visibility = 'PROTECTED'.
-          WHEN '2'. ls_method_out-visibility = 'PRIVATE'.
-        ENDCASE.
-        APPEND ls_method_out TO rs_object-methods.
-      ENDLOOP.
-    ENDIF.
+    rs_object-description = lv_descript.
+    rs_object-methods = lt_methods.
   ENDMETHOD.
 
   METHOD get_interface_info.
+    DATA lv_descript TYPE string.
+    SELECT SINGLE descript FROM seoclass INTO lv_descript
+      WHERE clsname = iv_name.
+
+    DATA lt_methods TYPE ty_methods.
+    SELECT cmpname descript FROM seocompodf
+      INTO CORRESPONDING FIELDS OF TABLE lt_methods
+      WHERE clsname = iv_name.
+
+    DATA ls_method LIKE LINE OF lt_methods.
+    LOOP AT lt_methods INTO ls_method.
+      ls_method-visibility = 'PUBLIC'.
+      MODIFY lt_methods FROM ls_method.
+    ENDLOOP.
+
     rs_object-name = iv_name.
     rs_object-type = 'INTF'.
     rs_object-type_text = 'Interface'.
-
-    " Get interface description
-    SELECT SINGLE descript FROM seoclass INTO @DATA(lv_descript)
-      WHERE clsname = @iv_name.
-    IF sy-subrc = 0.
-      rs_object-description = lv_descript.
-    ENDIF.
-
-    " Get interface methods
-    SELECT cmpname descript FROM seocompodf
-      INTO TABLE @DATA(lt_methods)
-      WHERE clsname = @iv_name.
-    IF sy-subrc = 0.
-      LOOP AT lt_methods INTO DATA(ls_method).
-        APPEND VALUE ty_method(
-          name = ls_method-cmpname
-          descript = ls_method-descript
-          visibility = 'PUBLIC'
-        ) TO rs_object-methods.
-      ENDLOOP.
-    ENDIF.
+    rs_object-description = lv_descript.
+    rs_object-methods = lt_methods.
   ENDMETHOD.
 
   METHOD get_table_info.
+    DATA lv_ddtext TYPE string.
+    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+      WHERE tabname = iv_name.
+
+    DATA: BEGIN OF ls_field,
+            fieldname TYPE dd03l-fieldname,
+            keyflag TYPE dd03l-keyflag,
+            datatype TYPE dd03l-datatype,
+            leng TYPE dd03l-leng,
+          END OF ls_field.
+    DATA lt_fields LIKE TABLE OF ls_field.
+
+    SELECT fieldname keyflag datatype leng FROM dd03l
+      INTO CORRESPONDING FIELDS OF TABLE lt_fields
+      WHERE tabname = iv_name
+        AND as4local = 'A'
+      ORDER BY position.
+
+    DATA lt_components TYPE ty_components.
+    DATA ls_component TYPE ty_component.
+    DATA lv_desc TYPE string.
+
+    LOOP AT lt_fields INTO ls_field.
+      CLEAR lv_desc.
+      SELECT SINGLE ddtext FROM dd04l INTO lv_desc
+        WHERE rollname = ls_field-datatype.
+      ls_component-fieldname = ls_field-fieldname.
+      ls_component-keyflag = ls_field-keyflag.
+      ls_component-datatype = ls_field-datatype.
+      ls_component-leng = ls_field-leng.
+      ls_component-description = lv_desc.
+      APPEND ls_component TO lt_components.
+    ENDLOOP.
+
     rs_object-name = iv_name.
     rs_object-type = 'TABL'.
     rs_object-type_text = 'Table'.
-
-    " Get table description
-    SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
-      WHERE tabname = @iv_name.
-    IF sy-subrc = 0.
-      rs_object-description = lv_ddtext.
-    ENDIF.
-
-    " Get table fields
-    SELECT fieldname keyflag datatype leng FROM dd03l
-      INTO TABLE @DATA(lt_fields)
-      WHERE tabname = @iv_name
-        AND as4local = 'A'
-      ORDER BY position.
-    IF sy-subrc = 0.
-      LOOP AT lt_fields INTO DATA(ls_field).
-        DATA lv_desc TYPE string.
-        " Get field description from DD04L
-        SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
-          WHERE rollname = @ls_field-datatype.
-        APPEND VALUE ty_component(
-          fieldname = ls_field-fieldname
-          keyflag = ls_field-keyflag
-          datatype = ls_field-datatype
-          leng = ls_field-leng
-          description = lv_desc
-        ) TO rs_object-components.
-      ENDLOOP.
-    ENDIF.
+    rs_object-description = lv_ddtext.
+    rs_object-components = lt_components.
   ENDMETHOD.
 
   METHOD get_structure_info.
+    DATA lv_ddtext TYPE string.
+    SELECT SINGLE ddtext FROM dd02l INTO lv_ddtext
+      WHERE tabname = iv_name.
+
+    DATA: BEGIN OF ls_field,
+            fieldname TYPE dd03l-fieldname,
+            keyflag TYPE dd03l-keyflag,
+            datatype TYPE dd03l-datatype,
+            leng TYPE dd03l-leng,
+          END OF ls_field.
+    DATA lt_fields LIKE TABLE OF ls_field.
+
+    SELECT fieldname keyflag datatype leng FROM dd03l
+      INTO CORRESPONDING FIELDS OF TABLE lt_fields
+      WHERE tabname = iv_name
+        AND as4local = 'A'
+      ORDER BY position.
+
+    DATA lt_components TYPE ty_components.
+    DATA ls_component TYPE ty_component.
+    DATA lv_desc TYPE string.
+
+    LOOP AT lt_fields INTO ls_field.
+      CLEAR lv_desc.
+      SELECT SINGLE ddtext FROM dd04l INTO lv_desc
+        WHERE rollname = ls_field-datatype.
+      ls_component-fieldname = ls_field-fieldname.
+      ls_component-keyflag = ls_field-keyflag.
+      ls_component-datatype = ls_field-datatype.
+      ls_component-leng = ls_field-leng.
+      ls_component-description = lv_desc.
+      APPEND ls_component TO lt_components.
+    ENDLOOP.
+
     rs_object-name = iv_name.
     rs_object-type = 'STRU'.
     rs_object-type_text = 'Structure'.
-
-    " Get structure description
-    SELECT SINGLE ddtext FROM dd02l INTO @DATA(lv_ddtext)
-      WHERE tabname = @iv_name.
-    IF sy-subrc = 0.
-      rs_object-description = lv_ddtext.
-    ENDIF.
-
-    " Get structure fields (same as tables)
-    SELECT fieldname keyflag datatype leng FROM dd03l
-      INTO TABLE @DATA(lt_fields)
-      WHERE tabname = @iv_name
-        AND as4local = 'A'
-      ORDER BY position.
-    IF sy-subrc = 0.
-      LOOP AT lt_fields INTO DATA(ls_field).
-        DATA lv_desc TYPE string.
-        SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
-          WHERE rollname = @ls_field-datatype.
-        APPEND VALUE ty_component(
-          fieldname = ls_field-fieldname
-          keyflag = ls_field-keyflag
-          datatype = ls_field-datatype
-          leng = ls_field-leng
-          description = lv_desc
-        ) TO rs_object-components.
-      ENDLOOP.
-    ENDIF.
+    rs_object-description = lv_ddtext.
+    rs_object-components = lt_components.
   ENDMETHOD.
 
   METHOD get_data_element_info.
+    DATA: BEGIN OF ls_dtel,
+            ddtext TYPE dd04l-ddtext,
+            datatype TYPE dd04l-datatype,
+            leng TYPE dd04l-leng,
+            outputlen TYPE dd04l-outputlen,
+          END OF ls_dtel.
+
+    SELECT ddtext datatype leng outputlen FROM dd04l
+      INTO ls_dtel
+      WHERE rollname = iv_name.
+
+    DATA lv_desc TYPE string.
+    CONCATENATE ls_dtel-ddtext '(Type:' ls_dtel-datatype 'Length:' ls_dtel-leng ')' INTO lv_desc SEPARATED BY SPACE.
+
+    DATA ls_component TYPE ty_component.
+    ls_component-fieldname = iv_name.
+    ls_component-datatype = ls_dtel-datatype.
+    ls_component-leng = ls_dtel-leng.
+    ls_component-description = ls_dtel-ddtext.
+
     rs_object-name = iv_name.
     rs_object-type = 'DTEL'.
     rs_object-type_text = 'Data Element'.
-
-    " Get data element info
-    SELECT SINGLE ddtext datatype leng outputlen FROM dd04l
-      INTO @DATA(ls_dtel)
-      WHERE rollname = @iv_name.
-    IF sy-subrc = 0.
-      DATA lv_desc TYPE string.
-      CONCATENATE ls_dtel-ddtext '(Type:' ls_dtel-datatype 'Length:' ls_dtel-leng ')' INTO lv_desc SEPARATED BY SPACE.
-      rs_object-description = lv_desc.
-    ENDIF.
-
-    " Add as a component for consistent output
-    APPEND VALUE ty_component(
-      fieldname = iv_name
-      datatype = ls_dtel-datatype
-      leng = ls_dtel-leng
-      description = ls_dtel-ddtext
-    ) TO rs_object-components.
+    rs_object-description = lv_desc.
+    APPEND ls_component TO rs_object-components.
   ENDMETHOD.
 
   METHOD build_summary.
+    DATA ls_obj LIKE LINE OF it_objects.
+    DATA lv_type TYPE string.
+    DATA lv_found.
+    DATA ls_type TYPE string.
+
     rs_summary-total = lines( it_objects ).
 
-    " Count by type
-    LOOP AT it_objects INTO DATA(ls_obj).
-      DATA(lv_type) = ls_obj-type.
-      DATA(lv_found) = abap_false.
-      LOOP AT rs_summary-by_type INTO DATA(ls_type).
+    LOOP AT it_objects INTO ls_obj.
+      lv_type = ls_obj-type.
+      lv_found = abap_false.
+      LOOP AT rs_summary-by_type INTO ls_type.
         IF ls_type = lv_type.
           lv_found = abap_true.
           EXIT.
