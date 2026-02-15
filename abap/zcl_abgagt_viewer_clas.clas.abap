@@ -28,10 +28,10 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       rs_info-description = |Class { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Get class section program name using CL_OO_CLASSNAME_SERVICE
+    " Get class public section program name using CL_OO_CLASSNAME_SERVICE
     DATA lv_clsname TYPE seoclsname.
     lv_clsname = iv_name.
-    CALL METHOD cl_oo_classname_service=>get_cl_name
+    CALL METHOD cl_oo_classname_service=>get_pubsec_name
       EXPORTING
         clsname = lv_clsname
       RECEIVING
