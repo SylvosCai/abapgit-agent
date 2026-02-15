@@ -23,10 +23,10 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_methods TYPE TABLE OF ty_method WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_component,
-             fieldname TYPE dd03l-fieldname,
+             fieldname TYPE string,
              keyflag TYPE abap_bool,
-             datatype TYPE dd03l-datatype,
-             leng TYPE dd03l-leng,
+             datatype TYPE string,
+             leng TYPE string,
              description TYPE string,
            END OF ty_component.
 
@@ -96,8 +96,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_view_params,
           ls_result TYPE ty_view_result,
-          lt_objects TYPE ty_view_objects,
-          lv_count TYPE i.
+          lt_objects TYPE ty_view_objects.
 
     ls_result-command = zif_abgagt_command=>gc_view.
 
@@ -148,14 +147,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         WHEN 'DTEL'.
           ls_object = get_data_element_info( lv_object ).
         WHEN OTHERS.
-          ls_object-description = |Unsupported object type: { ls_object-type }|.
+          ls_object-description = 'Unsupported object type'.
       ENDCASE.
 
       APPEND ls_object TO lt_objects.
     ENDLOOP.
 
     ls_result-success = abap_true.
-    ls_result-message = |Retrieved { lines( lt_objects ) } object(s)|.
+    ls_result-message = 'Retrieved object(s)'.
     ls_result-objects = lt_objects.
     ls_result-summary = build_summary( lt_objects ).
 
@@ -164,28 +163,28 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD detect_object_type.
     " Auto-detect object type from name prefix
-    CASE iv_name.
-      WHEN SUBSTRING( val = iv_name off = 0 len = 4 ).
-        WHEN 'ZCL_'. rv_type = 'CLAS'.
-        WHEN 'ZIF_'. rv_type = 'INTF'.
-        WHEN 'ZTY_'. rv_type = 'DTEL'.
-        WHEN 'ZS_'.  rv_type = 'DTEL'.
-        WHEN OTHERS. " Check for table/structure patterns
-          SELECT SINGLE tabname FROM dd02l INTO @DATA(lv_tab)
-            WHERE tabname = @iv_name.
-          IF sy-subrc = 0.
-            rv_type = 'TABL'.
-          ELSE.
-            SELECT SINGLE rollname FROM dd04l INTO @DATA(lv_dtel)
-              WHERE rollname = @iv_name.
-            IF sy-subrc = 0.
-              rv_type = 'DTEL'.
-            ELSE.
-              rv_type = 'CLAS'. " Default to CLAS
-            ENDIF.
-          ENDIF.
+    DATA(lv_prefix) = iv_name(4).
+
+    CASE lv_prefix.
+      WHEN 'ZCL_'. rv_type = 'CLAS'.
+      WHEN 'ZIF_'. rv_type = 'INTF'.
+      WHEN 'ZTY_'. rv_type = 'DTEL'.
+      WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        rv_type = 'CLAS'. " Default
+        " Check for table/structure patterns
+        SELECT SINGLE tabname FROM dd02l INTO @DATA(lv_tab)
+          WHERE tabname = @iv_name.
+        IF sy-subrc = 0.
+          rv_type = 'TABL'.
+        ELSE.
+          SELECT SINGLE rollname FROM dd04l INTO @DATA(lv_dtel)
+            WHERE rollname = @iv_name.
+          IF sy-subrc = 0.
+            rv_type = 'DTEL'.
+          ELSE.
+            rv_type = 'CLAS'. " Default to CLAS
+          ENDIF.
+        ENDIF.
     ENDCASE.
 
     " Override with type parameter if specified
@@ -193,8 +192,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       rv_type = 'CLAS'.
     ELSEIF iv_name CP 'ZIF_*' OR iv_name CP 'ZIF*'.
       rv_type = 'INTF'.
-    ELSEIF iv_name CP 'ZTB_*' OR iv_name CP 'Z_TAB*'.
-      rv_type = 'TABL'.
     ENDIF.
   ENDMETHOD.
 
@@ -215,7 +212,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       INTO TABLE @DATA(lt_methods)
       WHERE clsname = @iv_name
         AND expos IN ('0','1','2')
-        AND type = '0'. " Methods only
+        AND type = '0'.
     IF sy-subrc = 0.
       LOOP AT lt_methods INTO DATA(ls_method).
         DATA(ls_method_out) = VALUE ty_method(
@@ -272,19 +269,23 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     ENDIF.
 
     " Get table fields
-    SELECT fieldname keyflag datatype leng ddtext FROM dd03l
+    SELECT fieldname keyflag datatype leng FROM dd03l
       INTO TABLE @DATA(lt_fields)
       WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position.
     IF sy-subrc = 0.
       LOOP AT lt_fields INTO DATA(ls_field).
+        DATA(lv_desc) = ''.
+        " Get field description from DD04L
+        SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
+          WHERE rollname = @ls_field-datatype.
         APPEND VALUE ty_component(
           fieldname = ls_field-fieldname
           keyflag = ls_field-keyflag
           datatype = ls_field-datatype
           leng = ls_field-leng
-          description = ls_field-ddtext
+          description = lv_desc
         ) TO rs_object-components.
       ENDLOOP.
     ENDIF.
@@ -303,19 +304,22 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     ENDIF.
 
     " Get structure fields (same as tables)
-    SELECT fieldname keyflag datatype leng ddtext FROM dd03l
+    SELECT fieldname keyflag datatype leng FROM dd03l
       INTO TABLE @DATA(lt_fields)
       WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position.
     IF sy-subrc = 0.
       LOOP AT lt_fields INTO DATA(ls_field).
+        DATA(lv_desc) = ''.
+        SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
+          WHERE rollname = @ls_field-datatype.
         APPEND VALUE ty_component(
           fieldname = ls_field-fieldname
           keyflag = ls_field-keyflag
           datatype = ls_field-datatype
           leng = ls_field-leng
-          description = ls_field-ddtext
+          description = lv_desc
         ) TO rs_object-components.
       ENDLOOP.
     ENDIF.
@@ -327,11 +331,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     rs_object-type_text = 'Data Element'.
 
     " Get data element info
-    SELECT SINGLE rollname ddtext datatype leng outputlen FROM dd04l
+    SELECT SINGLE ddtext datatype leng outputlen FROM dd04l
       INTO @DATA(ls_dtel)
       WHERE rollname = @iv_name.
     IF sy-subrc = 0.
-      rs_object-description = |{ ls_dtel-ddtext } (Type: { ls_dtel-datatype }, Length: { ls_dtel-leng })|.
+      DATA lv_desc TYPE string.
+      CONCATENATE ls_dtel-ddtext '(Type:' ls_dtel-datatype 'Length:' ls_dtel-leng ')' INTO lv_desc SEPARATED BY SPACE.
+      rs_object-description = lv_desc.
     ENDIF.
 
     " Add as a component for consistent output
