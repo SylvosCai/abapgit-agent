@@ -13,7 +13,7 @@ All available CLI commands for abapGit Agent.
 | [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
 | [tree](tree-command.md) | ✅ | Display package hierarchy tree |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
-| [view](view-command.md) | 🔲 | View ABAP object source code from system |
+| [view](view-command.md) | ✅ | View ABAP object source code from system |
 | [health](health-command.md) | ✅ | Health check |
 | [status](status-command.md) | ✅ | Status check |
 
