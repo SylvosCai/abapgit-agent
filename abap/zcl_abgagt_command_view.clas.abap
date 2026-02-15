@@ -187,8 +187,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
             rv_type = 'TABL'.
           ENDIF.
         ELSE.
-          SELECT SINGLE rollname FROM dd04l INTO lv_dtel
-            WHERE rollname = iv_name.
+          SELECT SINGLE rollname FROM dd04l INTO @lv_dtel
+            WHERE rollname = @iv_name.
           IF sy-subrc = 0.
             rv_type = 'DTEL'.
           ELSE.
