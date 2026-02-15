@@ -48,6 +48,19 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
     ENDIF.
+
+    " Extract method information from SEOCOMPODF
+    DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
+
+    SELECT cmpname FROM seocompodf
+      INTO TABLE @lt_methods
+      WHERE clsname = @lv_clsname.
+
+    LOOP AT lt_methods INTO DATA(ls_comp).
+      DATA lv_method_desc TYPE string.
+      CONCATENATE 'PUBLIC' ls_comp-cmpname INTO lv_method_desc SEPARATED BY space.
+      APPEND lv_method_desc TO rs_info-methods.
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
