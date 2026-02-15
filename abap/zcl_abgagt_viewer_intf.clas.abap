@@ -53,8 +53,8 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
 
     SELECT cmpname FROM seocompodf
-      INTO TABLE @lt_methods
-      WHERE clsname = @lv_clsname.
+      INTO CORRESPONDING FIELDS OF TABLE lt_methods
+      WHERE clsname = lv_clsname.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
       DATA lv_method_desc TYPE string.
