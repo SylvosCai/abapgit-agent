@@ -30,7 +30,7 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     DATA lt_methods TYPE STANDARD TABLE OF seou WITH DEFAULT KEY.
     SELECT methodname FROM seou
       INTO TABLE lt_methods
-      WHERE clsname = iv_name.
+      WHERE clsname = @iv_name.
     IF sy-subrc = 0.
       LOOP AT lt_methods INTO DATA(ls_method).
         lv_method = |PUBLIC { ls_method-methodname }|.
