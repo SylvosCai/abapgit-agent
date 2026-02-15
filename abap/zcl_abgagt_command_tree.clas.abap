@@ -54,6 +54,27 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error TYPE string,
            END OF ty_tree_result.
 
+    METHODS build_tree
+      IMPORTING is_params TYPE ty_tree_params
+      RETURNING VALUE(rs_result) TYPE ty_tree_result.
+
+    METHODS get_object_count
+      IMPORTING iv_package TYPE tdevc-devclass
+      RETURNING VALUE(rv_count) TYPE i.
+
+    METHODS get_object_types
+      IMPORTING iv_package TYPE tdevc-devclass
+      CHANGING ct_types TYPE TABLE OF ty_object_type.
+
+    METHODS get_subpackages
+      IMPORTING iv_parent TYPE tdevc-devclass
+                iv_current_depth TYPE i
+                iv_max_depth TYPE i
+                iv_include_objects TYPE abap_bool
+      CHANGING cv_total_objects TYPE i
+               cv_total_subpackages TYPE i
+      RETURNING VALUE(rt_subpackages) TYPE ty_subpackages.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_tree IMPLEMENTATION.
@@ -125,6 +146,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       iv_parent = lv_package
       iv_current_depth = 1
       iv_max_depth = lv_max_depth
+      iv_include_objects = is_params-include_objects
       cv_total_objects = lv_total_objects
       cv_total_subpackages = rs_result-hierarchy-total_subpackages ).
 
