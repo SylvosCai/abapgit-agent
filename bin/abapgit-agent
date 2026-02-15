@@ -1455,49 +1455,51 @@ Examples:
             }
 
             if (components.length > 0) {
-              // Check if this is a data element (DTEL) - show domain info in table format
+              // Check if this is a data element (DTEL) - show domain info in property format
               if (objType === 'DTEL' || objType === 'Data Element') {
-                // Build table display for DTEL with Domain, Type, Length, Description
-                const colWidths = {
-                  field: 14,
-                  type: 14,
-                  length: 8,
-                  domain: 14,
-                  description: 20,
-                };
+                const propWidth = 18;
+                const valueWidth = 40;
+
+                // Build separator with corners
+                const sep = '┌' + '─'.repeat(propWidth + 2) + '┬' + '─'.repeat(valueWidth + 2) + '┐';
+                const mid = '├' + '─'.repeat(propWidth + 2) + '┼' + '─'.repeat(valueWidth + 2) + '┤';
+                const end = '└' + '─'.repeat(propWidth + 2) + '┴' + '─'.repeat(valueWidth + 2) + '┘';
 
                 // Helper to build row
-                const buildDtelRow = (field, type, length, domain, description) => {
-                  return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' +
-                         String(type || '').padEnd(colWidths.type) + ' | ' +
-                         String(length || '').padStart(colWidths.length) + ' | ' +
-                         String(domain || '').padEnd(colWidths.domain) + ' | ' +
-                         String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
+                const buildPropRow = (property, value) => {
+                  return '│ ' + String(property || '').padEnd(propWidth) + ' │ ' +
+                         String(value || '').substring(0, valueWidth).padEnd(valueWidth) + ' │';
                 };
-
-                // Build separator line
-                const sep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
-                            '-'.repeat(colWidths.type + 2) + '+' +
-                            '-'.repeat(colWidths.length + 2) + '+' +
-                            '-'.repeat(colWidths.domain + 2) + '+' +
-                            '-'.repeat(colWidths.description + 2) + '|';
 
                 console.log(`  DATA ELEMENT ${objName}:`);
                 console.log(sep);
-                console.log(buildDtelRow('Field', 'Type', 'Length', 'Domain', 'Description'));
-                console.log(sep);
+                console.log(buildPropRow('Property', 'Value'));
+                console.log(mid);
 
-                // Show domain info from the viewer's components
-                for (const comp of components) {
-                  const field = comp.FIELD || comp.field || '';
-                  const type = comp.TYPE || comp.type || '';
-                  const length = comp.LENGTH || comp.length || '';
-                  const domain = comp.DATAELEMENT || comp.dataelement || '';
-                  const description = comp.DESCRIPTION || comp.description || '';
-                  console.log(buildDtelRow(field, type, length, domain, description));
+                // Collect properties from top-level fields and components
+                const domain = obj.DOMAIN || obj.domain || '';
+                const domainType = obj.DOMAIN_TYPE || obj.domain_type || '';
+                const domainLength = obj.DOMAIN_LENGTH || obj.domain_length || 0;
+                const domainDecimals = obj.DOMAIN_DECIMALS || obj.domain_decimals || 0;
+                const description = obj.DESCRIPTION || obj.description || '';
+
+                if (domainType) {
+                  console.log(buildPropRow('Data Type', domainType));
+                }
+                if (domainLength) {
+                  console.log(buildPropRow('Length', String(domainLength)));
+                }
+                if (domainDecimals) {
+                  console.log(buildPropRow('Decimals', String(domainDecimals)));
+                }
+                if (description) {
+                  console.log(buildPropRow('Description', description));
+                }
+                if (domain) {
+                  console.log(buildPropRow('Domain', domain));
                 }
 
-                console.log(sep);
+                console.log(end);
               } else {
                 // Build table display for TABL/STRU with Data Element and Description
                 const colWidths = {
