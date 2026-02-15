@@ -276,7 +276,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       ORDER BY position.
     IF sy-subrc = 0.
       LOOP AT lt_fields INTO DATA(ls_field).
-        DATA(lv_desc) = ''.
+        DATA lv_desc TYPE string.
         " Get field description from DD04L
         SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
           WHERE rollname = @ls_field-datatype.
@@ -311,7 +311,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       ORDER BY position.
     IF sy-subrc = 0.
       LOOP AT lt_fields INTO DATA(ls_field).
-        DATA(lv_desc) = ''.
+        DATA lv_desc TYPE string.
         SELECT SINGLE ddtext FROM dd04l INTO @lv_desc
           WHERE rollname = @ls_field-datatype.
         APPEND VALUE ty_component(
