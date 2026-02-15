@@ -34,7 +34,6 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
             rs_info-domain_type, rs_info-domain_length, rs_info-domain_decimals)
       FROM dd04v
       WHERE rollname = iv_name
-        AND as4local = 'A'
         AND ddlanguage = 'E'.
     IF sy-subrc <> 0.
       " Fallback: try without language filter
@@ -42,8 +41,7 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
         INTO (rs_info-name, rs_info-description, rs_info-domain,
               rs_info-domain_type, rs_info-domain_length, rs_info-domain_decimals)
         FROM dd04v
-        WHERE rollname = iv_name
-          AND as4local = 'A'.
+        WHERE rollname = iv_name.
     ENDIF.
 
     " Build components table for additional info
