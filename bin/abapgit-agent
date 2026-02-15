@@ -538,7 +538,7 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   console.log(`\n  Package Tree: ${rootPackage}`);
 
   // Display parent info if available
-  if (parentPackage) {
+  if (parentPackage && parentPackage !== rootPackage) {
     const parentInfo = parentDescription && parentDescription !== parentPackage
       ? `${parentPackage} (${parentDescription})`
       : parentPackage;

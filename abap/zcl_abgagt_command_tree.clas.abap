@@ -131,9 +131,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     " Set parent info if available
     IF ls_package-parentcl IS NOT INITIAL.
       rs_result-parent_package = ls_package-parentcl.
-      SELECT SINGLE as4text FROM tdevc
-        INTO rs_result-parent_description
-        WHERE devclass = ls_package-parentcl.
+      rs_result-parent_description = ls_package-parentcl.
     ENDIF.
 
     " Add root package
