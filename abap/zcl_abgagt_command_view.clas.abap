@@ -27,7 +27,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              keyflag TYPE abap_bool,
              datatype TYPE dd03l-datatype,
              leng TYPE dd03l-leng,
-             ddtext TYPE dd03l-ddtext,
+             description TYPE string,
            END OF ty_component.
 
     TYPES ty_components TYPE TABLE OF ty_component WITH NON-UNIQUE DEFAULT KEY.
@@ -284,7 +284,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           keyflag = ls_field-keyflag
           datatype = ls_field-datatype
           leng = ls_field-leng
-          ddtext = ls_field-ddtext
+          description = ls_field-ddtext
         ) TO rs_object-components.
       ENDLOOP.
     ENDIF.
@@ -315,7 +315,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           keyflag = ls_field-keyflag
           datatype = ls_field-datatype
           leng = ls_field-leng
-          ddtext = ls_field-ddtext
+          description = ls_field-ddtext
         ) TO rs_object-components.
       ENDLOOP.
     ENDIF.
@@ -339,7 +339,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       fieldname = iv_name
       datatype = ls_dtel-datatype
       leng = ls_dtel-leng
-      ddtext = ls_dtel-ddtext
+      description = ls_dtel-ddtext
     ) TO rs_object-components.
   ENDMETHOD.
 
