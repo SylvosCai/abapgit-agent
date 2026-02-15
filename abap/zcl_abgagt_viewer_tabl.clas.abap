@@ -25,14 +25,15 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       rs_info-description = |Table { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Build components table
-    SELECT fieldname AS field keyflag AS key datatype AS type FROM dd03l
+    " Build components table with data element and description
+    SELECT fieldname AS field keyflag AS key datatype AS type rollname AS dataelement
+      FROM dd03l
       INTO CORRESPONDING FIELDS OF TABLE rs_info-components
       WHERE tabname = iv_name
         AND as4local = 'A'
       ORDER BY position.
 
-    " Add length separately using work area
+    " Add length and description
     LOOP AT rs_info-components ASSIGNING FIELD-SYMBOL(<ls_comp>).
       DATA ls_dd03l TYPE dd03l.
       SELECT SINGLE * FROM dd03l INTO ls_dd03l
@@ -40,6 +41,13 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
           AND fieldname = <ls_comp>-field
           AND as4local = 'A'.
       <ls_comp>-length = ls_dd03l-leng.
+
+      " Get description from DD04T
+      SELECT SINGLE fieldtext FROM dd04t
+        INTO <ls_comp>-description
+        WHERE rollname = <ls_comp>-dataelement
+          AND ddlanguage = 'E'
+          AND as4local = 'A'.
     ENDLOOP.
   ENDMETHOD.
 

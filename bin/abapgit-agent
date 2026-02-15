@@ -1455,32 +1455,36 @@ Examples:
             }
 
             if (components.length > 0) {
-              // Build table display for TABL/STRU
+              // Build table display for TABL/STRU with Data Element and Description
               const colWidths = {
                 field: 14,
                 key: 3,
                 type: 14,
                 length: 8,
+                dataelement: 14,
+                description: 20,
               };
 
               // Helper to build row
-              const buildRow = (field, key, type, length) => {
-                return `  | ${String(field || '').padEnd(colWidths.field)} | ${String(key || '').padEnd(colWidths.key)} | ${String(type || '').padEnd(colWidths.type)} | ${String(length || '').padStart(colWidths.length)} |`;
+              const buildRow = (field, key, type, length, dataelement, description) => {
+                return `  | ${String(field || '').padEnd(colWidths.field)} | ${String(key || '').padEnd(colWidths.key)} | ${String(type || '').padEnd(colWidths.type)} | ${String(length || '').padStart(colWidths.length)} | ${String(dataelement || '').padEnd(colWidths.dataelement)} | ${String(description || '').substring(0, colWidths.description).padEnd(colWidths.description)} |`;
               };
 
               // Build separator line
-              const sep = `  +${'-'.repeat(colWidths.field)}+${'-'.repeat(colWidths.key)}+${'-'.repeat(colWidths.type)}+${'-'.repeat(colWidths.length)}+`;
+              const sep = `  +${'-'.repeat(colWidths.field)}+${'-'.repeat(colWidths.key)}+${'-'.repeat(colWidths.type)}+${'-'.repeat(colWidths.length)}+${'-'.repeat(colWidths.dataelement)}+${'-'.repeat(colWidths.description)}+`;
 
               // Header
               console.log(`  TABLE ${objName}:`);
               console.log(sep);
-              console.log(buildRow('Field', 'Key', 'Type', 'Length'));
+              console.log(buildRow('Field', 'Key', 'Type', 'Length', 'Data Elem', 'Description'));
               console.log(sep);
 
               // Rows
               for (const comp of components) {
                 const key = comp.KEY || comp.key || false ? 'X' : '';
-                console.log(buildRow(comp.FIELD || comp.field, key, comp.TYPE || comp.type, comp.LENGTH || comp.length));
+                const dataelement = comp.DATAELEMENT || comp.dataelement || '';
+                const description = comp.DESCRIPTION || comp.description || '';
+                console.log(buildRow(comp.FIELD || comp.field, key, comp.TYPE || comp.type, comp.LENGTH || comp.length, dataelement, description));
               }
 
               console.log(sep);
