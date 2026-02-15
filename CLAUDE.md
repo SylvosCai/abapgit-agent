@@ -38,6 +38,7 @@ ABAP REST Handler (ZCL_ABGAGT_REST_HANDLER)
 Resource: ZCL_ABGAGT_RESOURCE_PULL → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_PULL → ZCL_ABGAGT_AGENT
 Resource: ZCL_ABGAGT_RESOURCE_INSPECT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_INSPECT → ZCL_ABGAGT_AGENT
 Resource: ZCL_ABGAGT_RESOURCE_UNIT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_UNIT → ZCL_ABGAGT_AGENT
+Resource: ZCL_ABGAGT_RESOURCE_TREE → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_TREE → ZCL_ABGAGT_AGENT
 ```
 
 ### ABAP Objects
@@ -49,6 +50,7 @@ Resource: ZCL_ABGAGT_RESOURCE_UNIT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COM
 | `ZCL_ABGAGT_COMMAND_PULL` | Pull command - implements ZIF_ABGAGT_COMMAND |
 | `ZCL_ABGAGT_COMMAND_INSPECT` | Inspect command - implements ZIF_ABGAGT_COMMAND |
 | `ZCL_ABGAGT_COMMAND_UNIT` | Unit command - implements ZIF_ABGAGT_COMMAND |
+| `ZCL_ABGAGT_COMMAND_TREE` | Tree command - displays package hierarchy |
 | `ZIF_ABGAGT_COMMAND` | Command interface with constants |
 | `ZIF_ABGAGT_CMD_FACTORY` | Factory interface |
 
@@ -72,6 +74,9 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
 # Run unit tests for ABAP test classes
 abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Display package hierarchy tree
+abapgit-agent tree --package $MY_PACKAGE
 
 # Health check
 abapgit-agent health
@@ -229,6 +234,102 @@ The unit command uses `CL_SUT_AUNIT_RUNNER` to execute AUnit tests:
 - `str_results` - Get test statistics (cnt_testmethods, cnt_ok_methods, cnt_error_methods)
 - `tab_objects` - Get detailed results with nested structure:
   - `TAB_TESTCLASSES` → `TAB_METHODS` → `STR_ERROR` → `STR_ERROR_CORE`
+
+## Tree Command
+
+### Description
+Display the package hierarchy tree from an ABAP system, showing parent packages, sub-packages, and object counts.
+
+### Usage
+```bash
+# Basic usage
+abapgit-agent tree --package $MY_PACKAGE
+
+# With object breakdown by type
+abapgit-agent tree --package $MY_PACKAGE --include-objects
+
+# Limit depth (default: 3, max: 10)
+abapgit-agent tree --package $MY_PACKAGE --depth 2
+
+# JSON output for scripting
+abapgit-agent tree --package $MY_PACKAGE --json
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--package` | Yes | ABAP package name (e.g., `$ZMY_PACKAGE`, `ZMY_PACKAGE`) |
+| `--depth` | No | Maximum depth to traverse (default: 3, max: 10) |
+| `--include-objects` | No | Include object counts breakdown by type |
+| `--json` | No | Output raw JSON only (for scripting) |
+
+### Output
+
+**Human-readable with AI metadata:**
+```
+🌳 Package Tree: $ZMAIN_PACKAGE
+
+📦 $ZMAIN_PACKAGE (Main Package)
+   ├─ 📦 $ZMAIN_SUB1 (Sub Package 1)
+   │    ├─ 📦 $ZMAIN_SUB1_A (Sub Package 1A)
+   │    └─ 📦 $ZMAIN_SUB1_B (Sub Package 1B)
+   └─ 📦 $ZMAIN_SUB2 (Sub Package 2)
+
+📊 Summary
+PACKAGES: 4
+OBJECTS: 127
+
+<!-- AI_METADATA_START -->
+{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":4,"total_objects":127}
+<!-- AI_METADATA_END -->
+```
+
+**With object breakdown:**
+```
+📊 Summary
+PACKAGES: 4
+OBJECTS: 127
+TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
+```
+
+### JSON Output
+```json
+{
+  "SUCCESS": true,
+  "COMMAND": "TREE",
+  "PACKAGE": "$ZMAIN_PACKAGE",
+  "PARENT_PACKAGE": "$ZSAP_BASE",
+  "NODES": [
+    {
+      "PACKAGE": "$ZMAIN_PACKAGE",
+      "PARENT": "",
+      "DESCRIPTION": "$ZMAIN_PACKAGE",
+      "DEPTH": 0,
+      "OBJECT_COUNT": 11
+    }
+  ],
+  "TOTAL_PACKAGES": 4,
+  "TOTAL_OBJECTS": 127,
+  "OBJECTS": [
+    { "OBJECT": "CLAS", "COUNT": 10 },
+    { "OBJECT": "INTF", "COUNT": 2 },
+    { "OBJECT": "PROG", "COUNT": 11 },
+    { "OBJECT": "FUGR", "COUNT": 1 },
+    { "OBJECT": "TABL", "COUNT": 3 }
+  ],
+  "ERROR": ""
+}
+```
+
+### Error Handling
+
+| Error | Message |
+|-------|---------|
+| Package not found | `Package <name> does not exist in the system` |
+| Invalid package name | `Invalid package name: <name>` |
+| Access denied | `Access denied to package information` |
+| Depth too large | `Depth value too large (max: 10)` |
 
 ## Status Check
 

@@ -11,7 +11,7 @@ All available CLI commands for abapGit Agent.
 | [import](import-command.md) | ✅ | Import objects from ABAP package to git |
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
 | [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
-| [tree](tree-command.md) | 🔲 | Display package hierarchy tree |
+| [tree](tree-command.md) | ✅ | Display package hierarchy tree |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
 | [view](view-command.md) | 🔲 | View ABAP object source code from system |
 | [health](health-command.md) | ✅ | Health check |
@@ -62,6 +62,9 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
 # Run unit tests
 abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Display package hierarchy
+abapgit-agent tree --package $MY_PACKAGE
 
 # Check configuration
 abapgit-agent status
