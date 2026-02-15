@@ -27,7 +27,7 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
 
     " Get interface methods using RTTS
     DATA lo_type TYPE REF TO cl_abap_classdescr.
-    DATA lt_methods TYPE abap_methoddescr_tab.
+    DATA lt_methods TYPE TABLE OF seomethod WITH DEFAULT KEY.
     DATA lv_method TYPE string.
 
     lo_type ?= cl_abap_classdescr=>describe_by_name( iv_name ).
