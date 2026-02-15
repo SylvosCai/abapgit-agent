@@ -27,14 +27,21 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
 
     " Get interface methods using RTTS
     DATA lo_type TYPE REF TO cl_abap_classdescr.
-    DATA lt_methods TYPE TABLE OF seomethod WITH DEFAULT KEY.
+    DATA lo_method TYPE REF TO data.
     DATA lv_method TYPE string.
 
     lo_type ?= cl_abap_classdescr=>describe_by_name( iv_name ).
-    lt_methods = lo_type->methods.
-    LOOP AT lt_methods INTO DATA(ls_method).
-      lv_method = |PUBLIC { ls_method-name }|.
-      APPEND lv_method TO rs_info-methods.
+
+    " Loop through methods
+    LOOP AT lo_type->methods REFERENCE INTO lo_method.
+      ASSIGN lo_method->* TO FIELD-SYMBOL(<ls_method>).
+      IF sy-subrc = 0.
+        ASSIGN COMPONENT 'NAME' OF STRUCTURE <ls_method> TO FIELD-SYMBOL(<lv_name>).
+        IF sy-subrc = 0.
+          lv_method = |PUBLIC { <lv_name> }|.
+          APPEND lv_method TO rs_info-methods.
+        ENDIF.
+      ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
