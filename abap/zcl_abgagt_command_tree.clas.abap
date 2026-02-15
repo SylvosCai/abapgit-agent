@@ -22,26 +22,27 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
              depth TYPE i,
              object_count TYPE i,
-             objects TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY,
-             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
+             parent TYPE tdevc-devclass,
            END OF ty_subpackage.
 
-    TYPES: BEGIN OF ty_summary,
-             total_packages TYPE i,
-             total_objects TYPE i,
-             objects_by_type TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY,
-           END OF ty_summary.
+    TYPES ty_subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_hierarchy,
              package TYPE tdevc-devclass,
              description TYPE string,
              parent_package TYPE tdevc-devclass,
              parent_description TYPE string,
-             subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY,
+             subpackages TYPE ty_subpackages,
              object_count TYPE i,
              total_subpackages TYPE i,
              total_objects TYPE i,
            END OF ty_hierarchy.
+
+    TYPES: BEGIN OF ty_summary,
+             total_packages TYPE i,
+             total_objects TYPE i,
+             objects_by_type TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY,
+           END OF ty_summary.
 
     TYPES: BEGIN OF ty_tree_result,
              success TYPE abap_bool,
@@ -99,7 +100,6 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     lv_package = is_params-package.
     lv_max_depth = is_params-depth.
 
-    " Get root package info
     SELECT SINGLE devclass parentcl FROM tdevc
       INTO DATA(ls_package)
       WHERE devclass = lv_package.
@@ -115,36 +115,30 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-package = lv_package.
     rs_result-message = 'Tree retrieved successfully'.
 
-    " Build hierarchy
     rs_result-hierarchy-package = lv_package.
     rs_result-hierarchy-description = lv_package.
     rs_result-hierarchy-parent_package = ls_package-parentcl.
     rs_result-hierarchy-parent_description = ls_package-parentcl.
     rs_result-hierarchy-object_count = get_object_count( lv_package ).
 
-    " Get subpackages recursively
     rs_result-hierarchy-subpackages = get_subpackages(
       iv_parent = lv_package
       iv_current_depth = 1
       iv_max_depth = lv_max_depth
-      iv_include_objects = is_params-include_objects
       cv_total_objects = lv_total_objects
-      cv_total_subpackages = rs_result-hierarchy-total_subpackages
-      ct_all_types = lt_all_types ).
+      cv_total_subpackages = rs_result-hierarchy-total_subpackages ).
 
     rs_result-hierarchy-total_objects = lv_total_objects + rs_result-hierarchy-object_count.
 
-    " Get object types for root
     IF is_params-include_objects = abap_true.
       get_object_types(
         EXPORTING iv_package = lv_package
-        CHANGING ct_types = rs_result-hierarchy-objects ).
-      LOOP AT rs_result-hierarchy-objects INTO DATA(ls_root_obj).
+        CHANGING ct_types = DATA(lt_root_types) ).
+      LOOP AT lt_root_types INTO DATA(ls_root_obj).
         APPEND ls_root_obj TO lt_all_types.
       ENDLOOP.
     ENDIF.
 
-    " Calculate summary
     rs_result-summary-total_packages = rs_result-hierarchy-total_subpackages + 1.
     rs_result-summary-total_objects = rs_result-hierarchy-total_objects.
     rs_result-summary-objects_by_type = lt_all_types.
@@ -170,7 +164,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_subpackages.
-    DATA: lt_result TYPE TABLE OF ty_subpackage,
+    DATA: lt_result TYPE ty_subpackages,
           lv_sub_count TYPE i.
 
     SELECT devclass FROM tdevc
@@ -183,32 +177,24 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       ls_sub-package = ls_direct-devclass.
       ls_sub-description = ls_direct-devclass.
       ls_sub-depth = iv_current_depth.
+      ls_sub-parent = iv_parent.
       ls_sub-object_count = get_object_count( ls_direct-devclass ).
-
-      " Get object types
-      IF iv_include_objects = abap_true.
-        get_object_types(
-          EXPORTING iv_package = ls_direct-devclass
-          CHANGING ct_types = ls_sub-objects ).
-      ENDIF.
 
       APPEND ls_sub TO lt_result.
       cv_total_objects = cv_total_objects + ls_sub-object_count.
       lv_sub_count = lv_sub_count + 1.
 
-      " Recursively get subpackages
       IF iv_current_depth < iv_max_depth.
-        DATA lt_nested TYPE TABLE OF ty_subpackage.
+        DATA lt_nested TYPE ty_subpackages.
         lt_nested = get_subpackages(
           EXPORTING iv_parent = ls_direct-devclass
                     iv_current_depth = iv_current_depth + 1
                     iv_max_depth = iv_max_depth
-                    iv_include_objects = iv_include_objects
           CHANGING cv_total_objects = cv_total_objects
-                   cv_total_subpackages = cv_total_subpackages
-                   ct_all_types = ct_all_types ).
-        ls_sub-subpackages = lt_nested.
-        MODIFY lt_result FROM ls_sub INDEX sy-tabix.
+                   cv_total_subpackages = cv_total_subpackages ).
+        LOOP AT lt_nested INTO DATA(ls_nested).
+          APPEND ls_nested TO lt_result.
+        ENDLOOP.
       ENDIF.
     ENDLOOP.
 
