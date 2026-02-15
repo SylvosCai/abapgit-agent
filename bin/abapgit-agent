@@ -1507,8 +1507,8 @@ Examples:
                   key: 3,
                   type: 6,
                   length: 5,
-                  dataelement: 14,
-                  description: 20,
+                  dataelement: 20,
+                  description: 15,
                 };
 
                 // Helper to build row
