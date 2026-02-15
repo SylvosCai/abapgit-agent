@@ -1524,7 +1524,7 @@ Examples:
                             '-'.repeat(colWidths.dataelement + 2) + '+' +
                             '-'.repeat(colWidths.description + 2) + '|';
 
-                // Header separator - no leading space for Length column
+                // Header separator - no leading space for Length column (same as data separator)
                 const headerSep = '  |' + '-'.repeat(colWidths.field + 2) + '+' +
                             '-'.repeat(colWidths.key + 2) + '+' +
                             '-'.repeat(colWidths.type + 2) + '+' +
@@ -1535,7 +1535,7 @@ Examples:
                 // Header
                 console.log(`  TABLE ${objName}:`);
                 console.log(sep);
-                // Length header: no space before it, padded after
+                // Length header: no space before it (|Length| format)
                 console.log('  | ' + 'Field'.padEnd(colWidths.field) + ' | ' + 'Key'.padEnd(colWidths.key) + ' | ' + 'Type'.padEnd(colWidths.type) + ' |' + 'Length'.padEnd(colWidths.length) + '| ' + 'Data Elem'.padEnd(colWidths.dataelement) + ' | ' + 'Description'.padEnd(colWidths.description) + ' |');
                 console.log(headerSep);
 
