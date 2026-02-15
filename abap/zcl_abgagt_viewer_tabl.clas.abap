@@ -26,11 +26,20 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Build components table
-    SELECT fieldname AS field keyflag AS key datatype AS type leng AS length FROM dd03l
+    SELECT fieldname AS field keyflag AS key datatype AS type FROM dd03l
       INTO CORRESPONDING FIELDS OF TABLE rs_info-components
       WHERE tabname = iv_name
         AND as4local = 'A'
       ORDER BY position.
+
+    " Add length separately
+    LOOP AT rs_info-components ASSIGNING FIELD-SYMBOL(<ls_comp>).
+      SELECT SINGLE leng FROM dd03l
+        INTO <ls_comp>-length
+        WHERE tabname = iv_name
+          AND fieldname = <ls_comp>-field
+          AND as4local = 'A'.
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
