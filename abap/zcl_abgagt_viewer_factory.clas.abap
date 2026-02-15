@@ -10,7 +10,7 @@ CLASS zcl_abgagt_viewer_factory DEFINITION PUBLIC CREATE PRIVATE.
     METHODS get_viewer
       IMPORTING iv_obj_type   TYPE string
       RETURNING VALUE(ro_viewer) TYPE REF TO zif_abgagt_viewer
-      RAISING   cx_sy_create_object_class.
+      RAISING   cx_sy_create_object_error.
 
   PRIVATE SECTION.
     CONSTANTS mc_class_prefix TYPE string VALUE 'ZCL_ABGAGT_VIEWER_'.

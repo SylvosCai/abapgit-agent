@@ -111,7 +111,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           ELSE.
             ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
           ENDIF.
-        CATCH cx_sy_create_object_class.
+        CATCH cx_sy_create_object_error.
           " Fallback for unknown types
           ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
       ENDTRY.

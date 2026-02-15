@@ -1,8 +1,7 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-CLASS zcl_abgagt_viewer_clas DEFINITION PUBLIC FINAL CREATE PUBLIC
-                             IMPLEMENTING zif_abgagt_viewer.
+CLASS zcl_abgagt_viewer_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES zif_abgagt_viewer.
