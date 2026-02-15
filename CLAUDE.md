@@ -78,6 +78,11 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 # Display package hierarchy tree
 abapgit-agent tree --package $MY_PACKAGE
 
+# View ABAP object definitions from ABAP system
+abapgit-agent view --objects ZCL_MY_CLASS
+abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF
+abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json
+
 # Health check
 abapgit-agent health
 
@@ -89,6 +94,22 @@ abapgit-agent status
 
 ### Description
 Pull and activate ABAP objects from git repository.
+
+### Rule: Pull All Changed Files Together
+
+**CRITICAL**: When multiple ABAP files are changed, pull them ALL together in a single command:
+
+```bash
+# WRONG - Pull files one by one (may cause activation issues)
+abapgit-agent pull --files zcl_class1.clas.abap
+abapgit-agent pull --files zcl_class2.clas.abap
+abapgit-agent pull --files zif_interface1.intf.abap
+
+# CORRECT - Pull all changed files together
+abapgit-agent pull --files zcl_class1.clas.abap,zcl_class2.clas.abap,zif_interface1.intf.abap
+```
+
+**Why?** ABAP objects often have dependencies on each other. Pulling separately can cause activation errors if dependent objects haven't been activated yet. Pulling together ensures the ABAP system processes all changes atomically.
 
 ### Usage
 ```bash
@@ -330,6 +351,85 @@ TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
 | Invalid package name | `Invalid package name: <name>` |
 | Access denied | `Access denied to package information` |
 | Depth too large | `Depth value too large (max: 10)` |
+
+## View Command
+
+### Description
+View ABAP object definitions directly from the ABAP system without pulling from git. Useful for understanding class definitions, method signatures, table structures, and data elements.
+
+### Usage
+```bash
+# View single object (auto-detect type from name prefix)
+abapgit-agent view --objects ZCL_MY_CLASS
+abapgit-agent view --objects ZIF_MY_INTERFACE
+
+# View with explicit type
+abapgit-agent view --objects ZCL_MY_CLASS --type CLAS
+abapgit-agent view --objects ZIF_MY_INT --type INTF
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# View multiple objects
+abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
+
+# JSON output (for scripting/AI processing)
+abapgit-agent view --objects ZCL_MY_CLASS --json
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
+| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, FUGR, PROG). Auto-detected from name prefix if not specified |
+| `--json` | No | Output raw JSON only (for scripting) |
+
+### Supported Object Types
+
+| Type | Description | Detection Pattern |
+|------|-------------|-------------------|
+| CLAS | Class | ZCL_* |
+| INTF | Interface | ZIF_* |
+| TABL | Table | Z* (from DD02L) |
+| STRU | Structure | Z* (from DD02L) |
+| DTEL | Data Element | ZTY_*, ZS_* |
+
+### Output
+
+**Human-readable:**
+```
+📖 ZCL_MY_CLASS (Class)
+   My Custom Configuration Class
+   Methods: 3
+     - PUBLIC CONSTRUCTOR
+     - PUBLIC GET_CONFIG
+     - PUBLIC SET_CONFIG
+```
+
+**JSON Output:**
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved 1 object(s)",
+  "objects": [
+    {
+      "name": "ZCL_MY_CLASS",
+      "type": "CLAS",
+      "type_text": "Class",
+      "description": "My Custom Configuration Class",
+      "methods": [...]
+    }
+  ],
+  "summary": { "total": 1 }
+}
+```
+
+### Error Handling
+
+| Error | Message |
+|-------|---------|
+| Object not found | `Object <name> not found` |
+| Invalid object type | `Unsupported object type: <type>` |
 
 ## Status Check
 

@@ -239,7 +239,7 @@ DATA ELEMENT ZMY_DTEL:
 
 ```json
 {
-  "success": "X",
+  "success": true,
   "command": "VIEW",
   "message": "Retrieved 3 object(s)",
   "objects": [
@@ -286,7 +286,7 @@ DATA ELEMENT ZMY_DTEL:
 
 ```json
 {
-  "success": "X",
+  "success": true,
   "command": "VIEW",
   "message": "Retrieved N object(s)",
   "objects": [
@@ -444,6 +444,29 @@ abapgit-agent view --objects ZCL_MY_CLASS
 | `objects[].fields` | number | Number of fields (for TABL/STRU) |
 | `objects[].description` | string | Object description |
 | `total` | number | Total objects viewed |
+
+---
+
+## JSON Serialization
+
+### Boolean Format
+
+**ABAP Code:** Use `abap_bool` with values `abap_true` / `abap_false`
+
+**JSON Output:** Must serialize to JSON booleans `true` / `false` (not strings "X" or "")
+
+```abap
+" Correct: Use abap_bool type
+DATA ls_result TYPE ty_view_result.
+ls_result-success = abap_true.
+
+" Serialize to JSON (converts abap_bool to true/false)
+rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+
+" Result: { "success": true, ... }
+```
+
+**Important:** `/ui2/cl_json=>serialize` automatically converts ABAP booleans to JSON booleans when the field is typed as `abap_bool`.
 
 ---
 

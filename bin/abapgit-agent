@@ -1381,6 +1381,107 @@ Examples:
         break;
       }
 
+      case 'view': {
+        const objectsArgIndex = args.indexOf('--objects');
+        if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
+          console.error('Error: --objects parameter required');
+          console.error('Usage: abapgit-agent view --objects <obj1>,<obj2>,... [--type <type>] [--json]');
+          console.error('Example: abapgit-agent view --objects ZCL_MY_CLASS');
+          console.error('Example: abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --type CLAS');
+          process.exit(1);
+        }
+
+        const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim());
+        const typeArg = args.indexOf('--type');
+        const type = typeArg !== -1 ? args[typeArg + 1] : null;
+        const jsonOutput = args.includes('--json');
+
+        console.log(`\n  Viewing ${objects.length} object(s)`);
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        const data = {
+          objects: objects
+        };
+
+        if (type) {
+          data.type = type;
+        }
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/view', data, { csrfToken });
+
+        // Handle uppercase keys from ABAP
+        const success = result.SUCCESS || result.success;
+        const viewObjects = result.OBJECTS || result.objects || [];
+        const message = result.MESSAGE || result.message || '';
+        const error = result.ERROR || result.error;
+
+        if (!success || error) {
+          console.error(`\n  Error: ${error || 'Failed to view objects'}`);
+          break;
+        }
+
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  ${message}`);
+          console.log('');
+
+          for (let i = 0; i < viewObjects.length; i++) {
+            const obj = viewObjects[i];
+            const objName = obj.NAME || obj.name || `Object ${i + 1}`;
+            const objType = obj.TYPE || obj.type || '';
+            const objTypeText = obj.TYPE_TEXT || obj.type_text || '';
+            const description = obj.DESCRIPTION || obj.description || '';
+            const methods = obj.METHODS || obj.methods || [];
+            const components = obj.COMPONENTS || obj.components || [];
+
+            console.log(`  📖 ${objName} (${objTypeText})`);
+            if (description) {
+              console.log(`     ${description}`);
+            }
+
+            if (methods.length > 0) {
+              console.log(`     Methods: ${methods.length}`);
+              for (const method of methods.slice(0, 5)) {
+                const name = method.NAME || method.name || '';
+                const visibility = method.VISIBILITY || method.visibility || '';
+                console.log(`       - ${visibility} ${name}`);
+              }
+              if (methods.length > 5) {
+                console.log(`       ... and ${methods.length - 5} more`);
+              }
+            }
+
+            if (components.length > 0) {
+              console.log(`     Fields: ${components.length}`);
+              for (const comp of components.slice(0, 5)) {
+                const name = comp.FIELDNAME || comp.fieldname || '';
+                const datatype = comp.DATATYPE || comp.datatype || '';
+                console.log(`       - ${name} (${datatype})`);
+              }
+              if (components.length > 5) {
+                console.log(`       ... and ${components.length - 5} more`);
+              }
+            }
+
+            console.log('');
+          }
+
+          // AI metadata block
+          const summary = result.SUMMARY || result.summary || {};
+          const totalObjects = summary.TOTAL || summary.total || viewObjects.length;
+          const aiMetadata = {
+            command: 'VIEW',
+            total: totalObjects
+          };
+
+          console.log(`<!-- AI_METADATA_START -->${JSON.stringify(aiMetadata)}<!-- AI_METADATA_END -->`);
+        }
+        break;
+      }
+
       case 'help':
       case '--help':
       case '-h':
@@ -1417,6 +1518,9 @@ Commands:
   tree --package <package> [--depth <n>] [--include-objects] [--json]
     Display package hierarchy tree from ABAP system
 
+  view --objects <obj1>,<obj2>,... [--type <type>] [--json]
+    View ABAP object definitions from the ABAP system
+
   health
     Check if ABAP REST API is healthy
 
@@ -1438,6 +1542,10 @@ Examples:
   abapgit-agent tree --package $ZMY_PACKAGE --depth 2             # Shallow tree
   abapgit-agent tree --package $ZMY_PACKAGE --include-objects     # With object counts
   abapgit-agent tree --package $ZMY_PACKAGE --json                # JSON output
+  abapgit-agent view --objects ZCL_MY_CLASS                       # View class definition
+  abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
+  abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
+  abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json        # Multiple objects
   abapgit-agent health
   abapgit-agent status
 `);
