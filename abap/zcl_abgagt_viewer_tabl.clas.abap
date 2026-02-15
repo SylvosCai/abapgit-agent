@@ -15,7 +15,7 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
              decimals TYPE dd03l-decimals,
            END OF ty_table_field.
 
-    TYPES ty_table_fields TYPE TABLE OF ty_table_field WITH NON-UNIQUE DEFAULT KEY.
+    TYPES ty_table_fields TYPE STANDARD TABLE OF ty_table_field.
 
     METHODS get_table_fields
       IMPORTING iv_tabname TYPE string
