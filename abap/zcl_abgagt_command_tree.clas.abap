@@ -119,7 +119,6 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       rs_result-success = abap_false.
       rs_result-package = lv_package.
       rs_result-error = |Package { lv_package } does not exist|.
-      rv_result = /ui2/cl_json=>serialize( data = rs_result ).
       RETURN.
     ENDIF.
 
