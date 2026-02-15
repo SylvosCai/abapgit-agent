@@ -19,6 +19,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
+             source TYPE string,
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
@@ -148,6 +149,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD get_object_info.
     DATA lv_obj_name TYPE string.
     DATA lv_devclass TYPE tadir-devclass.
+    DATA lv_source TYPE string.
 
     rs_object-name = iv_name.
     rs_object-type = iv_type.
@@ -163,6 +165,15 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           rs_object-description = |Class { iv_name } in { lv_devclass }|.
         ENDIF.
 
+        " Get source code from SEOP_SOURCE
+        SELECT source FROM seop_source
+          INTO lv_source
+          WHERE clsname = iv_name
+            AND version = 'active'.
+        IF sy-subrc = 0.
+          rs_object-source = lv_source.
+        ENDIF.
+
       WHEN 'INTF'.
         rs_object-type_text = 'Interface'.
         SELECT SINGLE obj_name devclass FROM tadir
@@ -171,6 +182,15 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
             AND object = 'INTF'.
         IF sy-subrc = 0.
           rs_object-description = |Interface { iv_name } in { lv_devclass }|.
+        ENDIF.
+
+        " Get source code from SEOP_SOURCE
+        SELECT source FROM seop_source
+          INTO lv_source
+          WHERE clsname = iv_name
+            AND version = 'active'.
+        IF sy-subrc = 0.
+          rs_object-source = lv_source.
         ENDIF.
 
       WHEN 'TABL'.
