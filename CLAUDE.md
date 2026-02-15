@@ -380,7 +380,7 @@ abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
 
 ### Usage
 ```bash
-# View single object (auto-detect type from name prefix)
+# View single object (auto-detect type from TADIR)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects ZIF_MY_INTERFACE
 
