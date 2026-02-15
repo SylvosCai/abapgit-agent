@@ -28,7 +28,9 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     ENDIF.
 
     " Get interface source code using READ REPORT
-    READ REPORT iv_name INTO lt_source.
+    DATA lv_prog TYPE progname.
+    lv_prog = iv_name.
+    READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
       LOOP AT lt_source INTO lv_line.
         IF rs_info-source IS INITIAL.
