@@ -18,8 +18,7 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_table_fields TYPE TABLE OF ty_table_field WITH NON-UNIQUE DEFAULT KEY.
 
     METHODS get_table_fields
-      IMPORTING iv_tabname TYPE string
-      EXPORTING et_fields TYPE ty_table_fields.
+      IMPORTING iv_tabname TYPE string.
 
 ENDCLASS.
 
@@ -42,9 +41,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Get table fields and serialize to JSON
-    get_table_fields(
-      EXPORTING iv_tabname = iv_name
-      IMPORTING et_fields = lt_fields ).
+    lt_fields = get_table_fields( iv_name ).
     rs_info-details = /ui2/cl_json=>serialize( data = lt_fields ).
   ENDMETHOD.
 
@@ -57,7 +54,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position
-      INTO CORRESPONDING FIELDS OF TABLE et_fields.
+      INTO CORRESPONDING FIELDS OF TABLE RESULT.
   ENDMETHOD.
 
 ENDCLASS.
