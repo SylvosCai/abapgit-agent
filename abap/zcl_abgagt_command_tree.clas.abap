@@ -27,6 +27,8 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_subpackages TYPE TABLE OF ty_subpackage WITH NON-UNIQUE DEFAULT KEY.
 
+    TYPES ty_object_counts TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY.
+
     TYPES: BEGIN OF ty_hierarchy,
              package TYPE tdevc-devclass,
              description TYPE string,
@@ -64,7 +66,7 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS get_object_types
       IMPORTING iv_package TYPE tdevc-devclass
-      CHANGING ct_types TYPE TABLE OF ty_object_type.
+      CHANGING ct_counts TYPE ty_object_counts.
 
     METHODS get_subpackages
       IMPORTING iv_parent TYPE tdevc-devclass
@@ -155,7 +157,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     IF is_params-include_objects = abap_true.
       get_object_types(
         EXPORTING iv_package = lv_package
-        CHANGING ct_types = DATA(lt_root_types) ).
+        CHANGING ct_counts = DATA(lt_root_types) ).
       LOOP AT lt_root_types INTO DATA(ls_root_obj).
         APPEND ls_root_obj TO lt_all_types.
       ENDLOOP.
@@ -176,13 +178,13 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_object_types.
-    DATA lt_types TYPE TABLE OF ty_object_type WITH NON-UNIQUE DEFAULT KEY.
+    DATA lt_types TYPE ty_object_counts.
     SELECT object COUNT(*) AS count FROM tadir
       INTO TABLE lt_types
       WHERE devclass = iv_package
         AND object NOT IN ('DEVC', 'PACK')
       GROUP BY object.
-    ct_types = lt_types.
+    ct_counts = lt_types.
   ENDMETHOD.
 
   METHOD get_subpackages.
