@@ -21,8 +21,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
            END OF ty_component.
 
-    TYPES ty_components TYPE STANDARD TABLE OF ty_component.
-
     TYPES: BEGIN OF ty_view_object,
              name TYPE string,
              type TYPE string,
@@ -31,10 +29,10 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              source TYPE string,           " Full ABAP source code (if requested)
              definition TYPE string,       " Parsed definition block (for CLAS/INTF)
              methods TYPE string_table,   " Method list (for CLAS/INTF)
-             components TYPE ty_components, " Field list (for TABL/STRU)
+             components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
 
-    TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
+    TYPES ty_view_objects TYPE STANDARD TABLE OF ty_view_object WITH DEFAULT KEY.
 
     TYPES: BEGIN OF ty_summary,
              total TYPE i,
