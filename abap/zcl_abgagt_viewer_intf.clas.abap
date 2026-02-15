@@ -27,10 +27,10 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
       rs_info-description = |Interface { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Get interface source code using READ REPORT
-    DATA lv_prog TYPE progname.
-    lv_prog = iv_name.
-    READ REPORT lv_prog INTO lt_source.
+    " Get interface source from SEOCSOURC
+    SELECT srdoc FROM seocsource
+      INTO TABLE lt_source
+      WHERE clsname = iv_name.
     IF sy-subrc = 0.
       LOOP AT lt_source INTO lv_line.
         IF rs_info-source IS INITIAL.
