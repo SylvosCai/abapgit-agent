@@ -1503,11 +1503,11 @@ Examples:
               } else {
                 // Build table display for TABL/STRU with Data Element and Description
                 const colWidths = {
-                  field: 14,
+                  field: 16,      // Max field name length
                   key: 3,
                   type: 8,
                   length: 8,
-                  dataelement: 18,
+                  dataelement: 30, // Max data element name length
                   description: 18,
                 };
 
