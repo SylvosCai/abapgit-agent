@@ -588,7 +588,8 @@ function buildTreeLinesFromNodes(nodes, prefix, isLast) {
   // First node is the root
   const root = nodes[0];
   const icon = '📦';
-  const desc = root.DESCRIPTION || root.description ? ` (${root.DESCRIPTION || root.description})` : '';
+  const desc = (root.DESCRIPTION || root.description) && (root.DESCRIPTION || root.description) !== (root.PACKAGE || root.package)
+    ? ` (${root.DESCRIPTION || root.description})` : '';
   lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${root.PACKAGE || root.package}${desc}`);
 
   // Get children (nodes with depth > 0, grouped by depth)
@@ -619,7 +620,8 @@ function buildTreeLinesFromNodes(nodes, prefix, isLast) {
 function buildChildLines(node, prefix, isLast, byDepth) {
   const lines = [];
   const icon = '📦';
-  const desc = node.DESCRIPTION || node.description ? ` (${node.DESCRIPTION || node.description})` : '';
+  const desc = (node.DESCRIPTION || node.description) && (node.DESCRIPTION || node.description) !== (node.PACKAGE || node.package)
+    ? ` (${node.DESCRIPTION || node.description})` : '';
   lines.push(`${prefix}${isLast ? '└─ ' : '├─ '} ${icon} ${node.PACKAGE || node.package}${desc}`);
 
   const newPrefix = prefix + (isLast ? '   ' : '│  ');
