@@ -48,14 +48,11 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_fields.
-    SELECT a~fieldname a~position a~datatype a~leng a~decimals b~fieldtext
-      FROM dd03l AS a
-      LEFT JOIN dd04t AS b ON b~rollname = a~fieldname
-        AND b~ddlanguage = @sy-langu
-        AND b~as4local = 'A'
-      WHERE a~tabname = @iv_tabname
-        AND a~as4local = 'A'
-      ORDER BY a~position
+    SELECT fieldname position datatype leng decimals
+      FROM dd03l
+      WHERE tabname = @iv_tabname
+        AND as4local = 'A'
+      ORDER BY position
       INTO CORRESPONDING FIELDS OF TABLE @rt_fields.
   ENDMETHOD.
 
