@@ -192,7 +192,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
   METHOD get_class_info.
     DATA: lv_name TYPE string,
-          lv_descript TYPE string,
+          lv_descr TYPE string,
           lv_exposure TYPE seocompodf-exposure,
           lv_cmpname TYPE seocompodf-cmpname,
           lv_cmpdescript TYPE seocompodf-descript.
@@ -216,19 +216,19 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       APPEND ls_method TO lt_methods.
     ENDSELECT.
 
-    SELECT descript FROM seoclass INTO lv_descript
+    SELECT descr FROM seoclass INTO lv_descr
       WHERE clsname = iv_name.
 
     rs_object-name = iv_name.
     rs_object-type = 'CLAS'.
     rs_object-type_text = 'Class'.
-    rs_object-description = lv_descript.
+    rs_object-description = lv_descr.
     rs_object-methods = lt_methods.
   ENDMETHOD.
 
   METHOD get_interface_info.
     DATA: lv_name TYPE string,
-          lv_descript TYPE string,
+          lv_descr TYPE string,
           lv_cmpname TYPE seocompodf-cmpname,
           lv_cmpdescript TYPE seocompodf-descript.
 
@@ -245,13 +245,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       APPEND ls_method TO lt_methods.
     ENDSELECT.
 
-    SELECT descript FROM seoclass INTO lv_descript
+    SELECT descr FROM seoclass INTO lv_descr
       WHERE clsname = iv_name.
 
     rs_object-name = iv_name.
     rs_object-type = 'INTF'.
     rs_object-type_text = 'Interface'.
-    rs_object-description = lv_descript.
+    rs_object-description = lv_descr.
     rs_object-methods = lt_methods.
   ENDMETHOD.
 
