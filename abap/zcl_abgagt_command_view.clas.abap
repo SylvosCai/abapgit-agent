@@ -23,38 +23,18 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
            END OF ty_component.
 
-    TYPES: BEGIN OF ty_method_param,
-             name TYPE string,
-             type TYPE string,
-             pass TYPE string,
-             optional TYPE abap_bool,
-           END OF ty_method_param.
-
-    TYPES: BEGIN OF ty_method_return,
-             name TYPE string,
-             type TYPE string,
-           END OF ty_method_return.
-
-    TYPES: BEGIN OF ty_method,
-             name TYPE string,
-             visibility TYPE string,
-             description TYPE string,
-             parameters TYPE STANDARD TABLE OF ty_method_param WITH DEFAULT KEY,
-             return TYPE ty_method_return,
-           END OF ty_method.
-
     TYPES: BEGIN OF ty_view_object,
              name TYPE string,
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
-             domain TYPE string,            " Domain name (for DTEL)
-             domain_type TYPE string,       " Domain data type (for DTEL)
-             domain_length TYPE int4,       " Domain length (for DTEL)
-             domain_decimals TYPE int4,    " Domain decimals (for DTEL)
-             source TYPE string,           " Full ABAP source code (if requested)
-             definition TYPE string,       " Parsed definition block (for CLAS/INTF)
-             methods TYPE STANDARD TABLE OF ty_method WITH DEFAULT KEY,
+             domain TYPE string,
+             domain_type TYPE string,
+             domain_length TYPE int4,
+             domain_decimals TYPE int4,
+             source TYPE string,
+             definition TYPE string,
+             methods TYPE string_table,
              components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
 

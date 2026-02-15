@@ -50,62 +50,27 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     ENDIF.
 
     " Extract method information from SEOCOMPT (interfaces use same table)
-    DATA ls_method TYPE zcl_abgagt_command_view=>ty_method.
     DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
 
     SELECT cmpname descript pabuchname FROM seocompodf
-      INTO TABLE lt_methods
-      WHERE clsname = lv_clsname.
+      INTO TABLE @lt_methods
+      WHERE clsname = @lv_clsname.
 
     LOOP AT lt_methods INTO DATA(ls_comp).
-      CLEAR ls_method.
-      ls_method-name = ls_comp-cmpname.
-      ls_method-description = ls_comp-descript.
-      ls_method-visibility = 'PUBLIC'.
+      DATA lv_method_name TYPE string.
+      DATA lv_method_desc TYPE string.
+      CLEAR lv_method_name.
+      CLEAR lv_method_desc.
+      lv_method_name = ls_comp-cmpname.
+      lv_method_desc = ls_comp-descript.
 
-      " Get method parameters from SEOSUBCODF
-      DATA lt_params TYPE STANDARD TABLE OF seosubcodf WITH DEFAULT KEY.
-      SELECT fname type sconame parclsn defaultvalue FROM seosubcodf
-        INTO TABLE lt_params
-        WHERE clsname = lv_clsname
-          AND cmpname = ls_comp-cmpname.
-
-      LOOP AT lt_params INTO DATA(ls_param).
-        DATA ls_param_out TYPE zcl_abgagt_command_view=>ty_method_param.
-        ls_param_out-name = ls_param-fname.
-        ls_param_out-type = ls_param-type.
-
-        " Determine pass type
-        IF ls_param-sconame IS INITIAL.
-          ls_param_out-pass = 'IMPORTING'.
-        ELSE.
-          CASE ls_param-sconame.
-            WHEN 'I'. ls_param_out-pass = 'IMPORTING'.
-            WHEN 'E'. ls_param_out-pass = 'EXPORTING'.
-            WHEN 'C'. ls_param_out-pass = 'CHANGING'.
-            WHEN 'R'. ls_param_out-pass = 'RETURNING'.
-          ENDCASE.
-        ENDIF.
-
-        " Check if optional
-        IF ls_param-defaultvalue IS NOT INITIAL.
-          ls_param_out-optional = abap_true.
-        ENDIF.
-
-        APPEND ls_param_out TO ls_method-parameters.
-      ENDLOOP.
-
-      " Check for returning parameter
-      READ TABLE lt_params WITH KEY sconame = 'R' TRANSPORTING NO FIELDS.
-      IF sy-subrc = 0.
-        ls_method-return-name = 'RETURNING'.
-        READ TABLE lt_params WITH KEY sconame = 'R' INTO DATA(ls_ret).
-        IF sy-subrc = 0.
-          ls_method-return-type = ls_ret-type.
-        ENDIF.
+      " Build method string: "PUBLIC METHOD_NAME - description"
+      IF lv_method_desc IS NOT INITIAL.
+        CONCATENATE 'PUBLIC' lv_method_name '-' lv_method_desc INTO lv_method_desc SEPARATED BY space.
+      ELSE.
+        CONCATENATE 'PUBLIC' lv_method_name INTO lv_method_desc SEPARATED BY space.
       ENDIF.
-
-      APPEND ls_method TO rs_info-methods.
+      APPEND lv_method_desc TO rs_info-methods.
     ENDLOOP.
   ENDMETHOD.
 
