@@ -1511,9 +1511,16 @@ Examples:
                   description: 18,
                 };
 
+                // Helper to truncate with ellipsis if needed
+                const truncate = (str, maxLen) => {
+                  const s = String(str || '');
+                  if (s.length <= maxLen) return s;
+                  return s.substring(0, maxLen - 1) + '…';
+                };
+
                 // Helper to build row
                 const buildRow = (field, key, type, length, dataelement, description) => {
-                  return '  | ' + String(field || '').padEnd(colWidths.field) + ' | ' + String(key || '').padEnd(colWidths.key) + ' | ' + String(type || '').padEnd(colWidths.type) + ' | ' + String(length || '').padStart(colWidths.length) + ' | ' + String(dataelement || '').padEnd(colWidths.dataelement) + ' | ' + String(description || '').substring(0, colWidths.description).padEnd(colWidths.description) + ' |';
+                  return '  | ' + truncate(field, colWidths.field).padEnd(colWidths.field) + ' | ' + String(key || '').padEnd(colWidths.key) + ' | ' + truncate(type, colWidths.type).padEnd(colWidths.type) + ' | ' + String(length || '').padStart(colWidths.length) + ' | ' + truncate(dataelement, colWidths.dataelement).padEnd(colWidths.dataelement) + ' | ' + truncate(description, colWidths.description).padEnd(colWidths.description) + ' |';
                 };
 
                 // Build separator line (matches row structure with | at ends and + between columns)
