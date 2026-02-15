@@ -41,7 +41,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
         lv_json = lv_json && ','.
       ENDIF.
       lv_first = abap_false.
-      lv_json = lv_json && |\{\"fieldname\":\"{<ls_field>-fieldname}\",\"position\":{<ls_field>-position},\"datatype\":\"{<ls_field>-datatype}\",\"length\":{<ls_field>-leng}\}|.
+      lv_json = lv_json && |{{'"'}}fieldname{{'"'}}:{{'"'}}{<ls_field>-fieldname}{{'"'}},position:{<ls_field>-position},datatype:{{'"'}}{<ls_field>-datatype}{{'"'}},length:{<ls_field>-leng}}|.
     ENDLOOP.
 
     lv_json = lv_json && ']'.
