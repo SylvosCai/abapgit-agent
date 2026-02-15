@@ -15,9 +15,10 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_view_params.
 
     TYPES: BEGIN OF ty_component,
-             fieldname TYPE string,
-             type TYPE string,
+             field TYPE string,
              key TYPE abap_bool,
+             type TYPE string,
+             length TYPE i,
              description TYPE string,
            END OF ty_component.
 
