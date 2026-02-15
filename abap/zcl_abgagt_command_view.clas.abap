@@ -19,6 +19,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
+             details TYPE string,
            END OF ty_view_object.
 
     TYPES ty_view_objects TYPE TABLE OF ty_view_object WITH NON-UNIQUE DEFAULT KEY.
