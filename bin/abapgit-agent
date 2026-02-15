@@ -522,6 +522,8 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   // Handle uppercase keys from ABAP
   const success = result.SUCCESS || result.success;
   const rootPackage = result.PACKAGE || result.package || packageName;
+  const parentPackage = result.PARENT_PACKAGE || result.parent_package;
+  const parentDescription = result.PARENT_DESCRIPTION || result.parent_description;
   const nodes = result.NODES || result.nodes || [];
   const totalPackages = result.TOTAL_PACKAGES || result.total_packages || 0;
   const totalObjects = result.TOTAL_OBJECTS || result.total_objects || 0;
@@ -534,6 +536,14 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   }
 
   console.log(`\n  Package Tree: ${rootPackage}`);
+
+  // Display parent info if available
+  if (parentPackage) {
+    const parentInfo = parentDescription && parentDescription !== parentPackage
+      ? `${parentPackage} (${parentDescription})`
+      : parentPackage;
+    console.log(`  ⬆️  Parent: ${parentInfo}`);
+  }
 
   console.log('');
 
@@ -557,7 +567,7 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   // AI metadata block
   const aiMetadata = {
     package: rootPackage,
-    parent: null,
+    parent: parentPackage || null,
     total_packages: totalPackages,
     total_objects: totalObjects,
     types: {}

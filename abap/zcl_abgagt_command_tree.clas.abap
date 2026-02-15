@@ -34,6 +34,8 @@ CLASS zcl_abgagt_command_tree DEFINITION PUBLIC FINAL CREATE PUBLIC.
              command TYPE string,
              package TYPE tdevc-devclass,
              message TYPE string,
+             parent_package TYPE tdevc-devclass,
+             parent_description TYPE string,
              nodes TYPE ty_package_nodes,
              total_packages TYPE i,
              total_objects TYPE i,
@@ -125,6 +127,14 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     rs_result-success = abap_true.
     rs_result-package = lv_package.
     rs_result-message = 'Tree retrieved successfully'.
+
+    " Set parent info if available
+    IF ls_package-parentcl IS NOT INITIAL.
+      rs_result-parent_package = ls_package-parentcl.
+      SELECT SINGLE as4text FROM tdevc
+        INTO rs_result-parent_description
+        WHERE devclass = ls_package-parentcl.
+    ENDIF.
 
     " Add root package
     ls_root-package = lv_package.
