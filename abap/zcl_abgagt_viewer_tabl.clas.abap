@@ -14,11 +14,11 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description TYPE string,
            END OF ty_component.
 
-    TYPES ty_components TYPE TABLE OF ty_component.
+    TYPES ty_components TYPE STANDARD TABLE OF ty_component.
 
-    METHODS build_components
+    METHODS build_components_json
       IMPORTING iv_tabname TYPE string
-      RETURNING VALUE(rt_components) TYPE ty_components.
+      RETURNING VALUE(rv_json) TYPE string.
 
 ENDCLASS.
 
@@ -40,11 +40,10 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Build simplified components JSON
-    DATA(lt_components) = build_components( iv_name ).
-    rs_info-components = /ui2/cl_json=>serialize( data = lt_components ).
+    rs_info-components = build_components_json( iv_name ).
   ENDMETHOD.
 
-  METHOD build_components.
+  METHOD build_components_json.
     DATA lv_tabname TYPE dd02l-tabname.
     lv_tabname = iv_tabname.
 
@@ -54,14 +53,17 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
         AND as4local = 'A'
       ORDER BY position.
 
+    DATA lt_components TYPE ty_components.
     LOOP AT lt_fields ASSIGNING FIELD-SYMBOL(<ls_field>).
       APPEND VALUE #(
         fieldname = <ls_field>-fieldname
         type = <ls_field>-datatype
         key = COND #( WHEN <ls_field>-keyflag = 'X' THEN abap_true ELSE abap_false )
         description = <ls_field>-fieldname
-      ) TO rt_components.
+      ) TO lt_components.
     ENDLOOP.
+
+    rv_json = /ui2/cl_json=>serialize( data = lt_components ).
   ENDMETHOD.
 
 ENDCLASS.
