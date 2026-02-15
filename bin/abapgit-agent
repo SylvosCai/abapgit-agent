@@ -1456,13 +1456,18 @@ Examples:
 
             if (components.length > 0) {
               console.log(`     Fields: ${components.length}`);
-              for (const comp of components.slice(0, 5)) {
-                const name = comp.FIELDNAME || comp.fieldname || '';
-                const datatype = comp.DATATYPE || comp.datatype || '';
-                console.log(`       - ${name} (${datatype})`);
+              for (const comp of components.slice(0, 10)) {
+                const name = comp.FIELD || comp.field || comp.FIELDNAME || comp.fieldname || '';
+                const datatype = comp.TYPE || comp.type || comp.DATATYPE || comp.datatype || '';
+                const key = comp.KEY || comp.key || false;
+                const description = comp.DESCRIPTION || comp.description || '';
+                console.log(`     - ${name} : ${datatype} ${key ? '[Key]' : ''}`);
+                if (description) {
+                  console.log(`       ${description}`);
+                }
               }
-              if (components.length > 5) {
-                console.log(`       ... and ${components.length - 5} more`);
+              if (components.length > 10) {
+                console.log(`       ... and ${components.length - 10} more`);
               }
             }
 
