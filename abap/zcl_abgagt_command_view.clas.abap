@@ -157,10 +157,15 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       WHEN 'ZTY_'. rv_type = 'DTEL'.
       WHEN 'ZS__'. rv_type = 'DTEL'.
       WHEN OTHERS.
-        SELECT SINGLE tabname FROM dd02l INTO lv_tab
+        SELECT SINGLE tabname tabclass FROM dd02l INTO (lv_tab, DATA(lv_tabclass))
           WHERE tabname = iv_name.
         IF sy-subrc = 0.
-          rv_type = 'TABL'.
+          " Distinguish between tables and structures
+          IF lv_tabclass = 'INTTAB'.
+            rv_type = 'STRU'.
+          ELSE.
+            rv_type = 'TABL'.
+          ENDIF.
         ELSE.
           SELECT SINGLE rollname FROM dd04l INTO lv_dtel
             WHERE rollname = iv_name.
