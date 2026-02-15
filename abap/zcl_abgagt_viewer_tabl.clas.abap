@@ -18,7 +18,8 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES ty_table_fields TYPE TABLE OF ty_table_field WITH NON-UNIQUE DEFAULT KEY.
 
     METHODS get_table_fields
-      IMPORTING iv_tabname TYPE string.
+      IMPORTING iv_tabname TYPE string
+      RETURNING VALUE(rt_result) TYPE ty_table_fields.
 
 ENDCLASS.
 
@@ -54,7 +55,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position
-      INTO CORRESPONDING FIELDS OF TABLE RESULT.
+      INTO CORRESPONDING FIELDS OF TABLE rt_result.
   ENDMETHOD.
 
 ENDCLASS.
