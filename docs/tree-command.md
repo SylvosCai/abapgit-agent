@@ -72,7 +72,7 @@ GET /health (with X-CSRF-Token: fetch)
 
 ## Output
 
-### Basic Tree (Human + AI-Friendly)
+### Basic Tree
 
 ```
 🌳 Package Tree: $ZMAIN_PACKAGE
@@ -87,13 +87,9 @@ GET /health (with X-CSRF-Token: fetch)
 📊 Summary
 PACKAGES: 6
 OBJECTS: 127
-
-<!-- AI_METADATA_START -->
-{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":6,"total_objects":127}
-<!-- AI_METADATA_END -->
 ```
 
-### With Object Counts (Human + AI-Friendly)
+### With Object Counts
 
 ```
 🌳 Package Tree: $ZMAIN_PACKAGE
@@ -109,13 +105,9 @@ OBJECTS: 127
 PACKAGES: 6
 OBJECTS: 127
 TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
-
-<!-- AI_METADATA_START -->
-{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":6,"total_objects":127,"types":{"CLAS":10,"INTF":2,"PROG":11,"FUGR":1,"TABL":3}}
-<!-- AI_METADATA_END -->
 ```
 
-### With Parent Package (Human + AI-Friendly)
+### With Parent Package
 
 ```
 🌳 Package Tree: $ZMAIN_PACKAGE
@@ -129,13 +121,9 @@ TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
 PACKAGES: 2
 OBJECTS: 15
 TYPES: CLAS=5 PROG=10
-
-<!-- AI_METADATA_START -->
-{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":2,"total_objects":15,"types":{"CLAS":5,"PROG":10}}
-<!-- AI_METADATA_END -->
 ```
 
-### JSON Output (Pure Scripting)
+### JSON Output
 
 ```json
 {
@@ -211,37 +199,6 @@ Each entry in `NODES` array:
 
 ---
 
-## AI-Friendly Metadata Format
-
-### Inline Metadata Block
-
-The default output includes an HTML-style comment block for reliable AI parsing:
-
-```html
-<!-- AI_METADATA_START -->
-{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":6,"total_objects":127,"types":{"CLAS":10,"INTF":2,"PROG":11}}
-<!-- AI_METADATA_END -->
-```
-
-### Metadata Schema
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `package` | string | Root package name |
-| `parent` | string | Parent package name (or null if root) |
-| `total_packages` | number | Total packages including all subpackages |
-| `total_objects` | number | Total objects in entire tree |
-| `types` | object | Object counts by type (e.g., `{"CLAS":10}`) |
-
-### Why This Format?
-
-1. **Reliable extraction** - AI tools can find `<!-- AI_METADATA_START -->` and `<!-- AI_METADATA_END -->` markers
-2. **Self-contained JSON** - No ambiguity in parsing
-3. **Human invisible** - Hidden in terminal (comment syntax)
-4. **Backwards compatible** - Existing human-readable output unchanged
-
----
-
 ## Response Structure
 
 ### JSON Mode
@@ -265,24 +222,6 @@ The default output includes an HTML-style comment block for reliable AI parsing:
 ```
 
 See [JSON Output](#json-output-pure-scripting) for full schema.
-
-### AI Metadata (Default Mode)
-
-```json
-{
-  "package": "$ZMAIN_PACKAGE",
-  "parent": "$ZSAP_BASE",
-  "total_packages": 6,
-  "total_objects": 127,
-  "types": {
-    "CLAS": 10,
-    "INTF": 2,
-    "PROG": 11,
-    "FUGR": 1,
-    "TABL": 3
-  }
-}
-```
 
 ---
 

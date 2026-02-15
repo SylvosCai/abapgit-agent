@@ -509,7 +509,7 @@ async function runTreeCommand(packageName, depth, includeObjects, csrfToken, con
 }
 
 /**
- * Display tree output in human-readable format with AI metadata
+ * Display tree output in human-readable format
  */
 async function displayTreeOutput(packageName, depth, includeObjects) {
   const config = loadConfig();
@@ -561,26 +561,6 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
     const typeStr = objectTypes.map(t => `${t.OBJECT || t.object}=${t.COUNT || t.count}`).join(' ');
     console.log(`  TYPES: ${typeStr}`);
   }
-
-  // AI metadata block
-  const aiMetadata = {
-    package: rootPackage,
-    parent: parentPackage || null,
-    total_packages: totalPackages,
-    total_objects: totalObjects,
-    types: {}
-  };
-
-  objectTypes.forEach(t => {
-    const key = t.OBJECT || t.object;
-    const count = t.COUNT || t.count;
-    if (key) {
-      aiMetadata.types[key] = count;
-    }
-  });
-
-  console.log('');
-  console.log(`<!-- AI_METADATA_START -->${JSON.stringify(aiMetadata)}<!-- AI_METADATA_END -->`);
 }
 
 /**
