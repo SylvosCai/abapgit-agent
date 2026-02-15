@@ -80,11 +80,49 @@ abapgit-agent view --objects ZMY_DTEL --type DTEL
 # View a class definition
 abapgit-agent view --objects ZCL_MY_CLASS
 
+# View an interface definition
+abapgit-agent view --objects ZIF_MY_INTERFACE
+
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
 
 # JSON output for scripting
 abapgit-agent view --objects ZMY_TABLE --type TABL --json
+```
+
+### When to Use View Command
+
+AI assistant SHOULD call `view` command when:
+
+- User asks to "check", "look up", or "explore" an unfamiliar object
+- Working with a table/structure and you don't know the field names/types
+- Calling a class/interface method and you don't know the parameters
+- User provides an object name that may not exist in the git repository
+
+**Example workflow:**
+```
+User: "Check if SFLIGHT table has a PRICE field"
+
+Assistant: <calls `abapgit-agent view --objects SFLIGHT --type TABL`>
+→ Shows table structure with all fields including PRICE
+```
+
+## Explore Package Structure
+
+Use the `tree` command to display package hierarchy from ABAP system:
+
+```bash
+# Display package hierarchy
+abapgit-agent tree --package $MY_PACKAGE
+
+# With object counts
+abapgit-agent tree --package $MY_PACKAGE --include-objects
+
+# Limit depth
+abapgit-agent tree --package $MY_PACKAGE --depth 2
+
+# JSON output for scripting
+abapgit-agent tree --package $MY_PACKAGE --json
 ```
 
 **Table Output Example:**
