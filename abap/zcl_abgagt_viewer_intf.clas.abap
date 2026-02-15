@@ -48,30 +48,6 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
     ENDIF.
-
-    " Extract method information from SEOCOMPT (interfaces use same table)
-    DATA lt_methods TYPE STANDARD TABLE OF seocompodf WITH DEFAULT KEY.
-
-    SELECT cmpname descript pabuchname FROM seocompodf
-      INTO TABLE @lt_methods
-      WHERE clsname = @lv_clsname.
-
-    LOOP AT lt_methods INTO DATA(ls_comp).
-      DATA lv_method_name TYPE string.
-      DATA lv_method_desc TYPE string.
-      CLEAR lv_method_name.
-      CLEAR lv_method_desc.
-      lv_method_name = ls_comp-cmpname.
-      lv_method_desc = ls_comp-descript.
-
-      " Build method string: "PUBLIC METHOD_NAME - description"
-      IF lv_method_desc IS NOT INITIAL.
-        CONCATENATE 'PUBLIC' lv_method_name '-' lv_method_desc INTO lv_method_desc SEPARATED BY space.
-      ELSE.
-        CONCATENATE 'PUBLIC' lv_method_name INTO lv_method_desc SEPARATED BY space.
-      ENDIF.
-      APPEND lv_method_desc TO rs_info-methods.
-    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
