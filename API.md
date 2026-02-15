@@ -10,6 +10,8 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/pull` | Pull and activate repository |
 | POST | `/inspect` | Inspect source file for issues |
 | POST | `/unit` | Execute unit tests (AUnit) |
+| POST | `/tree` | Display package hierarchy tree |
+| POST | `/view` | View ABAP object definitions |
 
 ## GET /health
 
@@ -222,6 +224,223 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs A
 }
 ```
 
+## POST /tree
+
+Display package hierarchy tree from ABAP system.
+
+### Request Body
+
+```json
+{
+  "package": "$MY_PACKAGE",
+  "depth": 3,
+  "include_objects": true
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `package` | String | Package name (required) |
+| `depth` | Integer | Maximum depth (default: 3, max: 10) |
+| `include_objects` | Boolean | Include object counts by type |
+
+### Response (success)
+
+```json
+{
+  "success": true,
+  "command": "TREE",
+  "package": "$MY_PACKAGE",
+  "message": "Tree retrieved successfully",
+  "parent_package": "$ZSAP_BASE",
+  "nodes": [
+    {
+      "package": "$MY_PACKAGE",
+      "parent": "",
+      "description": "$MY_PACKAGE",
+      "depth": 0,
+      "object_count": 10
+    },
+    {
+      "package": "$MY_SUBPACKAGE",
+      "parent": "$MY_PACKAGE",
+      "description": "$MY_SUBPACKAGE",
+      "depth": 1,
+      "object_count": 5
+    }
+  ],
+  "total_packages": 2,
+  "total_objects": 15,
+  "objects": [
+    { "object": "CLAS", "count": 8 },
+    { "object": "INTF", "count": 2 },
+    { "object": "TABL", "count": 5 }
+  ],
+  "error": ""
+}
+```
+
+### Response (error)
+
+```json
+{
+  "success": false,
+  "command": "TREE",
+  "package": "$NONEXISTENT",
+  "error": "Package $NONEXISTENT does not exist"
+}
+```
+
+## POST /view
+
+View ABAP object definitions directly from ABAP system.
+
+### Request Body
+
+```json
+{
+  "objects": ["ZCL_MY_CLASS", "ZIF_MY_INTERFACE", "SFLIGHT"],
+  "type": "CLAS"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `objects` | Array | List of object names (required) |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL). Auto-detected if not specified |
+
+### Supported Object Types
+
+| Type | Description |
+|------|-------------|
+| CLAS | Global ABAP class |
+| INTF | Global interface |
+| TABL | Database table |
+| STRU | Structure type |
+| DTEL | Data element |
+
+### Response (success - class/interface)
+
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved object(s)",
+  "objects": [
+    {
+      "name": "ZCL_MY_CLASS",
+      "type": "CLAS",
+      "type_text": "Class",
+      "description": "Class ZCL_MY_CLASS in $PACKAGE",
+      "source": "CLASS zcl_my_class DEFINITION PUBLIC.\n  PUBLIC SECTION.\n  ...",
+      "not_found": false,
+      "components": []
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "by_type": ["CLAS"]
+  },
+  "error": ""
+}
+```
+
+### Response (success - table)
+
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved object(s)",
+  "objects": [
+    {
+      "name": "SFLIGHT",
+      "type": "TABL",
+      "type_text": "Table",
+      "description": "Table SFLIGHT in SAPBC_DATAMODEL",
+      "source": "",
+      "not_found": false,
+      "components": [
+        {
+          "field": "MANDT",
+          "key": true,
+          "type": "CLNT",
+          "length": 3,
+          "dataelement": "MANDT",
+          "description": "Client"
+        },
+        {
+          "field": "CARRID",
+          "key": true,
+          "type": "CHAR",
+          "length": 3,
+          "dataelement": "S_CARR_ID",
+          "description": "Airline Code"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "by_type": ["TABL"]
+  },
+  "error": ""
+}
+```
+
+### Response (success - data element)
+
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved object(s)",
+  "objects": [
+    {
+      "name": "S_CARR_ID",
+      "type": "DTEL",
+      "type_text": "Data Element",
+      "description": "Airline Code",
+      "domain": "S_CARR_ID",
+      "domain_type": "CHAR",
+      "domain_length": 3,
+      "domain_decimals": 0,
+      "not_found": false,
+      "components": []
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "by_type": ["DTEL"]
+  },
+  "error": ""
+}
+```
+
+### Response (not found)
+
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved object(s)",
+  "objects": [
+    {
+      "name": "ZIF_NONEXISTENT",
+      "type": "",
+      "type_text": "Unknown",
+      "not_found": true,
+      "components": []
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "by_type": [""]
+  },
+  "error": ""
+}
+```
+
 ## Response Structure
 
 ### Pull Response Fields
@@ -260,6 +479,48 @@ The endpoint parses file names to extract `obj_type` and `obj_name`, then runs A
 | `failed_count` | Integer | Number of failed tests |
 | `message` | String | Status message |
 | `errors` | Array | Failed test details (empty if all tests pass) |
+
+### Tree Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the request succeeded |
+| `command` | String | Command name ("TREE") |
+| `package` | String | Root package name |
+| `message` | String | Status message |
+| `parent_package` | String | Parent package (empty if root) |
+| `nodes` | Array | Flat list of all packages |
+| `total_packages` | Integer | Total packages in tree |
+| `total_objects` | Integer | Total objects in tree |
+| `objects` | Array | Object counts by type |
+| `error` | String | Error message (empty if success) |
+
+### View Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the request succeeded |
+| `command` | String | Command name ("VIEW") |
+| `message` | String | Status message |
+| `objects` | Array | List of object information |
+| `summary` | Object | Summary with total and by_type |
+| `error` | String | Error message (empty if success) |
+
+### Object Fields (for View)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | Object name |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL) |
+| `type_text` | String | Human-readable type |
+| `description` | String | Object description |
+| `source` | String | Source code (CLAS/INTF) |
+| `domain` | String | Domain name (DTEL) |
+| `domain_type` | String | Domain data type (DTEL) |
+| `domain_length` | Integer | Domain length (DTEL) |
+| `domain_decimals` | Integer | Domain decimals (DTEL) |
+| `not_found` | Boolean | true if object does not exist |
+| `components` | Array | Fields/components (TABL/STRU) |
 
 ### Error Item Fields
 
