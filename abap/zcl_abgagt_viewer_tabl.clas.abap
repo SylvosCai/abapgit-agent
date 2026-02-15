@@ -13,11 +13,13 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
           lv_devclass TYPE tadir-devclass,
-          lt_fields TYPE TABLE OF dd03l.
+          lv_tabname TYPE dd02l-tabname.
+
+    lv_tabname = iv_name.
 
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
-      WHERE obj_name = iv_name
+      WHERE obj_name = lv_tabname
         AND object = 'TABL'.
     IF sy-subrc = 0.
       rs_info-name = iv_name.
@@ -26,12 +28,13 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       rs_info-description = |Table { iv_name } in { lv_devclass }|.
     ENDIF.
 
-    " Build components JSON
+    " Build components JSON using separate statements
+    DATA lt_fields TYPE TABLE OF dd03l.
     SELECT fieldname datatype leng FROM dd03l
-      WHERE tabname = iv_name
+      INTO CORRESPONDING FIELDS OF TABLE lt_fields
+      WHERE tabname = lv_tabname
         AND as4local = 'A'
-      ORDER BY position
-      INTO TABLE lt_fields.
+      ORDER BY position.
 
     rs_info-components = /ui2/cl_json=>serialize( data = lt_fields ).
   ENDMETHOD.
