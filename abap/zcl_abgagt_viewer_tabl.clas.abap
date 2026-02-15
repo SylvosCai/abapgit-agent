@@ -19,7 +19,7 @@ CLASS zcl_abgagt_viewer_tabl DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS get_table_fields
       IMPORTING iv_tabname TYPE string
-      RETURNING VALUE(rt_fields) TYPE ty_table_fields.
+      EXPORTING et_fields TYPE ty_table_fields.
 
 ENDCLASS.
 
@@ -42,7 +42,9 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Get table fields and serialize to JSON
-    lt_fields = get_table_fields( iv_name ).
+    get_table_fields(
+      EXPORTING iv_tabname = iv_name
+      IMPORTING et_fields = lt_fields ).
     rs_info-details = /ui2/cl_json=>serialize( data = lt_fields ).
   ENDMETHOD.
 
@@ -55,7 +57,7 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       WHERE tabname = lv_tabname
         AND as4local = 'A'
       ORDER BY position
-      INTO CORRESPONDING FIELDS OF TABLE rt_fields.
+      INTO CORRESPONDING FIELDS OF TABLE et_fields.
   ENDMETHOD.
 
 ENDCLASS.
