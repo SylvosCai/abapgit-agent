@@ -47,6 +47,11 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_preview_objects TYPE STANDARD TABLE OF ty_preview_object WITH DEFAULT KEY.
 
+    TYPES: BEGIN OF ty_summary,
+             total_objects TYPE i,
+             total_rows TYPE i,
+           END OF ty_summary.
+
     TYPES: BEGIN OF ty_preview_result,
              success TYPE abap_bool,
              command TYPE string,
@@ -55,11 +60,6 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              summary TYPE ty_summary,
              error TYPE string,
            END OF ty_preview_result.
-
-    TYPES: BEGIN OF ty_summary,
-             total_objects TYPE i,
-             total_rows TYPE i,
-           END OF ty_summary.
 
     " Method declarations
     METHODS get_table_data
