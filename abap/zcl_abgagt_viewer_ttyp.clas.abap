@@ -34,10 +34,11 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
       rs_info-not_found = abap_true.
     ENDIF.
 
-    " Get TTYP details from DD40V
-    SELECT SINGLE rowtype accessmode keydef FROM dd40v
+    " Get TTYP details from DD40L
+    SELECT SINGLE rowtype accessmode keydef FROM dd40l
       INTO (lv_linetype, lv_tabprottype, lv_keydef)
-      WHERE typename = iv_name.
+      WHERE typename = iv_name
+        AND as4local = 'A'.
 
     " Build components table with TTYP details
     IF lv_linetype IS NOT INITIAL.
