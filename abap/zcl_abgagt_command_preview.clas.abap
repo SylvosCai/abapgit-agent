@@ -16,7 +16,38 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA lv_json TYPE string.
-    lv_json = '{"success":"X","command":"PREVIEW","message":"test"}'.
+    DATA lv_count TYPE i.
+    DATA: BEGIN OF ls_field,
+      field TYPE string,
+      type TYPE string,
+    END OF ls_field.
+    DATA lt_fields LIKE TABLE OF ls_field.
+
+    SELECT fieldname AS field datatype AS type
+      FROM dd03l
+      INTO CORRESPONDING FIELDS OF ls_field
+      WHERE tabname = 'TADIR'
+        AND as4local = 'A'
+      ORDER BY position.
+      APPEND ls_field TO lt_fields.
+    ENDSELECT.
+
+    lv_count = lines( lt_fields ).
+    lv_json = '{
+  "success": "X",
+  "command": "PREVIEW",
+  "message": "' && lv_count && ' fields",
+  "fields": ['.
+
+    LOOP AT lt_fields INTO ls_field.
+      IF sy-tabix > 1.
+        CONCATENATE lv_json ',' INTO lv_json.
+      ENDIF.
+      CONCATENATE lv_json '{"field":"' ls_field-field '","type":"' ls_field-type '"}' INTO lv_json.
+    ENDLOOP.
+
+    CONCATENATE lv_json ']}' INTO lv_json.
+
     rv_result = lv_json.
   ENDMETHOD.
 
