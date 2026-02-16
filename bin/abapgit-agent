@@ -809,15 +809,50 @@ async function pull(gitUrl, branch = 'main', files = null, transportRequest = nu
     const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
     const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
 
-    // Icon mapping for message types (using ASCII for consistent width)
+    // Icon mapping for message types
     const getIcon = (type) => {
       const icons = {
-        'S': '[+]',  // Success
-        'E': '[-]',  // Error
-        'W': '[!]',  // Warning
-        'A': '[X]'   // Abort
+        'S': '✅',  // Success
+        'E': '❌',  // Error
+        'W': '⚠️',  // Warning
+        'A': '🛑'   // Abort
       };
-      return icons[type] || '   ';
+      return icons[type] || '  ';
+    };
+
+    // Calculate display width accounting for emoji (2 cells) vs ASCII (1 cell)
+    const calcWidth = (str) => {
+      if (!str) return 0;
+      let width = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        const code = char.charCodeAt(0);
+        // Check for emoji surrogate pairs
+        if (code >= 0xD800 && code <= 0xDBFF && i + 1 < str.length) {
+          const nextCode = str[i + 1].charCodeAt(0);
+          if (nextCode >= 0xDC00 && nextCode <= 0xDFFF) {
+            width += 2;  // Emoji takes 2 cells
+            i++;  // Skip next surrogate
+            continue;
+          }
+        }
+        // Check for already combined emoji (like ⚠️ which is ⚠ + variation selector)
+        if (code >= 0xFE00 && code <= 0xFE0F) {
+          width += 0;  // Variation selector, no extra width
+        } else if (code > 127) {
+          width += 2;  // Wide character
+        } else {
+          width += 1;
+        }
+      }
+      return width;
+    };
+
+    // Pad string to display width
+    const padToWidth = (str, width) => {
+      const s = str || '';
+      const currentWidth = calcWidth(s);
+      return s + ' '.repeat(Math.max(0, width - currentWidth));
     };
 
     if (success === 'X' || success === true) {
