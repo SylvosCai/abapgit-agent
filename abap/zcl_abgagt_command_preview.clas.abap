@@ -6,15 +6,6 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    TYPES:
-    BEGIN OF ty_field,
-      fieldname TYPE string,
-      datatype TYPE string,
-      leng TYPE string,
-    END OF ty_field.
-
-    TYPES ty_fields TYPE STANDARD TABLE OF ty_field WITH DEFAULT KEY.
-
 ENDCLASS.
 
 CLASS zcl_abgagt_command_preview IMPLEMENTATION.
@@ -25,17 +16,15 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA lv_json TYPE string.
+    DATA lv_name TYPE string.
 
-    SELECT fieldname, datatype, leng
-      FROM dd03l
-      UP TO 10 ROWS
-      INTO CORRESPONDING FIELDS OF @DATA(ls_dd03l)
+    SELECT SINGLE fieldname FROM dd03l
+      INTO lv_name
       WHERE tabname = 'TADIR'
-        AND as4local = 'A'.
+        AND as4local = 'A'
+        AND position = 1.
 
-    ENDSELECT.
-
-    lv_json = '{"success":"X","command":"PREVIEW","message":"OK"}'.
+    lv_json = '{"success":"X","command":"PREVIEW","message":"' && lv_name && '"}'.
 
     rv_result = lv_json.
   ENDMETHOD.
