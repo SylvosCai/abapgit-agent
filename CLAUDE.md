@@ -181,6 +181,75 @@ abapgit-agent health
 }
 ```
 
+## Inspect Command
+
+### Description
+Run syntax check for ABAP objects. Supports both regular ABAP objects (classes, interfaces, programs) and CDS views (DDLS).
+
+### Usage
+```bash
+# Inspect single file
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# Inspect multiple files
+abapgit-agent inspect --files abap/zcl_class1.clas.abap,abap/zcl_class2.clas.abap
+
+# Inspect CDS view
+abapgit-agent inspect --files abap/zc_my_view.ddls.asddls
+
+# Inspect mixed file types (DDLS + CLAS)
+abapgit-agent inspect --files abap/zc_my_view.ddls.asddls,abap/zcl_my_class.clas.abap
+```
+
+### Supported Object Types
+
+| Type | Description | Validation Method |
+|------|-------------|------------------|
+| CLAS | Class | Code Inspector (SCI) |
+| INTF | Interface | Code Inspector (SCI) |
+| PROG | Program | Code Inspector (SCI) |
+| FUGR | Function Group | Code Inspector (SCI) |
+| DDLS | CDS View/Entity | DDL Handler (CL_DD_DDL_HANDLER_FACTORY) |
+
+### Output
+
+**Passed:**
+```
+✅ CLAS ZCL_MY_CLASS - Syntax check passed
+```
+
+**With Warnings:**
+```
+⚠️  DDLS ZC_MY_VIEW - Syntax check passed with warnings (4):
+
+Warnings:
+────────────────────────────────────────────────────────────
+  Line 9 : ParentPackage
+  Line 11 : SoftwareComponent
+```
+
+**Failed:**
+```
+❌ DDLS ZC_MY_VIEW - Syntax check failed (1 error(s)):
+
+Errors:
+────────────────────────────────────────────────────────────
+  Line 21, Column 12: Error message text
+```
+
+### Key Behaviors
+
+1. **Multiple files in one request** - All files are sent in a single API call for better performance
+2. **CDS View validation** - Uses `CL_DD_DDL_HANDLER_FACTORY` to validate CDS views
+3. **Check inactive version first** - For CDS views, checks the inactive version first (`get_state = 'M'`), then falls back to active version
+4. **Detailed error messages** - Uses `get_errors()` and `get_warnings()` methods from the exception to get detailed information
+5. **Per-object results** - Returns results for each object individually
+
+### File Format
+Files are parsed to extract `(obj_type, obj_name)`:
+- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
+- `zc_my_view.ddls.asddls` → DDLS, ZC_MY_VIEW
+
 ## Unit Command
 
 ### Description

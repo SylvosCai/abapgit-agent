@@ -23,6 +23,58 @@ This is an ABAP project. **Do not attempt local syntax validation** - ABAP code 
 4. **"Error updating where-used list" = SYNTAX ERROR** - This is NOT a warning!
 5. If Failed Objects > 0, there are syntax errors - fix them before proceeding
 
+## Inspect Command (Syntax Check)
+
+Use the `inspect` command to perform syntax validation on ABAP objects and CDS views.
+
+### Usage
+```bash
+# Syntax check single file
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# Syntax check multiple files
+abapgit-agent inspect --files abap/zcl_class1.clas.abap,abap/zcl_class2.clas.abap
+
+# Syntax check CDS view
+abapgit-agent inspect --files abap/zc_my_view.ddls.asddls
+```
+
+### Supported Object Types
+
+| Type | Description | Validation Method |
+|------|-------------|------------------|
+| CLAS | Class | Code Inspector (SCI) |
+| INTF | Interface | Code Inspector (SCI) |
+| PROG | Program | Code Inspector (SCI) |
+| DDLS | CDS View/Entity | DDL Handler |
+
+### CDS Views (DDLS) Validation
+
+For CDS views, the inspect command uses `CL_DD_DDL_HANDLER_FACTORY`:
+- Checks **inactive version first** (`get_state = 'M'`)
+- Falls back to active version if no inactive version exists
+- Uses `get_errors()` and `get_warnings()` methods for detailed error information
+
+### Examples
+
+**Passed:**
+```
+✅ CLAS ZCL_MY_CLASS - Syntax check passed
+```
+
+**With Warnings:**
+```
+⚠️  DDLS ZC_MY_VIEW - Syntax check passed with warnings (4):
+  Line 9 : ParentPackage
+  Line 11 : SoftwareComponent
+```
+
+**Failed:**
+```
+❌ DDLS ZC_MY_VIEW - Syntax check failed (1 error(s)):
+  Line 21, Column 12: Error message text
+```
+
 ## Fast Iteration Workflow
 
 For quick ABAP code changes:
