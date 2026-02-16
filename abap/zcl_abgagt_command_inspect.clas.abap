@@ -280,7 +280,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             " Use MESSAGE statement to get real warning message
             MESSAGE ID ls_warn2-arbgb TYPE 'E' NUMBER ls_warn2-msgnr
               WITH ls_warn2-var1 ls_warn2-var2 ls_warn2-var3 ls_warn2-var4
-              INTO DATA(lv_warn_msg).
+              INTO lv_warn_msg.
             ls_warning-message = lv_warn_msg.
             APPEND ls_warning TO ls_result-warnings.
           ENDLOOP.
