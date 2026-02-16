@@ -322,10 +322,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         " Set column info
         cs_result-columns_displayed = lines( cs_result-fields ).
 
-      CATCH cx_sy_dynamic_osql_syntax
-            cx_sy_dynamic_osql_field
-            cx_sy_open_sql_db
-            cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO DATA(lx_error).
         lv_error = lx_error->get_text( ).
         cs_result-error = lv_error.
         cs_result-row_count = 0.
