@@ -14,6 +14,14 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error TYPE string,
            END OF ty_result.
 
+    TYPES: BEGIN OF ty_row,
+             f1 TYPE string,
+             f2 TYPE string,
+             f3 TYPE string,
+           END OF ty_row.
+
+    TYPES ty_rows TYPE STANDARD TABLE OF ty_row WITH DEFAULT KEY.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_preview IMPLEMENTATION.
@@ -24,28 +32,28 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_result TYPE ty_result.
-    DATA: lv_tabname TYPE dd03l-tabname.
+    DATA: ls_row TYPE ty_row.
+    DATA: lt_rows TYPE ty_rows.
     DATA: lv_json TYPE string.
 
     ls_result-command = zif_abgagt_command=>gc_preview.
 
-    " Get table name from parameter - use simple hardcoded for now
-    lv_tabname = 'TADIR'.
-
-    " Query first 10 records with minimal fields
-    SELECT SINGLE
-      obj_name AS f1,
-      object   AS f2,
-      devclass AS f3
+    " Query first 10 records from TADIR
+    SELECT obj_name, object, devclass
       FROM tadir
       UP TO 10 ROWS
-      INTO @DATA(ls_data).
+      INTO CORRESPONDING FIELDS OF @ls_row.
+
+      APPEND ls_row TO lt_rows.
+    ENDSELECT.
 
     ls_result-success = abap_true.
     ls_result-message = 'Data retrieved'.
-    ls_result-data = ls_data-f1.
+    ls_result-data = 'TADIR'.
 
-    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+    lv_json = /ui2/cl_json=>serialize( data = ls_result ).
+
+    rv_result = lv_json.
   ENDMETHOD.
 
 ENDCLASS.
