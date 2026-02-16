@@ -11,7 +11,6 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
-    RAISING cx_dd_ddl_read.
     DATA: lv_obj_name TYPE tadir-obj_name,
           lv_devclass TYPE tadir-devclass,
           lv_linetype TYPE string,

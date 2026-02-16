@@ -11,7 +11,6 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_ddls IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
-    RAISING cx_dd_ddl_read.
     DATA: lv_ddls_name TYPE ddlname,
           lo_handler TYPE REF TO if_dd_ddl_handler,
           ls_ddlsrcv TYPE ddddlsrcv,
