@@ -24,6 +24,7 @@ CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
     lo_router->attach( iv_template = '/import' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_IMPORT' ).
     lo_router->attach( iv_template = '/tree' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_TREE' ).
     lo_router->attach( iv_template = '/view' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_VIEW' ).
+    lo_router->attach( iv_template = '/preview' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_PREVIEW' ).
 
     ro_root_handler = lo_router.
   ENDMETHOD.

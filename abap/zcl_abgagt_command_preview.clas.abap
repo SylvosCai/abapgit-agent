@@ -1,0 +1,282 @@
+*"*"use source
+*"*"Local Interface:
+*"**********************************************************************
+" PREVIEW command implementation - preview table/CDS view data
+CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_command.
+
+    TYPES: BEGIN OF ty_preview_params,
+             objects TYPE string_table,
+             type TYPE string,
+             limit TYPE i,
+           END OF ty_preview_params.
+
+    TYPES: BEGIN OF ty_field,
+             field TYPE string,
+             type TYPE string,
+             length TYPE i,
+           END OF ty_field.
+
+    TYPES ty_fields TYPE STANDARD TABLE OF ty_field WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_row,
+             "! Dynamic row type - fields will be added dynamically
+           END OF ty_row.
+
+    TYPES ty_rows TYPE STANDARD TABLE OF ty_row WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_preview_object,
+             name TYPE string,
+             type TYPE string,
+             type_text TYPE string,
+             row_count TYPE i,
+             total_rows TYPE i,
+             rows TYPE ty_rows,
+             fields TYPE ty_fields,
+             not_found TYPE abap_bool,
+             access_denied TYPE abap_bool,
+           END OF ty_preview_object.
+
+    TYPES ty_preview_objects TYPE STANDARD TABLE OF ty_preview_object WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_summary,
+             total_objects TYPE i,
+             total_rows TYPE i,
+           END OF ty_summary.
+
+    TYPES: BEGIN OF ty_preview_result,
+             success TYPE abap_bool,
+             command TYPE string,
+             message TYPE string,
+             objects TYPE ty_preview_objects,
+             summary TYPE ty_summary,
+             error TYPE string,
+           END OF ty_preview_result.
+
+    METHODS detect_object_type
+      IMPORTING iv_name TYPE string
+      RETURNING VALUE(rv_type) TYPE string.
+
+    METHODS get_table_fields
+      IMPORTING iv_table TYPE string
+      RETURNING VALUE(rt_fields) TYPE ty_fields.
+
+    METHODS query_table_data
+      IMPORTING iv_table TYPE string
+                iv_limit TYPE i
+      EXPORTING et_rows TYPE ty_rows
+                eo_struct TYPE REF TO cl_abap_structdescr.
+
+    METHODS query_cds_view_data
+      IMPORTING iv_view TYPE string
+                iv_limit TYPE i
+      EXPORTING et_rows TYPE ty_rows.
+
+    METHODS build_summary
+      IMPORTING it_objects TYPE ty_preview_objects
+      RETURNING VALUE(rs_summary) TYPE ty_summary.
+
+ENDCLASS.
+
+CLASS zcl_abgagt_command_preview IMPLEMENTATION.
+
+  METHOD zif_abgagt_command~get_name.
+    rv_name = zif_abgagt_command=>gc_preview.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_command~execute.
+    DATA: ls_params TYPE ty_preview_params,
+          ls_result TYPE ty_preview_result,
+          lt_objects TYPE ty_preview_objects,
+          lv_object TYPE string,
+          ls_obj TYPE ty_preview_object,
+          lt_fields TYPE ty_fields,
+          lt_rows TYPE ty_rows,
+          lo_struct TYPE REF TO cl_abap_structdescr,
+          lv_count TYPE i.
+
+    ls_result-command = zif_abgagt_command=>gc_preview.
+
+    IF is_param IS SUPPLIED.
+      ls_params = CORRESPONDING #( is_param ).
+    ENDIF.
+
+    IF ls_params-objects IS INITIAL.
+      ls_result-success = abap_false.
+      ls_result-error = 'Objects parameter is required'.
+      rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+      RETURN.
+    ENDIF.
+
+    " Default limit
+    IF ls_params-limit IS INITIAL OR ls_params-limit < 1.
+      ls_params-limit = 10.
+    ENDIF.
+
+    LOOP AT ls_params-objects INTO lv_object.
+      CLEAR: ls_obj, lt_fields, lt_rows.
+
+      ls_obj-name = lv_object.
+
+      " Detect or use provided type
+      DATA(lv_type) = ls_params-type.
+      IF lv_type IS INITIAL.
+        lv_type = detect_object_type( lv_object ).
+      ENDIF.
+
+      " Check if object was not found
+      IF lv_type IS INITIAL.
+        ls_obj-not_found = abap_true.
+        ls_obj-type_text = 'Unknown'.
+      ELSE.
+        ls_obj-type = lv_type.
+
+        " Set type text
+        CASE lv_type.
+          WHEN 'TABL'.
+            ls_obj-type_text = 'Table'.
+            " Get table fields
+            lt_fields = get_table_fields( lv_object ).
+            IF lt_fields IS NOT INITIAL.
+              " Try to query data
+              query_table_data(
+                EXPORTING iv_table = lv_object
+                          iv_limit = ls_params-limit
+                IMPORTING et_rows = lt_rows
+                          eo_struct = lo_struct ).
+            ENDIF.
+
+          WHEN 'DDLS'.
+            ls_obj-type_text = 'CDS View'.
+            " Get CDS view fields (same as table)
+            lt_fields = get_table_fields( lv_object ).
+            IF lt_fields IS NOT INITIAL.
+              " Try to query CDS view data
+              query_cds_view_data(
+                EXPORTING iv_view = lv_object
+                          iv_limit = ls_params-limit
+                IMPORTING et_rows = lt_rows ).
+            ENDIF.
+
+          WHEN OTHERS.
+            ls_obj-type_text = lv_type.
+            ls_obj-access_denied = abap_true.
+        ENDCASE.
+
+        ls_obj-fields = lt_fields.
+        ls_obj-rows = lt_rows.
+        ls_obj-row_count = lines( lt_rows ).
+        ls_obj-total_rows = ls_obj-row_count.  " For now, just show returned count
+      ENDIF.
+
+      APPEND ls_obj TO lt_objects.
+    ENDLOOP.
+
+    ls_result-success = abap_true.
+    ls_result-message = 'Retrieved data from object(s)'.
+    ls_result-objects = lt_objects.
+    ls_result-summary = build_summary( lt_objects ).
+
+    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+  ENDMETHOD.
+
+  METHOD detect_object_type.
+    " Query TADIR to find actual object type
+    SELECT SINGLE object FROM tadir
+      INTO rv_type
+      WHERE obj_name = iv_name
+        AND object IN ('TABL', 'DDLS').
+
+    " If not found in TADIR, check if it's a CDS view pattern (ZC_*)
+    IF rv_type IS INITIAL.
+      IF iv_name(2) = 'ZC' OR iv_name(2) = 'zy'.
+        rv_type = 'DDLS'.
+      ELSE.
+        " Default to table for unknown
+        rv_type = 'TABL'.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_table_fields.
+    " Get field metadata from DD03L
+    SELECT fieldname, datatype, leng
+      FROM dd03l
+      INTO CORRESPONDING FIELDS OF TABLE rt_fields
+      WHERE tabname = iv_table
+        AND as4local = 'A'
+      ORDER BY position.
+  ENDMETHOD.
+
+  METHOD query_table_data.
+    " Use dynamic SELECT to get table data
+    DATA lv_select TYPE string.
+    DATA lv_count TYPE i.
+
+    " Build field list
+    DATA(lt_fields) = get_table_fields( iv_table ).
+    IF lt_fields IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " Build SELECT statement
+    CONCATENATE 'SELECT' INTO lv_select SEPARATED BY space.
+    CONCATENATE lv_select 'UP TO' INTO lv_select SEPARATED BY space.
+    CONCATENATE lv_select iv_limit 'ROWS' INTO lv_select SEPARATED BY space.
+    CONCATENATE lv_select 'FROM' INTO lv_select SEPARATED BY space.
+    CONCATENATE lv_select iv_table INTO lv_select SEPARATED BY space.
+    CONCATENATE lv_select 'INTO TABLE @DATA(lt_result)' INTO lv_select SEPARATED BY space.
+
+    " Execute dynamic query
+    TRY.
+        CREATE OBJECT eo_struct TYPE cl_abap_structdescr.
+        DATA lt_components TYPE cl_abap_structdescr=>component_table.
+        LOOP AT lt_fields INTO DATA(ls_field).
+          APPEND INITIAL LINE TO lt_components ASSIGNING FIELD-SYMBOL(<ls_comp>).
+          <ls_comp>-name = ls_field-field.
+          " Create type based on field type
+          DATA(lo_type) = cl_abap_datadescr=>describe_by_name( ls_field-type ).
+          <ls_comp>-type = lo_type.
+        ENDLOOP.
+        eo_struct = cl_abap_structdescr=>create( lt_components ).
+
+        " Try simple SELECT
+        SELECT UP TO @iv_limit * FROM (iv_table)
+          INTO CORRESPONDING FIELDS OF TABLE @et_rows.
+
+      CATCH cx_sy_dynamic_osql_syntax.
+        " Handle access denied or other errors
+        et_rows = VALUE #( ).
+    ENDTRY.
+
+    lv_count = lines( et_rows ).
+  ENDMETHOD.
+
+  METHOD query_cds_view_data.
+    " Use dynamic SELECT to get CDS view data
+    DATA lv_count TYPE i.
+
+    " Try simple SELECT from CDS view
+    TRY.
+        SELECT UP TO @iv_limit * FROM (iv_view)
+          INTO CORRESPONDING FIELDS OF TABLE @et_rows.
+      CATCH cx_sy_dynamic_osql_syntax.
+        " Handle access denied or other errors
+        et_rows = VALUE #( ).
+    ENDTRY.
+
+    lv_count = lines( et_rows ).
+  ENDMETHOD.
+
+  METHOD build_summary.
+    rs_summary-total_objects = lines( it_objects ).
+    rs_summary-total_rows = 0.
+
+    LOOP AT it_objects INTO DATA(ls_obj).
+      rs_summary-total_rows = rs_summary-total_rows + ls_obj-row_count.
+    ENDLOOP.
+  ENDMETHOD.
+
+ENDCLASS.

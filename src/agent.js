@@ -191,6 +191,25 @@ class ABAPGitAgent {
       throw new Error(`Tree command failed: ${error.message}`);
     }
   }
+
+  async preview(objects, type = null, limit = 10) {
+    logger.info('Previewing data', { objects, type, limit });
+
+    try {
+      const result = await this.abap.preview(objects, type, limit);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        command: result.COMMAND || result.command || 'PREVIEW',
+        message: result.MESSAGE || result.message || '',
+        objects: result.OBJECTS || result.objects || [],
+        summary: result.SUMMARY || result.summary || null,
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('Preview command failed', { error: error.message });
+      throw new Error(`Preview command failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

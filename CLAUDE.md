@@ -83,6 +83,12 @@ abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json
 
+# Preview table/CDS view data
+abapgit-agent preview --objects SFLIGHT
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
+abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE --limit 20
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+
 # Health check
 abapgit-agent health
 
@@ -578,6 +584,148 @@ where devclass not like '$%'
 |-------|---------|
 | Object not found | `Object <name> not found` |
 | Invalid object type | `Unsupported object type: <type>` |
+
+## Preview Command
+
+### Description
+Preview data from ABAP tables or CDS views directly from the ABAP system. This command retrieves sample data rows to help developers understand table/view contents without needing to query manually.
+
+**This is the PRIMARY way to explore table and CDS view DATA.**
+
+### Usage
+```bash
+# Preview table data (auto-detect type)
+abapgit-agent preview --objects SFLIGHT
+
+# Preview CDS view data
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
+
+# Preview with explicit type
+abapgit-agent preview --objects SFLIGHT --type TABL
+
+# Preview with row limit
+abapgit-agent preview --objects SFLIGHT --limit 20
+
+# Preview with WHERE clause filter
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+
+# Preview specific columns only
+abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,FLDATE,PRICE
+
+# Vertical format (for wide tables)
+abapgit-agent preview --objects SFLIGHT --vertical
+
+# JSON output (for scripting/AI processing)
+abapgit-agent preview --objects SFLIGHT --json
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--objects` | Yes | Comma-separated list of table/view names |
+| `--type` | No | Object type (TABL, DDLS). Auto-detected from TADIR if not specified |
+| `--limit` | No | Maximum rows to return (default: 10, max: 100) |
+| `--where` | No | WHERE clause filter (e.g., `CARRID = 'AA'`) |
+| `--columns` | No | Comma-separated column names to display |
+| `--vertical` | No | Show data in vertical format (one field per line) |
+| `--compact` | No | Truncate values to fit columns |
+| `--json` | No | Output raw JSON only |
+
+### Output
+
+**Default (first 6 columns shown with indicator):**
+```
+📊 Preview: SFLIGHT (Table)
+
+┌──────────┬────────┬──────────┬───────────┬─────────┬─────────┐
+│ CARRID   │ CONNID │ FLDATE   │ PRICE     │ CURRENCY│ PLANETYPE│
+├──────────┼────────┼──────────┼───────────┼─────────┼─────────┤
+│ AA       │ 0017   │ 20240201 │    422.94 │ USD     │ 747-400 │
+│ AA       │ 0017   │ 20240202 │    422.94 │ USD     │ 747-400 │
+└──────────┴────────┴──────────┴───────────┴─────────┴─────────┘
+
+Showing 2 of 10 rows
+⚠️  Note: 3 more columns hidden (SEATSMAX, SEATSOCC, PAYMENTSUM)
+   Use --columns to select specific columns
+   Use --json for full data
+```
+
+**With WHERE Filter:**
+```
+📊 Preview: SFLIGHT (filtered)
+
+┌──────────┬────────┬──────────┬─────────┐
+│ CARRID   │ CONNID │ FLDATE   │ PRICE   │
+├──────────┼────────┼──────────┼─────────┤
+│ AA       │ 0017   │ 20240201 │  422.94 │
+│ AA       │ 0017   │ 20240202 │  422.94 │
+└──────────┴────────┴──────────┴─────────┘
+
+WHERE: CARRID = 'AA'
+```
+
+**Vertical Format (for wide tables):**
+```
+📊 Preview: SFLIGHT (1 of 10 rows, vertical)
+
+Row 1:
+────────────────────────────────────────────────────────────
+  CARRID:      AA
+  CONNID:      0017
+  FLDATE:      20240201
+  PRICE:       422.94
+  CURRENCY:    USD
+  PLANETYPE:   747-400
+  SEATSMAX:    400
+  SEATSOCC:    350
+  PAYMENTSUM:  145000
+────────────────────────────────────────────────────────────
+```
+
+### JSON Output
+```json
+{
+  "SUCCESS": true,
+  "COMMAND": "PREVIEW",
+  "OBJECTS": [
+    {
+      "NAME": "SFLIGHT",
+      "TYPE": "TABL",
+      "TYPE_TEXT": "Table",
+      "ROW_COUNT": 2,
+      "TOTAL_ROWS": 10,
+      "ROWS": [
+        { "CARRID": "AA", "CONNID": "0017", "FLDATE": "20240201", "PRICE": "422.94", ... }
+      ],
+      "FIELDS": [
+        { "FIELD": "CARRID", "TYPE": "CHAR", "LENGTH": 3 },
+        { "FIELD": "PRICE", "TYPE": "CURR", "LENGTH": 16 }
+      ],
+      "COLUMNS_DISPLAYED": 6,
+      "COLUMNS_HIDDEN": ["SEATSMAX", "SEATSOCC", "PAYMENTSUM"]
+    }
+  ],
+  "SUMMARY": { "TOTAL_OBJECTS": 1, "TOTAL_ROWS": 2 },
+  "ERROR": ""
+}
+```
+
+### Error Handling
+
+| Error | Message |
+|-------|---------|
+| Table not found | `Table not found: Z_NONEXISTENT` |
+| CDS View not found | `CDS View not found: Z_NONEXISTENT` |
+| Access denied | `Access denied to table: SFLIGHT` |
+| Invalid WHERE clause | `Invalid WHERE clause: <reason>` |
+
+### Auto-Detection Rules
+
+| Object Name Pattern | Default Type |
+|---------------------|--------------|
+| `ZC_*` or `zc_*` | DDLS (CDS View) |
+| Other | TABL (Table) |
 
 ## Status Check
 

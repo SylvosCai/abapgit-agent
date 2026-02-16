@@ -14,6 +14,7 @@ All available CLI commands for abapGit Agent.
 | [tree](tree-command.md) | ✅ | Display package hierarchy tree |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
 | [view](view-command.md) | ✅ | View ABAP object source code from system |
+| [preview](preview-command.md) | 🔄 | Preview table/CDS view data |
 | [health](health-command.md) | ✅ | Health check |
 | [status](status-command.md) | ✅ | Status check |
 
@@ -69,6 +70,10 @@ abapgit-agent tree --package $MY_PACKAGE
 # View object definitions (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects SFLIGHT --type TABL
+
+# Preview table/CDS view data
+abapgit-agent preview --objects SFLIGHT
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
 
 # Check configuration
 abapgit-agent status

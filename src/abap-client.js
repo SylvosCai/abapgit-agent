@@ -378,6 +378,24 @@ class ABAPClient {
 
     return await this.request('POST', '/tree', data, { csrfToken: this.csrfToken });
   }
+
+  async preview(objects, type = null, limit = 10) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      objects: objects,
+      limit: Math.min(Math.max(1, limit), 100)
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
+    logger.info('Previewing data', { objects, type, limit: data.limit, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/preview', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance

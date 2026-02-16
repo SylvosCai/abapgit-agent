@@ -1726,6 +1726,165 @@ Examples:
         break;
       }
 
+      case 'preview': {
+        const objectsArgIndex = args.indexOf('--objects');
+        if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
+          console.error('Error: --objects parameter required');
+          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--json]');
+          console.error('Example: abapgit-agent preview --objects SFLIGHT');
+          console.error('Example: abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS');
+          process.exit(1);
+        }
+
+        const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim().toUpperCase());
+        const typeArg = args.indexOf('--type');
+        const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
+        const limitArg = args.indexOf('--limit');
+        const limit = limitArg !== -1 ? parseInt(args[limitArg + 1], 10) : 10;
+        const jsonOutput = args.includes('--json');
+
+        console.log(`\n  Previewing ${objects.length} object(s)`);
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        const data = {
+          objects: objects,
+          limit: Math.min(Math.max(1, limit), 100)
+        };
+
+        if (type) {
+          data.type = type;
+        }
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
+
+        // Handle uppercase keys from ABAP
+        const success = result.SUCCESS || result.success;
+        const previewObjects = result.OBJECTS || result.objects || [];
+        const message = result.MESSAGE || result.message || '';
+        const error = result.ERROR || result.error;
+
+        if (!success || error) {
+          console.error(`\n  Error: ${error || 'Failed to preview objects'}`);
+          break;
+        }
+
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  ${message}`);
+          console.log('');
+
+          for (let i = 0; i < previewObjects.length; i++) {
+            const obj = previewObjects[i];
+            const objName = obj.NAME || obj.name || `Object ${i + 1}`;
+            const objType = obj.TYPE || obj.type || '';
+            const objTypeText = obj.TYPE_TEXT || obj.type_text || '';
+            const rows = obj.ROWS || obj.rows || [];
+            const fields = obj.FIELDS || obj.fields || [];
+            const rowCount = obj.ROW_COUNT || obj.row_count || 0;
+            const totalRows = obj.TOTAL_ROWS || obj.total_rows || 0;
+            const notFound = obj.NOT_FOUND || obj.not_found || false;
+            const accessDenied = obj.ACCESS_DENIED || obj.access_denied || false;
+
+            // Check if object was not found
+            if (notFound) {
+              console.log(`  ❌ ${objName} (${objTypeText})`);
+              console.log(`     Object not found: ${objName}`);
+              continue;
+            }
+
+            // Check if access denied
+            if (accessDenied) {
+              console.log(`  ❌ ${objName} (${objTypeText})`);
+              console.log(`     Access denied to: ${objName}`);
+              continue;
+            }
+
+            console.log(`  📊 Preview: ${objName} (${objTypeText})`);
+
+            if (rows.length === 0) {
+              console.log('     No data found');
+              continue;
+            }
+
+            // Display as table
+            // Get all unique field names from all rows
+            const allFields = new Set();
+            rows.forEach(row => {
+              Object.keys(row).forEach(key => allFields.add(key));
+            });
+            const fieldNames = Array.from(allFields);
+
+            // Calculate column widths
+            const colWidths = {};
+            fieldNames.forEach(field => {
+              let maxWidth = field.length;
+              rows.forEach(row => {
+                const value = String(row[field] || '');
+                maxWidth = Math.max(maxWidth, value.length);
+              });
+              colWidths[field] = Math.min(maxWidth, 20); // Max 20 chars
+            });
+
+            // Build table header
+            let headerLine = '  ┌';
+            let separatorLine = '  ├';
+            fieldNames.forEach(field => {
+              const width = colWidths[field];
+              headerLine += '─'.repeat(width + 2) + '┬';
+              separatorLine += '─'.repeat(width + 2) + '┼';
+            });
+            headerLine = headerLine.slice(0, -1) + '┐';
+            separatorLine = separatorLine.slice(0, -1) + '┤';
+
+            // Build header row
+            let headerRow = '  │';
+            fieldNames.forEach(field => {
+              const width = colWidths[field];
+              headerRow += ' ' + String(field).padEnd(width) + ' │';
+            });
+
+            console.log(headerLine);
+            console.log(headerRow);
+            console.log(separatorLine);
+
+            // Build data rows
+            rows.forEach(row => {
+              let dataRow = '  │';
+              fieldNames.forEach(field => {
+                const width = colWidths[field];
+                const value = String(row[field] || '');
+                const displayValue = value.length > width ? value.slice(0, width - 3) + '...' : value;
+                dataRow += ' ' + displayValue.padEnd(width) + ' │';
+              });
+              console.log(dataRow);
+            });
+
+            console.log(headerLine);
+
+            // Show row count
+            if (totalRows > rowCount) {
+              console.log(`\n  Showing ${rowCount} of ${totalRows} rows`);
+            } else {
+              console.log(`\n  ${rowCount} row(s)`);
+            }
+
+            // Note about hidden columns if there are many
+            const columnsDisplayed = fieldNames.length;
+            const columnsHidden = obj.COLUMNS_HIDDEN || obj.columns_hidden || [];
+            if (columnsHidden.length > 0) {
+              console.log(`\n  ⚠️  Note: ${columnsHidden.length} more columns hidden (${columnsHidden.join(', ')})`);
+              console.log('     Use --json for full data');
+            }
+
+            console.log('');
+          }
+        }
+        break;
+      }
+
       case 'help':
       case '--help':
       case '-h':
