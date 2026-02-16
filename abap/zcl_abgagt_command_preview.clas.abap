@@ -60,6 +60,43 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              total_rows TYPE i,
            END OF ty_summary.
 
+    " Method declarations
+    METHODS get_table_data
+      IMPORTING
+        iv_name TYPE string
+        iv_type TYPE string
+        iv_limit TYPE i
+        iv_where TYPE string
+        it_columns TYPE string_table.
+
+    METHODS detect_object_type
+      IMPORTING
+        iv_name TYPE string
+      RETURNING
+        VALUE(rv_type) TYPE string.
+
+    METHODS fetch_table_data
+      IMPORTING
+        iv_tabname TYPE string
+        iv_limit TYPE i
+        iv_where TYPE string
+        it_columns TYPE string_table
+      CHANGING
+        cs_result TYPE ty_preview_object.
+
+    METHODS get_field_metadata
+      IMPORTING
+        it_components TYPE abap_component_tab
+      RETURNING
+        VALUE(rt_fields) TYPE ty_fields.
+
+    METHODS get_field_metadata_for_columns
+      IMPORTING
+        it_components TYPE abap_component_tab
+        it_columns TYPE string_table
+      RETURNING
+        VALUE(rt_fields) TYPE ty_fields.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_preview IMPLEMENTATION.
