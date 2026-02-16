@@ -219,12 +219,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    " Importing parameters
-    IMPORTING
-      iv_name TYPE string
-    RETURNING
-      VALUE(rv_type) TYPE string.
-
     DATA lv_name TYPE string.
     lv_name = to_upper( iv_name ).
 
