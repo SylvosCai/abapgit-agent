@@ -309,33 +309,67 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
-    // Handle uppercase keys from ABAP - handle both 'X'/true (success) and false
-    const success = result.SUCCESS !== undefined ? result.SUCCESS : (result.success !== undefined ? result.success : null);
-    const errorCount = result.ERROR_COUNT || result.error_count || 0;
-    const errors = result.ERRORS || result.errors || [];
-
-    console.log('\n');
-
-    if (errorCount > 0) {
-      console.log(`❌ Syntax check failed (${errorCount} error(s)):`);
-      console.log('\nErrors:');
-      console.log('─'.repeat(60));
-
-      for (const err of errors) {
-        const line = err.LINE || err.line || '?';
-        const column = err.COLUMN || err.column || '?';
-        const text = err.TEXT || err.text || 'Unknown error';
-
-        console.log(`  Line ${line}, Column ${column}:`);
-        console.log(`    ${text}`);
-        console.log('');
-      }
-    } else if (success === 'X' || success === true) {
-      console.log(`✅ ${pathModule.basename(sourceFile)} - Syntax check passed (0 errors)`);
-    } else if (success === false) {
-      console.log(`❌ ${pathModule.basename(sourceFile)} - Syntax check failed`);
+    // Handle new table-based result format (array) or old single result
+    let results = [];
+    if (Array.isArray(result)) {
+      results = result;
     } else {
-      console.log(`⚠️  Syntax check returned unexpected status: ${success}`);
+      // Convert old single result to array format for compatibility
+      results = [{
+        object_type: 'UNKNOWN',
+        object_name: pathModule.basename(sourceFile),
+        success: result.SUCCESS !== undefined ? result.SUCCESS === 'X' || result.SUCCESS === true : result.success,
+        error_count: result.ERROR_COUNT || result.error_count || 0,
+        errors: result.ERRORS || result.errors || [],
+        warnings: result.warnings || []
+      }];
+    }
+
+    // Process each result
+    let hasErrors = false;
+    for (const res of results) {
+      const success = res.success;
+      const errorCount = res.error_count || 0;
+      const errors = res.errors || [];
+      const warnings = res.warnings || [];
+
+      console.log('\n');
+
+      if (errorCount > 0 || warnings.length > 0) {
+        if (errorCount > 0) {
+          console.log(`❌ ${res.object_type} ${res.object_name} - Syntax check failed (${errorCount} error(s)):`);
+        } else {
+          console.log(`⚠️  ${res.object_type} ${res.object_name} - Syntax check passed with warnings (${warnings.length}):`);
+        }
+        console.log('\nErrors:');
+        console.log('─'.repeat(60));
+
+        for (const err of errors) {
+          const line = err.LINE || err.line || '?';
+          const column = err.COLUMN || err.column || '?';
+          const text = err.TEXT || err.text || 'Unknown error';
+
+          console.log(`  Line ${line}, Column ${column}:`);
+          console.log(`    ${text}`);
+          console.log('');
+        }
+
+        // Show warnings if any
+        if (warnings.length > 0) {
+          console.log('Warnings:');
+          console.log('─'.repeat(60));
+          for (const warn of warnings) {
+            const line = warn.LINE || warn.line || '?';
+            const text = warn.MESSAGE || warn.message || 'Unknown warning';
+            console.log(`  Line ${line}: ${text}`);
+          }
+        }
+        hasErrors = true;
+      } else if (success === true) {
+        console.log(`✅ ${res.object_type} ${res.object_name} - Syntax check passed`);
+      } else {
+        console.log(`⚠️  ${res.object_type} ${res.object_name} - Syntax check returned unexpected status`);
+      }
     }
 
     return result;
