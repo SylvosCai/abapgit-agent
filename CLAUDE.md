@@ -488,7 +488,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ### Supported Object Types
@@ -500,6 +500,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | TABL | Table |
 | STRU | Structure |
 | DTEL | Data Element |
+| TTYP | Table Type |
 
 **Note:** Object type is automatically detected from TADIR. Use `--type` only when you know the type and want to override auto-detection.
 
@@ -537,6 +538,16 @@ ENDCLASS.
   ],
   "summary": { "total": 1 }
 }
+```
+
+**Table Type Output:**
+```
+📖 ZMY_TTYP (Table Type)
+   Table Type ZMY_TTYP in $PACKAGE
+
+   Line Type: ZMY_STRUCTURE
+   Access Mode: STANDARD
+   Key Definition: WITH KEY
 ```
 
 ### Error Handling

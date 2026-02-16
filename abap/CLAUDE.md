@@ -135,6 +135,9 @@ abapgit-agent view --objects ZCL_MY_CLASS
 # View an interface definition
 abapgit-agent view --objects ZIF_MY_INTERFACE
 
+# View a table type definition
+abapgit-agent view --objects ZMY_TTYP --type TTYP
+
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
 
@@ -199,6 +202,16 @@ DATA ELEMENT ZMY_DTEL:
 | DATA_TYPE      | CHAR           |       10 |                | ABAP Type: CHAR      |
 | LENGTH         | NUMC           |        5 |                | Length: 20           |
 |----------------+----------------+----------+----------------+----------------------|
+```
+
+**Table Type Output Example:**
+```
+📖 ZMY_TTYP (Table Type)
+   Table Type ZMY_TTYP in $PACKAGE
+
+   Line Type: ZMY_STRUCTURE
+   Access Mode: STANDARD
+   Key Definition: WITH KEY
 ```
 
 ## JSON Handling - ALWAYS Use /ui2/cl_json
