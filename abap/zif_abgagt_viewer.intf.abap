@@ -6,6 +6,7 @@ INTERFACE zif_abgagt_viewer PUBLIC.
   " @parameter rs_info | Object information structure
   METHODS get_info
     IMPORTING iv_name        TYPE string
-    RETURNING VALUE(rs_info) TYPE zcl_abgagt_command_view=>ty_view_object.
+    RETURNING VALUE(rs_info) TYPE zcl_abgagt_command_view=>ty_view_object
+    RAISING   cx_dd_ddl_read.
 
 ENDINTERFACE.
