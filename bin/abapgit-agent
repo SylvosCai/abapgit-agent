@@ -309,6 +309,9 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
+    // Debug: log raw result
+    console.error('DEBUG: Raw result:', JSON.stringify(result, null, 2).substring(0, 500));
+
     // Handle new table-based result format (array) or old single result
     let results = [];
     if (Array.isArray(result)) {
