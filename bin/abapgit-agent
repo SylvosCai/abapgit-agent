@@ -383,6 +383,95 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 }
 
 /**
+ * Inspect all files in one request
+ */
+async function inspectAllFiles(files, csrfToken, config) {
+  // Convert files to uppercase names (same as syntaxCheckSource does)
+  const fileNames = files.map(f => {
+    const baseName = pathModule.basename(f).toUpperCase();
+    return baseName;
+  });
+
+  try {
+    // Send all files in one request
+    const data = {
+      files: fileNames
+    };
+
+    const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
+
+    // Handle both table result and old single result
+    let results = [];
+    if (Array.isArray(result)) {
+      results = result;
+    } else {
+      // Convert single result to array format
+      results = [{
+        OBJECT_TYPE: 'UNKNOWN',
+        OBJECT_NAME: files.join(', '),
+        SUCCESS: result.SUCCESS !== undefined ? result.SUCCESS === 'X' || result.SUCCESS === true : result.success,
+        ERROR_COUNT: result.ERROR_COUNT || result.error_count || 0,
+        ERRORS: result.ERRORS || result.errors || [],
+        WARNINGS: result.warnings || []
+      }];
+    }
+
+    return results;
+  } catch (error) {
+    console.error(`\n  Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Process a single inspect result
+ */
+async function processInspectResult(res) {
+  // Handle both uppercase and lowercase keys
+  const success = res.SUCCESS !== undefined ? res.SUCCESS : res.success;
+  const objectType = res.OBJECT_TYPE !== undefined ? res.OBJECT_TYPE : res.object_type;
+  const objectName = res.OBJECT_NAME !== undefined ? res.OBJECT_NAME : res.object_name;
+  const errorCount = res.ERROR_COUNT !== undefined ? res.ERROR_COUNT : (res.error_count || 0);
+  const errors = res.ERRORS !== undefined ? res.ERRORS : (res.errors || []);
+  const warnings = res.WARNINGS !== undefined ? res.WARNINGS : (res.warnings || []);
+
+  if (errorCount > 0 || warnings.length > 0) {
+    if (errorCount > 0) {
+      console.log(`❌ ${objectType} ${objectName} - Syntax check failed (${errorCount} error(s)):`);
+    } else {
+      console.log(`⚠️  ${objectType} ${objectName} - Syntax check passed with warnings (${warnings.length}):`);
+    }
+    console.log('\nErrors:');
+    console.log('─'.repeat(60));
+
+    for (const err of errors) {
+      const line = err.LINE || err.line || '?';
+      const column = err.COLUMN || err.column || '?';
+      const text = err.TEXT || err.text || 'Unknown error';
+
+      console.log(`  Line ${line}, Column ${column}:`);
+      console.log(`    ${text}`);
+      console.log('');
+    }
+
+    // Show warnings if any
+    if (warnings.length > 0) {
+      console.log('Warnings:');
+      console.log('─'.repeat(60));
+      for (const warn of warnings) {
+        const line = warn.LINE || warn.line || '?';
+        const text = warn.MESSAGE || warn.message || 'Unknown warning';
+        console.log(`  Line ${line}: ${text}`);
+      }
+    }
+  } else if (success === true || success === 'X') {
+    console.log(`✅ ${objectType} ${objectName} - Syntax check passed`);
+  } else {
+    console.log(`⚠️  ${objectType} ${objectName} - Syntax check returned unexpected status`);
+  }
+}
+
+/**
  * Run unit tests for package or objects
  */
 async function runUnitTests(options) {
@@ -1330,8 +1419,12 @@ Examples:
         const config = loadConfig();
         const csrfToken = await fetchCsrfToken(config);
 
-        for (const sourceFile of filesSyntaxCheck) {
-          await syntaxCheckSource(sourceFile, csrfToken, config);
+        // Send all files in one request
+        const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config);
+
+        // Process results
+        for (const result of results) {
+          await processInspectResult(result);
         }
         break;
       }
