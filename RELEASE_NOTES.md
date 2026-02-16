@@ -1,5 +1,37 @@
 # Release Notes
 
+## v1.3.0
+
+### New Features
+
+#### CDS View Support in view Command
+View CDS view (DDLS) definitions directly from ABAP system:
+
+```bash
+# View CDS view definition
+abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
+
+# Auto-detect type from TADIR
+abapgit-agent view --objects ZC_MY_CDS_VIEW
+```
+
+**How it works:**
+- Uses `CL_DD_DDL_HANDLER_FACTORY` to retrieve DDL source
+- Checks inactive version first (`get_state = 'M'`), falls back to active version (`'A'`)
+- Returns full DDL source including annotations and SELECT statement
+
+### Bug Fixes
+
+- **CDS View Display**: Fixed CLI output to display CDS view source code (was missing before)
+- **Interface RAISING**: Added `cx_dd_ddl_read` exception to `zif_abgagt_viewer` interface for proper exception handling
+
+### Documentation
+
+- Updated `docs/view-command.md` with CDS view examples and implementation details
+- Updated `CLAUDE.md` with CDS view support in view command
+
+---
+
 ## v1.2.0
 
 ### New Features
