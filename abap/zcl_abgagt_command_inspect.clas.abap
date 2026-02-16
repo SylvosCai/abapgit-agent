@@ -217,18 +217,38 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
       " Run validation check
       TRY.
+          " Get warnings from check method
           lo_handler->check(
             EXPORTING
               name = lv_ddls_name
+            IMPORTING
+              warnings = lt_warnings
             CHANGING
               ddlsrcv_wa = ls_ddlsrcv ).
 
-          " Check for warnings after successful check
-          " Use get_warnings from the handler or check exception
-          " For now, if check succeeds without exception, validation passed
+          " Parse warnings from check method
+          LOOP AT lt_warnings INTO DATA(ls_warn_from_check).
+            CLEAR ls_warning.
+            ls_warning-type = ls_warn_from_check-type.
+            ls_warning-line = ls_warn_from_check-line.
+            ls_warning-column = ls_warn_from_check-column.
+            ls_warning-severity = ls_warn_from_check-severity.
+            ls_warning-object_type = 'DDLS'.
+            ls_warning-object_name = lv_ddls_name.
+            " Use MESSAGE statement to get real warning message
+            MESSAGE ID ls_warn_from_check-arbgb TYPE 'E' NUMBER ls_warn_from_check-msgnr
+              WITH ls_warn_from_check-var1 ls_warn_from_check-var2 ls_warn_from_check-var3 ls_warn_from_check-var4
+              INTO DATA(lv_warn_msg).
+            ls_warning-message = lv_warn_msg.
+            APPEND ls_warning TO ls_result-warnings.
+          ENDLOOP.
 
-          " If no errors, validation passed
-          ls_result-success = abap_true.
+          " If no errors and no warnings, validation passed
+          IF ls_result-warnings IS INITIAL.
+            ls_result-success = abap_true.
+          ELSE.
+            ls_result-success = abap_false.
+          ENDIF.
 
         CATCH cx_dd_ddl_check INTO lx_error.
           " Validation failed - get error details using get_errors method
