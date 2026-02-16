@@ -845,34 +845,14 @@ async function pull(gitUrl, branch = 'main', files = null, transportRequest = nu
 
       // Calculate column widths based on terminal width
       const tableWidth = Math.min(TERM_WIDTH, 120);
-      const iconCol = 6;  // Width for emoji column (max emoji + space)
+      const iconCol = 4;  // Fixed width for icon column
       const objCol = 28;
       const msgCol = tableWidth - iconCol - objCol - 6; // Account for vertical lines (3 chars)
 
-      // Helper to get visible width (emoji takes 2 cells)
-      const getVisibleWidth = (str) => {
-        let width = 0;
-        for (const char of str) {
-          const code = char.codePointAt(0);
-          // Emoji and other wide characters take 2 cells
-          // Skip zero-width joiners (ZWJ) and variation selectors
-          if (code >= 0xFE00 && code <= 0xFE0F) {
-            width += 0;  // Variation selectors - no width
-          } else if (code >= 0x200D) {
-            width += 0;  // ZWJ and other combining chars
-          } else if (code > 127) {
-            width += 2;
-          } else {
-            width += 1;
-          }
-        }
-        return width;
-      };
-
-      // Helper to pad to visible width
+      // Simple pad function - just use string length
       const padToWidth = (str, width) => {
-        const currentWidth = getVisibleWidth(str);
-        return str + ' '.repeat(width - currentWidth);
+        const s = str || '';
+        return s.padEnd(width);
       };
 
       const headerLine = '─'.repeat(iconCol) + '┼' + '─'.repeat(objCol) + '┼' + '─'.repeat(msgCol);
