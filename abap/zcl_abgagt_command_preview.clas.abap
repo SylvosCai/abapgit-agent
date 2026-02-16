@@ -251,9 +251,10 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        " Create dynamic table type using RTTS
-        lo_tabdescr ?= cl_abap_tabledescr=>describe_by_name( iv_tabname ).
-        lo_strucdescr ?= lo_tabdescr->get_table_line_type( ).
+        " Get structure descriptor first (describe_by_name returns struct descr for table lines)
+        lo_strucdescr ?= cl_abap_structdescr=>describe_by_name( iv_tabname ).
+        " Create table descriptor from structure
+        lo_tabdescr = cl_abap_tabledescr=>create( lo_strucdescr ).
         lt_components = lo_strucdescr->get_components( ).
 
         " Handle column selection
