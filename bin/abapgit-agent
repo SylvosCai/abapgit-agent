@@ -309,9 +309,6 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
-    // Debug: log raw result
-    console.error('DEBUG: Raw result:', JSON.stringify(result, null, 2).substring(0, 500));
-
     // Handle new table-based result format (array) or old single result
     let results = [];
     if (Array.isArray(result)) {
@@ -319,30 +316,33 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
     } else {
       // Convert old single result to array format for compatibility
       results = [{
-        object_type: 'UNKNOWN',
-        object_name: pathModule.basename(sourceFile),
-        success: result.SUCCESS !== undefined ? result.SUCCESS === 'X' || result.SUCCESS === true : result.success,
-        error_count: result.ERROR_COUNT || result.error_count || 0,
-        errors: result.ERRORS || result.errors || [],
-        warnings: result.warnings || []
+        OBJECT_TYPE: 'UNKNOWN',
+        OBJECT_NAME: pathModule.basename(sourceFile),
+        SUCCESS: result.SUCCESS !== undefined ? result.SUCCESS === 'X' || result.SUCCESS === true : result.success,
+        ERROR_COUNT: result.ERROR_COUNT || result.error_count || 0,
+        ERRORS: result.ERRORS || result.errors || [],
+        WARNINGS: result.warnings || []
       }];
     }
 
     // Process each result
     let hasErrors = false;
     for (const res of results) {
-      const success = res.success;
-      const errorCount = res.error_count || 0;
-      const errors = res.errors || [];
-      const warnings = res.warnings || [];
+      // Handle both uppercase and lowercase keys
+      const success = res.SUCCESS !== undefined ? res.SUCCESS : res.success;
+      const objectType = res.OBJECT_TYPE !== undefined ? res.OBJECT_TYPE : res.object_type;
+      const objectName = res.OBJECT_NAME !== undefined ? res.OBJECT_NAME : res.object_name;
+      const errorCount = res.ERROR_COUNT !== undefined ? res.ERROR_COUNT : (res.error_count || 0);
+      const errors = res.ERRORS !== undefined ? res.ERRORS : (res.errors || []);
+      const warnings = res.WARNINGS !== undefined ? res.WARNINGS : (res.warnings || []);
 
       console.log('\n');
 
       if (errorCount > 0 || warnings.length > 0) {
         if (errorCount > 0) {
-          console.log(`❌ ${res.object_type} ${res.object_name} - Syntax check failed (${errorCount} error(s)):`);
+          console.log(`❌ ${objectType} ${objectName} - Syntax check failed (${errorCount} error(s)):`);
         } else {
-          console.log(`⚠️  ${res.object_type} ${res.object_name} - Syntax check passed with warnings (${warnings.length}):`);
+          console.log(`⚠️  ${objectType} ${objectName} - Syntax check passed with warnings (${warnings.length}):`);
         }
         console.log('\nErrors:');
         console.log('─'.repeat(60));
@@ -368,10 +368,10 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
           }
         }
         hasErrors = true;
-      } else if (success === true) {
-        console.log(`✅ ${res.object_type} ${res.object_name} - Syntax check passed`);
+      } else if (success === true || success === 'X') {
+        console.log(`✅ ${objectType} ${objectName} - Syntax check passed`);
       } else {
-        console.log(`⚠️  ${res.object_type} ${res.object_name} - Syntax check returned unexpected status`);
+        console.log(`⚠️  ${objectType} ${objectName} - Syntax check returned unexpected status`);
       }
     }
 
