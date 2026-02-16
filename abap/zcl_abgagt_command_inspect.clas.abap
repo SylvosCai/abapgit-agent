@@ -237,17 +237,11 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             CLEAR ls_error.
             ls_error-line = ls_err-line.
             ls_error-column = ls_err-column.
-            " Build message from VAR1-4
-            ls_error-text = ls_err-var1.
-            IF ls_err-var2 IS NOT INITIAL.
-              ls_error-text = |{ ls_error-text } { ls_err-var2 }|.
-            ENDIF.
-            IF ls_err-var3 IS NOT INITIAL.
-              ls_error-text = |{ ls_error-text } { ls_err-var3 }|.
-            ENDIF.
-            IF ls_err-var4 IS NOT INITIAL.
-              ls_error-text = |{ ls_error-text } { ls_err-var4 }|.
-            ENDIF.
+            " Use MESSAGE statement to get real error message
+            MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
+              WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
+              INTO DATA(lv_err_msg).
+            ls_error-text = lv_err_msg.
             APPEND ls_error TO ls_result-errors.
           ENDLOOP.
 
@@ -261,16 +255,11 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             ls_warning-severity = ls_warn2-severity.
             ls_warning-object_type = 'DDLS'.
             ls_warning-object_name = lv_ddls_name.
-            ls_warning-message = ls_warn2-var1.
-            IF ls_warn2-var2 IS NOT INITIAL.
-              ls_warning-message = |{ ls_warning-message } { ls_warn2-var2 }|.
-            ENDIF.
-            IF ls_warn2-var3 IS NOT INITIAL.
-              ls_warning-message = |{ ls_warning-message } { ls_warn2-var3 }|.
-            ENDIF.
-            IF ls_warn2-var4 IS NOT INITIAL.
-              ls_warning-message = |{ ls_warning-message } { ls_warn2-var4 }|.
-            ENDIF.
+            " Use MESSAGE statement to get real warning message
+            MESSAGE ID ls_warn2-arbgb TYPE 'E' NUMBER ls_warn2-msgnr
+              WITH ls_warn2-var1 ls_warn2-var2 ls_warn2-var3 ls_warn2-var4
+              INTO DATA(lv_warn_msg).
+            ls_warning-message = lv_warn_msg.
             APPEND ls_warning TO ls_result-warnings.
           ENDLOOP.
 
