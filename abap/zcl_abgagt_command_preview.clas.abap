@@ -25,10 +25,12 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     SELECT fieldname, datatype
       FROM dd03l
-      INTO lt_fields
+      INTO ls_field
       WHERE tabname = 'TADIR'
         AND as4local = 'A'
       ORDER BY position.
+      APPEND ls_field TO lt_fields.
+    ENDSELECT.
 
     lv_count = lines( lt_fields ).
 
