@@ -150,7 +150,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           ls_ddlsrcv TYPE ddddlsrcv,
           ls_error TYPE ty_error,
           ls_warning TYPE ty_warning,
-          lt_warnings TYPE STANDARD TABLE OF ddl2dicerr WITH DEFAULT KEY,
+          lt_warnings TYPE ddl2ddicwarnings,
           lx_error TYPE REF TO cx_dd_ddl_check,
           lv_found TYPE abap_bool,
           ls_result TYPE ty_inspect_result.
