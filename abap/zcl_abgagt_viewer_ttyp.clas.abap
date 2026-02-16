@@ -54,9 +54,9 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
     " Convert access mode to text
     CASE lv_tabprottype.
-      WHEN '1'. lv_access_mode = 'STANDARD'.
-      WHEN '2'. lv_access_mode = 'SORTED'.
-      WHEN '3'. lv_access_mode = 'HASHED'.
+      WHEN 'T'. lv_access_mode = 'STANDARD'.
+      WHEN 'S'. lv_access_mode = 'SORTED'.
+      WHEN 'H'. lv_access_mode = 'HASHED'.
       WHEN OTHERS. lv_access_mode = lv_tabprottype.
     ENDCASE.
 
@@ -73,8 +73,8 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
     " Convert key definition to text
     CASE lv_keydef.
-      WHEN '1'. lv_key_definition = 'WITH KEY'.
-      WHEN '2'. lv_key_definition = 'NO KEY'.
+      WHEN 'D'. lv_key_definition = 'WITH KEY'.
+      WHEN 'N'. lv_key_definition = 'NO KEY'.
       WHEN OTHERS. lv_key_definition = lv_keydef.
     ENDCASE.
 

@@ -1630,6 +1630,15 @@ Examples:
                 }
 
                 console.log(end);
+              } else if (objType === 'TTYP' || objType === 'Table Type') {
+                // Show TTYP details as simple text lines
+                console.log('');
+                for (const comp of components) {
+                  const desc = comp.DESCRIPTION || comp.description || '';
+                  if (desc) {
+                    console.log(`   ${desc}`);
+                  }
+                }
               } else {
                 // Build table display for TABL/STRU with Data Element and Description
                 const colWidths = {
