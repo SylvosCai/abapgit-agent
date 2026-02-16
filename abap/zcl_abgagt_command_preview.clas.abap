@@ -90,9 +90,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           lv_object TYPE string,
           ls_obj TYPE ty_preview_object,
           lt_fields TYPE ty_fields,
-          lt_rows TYPE ty_rows,
-          lo_struct TYPE REF TO cl_abap_structdescr,
-          lv_count TYPE i.
+          lt_rows TYPE ty_rows.
 
     ls_result-command = zif_abgagt_command=>gc_preview.
 
