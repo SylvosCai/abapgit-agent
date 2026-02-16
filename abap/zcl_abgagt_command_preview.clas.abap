@@ -50,8 +50,9 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_preview_result,
              success TYPE abap_bool,
              command TYPE string,
+             message TYPE string,
              objects TYPE ty_preview_objects,
-             summary TYPE REF TO data,  " Dynamic summary
+             summary TYPE ty_summary,
              error TYPE string,
            END OF ty_preview_result.
 
@@ -327,8 +328,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         cs_result-error = lv_error.
         cs_result-row_count = 0.
     ENDTRY.
-
-    rv_error = lv_error.
   ENDMETHOD.
 
   METHOD get_field_metadata.
@@ -345,10 +344,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         ls_field-decimals = lo_type->decimals.
       ENDIF.
 
-      APPEND ls_field TO lt_fields.
+      APPEND ls_field TO rt_fields.
     ENDLOOP.
-
-    rt_fields = lt_fields.
   ENDMETHOD.
 
   METHOD get_field_metadata_for_columns.
@@ -371,11 +368,9 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           ls_field-length = lo_type->length.
           ls_field-decimals = lo_type->decimals.
         ENDIF.
-        APPEND ls_field TO lt_fields.
+        APPEND ls_field TO rt_fields.
       ENDIF.
     ENDLOOP.
-
-    rt_fields = lt_fields.
   ENDMETHOD.
 
 ENDCLASS.
