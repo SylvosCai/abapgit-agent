@@ -53,13 +53,8 @@ CLASS zcl_abgagt_resource_preview IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Execute command with is_param
-    DATA ls_params TYPE zcl_abgagt_command_preview=>ty_preview_params.
-    ls_params-objects = ls_request-objects.
-    ls_params-type = ls_request-type.
-    ls_params-limit = ls_request-limit.
-
-    DATA(lv_result) = lo_command->execute( is_param = ls_params ).
+    " Execute command - pass request as generic parameter
+    DATA(lv_result) = lo_command->execute( is_param = ls_request ).
 
     lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
