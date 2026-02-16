@@ -4,6 +4,31 @@
 
 ### New Features
 
+#### Table Type Support in view Command
+View table type (TTYP) definitions directly from ABAP system:
+
+```bash
+# View table type definition
+abapgit-agent view --objects ZMY_TABLE_TYPE --type TTYP
+
+# Auto-detect type from TADIR
+abapgit-agent view --objects ZMY_TABLE_TYPE
+```
+
+**Output includes:**
+- Line Type (referenced structure)
+- Access Mode (STANDARD, SORTED, HASHED)
+- Key Definition (WITH KEY / NO KEY)
+
+**Supported Object Types in view command:**
+- CLAS - Global ABAP class
+- INTF - Global interface
+- TABL - Database table
+- STRU - Structure type
+- DTEL - Data element
+- TTYP - Table type
+- DDLS - CDS View/Entity
+
 #### CDS View Support in view Command
 View CDS view (DDLS) definitions directly from ABAP system:
 
