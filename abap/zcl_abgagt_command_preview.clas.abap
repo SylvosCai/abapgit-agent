@@ -169,14 +169,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_data.
-    " Importing parameters
-    IMPORTING
-      iv_name TYPE string
-      iv_type TYPE string
-      iv_limit TYPE i
-      iv_where TYPE string
-      it_columns TYPE string_table.
-
     DATA: ls_result TYPE ty_preview_object,
           lv_tabname TYPE string,
           lv_type TYPE string.
@@ -184,6 +176,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ls_result-name = iv_name.
     lv_tabname = to_upper( iv_name ).
     lv_type = to_upper( iv_type ).
+
+    IF lv_tabname IS INITIAL.
+      lv_tabname = iv_name.
+    ENDIF.
+    IF lv_type IS INITIAL.
+      lv_type = iv_type.
+    ENDIF.
 
     " Auto-detect type if not specified
     IF lv_type IS INITIAL.
@@ -225,10 +224,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     RETURNING
       VALUE(rv_type) TYPE string.
 
+    DATA lv_name TYPE string.
+    lv_name = to_upper( iv_name ).
+
     " Check if table or CDS view exists in TADIR
     SELECT SINGLE object FROM tadir
       INTO rv_type
-      WHERE obj_name = to_upper( iv_name )
+      WHERE obj_name = lv_name
         AND object IN ('TABL', 'DDLS').
 
     IF sy-subrc <> 0.
@@ -238,15 +240,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fetch_table_data.
-    " Importing parameters
-    IMPORTING
-      iv_tabname TYPE string
-      iv_limit TYPE i
-      iv_where TYPE string
-      it_columns TYPE string_table
-    CHANGING
-      cs_result TYPE ty_preview_object.
-
     DATA: lv_error TYPE string,
           lr_data TYPE REF TO data,
           lo_tabdescr TYPE REF TO cl_abap_tabledescr,
@@ -310,8 +303,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         ELSE.
           SELECT (lv_field_list) FROM (lv_tabname)
             INTO TABLE @<lt_data>
-            WHERE (iv_where)
-            UP TO @lv_limit ROWS.
+            UP TO @lv_limit ROWS
+            WHERE (iv_where).
         ENDIF.
 
         " Get row count
@@ -342,12 +335,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_field_metadata.
-    " Importing parameters
-    IMPORTING
-      it_components TYPE abap_component_tab
-    RETURNING
-      VALUE(rt_fields) TYPE ty_fields.
-
     DATA ls_field TYPE ty_field.
 
     LOOP AT it_components ASSIGNING FIELD-SYMBOL(<comp>).
@@ -368,13 +355,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_field_metadata_for_columns.
-    " Importing parameters
-    IMPORTING
-      it_components TYPE abap_component_tab
-      it_columns TYPE string_table
-    RETURNING
-      VALUE(rt_fields) TYPE ty_fields.
-
     DATA ls_field TYPE ty_field.
 
     " If no columns specified, return all
