@@ -153,7 +153,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lt_warnings TYPE ddl2ddicwarnings,
           lx_error TYPE REF TO cx_dd_ddl_check,
           lv_found TYPE abap_bool,
-          ls_result TYPE ty_inspect_result.
+          ls_result TYPE ty_inspect_result,
+          lv_err_msg TYPE string,
+          lv_warn_msg TYPE string.
 
     rt_results = VALUE #( ).
 
@@ -238,7 +240,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             " Use MESSAGE statement to get real warning message
             MESSAGE ID ls_warn_from_check-arbgb TYPE 'E' NUMBER ls_warn_from_check-msgnr
               WITH ls_warn_from_check-var1 ls_warn_from_check-var2 ls_warn_from_check-var3 ls_warn_from_check-var4
-              INTO DATA(lv_warn_msg).
+              INTO lv_warn_msg.
             ls_warning-message = lv_warn_msg.
             APPEND ls_warning TO ls_result-warnings.
           ENDLOOP.
@@ -260,7 +262,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             " Use MESSAGE statement to get real error message
             MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
               WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
-              INTO DATA(lv_err_msg).
+              INTO lv_err_msg.
             ls_error-text = lv_err_msg.
             APPEND ls_error TO ls_result-errors.
           ENDLOOP.
