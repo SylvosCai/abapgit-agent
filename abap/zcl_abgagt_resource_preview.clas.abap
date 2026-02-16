@@ -21,6 +21,8 @@ CLASS zcl_abgagt_resource_preview IMPLEMENTATION.
             objects TYPE string_table,
             type TYPE string,
             limit TYPE i,
+            where TYPE string,
+            columns TYPE string_table,
           END OF ls_request.
 
     /ui2/cl_json=>deserialize(
