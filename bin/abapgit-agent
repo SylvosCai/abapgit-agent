@@ -809,15 +809,15 @@ async function pull(gitUrl, branch = 'main', files = null, transportRequest = nu
     const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
     const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
 
-    // Icon mapping for message types
+    // Icon mapping for message types (using ASCII for consistent width)
     const getIcon = (type) => {
       const icons = {
-        'S': '✅',  // Success
-        'E': '❌',  // Error
-        'W': '⚠️',  // Warning
-        'A': '🛑'   // Abort
+        'S': '[+]',  // Success
+        'E': '[-]',  // Error
+        'W': '[!]',  // Warning
+        'A': '[X]'   // Abort
       };
-      return icons[type] || '  ';
+      return icons[type] || '   ';
     };
 
     if (success === 'X' || success === true) {
