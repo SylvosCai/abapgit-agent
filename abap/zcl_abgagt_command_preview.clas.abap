@@ -42,6 +42,7 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              fields TYPE ty_fields,
              columns_displayed TYPE i,
              columns_hidden TYPE string_table,
+             error TYPE string,
            END OF ty_preview_object.
 
     TYPES ty_preview_objects TYPE STANDARD TABLE OF ty_preview_object WITH DEFAULT KEY.
@@ -129,6 +130,14 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_data.
+    " Importing parameters
+    IMPORTING
+      iv_name TYPE string
+      iv_type TYPE string
+      iv_limit TYPE i
+      iv_where TYPE string
+      it_columns TYPE string_table.
+
     DATA: ls_result TYPE ty_preview_object,
           lv_tabname TYPE string,
           lv_type TYPE string.
@@ -149,16 +158,16 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         ls_result-type_text = COND #( WHEN lv_type = 'DDLS' THEN 'CDS View' ELSE 'Table' ).
 
         " Get table metadata and data
-        DATA(lv_error) = fetch_table_data(
+        fetch_table_data(
           EXPORTING
             iv_tabname = lv_tabname
             iv_limit   = iv_limit
             iv_where   = iv_where
             it_columns = it_columns
-          IMPORTING
-            rs_result  = ls_result ).
+          CHANGING
+            cs_result  = ls_result ).
 
-        IF lv_error IS NOT INITIAL.
+        IF ls_result-error IS NOT INITIAL.
           ls_result-type_text = lv_type.
         ENDIF.
 
@@ -171,6 +180,12 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
+    " Importing parameters
+    IMPORTING
+      iv_name TYPE string
+    RETURNING
+      VALUE(rv_type) TYPE string.
+
     " Check if table or CDS view exists in TADIR
     SELECT SINGLE object FROM tadir
       INTO rv_type
@@ -185,14 +200,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD fetch_table_data.
     " Importing parameters
-    DATA: lv_tabname TYPE string,
-          iv_limit TYPE i,
-          iv_where TYPE string,
-          it_columns TYPE string_table.
-    lv_tabname = iv_tabname.
-    iv_limit = iv_limit.
-    iv_where = iv_where.
-    it_columns = it_columns.
+    IMPORTING
+      iv_tabname TYPE string
+      iv_limit TYPE i
+      iv_where TYPE string
+      it_columns TYPE string_table
+    CHANGING
+      cs_result TYPE ty_preview_object.
 
     DATA: lv_error TYPE string,
           lr_data TYPE REF TO data,
@@ -231,7 +245,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
               ENDIF.
             ELSE.
               " Track hidden columns
-              APPEND ls_comp-name TO rs_result-columns_hidden.
+              APPEND ls_comp-name TO cs_result-columns_hidden.
             ENDIF.
           ENDLOOP.
         ELSE.
@@ -262,33 +276,39 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         ENDIF.
 
         " Get row count
-        rs_result-row_count = lines( <lt_data> ).
-        rs_result-total_rows = rs_result-row_count.
+        cs_result-row_count = lines( <lt_data> ).
+        cs_result-total_rows = cs_result-row_count.
 
         " Get field metadata for selected columns only
-        rs_result-fields = get_field_metadata_for_columns(
+        cs_result-fields = get_field_metadata_for_columns(
           it_components = lt_components
           it_columns    = lt_cols ).
 
         " Serialize data to JSON
-        rs_result-rows = /ui2/cl_json=>serialize( data = <lt_data> ).
+        cs_result-rows = /ui2/cl_json=>serialize( data = <lt_data> ).
 
         " Set column info
-        rs_result-columns_displayed = lines( rs_result-fields ).
+        cs_result-columns_displayed = lines( cs_result-fields ).
 
       CATCH cx_sy_dynamic_osql_syntax
             cx_sy_dynamic_osql_field
             cx_sy_open_sql_db
             cx_root INTO DATA(lx_error).
         lv_error = lx_error->get_text( ).
-        rs_result-row_count = 0.
+        cs_result-error = lv_error.
+        cs_result-row_count = 0.
     ENDTRY.
 
     rv_error = lv_error.
   ENDMETHOD.
 
   METHOD get_field_metadata.
-    DATA lt_fields TYPE ty_fields.
+    " Importing parameters
+    IMPORTING
+      it_components TYPE abap_component_tab
+    RETURNING
+      VALUE(rt_fields) TYPE ty_fields.
+
     DATA ls_field TYPE ty_field.
 
     LOOP AT it_components ASSIGNING FIELD-SYMBOL(<comp>).
@@ -310,10 +330,12 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD get_field_metadata_for_columns.
     " Importing parameters
-    DATA: it_components TYPE abap_component_tab,
-          it_columns TYPE string_table.
+    IMPORTING
+      it_components TYPE abap_component_tab
+      it_columns TYPE string_table
+    RETURNING
+      VALUE(rt_fields) TYPE ty_fields.
 
-    DATA lt_fields TYPE ty_fields.
     DATA ls_field TYPE ty_field.
 
     " If no columns specified, return all
