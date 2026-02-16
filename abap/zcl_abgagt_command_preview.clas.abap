@@ -257,7 +257,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     TRY.
         " Create dynamic table type using RTTS
-        lo_tabdescr ?= cl_abap_tabledescr=>describe_by_name( lv_tabname ).
+        lo_tabdescr ?= cl_abap_tabledescr=>describe_by_name( iv_tabname ).
         lo_strucdescr ?= lo_tabdescr->get_table_line_type( ).
         lt_components = lo_strucdescr->get_components( ).
 
@@ -297,11 +297,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
         " Dynamic SELECT with field list
         IF iv_where IS INITIAL.
-          SELECT (lv_field_list) FROM (lv_tabname)
+          SELECT (lv_field_list) FROM (iv_tabname)
             INTO TABLE @<lt_data>
             UP TO @lv_limit ROWS.
         ELSE.
-          SELECT (lv_field_list) FROM (lv_tabname)
+          SELECT (lv_field_list) FROM (iv_tabname)
             INTO TABLE @<lt_data>
             UP TO @lv_limit ROWS
             WHERE (iv_where).
