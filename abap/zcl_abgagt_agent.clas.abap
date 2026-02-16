@@ -389,8 +389,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           ENDIF.
         ENDIF.
 
-        " Error/Abort/Warning messages - add to failed objects
-        IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
+        " Error/Abort messages - add to failed objects (warnings are not failures)
+        IF ls_msg-type = 'E' OR ls_msg-type = 'A'.
           APPEND ls_object TO rs_result-failed_objects.
         ENDIF.
       ENDLOOP.
