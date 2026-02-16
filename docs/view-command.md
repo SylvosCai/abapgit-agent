@@ -28,6 +28,7 @@ abapgit-agent view --objects ZIF_MY_INT --type INTF
 abapgit-agent view --objects ZMY_STRUCT --type STRU
 abapgit-agent view --objects ZMY_TABLE --type TABL
 abapgit-agent view --objects ZMY_DTEL --type DTEL
+abapgit-agent view --objects ZMY_TTYP --type TTYP
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
@@ -49,7 +50,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, TTYP). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -185,6 +186,17 @@ DATA ELEMENT S_CARR_ID:
 └────────────────────┴──────────────────────────────────────────┘
 ```
 
+### Table Type Definition (TTYP)
+
+```
+📖 DDL2DDICWARNINGS (Table Type)
+   Table Type DDL2DDICWARNINGS in SDDL_BASIC_FUNCTIONS
+
+   Line Type: DDL2DDICERR
+   Access Mode: STANDARD
+   Key Definition: WITH KEY
+```
+
 ### Multiple Objects
 
 ```
@@ -240,7 +252,7 @@ DATA ELEMENT S_CARR_ID:
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL
@@ -307,6 +319,7 @@ DATA ELEMENT S_CARR_ID:
 | `TABL` | Table | Database table |
 | `STRU` | Structure | Structure type |
 | `DTEL` | Data Element | Data element/domain type |
+| `TTYP` | Table Type | Table type definition |
 
 ---
 
@@ -350,6 +363,7 @@ abapgit-agent view --objects sflight --type tabl
 | **DD02L** | Table/structure definitions |
 | **DD03L** | Table/structure fields |
 | **DD04L** | Data element definitions |
+| **DD40L** | Table type definitions |
 
 ### Class Source Retrieval (CLAS)
 
@@ -406,4 +420,18 @@ SELECT SINGLE rollname, ddtext, datatype, leng, decimals
   FROM dd04v
   INTO (lv_domain, lv_desc, lv_type, lv_len, lv_decimals)
   WHERE rollname = iv_name.
+```
+
+### Table Type Retrieval (TTYP)
+
+```abap
+" Get TTYP details from DD40L
+SELECT SINGLE rowtype accessmode keydef FROM dd40l
+  INTO (lv_linetype, lv_tabprottype, lv_keydef)
+  WHERE typename = iv_name
+    AND as4local = 'A'.
+
+" Convert codes to text:
+" - Access mode: T=STANDARD, S=SORTED, H=HASHED
+" - Key definition: D=WITH KEY, N=NO KEY
 ```
