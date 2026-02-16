@@ -1591,9 +1591,9 @@ Examples:
               console.log(`     ${description}`);
             }
 
-            // Display source code for classes and interfaces
+            // Display source code for classes, interfaces, and CDS views
             const source = obj.SOURCE || obj.source || '';
-            if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class')) {
+            if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View')) {
               console.log('');
               // Replace escaped newlines with actual newlines and display
               const displaySource = source.replace(/\\n/g, '\n');
