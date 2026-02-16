@@ -24,20 +24,26 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_result TYPE ty_result.
-    DATA: lv_f1 TYPE string.
-    DATA: lv_f2 TYPE string.
-    DATA: lv_f3 TYPE string.
+    DATA: lv_tabname TYPE dd03l-tabname.
+    DATA: lv_json TYPE string.
 
     ls_result-command = zif_abgagt_command=>gc_preview.
 
-    " Simple test - return table name
-    lv_f1 = 'TADIR'.
-    lv_f2 = 'TABL'.
-    lv_f3 = 'Table'.
+    " Get table name from parameter - use simple hardcoded for now
+    lv_tabname = 'TADIR'.
+
+    " Query first 10 records with minimal fields
+    SELECT SINGLE
+      obj_name AS f1,
+      object   AS f2,
+      devclass AS f3
+      FROM tadir
+      UP TO 10 ROWS
+      INTO @DATA(ls_data).
 
     ls_result-success = abap_true.
-    ls_result-message = lv_f3.
-    ls_result-data = lv_f1.
+    ls_result-message = 'Data retrieved'.
+    ls_result-data = ls_data-f1.
 
     rv_result = /ui2/cl_json=>serialize( data = ls_result ).
   ENDMETHOD.
