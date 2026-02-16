@@ -29,6 +29,7 @@ abapgit-agent view --objects ZMY_STRUCT --type STRU
 abapgit-agent view --objects ZMY_TABLE --type TABL
 abapgit-agent view --objects ZMY_DTEL --type DTEL
 abapgit-agent view --objects ZMY_TTYP --type TTYP
+abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
@@ -50,7 +51,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, TTYP). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -197,6 +198,25 @@ DATA ELEMENT S_CARR_ID:
    Key Definition: WITH KEY
 ```
 
+### CDS View Definition (DDLS)
+
+```
+📖 ZC_MY_CDS_VIEW (CDS View)
+   CDS View ZC_MY_CDS_VIEW in $PACKAGE
+
+@AbapCatalog.sqlViewName: 'ZCMYVIEW'
+@AbapCatalog.compiler.compareFilter: true
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'My CDS View'
+define view ZC_MY_CDS_VIEW as select from tdevc
+{
+  key devclass as Devclass,
+      parentcl as ParentPackage,
+      ctext    as Description
+}
+where devclass not like '$%'
+```
+
 ### Multiple Objects
 
 ```
@@ -252,7 +272,7 @@ DATA ELEMENT S_CARR_ID:
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL
@@ -320,6 +340,7 @@ DATA ELEMENT S_CARR_ID:
 | `STRU` | Structure | Structure type |
 | `DTEL` | Data Element | Data element/domain type |
 | `TTYP` | Table Type | Table type definition |
+| `DDLS` | CDS View | CDS View/Entity definition |
 
 ---
 
@@ -337,6 +358,9 @@ abapgit-agent view --objects SFLIGHT --type TABL
 
 # View data element
 abapgit-agent view --objects S_CARR_ID --type DTEL
+
+# View CDS view definition
+abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CONFIG,ZIF_LOGGER,ZCL_UTILS
@@ -434,4 +458,44 @@ SELECT SINGLE rowtype accessmode keydef FROM dd40l
 " Convert codes to text:
 " - Access mode: T=STANDARD, S=SORTED, H=HASHED
 " - Key definition: D=WITH KEY, N=NO KEY
+```
+
+### CDS View Retrieval (DDLS)
+
+```abap
+" Use DDL handler to read CDS view source
+lo_handler = cl_dd_ddl_handler_factory=>create( ).
+
+" First try to read inactive version (get_state = 'M')
+TRY.
+    lo_handler->read(
+      EXPORTING
+        name       = lv_ddls_name
+        get_state  = 'M'
+      IMPORTING
+        ddddlsrcv_wa = ls_ddlsrcv ).
+
+    IF ls_ddlsrcv-source IS NOT INITIAL.
+      lv_found = abap_true.
+    ENDIF.
+
+  CATCH cx_dd_ddl_check.
+    " Ignore - will try active version
+ENDTRY.
+
+" If no inactive version, try active version
+IF lv_found = abap_false.
+  TRY.
+      lo_handler->read(
+        EXPORTING
+          name       = lv_ddls_name
+          get_state  = 'A'
+        IMPORTING
+          ddddlsrcv_wa = ls_ddlsrcv ).
+    CATCH cx_dd_ddl_check.
+      " Not found
+  ENDTRY.
+ENDIF.
+
+" Source code is in ls_ddlsrcv-source
 ```
