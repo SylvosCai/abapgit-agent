@@ -119,6 +119,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           WHEN 'TABL'. ls_info-type_text = 'Table'.
           WHEN 'STRU'. ls_info-type_text = 'Structure'.
           WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
+          WHEN 'TTYP'. ls_info-type_text = 'Table Type'.
           WHEN OTHERS. ls_info-type_text = lv_type.
         ENDCASE.
 
@@ -152,7 +153,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     SELECT SINGLE object FROM tadir
       INTO rv_type
       WHERE obj_name = iv_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU').
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP').
   ENDMETHOD.
 
   METHOD get_object_info.
