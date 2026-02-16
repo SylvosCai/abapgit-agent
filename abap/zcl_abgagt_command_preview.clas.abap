@@ -67,7 +67,9 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
         iv_type TYPE string
         iv_limit TYPE i
         iv_where TYPE string
-        it_columns TYPE string_table.
+        it_columns TYPE string_table
+      RETURNING
+        VALUE(rs_result) TYPE ty_preview_object.
 
     METHODS detect_object_type
       IMPORTING
