@@ -13,9 +13,9 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name TYPE tadir-obj_name,
           lv_devclass TYPE tadir-devclass,
-          lv_linetype TYPE dd40v-linetype,
-          lv_tabprottype TYPE dd40v-tabprottype,
-          lv_keydef TYPE dd40v-keydef,
+          lv_linetype TYPE string,
+          lv_tabprottype TYPE string,
+          lv_keydef TYPE string,
           lv_access_mode TYPE string,
           lv_key_definition TYPE string.
 
@@ -35,7 +35,7 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
     ENDIF.
 
     " Get TTYP details from DD40V
-    SELECT SINGLE linetype tabprottype keydef FROM dd40v
+    SELECT SINGLE rowtype accessmode keydef FROM dd40v
       INTO (lv_linetype, lv_tabprottype, lv_keydef)
       WHERE typename = iv_name.
 
