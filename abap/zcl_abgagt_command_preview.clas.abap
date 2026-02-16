@@ -69,7 +69,6 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS query_cds_view_data
       IMPORTING iv_view TYPE string
-                iv_limit TYPE i
       EXPORTING et_rows TYPE ty_rows.
 
     METHODS build_summary
@@ -208,15 +207,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   METHOD query_table_data.
     " Simple implementation - returns field metadata only
     " Dynamic SQL queries require more complex handling
-    DATA lv_count TYPE i.
-
-    " Try basic select - this may fail for some tables due to authorization
-    TRY.
-        SELECT COUNT( * ) FROM (iv_table) INTO @lv_count.
-      CATCH cx_sy_dynamic_osql_syntax.
-        " Table may not exist or access denied
-        lv_count = 0.
-    ENDTRY.
 
     " For now, return empty rows - data retrieval requires more complex handling
     et_rows = VALUE #( ).
@@ -225,15 +215,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   METHOD query_cds_view_data.
     " Simple implementation - returns field metadata only
     " Dynamic SQL queries require more complex handling
-    DATA lv_count TYPE i.
-
-    " Try basic select
-    TRY.
-        SELECT COUNT( * ) FROM (iv_view) INTO @lv_count.
-      CATCH cx_sy_dynamic_osql_syntax.
-        " View may not exist or access denied
-        lv_count = 0.
-    ENDTRY.
 
     " For now, return empty rows - data retrieval requires more complex handling
     et_rows = VALUE #( ).
