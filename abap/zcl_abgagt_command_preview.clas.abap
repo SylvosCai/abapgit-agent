@@ -19,6 +19,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     DATA: lt_dd03l TYPE STANDARD TABLE OF dd03l.
     DATA: lv_count TYPE i.
     DATA: lv_json TYPE string.
+    DATA: lv_sep TYPE string.
 
     SELECT fieldname, datatype, leng
       FROM dd03l
@@ -33,21 +34,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     lv_count = lines( lt_dd03l ).
 
-    lv_json = '{
-  "success": true,
-  "command": "PREVIEW",
-  "message": "' && lv_count && ' fields found",
-  "fields": ['.
+    lv_json = '{"success":true,"command":"PREVIEW","message":"' && lv_count && ' fields found","fields":['.
 
     LOOP AT lt_dd03l INTO ls_dd03l.
       IF sy-tabix > 1.
         CONCATENATE lv_json ',' INTO lv_json.
       ENDIF.
-      CONCATENATE lv_json '{' INTO lv_json.
-      CONCATENATE lv_json '"fieldname":"' ls_dd03l-fieldname '",' INTO lv_json.
-      CONCATENATE lv_json '"datatype":"' ls_dd03l-datatype '",' INTO lv_json.
-      CONCATENATE lv_json '"leng":"' ls_dd03l-leng '"' INTO lv_json.
-      CONCATENATE lv_json '}' INTO lv_json.
+      CONCATENATE lv_json '{"fieldname":"' ls_dd03l-fieldname '","datatype":"' ls_dd03l-datatype '","leng":"' ls_dd03l-leng '"}' INTO lv_json.
     ENDLOOP.
 
     CONCATENATE lv_json ']}' INTO lv_json.
