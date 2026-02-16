@@ -1781,7 +1781,15 @@ Examples:
             const objName = obj.NAME || obj.name || `Object ${i + 1}`;
             const objType = obj.TYPE || obj.type || '';
             const objTypeText = obj.TYPE_TEXT || obj.type_text || '';
-            const rows = obj.ROWS || obj.rows || [];
+            // Parse rows - could be a JSON string or array
+            let rows = obj.ROWS || obj.rows || [];
+            if (typeof rows === 'string') {
+              try {
+                rows = JSON.parse(rows);
+              } catch (e) {
+                rows = [];
+              }
+            }
             const fields = obj.FIELDS || obj.fields || [];
             const rowCount = obj.ROW_COUNT || obj.row_count || 0;
             const totalRows = obj.TOTAL_ROWS || obj.total_rows || 0;
@@ -1862,7 +1870,14 @@ Examples:
               console.log(dataRow);
             });
 
-            console.log(headerLine);
+            // Build bottom border
+            let bottomLine = '  └';
+            fieldNames.forEach(field => {
+              const width = colWidths[field];
+              bottomLine += '─'.repeat(width + 2) + '┴';
+            });
+            bottomLine = bottomLine.slice(0, -1) + '┘';
+            console.log(bottomLine);
 
             // Show row count
             if (totalRows > rowCount) {
