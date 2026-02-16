@@ -35,9 +35,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Last part should be 'ABAP' for verification
+    " Last part should be 'ABAP' or 'ASDDLS' for verification
     READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP'.
+    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS'.
       RETURN.
     ENDIF.
 
