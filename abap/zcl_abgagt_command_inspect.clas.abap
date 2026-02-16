@@ -220,49 +220,60 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_handler->check(
             EXPORTING
               name = lv_ddls_name
-            IMPORTING
-              warnings = lt_warnings
             CHANGING
               ddlsrcv_wa = ls_ddlsrcv ).
 
-          " Parse warnings to result
-          IF lines( lt_warnings ) > 0.
-            LOOP AT lt_warnings INTO DATA(ls_warn).
-              CLEAR ls_warning.
-              ls_warning-type = ls_warn-type.
-              ls_warning-line = ls_warn-line.
-              ls_warning-column = ls_warn-column.
-              ls_warning-severity = ls_warn-severity.
-              ls_warning-object_type = 'DDLS'.
-              ls_warning-object_name = lv_ddls_name.
-              " Build message from VAR1-4
-              ls_warning-message = ls_warn-var1.
-              IF ls_warn-var2 IS NOT INITIAL.
-                ls_warning-message = |{ ls_warning-message } { ls_warn-var2 }|.
-              ENDIF.
-              IF ls_warn-var3 IS NOT INITIAL.
-                ls_warning-message = |{ ls_warning-message } { ls_warn-var3 }|.
-              ENDIF.
-              IF ls_warn-var4 IS NOT INITIAL.
-                ls_warning-message = |{ ls_warning-message } { ls_warn-var4 }|.
-              ENDIF.
-              APPEND ls_warning TO ls_result-warnings.
-            ENDLOOP.
-          ENDIF.
+          " Check for warnings after successful check
+          " Use get_warnings from the handler or check exception
+          " For now, if check succeeds without exception, validation passed
 
-          " If no warnings, validation passed
-          IF ls_result-warnings IS INITIAL.
-            ls_result-success = abap_true.
-          ELSE.
-            ls_result-success = abap_false.
-          ENDIF.
+          " If no errors, validation passed
+          ls_result-success = abap_true.
 
         CATCH cx_dd_ddl_check INTO lx_error.
-          " Validation failed - get error details
-          ls_error-line = '1'.
-          ls_error-column = '1'.
-          ls_error-text = lx_error->get_text( ).
-          APPEND ls_error TO ls_result-errors.
+          " Validation failed - get error details using get_errors method
+          DATA(lt_errors) = lx_error->get_errors( ).
+          LOOP AT lt_errors INTO DATA(ls_err).
+            CLEAR ls_error.
+            ls_error-line = ls_err-line.
+            ls_error-column = ls_err-column.
+            " Build message from VAR1-4
+            ls_error-text = ls_err-var1.
+            IF ls_err-var2 IS NOT INITIAL.
+              ls_error-text = |{ ls_error-text } { ls_err-var2 }|.
+            ENDIF.
+            IF ls_err-var3 IS NOT INITIAL.
+              ls_error-text = |{ ls_error-text } { ls_err-var3 }|.
+            ENDIF.
+            IF ls_err-var4 IS NOT INITIAL.
+              ls_error-text = |{ ls_error-text } { ls_err-var4 }|.
+            ENDIF.
+            APPEND ls_error TO ls_result-errors.
+          ENDLOOP.
+
+          " Also get warnings if any
+          DATA(lt_warn) = lx_error->get_warnings( ).
+          LOOP AT lt_warn INTO DATA(ls_warn2).
+            CLEAR ls_warning.
+            ls_warning-type = ls_warn2-type.
+            ls_warning-line = ls_warn2-line.
+            ls_warning-column = ls_warn2-column.
+            ls_warning-severity = ls_warn2-severity.
+            ls_warning-object_type = 'DDLS'.
+            ls_warning-object_name = lv_ddls_name.
+            ls_warning-message = ls_warn2-var1.
+            IF ls_warn2-var2 IS NOT INITIAL.
+              ls_warning-message = |{ ls_warning-message } { ls_warn2-var2 }|.
+            ENDIF.
+            IF ls_warn2-var3 IS NOT INITIAL.
+              ls_warning-message = |{ ls_warning-message } { ls_warn2-var3 }|.
+            ENDIF.
+            IF ls_warn2-var4 IS NOT INITIAL.
+              ls_warning-message = |{ ls_warning-message } { ls_warn2-var4 }|.
+            ENDIF.
+            APPEND ls_warning TO ls_result-warnings.
+          ENDLOOP.
+
           ls_result-success = abap_false.
       ENDTRY.
 
