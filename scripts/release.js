@@ -24,17 +24,12 @@ const abapHealthPath = path.join(__dirname, '..', 'abap', 'zcl_abgagt_resource_h
 const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
 const repoRoot = path.join(__dirname, '..');
 
-// Check for --dry-run and --draft flags
+// Check for --dry-run flag
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
-const draftMode = args.includes('--draft');
 
 if (dryRun) {
   console.log('🔹 DRY RUN MODE - No actual release will be created\n');
-}
-
-if (draftMode) {
-  console.log('🔹 DRAFT MODE - Will create draft release, skip npm publish\n');
 }
 
 // Read version from package.json
@@ -215,28 +210,15 @@ console.log('');
 // Check git status and commit (skip in dry-run)
 const status = execSync('git status --porcelain', { cwd: repoRoot, encoding: 'utf8' });
 
-// Handle draft mode - create marker file
-const draftFilePath = path.join(repoRoot, '.draft-release');
-if (draftMode) {
-  fs.writeFileSync(draftFilePath, `draft: true\nversion: ${version}\n`);
-  console.log('📝 Created .draft-release marker file');
-} else if (fs.existsSync(draftFilePath)) {
-  // Remove draft file if not in draft mode
-  fs.unlinkSync(draftFilePath);
-}
-
-if (status.trim() || draftMode) {
+if (status.trim()) {
   if (dryRun) {
     console.log('🔹 DRY RUN - Would create commit with changes:');
     console.log(status);
-    if (draftMode) console.log(' M .draft-release');
     console.log('');
   } else {
     // Stage and commit
     try {
-      let filesToAdd = 'abap/zcl_abgagt_resource_health.clas.abap package.json RELEASE_NOTES.md';
-      if (draftMode) filesToAdd += ' .draft-release';
-      execSync(`git add ${filesToAdd}`, { cwd: repoRoot });
+      execSync('git add abap/zcl_abgagt_resource_health.clas.abap package.json RELEASE_NOTES.md', { cwd: repoRoot });
       execSync(`git commit -m "chore: release v${version}"`, { cwd: repoRoot });
       console.log('Created git commit for version update');
       console.log('');

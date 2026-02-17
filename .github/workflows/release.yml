@@ -4,16 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      draft:
-        description: 'Create draft release (skip npm publish)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 permissions:
   contents: write
@@ -39,22 +29,7 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Check for draft mode
-        id: check_draft
-        run: |
-          # For tag pushes, default to draft mode (safer)
-          # For workflow_dispatch, use the input value
-          if [ -f ".draft-release" ]; then
-            echo "DRAFT=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            # Tag push: default to draft mode
-            echo "DRAFT=true" >> $GITHUB_OUTPUT
-          else
-            echo "DRAFT=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Publish to npm
-        if: steps.check_draft.outputs.DRAFT != 'true'
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -83,4 +58,3 @@ jobs:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           name: Release ${{ steps.get_tag.outputs.VERSION }}
           body: ${{ steps.release_notes.outputs.CONTENT }}
-          draft: ${{ steps.check_draft.outputs.DRAFT == 'true' }}
