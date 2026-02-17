@@ -46,9 +46,9 @@ jobs:
           # Get commits since last tag (exclude version bump commits)
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -z "$LAST_TAG" ]; then
-            CHANGES=$(git log --oneline -20)
+            CHANGES=$(git log --oneline -20 | head -10)
           else
-            CHANGES=$(git log $LAST_TAG..HEAD --oneline | grep -v "^[a-f0-9]* [0-9]*\.[0-9]*\.[0-9]*$" || true)
+            CHANGES=$(git log $LAST_TAG..HEAD --oneline | grep -v "^[a-f0-9]* [0-9]*\.[0-9]*\.[0-9]*$" | head -10 || true)
           fi
 
           echo "Generating release notes for $VERSION..."
@@ -63,25 +63,19 @@ jobs:
               -d "{
                 \"model\": \"claude-sonnet-4-20250514\",
                 \"max_tokens\": 1000,
-                \"system\": \"You are a release notes generator. Create concise release notes.\",
-                \"messages\": [{\"role\": \"user\", \"content\": \"Generate release notes for version $VERSION from these commits:\\n\\n$CHANGES\\n\\nFormat as markdown.\"}]}"
+                \"system\": \"You are a release notes generator.\",
+                \"messages\": [{\"role\": \"user\", \"content\": \"Generate release notes for $VERSION: $CHANGES\"}]}"
               )
             content=$(echo $response | jq -r '.content[0].text // empty')
           fi
 
           if [ -z "$content" ]; then
-            # Fallback: format commits as list
-            content="## $VERSION\n\n"
-            if [ -n "$CHANGES" ]; then
-              content+="### Commits\n"
-              content+="$CHANGES"
-            else
-              content+="See commit history for changes."
-            fi
+            # Fallback: use commits as-is (single line)
+            content="Release $VERSION - Changes: $CHANGES"
           fi
 
-          # Write using printf for proper multiline
-          printf 'CONTENT=%s\n' "$content" >> $GITHUB_OUTPUT
+          # Write as single line
+          echo "CONTENT=$content" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
