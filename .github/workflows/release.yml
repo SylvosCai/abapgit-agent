@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,15 +41,50 @@ jobs:
       - name: Prepare release notes
         id: release_notes
         run: |
-          if [ -f "RELEASE_NOTES.md" ]; then
-            # Extract only the current release (first section until --- separator, or end of first ## block)
-            content=$(awk '/^---$/{exit}1' RELEASE_NOTES.md)
-            echo "CONTENT<<EOF" >> $GITHUB_OUTPUT
-            echo "$content" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+          VERSION="${{ steps.get_tag.outputs.VERSION }}"
+
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            CHANGES=$(git log --oneline -20)
           else
-            echo "CONTENT=No release notes" >> $GITHUB_OUTPUT
+            CHANGES=$(git log $LAST_TAG..HEAD --oneline)
           fi
+
+          echo "Generating release notes for $VERSION..."
+          echo "Changes since $LAST_TAG:"
+          echo "$CHANGES"
+
+          # Call Claude API if available
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "Using Claude API..."
+            response=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "{
+                \"model\": \"claude-sonnet-4-20250514\",
+                \"max_tokens\": 1000,
+                \"system\": \"You are a release notes generator. Create concise release notes.\",
+                \"messages\": [{\"role\": \"user\", \"content\": \"Generate release notes for version $VERSION from these commits:\\n\\n$CHANGES\\n\\nFormat as markdown.\"}]}"
+              )
+            content=$(echo $response | jq -r '.content[0].text // empty')
+          fi
+
+          if [ -z "$content" ]; then
+            echo "Using fallback..."
+            # Fallback: extract from RELEASE_NOTES.md
+            if [ -f "RELEASE_NOTES.md" ]; then
+              content=$(awk '/^---$/{exit}1' RELEASE_NOTES.md)
+            else
+              content="## $VERSION\n\nSee commit history for changes."
+            fi
+          fi
+
+          echo "$content" >> $GITHUB_OUTPUT
+          echo "CONTENT<<EOF" >> $GITHUB_OUTPUT
+          echo "$content" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
