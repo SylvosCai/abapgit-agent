@@ -1854,88 +1854,21 @@ Examples:
               // Use fields from metadata (filtered by explicit --columns)
               fieldNames = fields.map(f => f.FIELD || f.field);
             } else {
-              // Auto-select columns based on terminal width
-              columnsAutoSelected = true;
-              // Get terminal width: env var > tput cols > default 80
-              let terminalWidth = 80;
-              if (process.env.ABAP_PREVIEW_WIDTH) {
-                terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 80;
-              } else {
-                try {
-                  const { execSync } = require('child_process');
-                  const size = execSync('tput cols 2>/dev/null').toString().trim();
-                  const detected = parseInt(size, 10);
-                  if (detected > 0) {
-                    terminalWidth = detected;
-                  }
-                } catch (e) {}
-              }
-              // DEBUG
-              console.error('DEBUG: terminalWidth =', terminalWidth);
-
-              // Use a smaller portion of terminal width to leave room for borders
-              const usableWidth = terminalWidth - 4;
-
-              // Calculate minimum width needed for each column (just field name)
-              const fieldWidths = {};
-              allFieldNames.forEach(field => {
-                fieldWidths[field] = field.length;
-              });
-
-              // Select columns conservatively based on field name width only
-              const selectedFields = [];
-              let currentWidth = 0;
-              allFieldNames.forEach(field => {
-                const colWidth = fieldWidths[field] + 3; // +3 for padding and separator
-                if (currentWidth + colWidth <= usableWidth) {
-                  selectedFields.push(field);
-                  currentWidth += colWidth;
-                }
-              });
-              fieldNames = selectedFields;
+              // Use all fields - let terminal handle wrapping if needed
+              // Terminal width detection is unreliable without a proper TTY
+              fieldNames = allFieldNames;
             }
 
-            // Calculate column widths - ensure they fit in terminal
-            let terminalWidth = 80;
-            if (process.env.ABAP_PREVIEW_WIDTH) {
-              terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 80;
-            } else {
-              try {
-                const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                terminalWidth = parseInt(tputOutput.trim(), 10) || 80;
-              } catch (e) {}
-            }
-            const usableWidth = terminalWidth - 4;
-
+            // Calculate column widths - use reasonable defaults
             const colWidths = {};
-            const colWidthsRaw = {};
             fieldNames.forEach(field => {
               let maxWidth = field.length;
               rows.forEach(row => {
                 const value = String(row[field] || '');
                 maxWidth = Math.max(maxWidth, value.length);
               });
-              colWidthsRaw[field] = maxWidth;
+              colWidths[field] = Math.min(maxWidth, 20); // Cap at 20 chars
             });
-
-            // Calculate total raw width and scale down if needed
-            let totalRawWidth = 0;
-            fieldNames.forEach(field => {
-              totalRawWidth += colWidthsRaw[field] + 3; // +3 for padding and separator
-            });
-
-            if (totalRawWidth <= usableWidth) {
-              // Fits, use actual widths capped at 20
-              fieldNames.forEach(field => {
-                colWidths[field] = Math.min(colWidthsRaw[field], 20);
-              });
-            } else {
-              // Need to scale down - distribute width proportionally
-              const scaleFactor = (usableWidth - fieldNames.length * 3) / (totalRawWidth - fieldNames.length * 3);
-              fieldNames.forEach(field => {
-                colWidths[field] = Math.max(3, Math.min(Math.floor(colWidthsRaw[field] * scaleFactor), 20));
-              });
-            }
 
             // Build table header
             let headerLine = '  ┌';
@@ -1987,21 +1920,16 @@ Examples:
               console.log(`\n  ${rowCount} row(s)`);
             }
 
-            // Note about hidden columns if there are many
+            // Note about hidden columns only when --columns was explicitly specified
             const columnsDisplayed = fieldNames.length;
-            let columnsHidden = obj.COLUMNS_HIDDEN || obj.columns_hidden || [];
+            let columnsHidden = [];
 
-            // If columns were auto-selected, calculate hidden columns
-            if (columnsAutoSelected && columnsHidden.length === 0) {
-              columnsHidden = allFieldNames.filter(f => !fieldNames.includes(f));
-            }
-
-            if (columnsHidden.length > 0) {
-              const msg = columnsAutoSelected
-                ? `Note: ${columnsHidden.length} columns hidden due to terminal width`
-                : `${columnsHidden.length} more columns hidden`;
-              console.log(`\n  ⚠️  ${msg} (${columnsHidden.join(', ')})`);
-              console.log('     Use --columns to select specific columns, or --json for full data');
+            if (columnsExplicit) {
+              columnsHidden = obj.COLUMNS_HIDDEN || obj.columns_hidden || [];
+              if (columnsHidden.length > 0) {
+                console.log(`\n  ⚠️  ${columnsHidden.length} more columns hidden (${columnsHidden.join(', ')})`);
+                console.log('     Use --json for full data');
+              }
             }
 
             console.log('');
