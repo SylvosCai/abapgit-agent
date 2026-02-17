@@ -1870,6 +1870,8 @@ Examples:
                   }
                 } catch (e) {}
               }
+              // DEBUG
+              console.error('DEBUG: terminalWidth =', terminalWidth);
 
               // Use a smaller portion of terminal width to leave room for borders
               const usableWidth = terminalWidth - 4;
