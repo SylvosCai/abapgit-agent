@@ -1856,20 +1856,19 @@ Examples:
             } else {
               // Auto-select columns based on terminal width
               columnsAutoSelected = true;
-              // Get terminal width: check env var first, then tput, then default to 80
-              let terminalWidth = 80;  // Default to 80 for compatibility
+              // Get terminal width: env var > tput cols > default 80
+              let terminalWidth = 80;
               if (process.env.ABAP_PREVIEW_WIDTH) {
                 terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 80;
               } else {
                 try {
-                  const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                  const detected = parseInt(tputOutput.trim(), 10);
-                  if (detected && detected > 0) {
+                  const { execSync } = require('child_process');
+                  const size = execSync('tput cols 2>/dev/null').toString().trim();
+                  const detected = parseInt(size, 10);
+                  if (detected > 0) {
                     terminalWidth = detected;
                   }
-                } catch (e) {
-                  // Use default
-                }
+                } catch (e) {}
               }
 
               // Use a smaller portion of terminal width to leave room for borders
@@ -1895,13 +1894,13 @@ Examples:
             }
 
             // Calculate column widths - ensure they fit in terminal
-            let terminalWidth = 300;
+            let terminalWidth = 80;
             if (process.env.ABAP_PREVIEW_WIDTH) {
-              terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 300;
+              terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 80;
             } else {
               try {
                 const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
+                terminalWidth = parseInt(tputOutput.trim(), 10) || 80;
               } catch (e) {}
             }
             const usableWidth = terminalWidth - 4;
