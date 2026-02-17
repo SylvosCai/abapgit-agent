@@ -92,20 +92,25 @@ if (fs.existsSync(releaseNotesPath)) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (line.startsWith(versionHeader)) {
+      // Match exactly the version header (e.g., ## v1.4.1)
+      if (line.trim() === versionHeader) {
         inVersionSection = true;
         foundVersion = true;
         continue;
       }
 
       if (inVersionSection) {
-        // Stop at next --- separator or next ## version header
+        // Stop at next --- separator or exact version header
         if (line.startsWith('---')) {
           inVersionSection = false;
           newLines.push(line);
-        } else if (line.startsWith('## v')) {
-          inVersionSection = false;
-          newLines.push(line);
+        } else if (line.trim().startsWith('## v')) {
+          // Check if it's another exact version header (e.g., ## v1.4.0)
+          const trimmed = line.trim();
+          if (trimmed.match(/^## v\d+\.\d+\.\d+$/)) {
+            inVersionSection = false;
+            newLines.push(line);
+          }
         }
         // Otherwise skip this line (part of the version section)
       } else {
