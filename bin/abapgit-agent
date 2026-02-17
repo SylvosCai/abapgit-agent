@@ -1906,7 +1906,11 @@ Examples:
             let headerRow = '  │';
             fieldNames.forEach(field => {
               const width = colWidths[field];
-              headerRow += ' ' + String(field).padEnd(width) + ' │';
+              let displayField = String(field);
+              if (displayField.length > width) {
+                displayField = displayField.slice(0, width - 3) + '...';
+              }
+              headerRow += ' ' + displayField.padEnd(width) + ' │';
             });
 
             console.log(headerLine);
