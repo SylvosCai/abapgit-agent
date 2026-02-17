@@ -37,9 +37,8 @@ function getCliVersion() {
 
 /**
  * Check version compatibility between CLI and ABAP API
- * @param {boolean} strict - If true, exit on version mismatch
  */
-async function checkVersionCompatibility(strict = false) {
+async function checkVersionCompatibility() {
   const cliVersion = getCliVersion();
 
   try {
@@ -74,11 +73,6 @@ async function checkVersionCompatibility(strict = false) {
               console.log(`\n⚠️  Version mismatch: CLI ${cliVersion}, ABAP API ${apiVersion}`);
               console.log('   Some commands may not work correctly.');
               console.log('   Update ABAP code: abapgit-agent pull\n');
-
-              if (strict) {
-                console.error('❌ Version mismatch detected. Use --force to override.');
-                process.exit(1);
-              }
             }
             resolve({ cliVersion, apiVersion, compatible: cliVersion === apiVersion });
           } catch (e) {
@@ -1269,13 +1263,10 @@ To enable integration:
     }
   }
 
-  // Check for --strict flag (version mismatch will cause failure)
-  const strictMode = args.includes('--strict');
-
   // Version compatibility check for commands that interact with ABAP
   const abapCommands = ['create', 'import', 'pull', 'inspect', 'unit', 'tree', 'view', 'preview'];
   if (command && abapCommands.includes(command)) {
-    await checkVersionCompatibility(strictMode);
+    await checkVersionCompatibility();
   }
 
   try {
@@ -2067,12 +2058,11 @@ Commands:
     Import existing objects from package to git repository.
     Uses the git remote URL to find the abapGit online repository.
 
-  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>] [--strict]
+  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
     Pull and activate repository in ABAP system.
     Auto-detects git remote and branch from current directory.
     Use --files to pull only specific files.
     Use --transport to specify a transport request.
-    Use --strict to fail on CLI/ABAP API version mismatch (for CI/CD).
 
   inspect --files <file1>,<file2>,...
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
@@ -2101,7 +2091,6 @@ Examples:
   abapgit-agent pull --branch develop                        # Specific branch
   abapgit-agent pull --files zcl_my_class.clas.abap          # Specific file
   abapgit-agent pull --transport DEVK900001                  # With transport
-  abapgit-agent pull --strict                               # Fail on version mismatch
   abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
   abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
   abapgit-agent tree --package $ZMY_PACKAGE                      # Show package tree

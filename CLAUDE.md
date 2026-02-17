@@ -126,11 +126,8 @@ abapgit-agent health
 
 # Check configuration
 abapgit-agent status
-
-# Version compatibility check (auto-performed on all ABAP commands)
-# Use --strict to fail on version mismatch (for CI/CD)
-abapgit-agent pull --strict
 ```
+Note: All ABAP commands automatically check CLI/ABAP API version compatibility.
 
 ## Pull Command
 
