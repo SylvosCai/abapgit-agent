@@ -1,3 +1,13 @@
+## v1.4.2
+
+### New Features
+- Use Claude CLI to generate release notes in release script
+
+### Improvements
+- Update ABAP version to 1.4.1
+
+---
+
 # Release Notes
 
 ## v1.4.0
