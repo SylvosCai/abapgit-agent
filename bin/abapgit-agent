@@ -1730,9 +1730,10 @@ Examples:
         const objectsArgIndex = args.indexOf('--objects');
         if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
           console.error('Error: --objects parameter required');
-          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--json]');
+          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--where <condition>] [--json]');
           console.error('Example: abapgit-agent preview --objects SFLIGHT');
           console.error('Example: abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS');
+          console.error('Example: abapgit-agent preview --objects SFLIGHT --where "CARRID = \'AA\'"');
           process.exit(1);
         }
 
@@ -1741,6 +1742,8 @@ Examples:
         const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
         const limitArg = args.indexOf('--limit');
         const limit = limitArg !== -1 ? parseInt(args[limitArg + 1], 10) : 10;
+        const whereArg = args.indexOf('--where');
+        const where = whereArg !== -1 ? args[whereArg + 1] : null;
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Previewing ${objects.length} object(s)`);
@@ -1755,6 +1758,10 @@ Examples:
 
         if (type) {
           data.type = type;
+        }
+
+        if (where) {
+          data.where = where;
         }
 
         const result = await request('POST', '/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
