@@ -1744,6 +1744,8 @@ Examples:
         const limit = limitArg !== -1 ? parseInt(args[limitArg + 1], 10) : 10;
         const whereArg = args.indexOf('--where');
         const where = whereArg !== -1 ? args[whereArg + 1] : null;
+        const columnsArg = args.indexOf('--columns');
+        const columns = columnsArg !== -1 ? args[columnsArg + 1].split(',').map(c => c.trim().toUpperCase()) : null;
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Previewing ${objects.length} object(s)`);
@@ -1762,6 +1764,10 @@ Examples:
 
         if (where) {
           data.where = where;
+        }
+
+        if (columns) {
+          data.columns = columns;
         }
 
         const result = await request('POST', '/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
