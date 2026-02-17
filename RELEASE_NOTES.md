@@ -1,3 +1,13 @@
+## v1.4.5
+
+### New Features
+- Show release notes and file changes in dry-run mode
+
+### Improvements
+- Updated version to 1.4.5
+
+---
+
 ## v1.4.4
 
 See commit history for changes.

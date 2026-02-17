@@ -86,7 +86,10 @@ if (oldVersionMatch) {
 
   // Write updated content
   fs.writeFileSync(abapHealthPath, abapContent);
-  console.log(`Updated ABAP version: ${oldVersion} -> ${version}`);
+  console.log(`📦 ABAP version: ${oldVersion} -> ${version}`);
+  if (dryRun) {
+    console.log('   (file modified, not committed)');
+  }
   console.log('');
 } else {
   console.error('Could not find version in ABAP file');
@@ -136,6 +139,15 @@ try {
   releaseNotesContent = `## v${version}\n\nSee commit history for changes.`;
 }
 
+// Show release notes in dry-run mode
+if (dryRun) {
+  console.log('📝 Generated Release Notes:');
+  console.log('─'.repeat(50));
+  console.log(releaseNotesContent);
+  console.log('─'.repeat(50));
+  console.log('');
+}
+
 // Update RELEASE_NOTES.md
 if (fs.existsSync(releaseNotesPath)) {
   const existingContent = fs.readFileSync(releaseNotesPath, 'utf8');
@@ -147,7 +159,11 @@ if (fs.existsSync(releaseNotesPath)) {
     // Add new version at the top, before existing content
     const newContent = releaseNotesContent + '\n\n---\n\n' + existingContent;
     fs.writeFileSync(releaseNotesPath, newContent);
-    console.log(`Updated RELEASE_NOTES.md with v${version}`);
+    if (dryRun) {
+      console.log('📄 RELEASE_NOTES.md: would add new version at top');
+    } else {
+      console.log(`Updated RELEASE_NOTES.md with v${version}`);
+    }
   }
 } else {
   // Create new RELEASE_NOTES.md
