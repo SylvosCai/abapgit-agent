@@ -1863,15 +1863,15 @@ Examples:
 
             // Calculate column widths - use reasonable defaults
             const colWidths = {};
+            const maxColWidth = compactOutput ? 10 : 20;
             fieldNames.forEach(field => {
               let maxWidth = field.length;
               rows.forEach(row => {
                 const value = String(row[field] || '');
                 maxWidth = Math.max(maxWidth, value.length);
               });
-              colWidths[field] = compactOutput
-                ? Math.min(maxWidth, 10)  // Compact: max 10 chars
-                : Math.min(maxWidth, 20); // Normal: max 20 chars
+              // Cap at maxColWidth (truncates both headers and data in compact mode)
+              colWidths[field] = Math.min(maxWidth, maxColWidth);
             });
 
             // Render output - either vertical or table
