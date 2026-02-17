@@ -2067,11 +2067,12 @@ Commands:
     Import existing objects from package to git repository.
     Uses the git remote URL to find the abapGit online repository.
 
-  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
+  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>] [--strict]
     Pull and activate repository in ABAP system.
     Auto-detects git remote and branch from current directory.
     Use --files to pull only specific files.
     Use --transport to specify a transport request.
+    Use --strict to fail on CLI/ABAP API version mismatch (for CI/CD).
 
   inspect --files <file1>,<file2>,...
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
@@ -2100,6 +2101,7 @@ Examples:
   abapgit-agent pull --branch develop                        # Specific branch
   abapgit-agent pull --files zcl_my_class.clas.abap          # Specific file
   abapgit-agent pull --transport DEVK900001                  # With transport
+  abapgit-agent pull --strict                               # Fail on version mismatch
   abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
   abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
   abapgit-agent tree --package $ZMY_PACKAGE                      # Show package tree
