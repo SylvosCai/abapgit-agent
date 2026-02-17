@@ -1,3 +1,13 @@
+## v1.4.9
+
+### Bug Fixes
+- Fixed release workflow to read release notes from file instead of generating them dynamically via Claude API
+
+### Improvements
+- Simplified release workflow by reading pre-generated release notes from RELEASE_NOTES.md
+
+---
+
 ## v1.4.8
 
 ### Bug Fixes
