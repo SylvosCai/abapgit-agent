@@ -43,12 +43,12 @@ jobs:
         run: |
           VERSION="${{ steps.get_tag.outputs.VERSION }}"
 
-          # Get commits since last tag
+          # Get commits since last tag (exclude version bump commits)
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -z "$LAST_TAG" ]; then
             CHANGES=$(git log --oneline -20)
           else
-            CHANGES=$(git log $LAST_TAG..HEAD --oneline)
+            CHANGES=$(git log $LAST_TAG..HEAD --oneline | grep -v "^[a-f0-9]* [0-9]*\.[0-9]*\.[0-9]*$" || true)
           fi
 
           echo "Generating release notes for $VERSION..."
@@ -73,18 +73,23 @@ jobs:
 
           if [ -z "$content" ]; then
             echo "Using fallback..."
-            # Fallback: extract from RELEASE_NOTES.md
-            if [ -f "RELEASE_NOTES.md" ]; then
-              content=$(awk '/^---$/{exit}1' RELEASE_NOTES.md)
+            # Fallback: build from commits
+            content="## $VERSION\n\n"
+            if [ -n "$CHANGES" ]; then
+              content+="### Changes\n"
+              echo "$CHANGES" | while read line; do
+                content+="- $line\n"
+              done
             else
-              content="## $VERSION\n\nSee commit history for changes."
+              content+="See commit history for changes."
             fi
           fi
 
+          # Write to GITHUB_OUTPUT using heredoc for multiline
+          delimiter="EOF_$(date +%s)"
+          echo "CONTENT<<$delimiter" >> $GITHUB_OUTPUT
           echo "$content" >> $GITHUB_OUTPUT
-          echo "CONTENT<<EOF" >> $GITHUB_OUTPUT
-          echo "$content" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$delimiter" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
