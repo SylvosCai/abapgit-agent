@@ -1837,18 +1837,55 @@ Examples:
               continue;
             }
 
-            // Display as table - use fields metadata if available, otherwise get from rows
+            // Get all unique field names from all rows
+            const allFields = new Set();
+            rows.forEach(row => {
+              Object.keys(row).forEach(key => allFields.add(key));
+            });
+            const allFieldNames = Array.from(allFields);
+
+            // Display as table - use fields metadata if available, otherwise auto-select based on terminal width
             let fieldNames;
+            let columnsAutoSelected = false;
             if (fields && fields.length > 0) {
               // Use fields from metadata (filtered by --columns)
               fieldNames = fields.map(f => f.FIELD || f.field);
             } else {
-              // Fallback: get all unique field names from all rows
-              const allFields = new Set();
-              rows.forEach(row => {
-                Object.keys(row).forEach(key => allFields.add(key));
+              // Auto-select columns based on terminal width
+              columnsAutoSelected = true;
+              // Get terminal width (default to 200 if not available)
+              let terminalWidth = 200;
+              try {
+                const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
+                terminalWidth = parseInt(tputOutput.trim(), 10) || 200;
+              } catch (e) {
+                // Use default
+              }
+
+              // Calculate minimum width needed for each column
+              const minColWidths = {};
+              let totalMinWidth = 4; // Account for borders (┌─┬┐ etc.)
+              allFieldNames.forEach(field => {
+                let minWidth = field.length;
+                rows.slice(0, 5).forEach(row => { // Sample first 5 rows for performance
+                  const value = String(row[field] || '');
+                  minWidth = Math.max(minWidth, Math.min(value.length, 20)); // Cap value at 20
+                });
+                minColWidths[field] = minWidth;
+                totalMinWidth += minWidth + 3; // +3 for padding and separators
               });
-              fieldNames = Array.from(allFields);
+
+              // Select columns that fit within terminal width
+              const selectedFields = [];
+              let currentWidth = 4;
+              allFieldNames.forEach(field => {
+                const colWidth = minColWidths[field] + 3;
+                if (currentWidth + colWidth <= terminalWidth) {
+                  selectedFields.push(field);
+                  currentWidth += colWidth;
+                }
+              });
+              fieldNames = selectedFields;
             }
 
             // Calculate column widths
@@ -1914,10 +1951,19 @@ Examples:
 
             // Note about hidden columns if there are many
             const columnsDisplayed = fieldNames.length;
-            const columnsHidden = obj.COLUMNS_HIDDEN || obj.columns_hidden || [];
+            let columnsHidden = obj.COLUMNS_HIDDEN || obj.columns_hidden || [];
+
+            // If columns were auto-selected, calculate hidden columns
+            if (columnsAutoSelected && columnsHidden.length === 0) {
+              columnsHidden = allFieldNames.filter(f => !fieldNames.includes(f));
+            }
+
             if (columnsHidden.length > 0) {
-              console.log(`\n  ⚠️  Note: ${columnsHidden.length} more columns hidden (${columnsHidden.join(', ')})`);
-              console.log('     Use --json for full data');
+              const msg = columnsAutoSelected
+                ? `Note: ${columnsHidden.length} columns hidden due to terminal width`
+                : `${columnsHidden.length} more columns hidden`;
+              console.log(`\n  ⚠️  ${msg} (${columnsHidden.join(', ')})`);
+              console.log('     Use --columns to select specific columns, or --json for full data');
             }
 
             console.log('');
