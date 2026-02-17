@@ -132,17 +132,7 @@ if (fs.existsSync(releaseNotesPath)) {
 }
 console.log('');
 
-// Step 4: Unpublish from npm
-console.log('Unpublishing from npm...');
-try {
-  execSync(`npm unpublish abapgit-agent@${versionNoV}`, { cwd: repoRoot, encoding: 'utf8' });
-  console.log('✅ npm package unpublished');
-} catch (e) {
-  console.log('⚠️  npm unpublish failed (may need to wait or use --force)');
-}
-console.log('');
-
-// Step 5: Restore version in package.json and abap health resource
+// Step 4: Restore version in package.json and abap health resource
 console.log('Restoring version in local files...');
 
 // Restore package.json to previous version (find previous tag)
