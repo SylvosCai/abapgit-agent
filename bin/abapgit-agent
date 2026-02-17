@@ -1789,6 +1789,9 @@ Examples:
           console.log(`\n  ${message}`);
           console.log('');
 
+          // Track if columns were explicitly specified
+          const columnsExplicit = columns !== null;
+
           for (let i = 0; i < previewObjects.length; i++) {
             const obj = previewObjects[i];
             const objName = obj.NAME || obj.name || `Object ${i + 1}`;
@@ -1844,11 +1847,11 @@ Examples:
             });
             const allFieldNames = Array.from(allFields);
 
-            // Display as table - use fields metadata if available, otherwise auto-select based on terminal width
+            // Display as table - use fields metadata only if --columns was explicitly specified
             let fieldNames;
             let columnsAutoSelected = false;
-            if (fields && fields.length > 0) {
-              // Use fields from metadata (filtered by --columns)
+            if (columnsExplicit && fields && fields.length > 0) {
+              // Use fields from metadata (filtered by explicit --columns)
               fieldNames = fields.map(f => f.FIELD || f.field);
             } else {
               // Auto-select columns based on terminal width
