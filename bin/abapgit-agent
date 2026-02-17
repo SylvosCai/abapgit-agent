@@ -1856,15 +1856,17 @@ Examples:
             } else {
               // Auto-select columns based on terminal width
               columnsAutoSelected = true;
-              // Get terminal width: check env var first, then tput, then default
-              let terminalWidth = 300;
-              // Priority: ABAP_PREVIEW_WIDTH env > tput cols > default
+              // Get terminal width: check env var first, then tput, then default to 80
+              let terminalWidth = 80;  // Default to 80 for compatibility
               if (process.env.ABAP_PREVIEW_WIDTH) {
-                terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 300;
+                terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 80;
               } else {
                 try {
                   const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                  terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
+                  const detected = parseInt(tputOutput.trim(), 10);
+                  if (detected && detected > 0) {
+                    terminalWidth = detected;
+                  }
                 } catch (e) {
                   // Use default
                 }
