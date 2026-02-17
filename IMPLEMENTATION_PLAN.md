@@ -37,12 +37,15 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 - `pull` - Pull and activate repository
 - `inspect` - Syntax check via Code Inspector
 - `unit` - AUnit test execution
+- `tree` - Display package hierarchy tree
+- `view` - View ABAP object definitions
+- `preview` - Preview table/CDS view data
 - `health` - Health check
 - `status` - Status check
 
 ### Backend (ABAP)
 - Command factory pattern for extensibility
-- REST resource handlers (/pull, /inspect, /unit, /create, /import)
+- REST resource handlers (/pull, /inspect, /unit, /tree, /view, /preview, /create, /import)
 - abapGit integration for repository operations
 
 ### CI/CD
@@ -66,8 +69,3 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
    - Run all AUnit tests in a package
    - `--package $MY_PACKAGE` support
    - Aggregate results across all test classes
-
-4. **Source Code Viewer**
-   - View ABAP source from CLI
-   - Navigate to type definitions
-   - Cross-reference lookups

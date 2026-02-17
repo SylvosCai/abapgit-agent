@@ -104,6 +104,15 @@ abapgit-agent tree --package $MY_PACKAGE
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects SFLIGHT --type TABL
 abapgit-agent view --objects S_CARR_ID --type DTEL
+
+# Preview table or CDS view data
+abapgit-agent preview --objects SFLIGHT
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
+abapgit-agent preview --objects SFLIGHT --limit 20
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE
+abapgit-agent preview --objects SFLIGHT --vertical
+abapgit-agent preview --objects SFLIGHT --compact
 ```
 
 ### Utility Commands
@@ -143,6 +152,7 @@ npm run pull -- --url <git-url> --branch main
 | unit Command | [docs/unit-command.md](docs/unit-command.md) |
 | tree Command | [docs/tree-command.md](docs/tree-command.md) |
 | view Command | [docs/view-command.md](docs/view-command.md) |
+| preview Command | [docs/preview-command.md](docs/preview-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |

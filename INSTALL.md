@@ -12,17 +12,12 @@ Claude (VS Code) → CLI Tool → ABAP System (REST/HTTP)
 
 ### ABAP Side - REST Implementation
 
-| File | Type | Description |
-|------|------|-------------|
-| `zif_abgagt_agent.intf.abap` | Interface | Type definitions and method signatures |
-| `zcl_abgagt_agent.clas.abap` | Class | Main agent with `pull`, `inspect`, `run_tests` methods |
-| `zcl_abgagt_rest_handler.clas.abap` | Class | REST router for endpoints |
-| `zcl_abgagt_resource_pull.clas.abap` | Class | POST /pull handler |
-| `zcl_abgagt_resource_inspect.clas.abap` | Class | POST /inspect handler |
-| `zcl_abgagt_resource_unit.clas.abap` | Class | POST /unit handler |
-| `zcl_abgagt_resource_health.clas.abap` | Class | GET /health handler |
+The ABAP backend consists of:
+- **Main agent** - Core logic for pull, inspect, unit operations
+- **REST handler** - Routes HTTP requests to appropriate resources
+- **Resource handlers** - Individual endpoints (/pull, /inspect, /unit, /tree, /view, /preview, /health)
 
-**Note:** Error details are returned directly in the REST response via `error_detail` field.
+Deploy all ABAP objects using abapGit from the `/abap` folder.
 
 ### CLI Tool (Node.js)
 - REST client for ABAP communication

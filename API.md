@@ -12,6 +12,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
 | POST | `/view` | View ABAP object definitions |
+| POST | `/preview` | Preview table/CDS view data |
 
 ## GET /health
 
@@ -441,7 +442,158 @@ View ABAP object definitions directly from ABAP system.
 }
 ```
 
-## Response Structure
+## POST /preview
+
+Preview data from ABAP tables or CDS views directly from the ABAP system. This is useful for exploring table/view contents without writing queries.
+
+### Request Body
+
+```json
+{
+  "objects": ["SFLIGHT", "ZC_MY_CDS_VIEW"],
+  "type": "TABL",
+  "limit": 10,
+  "where": "CARRID = 'AA'",
+  "columns": ["CARRID", "CONNID", "PRICE"]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `objects` | Array | List of table/view names (required) |
+| `type` | String | Object type (TABL, DDLS). Auto-detected if not specified |
+| `limit` | Integer | Maximum rows to return (default: 10, max: 100) |
+| `where` | String | WHERE clause filter (e.g., `CARRID = 'AA'`) |
+| `columns` | Array | Column names to display (optional) |
+
+### Supported Object Types
+
+| Type | Description |
+|------|-------------|
+| TABL | Database table |
+| DDLS | CDS View/Entity |
+
+### Auto-Detection Rules
+
+If `type` is not specified, the system detects the type from TADIR:
+- CDS views (DDLS) are preferred if found in TADIR
+- Otherwise defaults to table (TABL)
+
+### Response (success - table)
+
+```json
+{
+  "success": true,
+  "command": "PREVIEW",
+  "message": "Retrieved data",
+  "objects": [
+    {
+      "name": "SFLIGHT",
+      "type": "TABL",
+      "type_text": "Table",
+      "row_count": 5,
+      "total_rows": 10,
+      "rows": [
+        {
+          "MANDT": "100",
+          "CARRID": "AA",
+          "CONNID": 17,
+          "FLDATE": "2024-10-24",
+          "PRICE": 422.94,
+          "CURRENCY": "USD",
+          "PLANETYPE": "747-400"
+        }
+      ],
+      "fields": [
+        { "field": "MANDT", "type": "CLNT", "length": 3 },
+        { "field": "CARRID", "type": "CHAR", "length": 3 },
+        { "field": "CONNID", "type": "NUMC", "length": 4 },
+        { "field": "FLDATE", "type": "DATS", "length": 8 },
+        { "field": "PRICE", "type": "CURR", "length": 16, "decimals": 2 },
+        { "field": "CURRENCY", "type": "CUKY", "length": 5 }
+      ],
+      "columns_displayed": 6,
+      "columns_hidden": ["SEATSMAX", "SEATSOCC", "PAYMENTSUM"],
+      "error": ""
+    }
+  ],
+  "summary": {
+    "total_objects": 1,
+    "total_rows": 5
+  },
+  "error": ""
+}
+```
+
+### Response (success - CDS view)
+
+```json
+{
+  "success": true,
+  "command": "PREVIEW",
+  "message": "Retrieved data",
+  "objects": [
+    {
+      "name": "ZC_MY_CDS_VIEW",
+      "type": "DDLS",
+      "type_text": "CDS View",
+      "row_count": 10,
+      "total_rows": 25,
+      "rows": [
+        {
+          "PACKAGE": "ZMY_PACKAGE",
+          "DESCRIPTION": "My Package",
+          "PARENT": "$ZROOT"
+        }
+      ],
+      "fields": [
+        { "field": "PACKAGE", "type": "CHAR", "length": 30 },
+        { "field": "DESCRIPTION", "type": "CHAR", "length": 60 },
+        { "field": "PARENT", "type": "CHAR", "length": 30 }
+      ],
+      "columns_displayed": 3,
+      "columns_hidden": [],
+      "error": ""
+    }
+  ],
+  "summary": {
+    "total_objects": 1,
+    "total_rows": 10
+  },
+  "error": ""
+}
+```
+
+### Response (error - not found)
+
+```json
+{
+  "success": true,
+  "command": "PREVIEW",
+  "message": "Retrieved data",
+  "objects": [
+    {
+      "name": "Z_NONEXISTENT",
+      "type": "TABL",
+      "type_text": "Table",
+      "row_count": 0,
+      "total_rows": 0,
+      "rows": [],
+      "fields": [],
+      "columns_displayed": 0,
+      "columns_hidden": [],
+      "error": "Table or view not found: Z_NONEXISTENT"
+    }
+  ],
+  "summary": {
+    "total_objects": 1,
+    "total_rows": 0
+  },
+  "error": ""
+}
+```
+
+### Response Structure
 
 ### Pull Response Fields
 
@@ -504,6 +656,32 @@ View ABAP object definitions directly from ABAP system.
 | `message` | String | Status message |
 | `objects` | Array | List of object information |
 | `summary` | Object | Summary with total and by_type |
+| `error` | String | Error message (empty if success) |
+
+### Preview Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the request succeeded |
+| `command` | String | Command name ("PREVIEW") |
+| `message` | String | Status message |
+| `objects` | Array | List of table/view results |
+| `summary` | Object | Summary with total_objects and total_rows |
+| `error` | String | Error message (empty if success) |
+
+### Preview Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | Table/view name |
+| `type` | String | Object type (TABL, DDLS) |
+| `type_text` | String | Human-readable type (Table, CDS View) |
+| `row_count` | Integer | Number of rows returned |
+| `total_rows` | Integer | Total rows available (before limit) |
+| `rows` | Array | Array of row objects with field:value pairs |
+| `fields` | Array | Field metadata (field, type, length, decimals) |
+| `columns_displayed` | Integer | Number of columns in output |
+| `columns_hidden` | Array | Column names not displayed (if limited) |
 | `error` | String | Error message (empty if success) |
 
 ### Object Fields (for View)
