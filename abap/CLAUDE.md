@@ -214,6 +214,112 @@ DATA ELEMENT ZMY_DTEL:
    Key Definition: WITH KEY
 ```
 
+## CLI Commands Reference
+
+This section documents the available CLI commands for ABAP development.
+
+### Pull Command
+
+Pull and activate ABAP objects from git repository.
+
+```bash
+# Pull all files
+abapgit-agent pull
+
+# Pull specific files (faster)
+abapgit-agent pull --files abap/zcl_my_class.clas.abap
+
+# Pull with transport request
+abapgit-agent pull --files abap/zcl_my_class.clas.abap --transport DEVK900001
+```
+
+### Inspect Command
+
+Run syntax check on ABAP objects.
+
+```bash
+# Syntax check single file
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# Syntax check multiple files
+abapgit-agent inspect --files abap/zcl_class1.clas.abap,abap/zcl_class2.clas.abap
+
+# Syntax check CDS view
+abapgit-agent inspect --files abap/zc_my_view.ddls.asddls
+```
+
+### Unit Command
+
+Run ABAP unit tests.
+
+```bash
+# Run unit tests for test class
+abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+
+# Run unit tests for package
+abapgit-agent unit --package $MY_PACKAGE
+```
+
+### Tree Command
+
+Display package hierarchy.
+
+```bash
+# Display package tree
+abapgit-agent tree --package $MY_PACKAGE
+
+# With object counts
+abapgit-agent tree --package $MY_PACKAGE --include-objects
+
+# JSON output
+abapgit-agent tree --package $MY_PACKAGE --json
+```
+
+### View Command
+
+View ABAP object definitions directly from the system.
+
+```bash
+# View table structure
+abapgit-agent view --objects ZMY_TABLE --type TABL
+
+# View class definition
+abapgit-agent view --objects ZCL_MY_CLASS
+
+# View CDS view
+abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
+
+# JSON output
+abapgit-agent view --objects ZCL_MY_CLASS --json
+```
+
+### Preview Command
+
+Preview data from tables or CDS views.
+
+```bash
+# Preview table data
+abapgit-agent preview --objects SFLIGHT
+
+# Preview with row limit
+abapgit-agent preview --objects SFLIGHT --limit 5
+
+# Preview with WHERE filter
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+
+# Preview specific columns
+abapgit-agent preview --objects SFLIGHT --columns CARRID,PRICE,FLDATE
+
+# Vertical format (for wide tables)
+abapgit-agent preview --objects SFLIGHT --vertical
+
+# Compact mode (truncated values)
+abapgit-agent preview --objects SFLIGHT --compact
+
+# JSON output
+abapgit-agent preview --objects SFLIGHT --json
+```
+
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
 **CRITICAL**: Always use `/ui2/cl_json` for JSON serialization and deserialization.
