@@ -1,3 +1,10 @@
+## v1.4.3
+
+### Bug Fixes
+- Extract only latest release notes in GitHub Actions
+
+---
+
 ## v1.4.2
 
 ### New Features
