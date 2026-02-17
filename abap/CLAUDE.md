@@ -4,6 +4,30 @@ This file provides guidelines for **generating ABAP code** in abapGit repositori
 
 **Use this file as a template**: Copy it to your ABAP repository root when setting up new projects with Claude Code.
 
+## Quick Reference
+
+```bash
+# After editing ABAP files:
+git add . && git commit -m "feat: description" && git push
+abapgit-agent pull --files abap/zcl_my_class.clas.abap
+
+# If pull fails with syntax error:
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# Explore tables/views:
+abapgit-agent preview --objects ZTABLE
+abapgit-agent view --objects ZTABLE --type TABL
+abapgit-agent tree --package $MY_PACKAGE
+```
+
+## Common Workflow
+
+1. Generate/edit ABAP code
+2. Push to git: `git add . && git commit && git push`
+3. Activate in ABAP: `abapgit-agent pull --files file.clas.abap`
+4. Check for errors - fix if needed
+5. Repeat
+
 ## ABAP Syntax Validation
 
 This is an ABAP project. **Do not attempt local syntax validation** - ABAP code can only be validated in an SAP system.

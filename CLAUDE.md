@@ -2,6 +2,36 @@
 
 This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
 
+## Quick Reference
+
+```bash
+# Quick commands
+abapgit-agent pull                              # Pull and activate all
+abapgit-agent pull --files file.clas.abap      # Pull specific file(s)
+abapgit-agent inspect --files file.clas.abap    # Syntax check
+abapgit-agent unit --files test.clas.testclasses.abap  # Run tests
+abapgit-agent preview --objects TABLE           # Preview table data
+abapgit-agent view --objects OBJ               # View object definition
+abapgit-agent tree --package $PACKAGE          # Show package hierarchy
+```
+
+## Common Tasks
+
+**Making code changes:**
+```bash
+1. Edit ABAP file(s)
+2. git add && git commit && git push
+3. abapgit-agent pull --files file.clas.abap
+4. Check for errors in output
+5. If "Error updating where-used list" → use inspect for details
+```
+
+**Exploring unknown tables:**
+```bash
+abapgit-agent preview --objects SFLIGHT              # See sample data
+abapgit-agent view --objects SFLIGHT --type TABL    # See structure
+```
+
 ## Project Structure
 
 ```
@@ -791,6 +821,28 @@ export ABAP_LANGUAGE="EN"
 export GIT_USERNAME="git-username"
 export GIT_PASSWORD="git-token"
 ```
+
+## Troubleshooting
+
+**Pull fails with "Error updating where-used list":**
+- This means SYNTAX ERROR in the object
+- Run `abapgit-agent inspect --files <file>` for detailed errors
+
+**Pull shows "Failed Objects" > 0:**
+- Objects failed to activate - check the error messages
+- Fix syntax errors and pull again
+
+**Preview/View command fails:**
+- Check table/view exists in the ABAP system
+- Verify credentials in `.abapGitAgent`
+
+**"Table or view not found":**
+- Table may not exist or may have different name
+- Use `view` command to check available tables
+
+**Terminal width issues with preview:**
+- Use `--columns` to specify exact columns
+- Use `--vertical` for wide tables
 
 ## Development Workflow
 
