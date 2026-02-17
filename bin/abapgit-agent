@@ -1830,13 +1830,19 @@ Examples:
               continue;
             }
 
-            // Display as table
-            // Get all unique field names from all rows
-            const allFields = new Set();
-            rows.forEach(row => {
-              Object.keys(row).forEach(key => allFields.add(key));
-            });
-            const fieldNames = Array.from(allFields);
+            // Display as table - use fields metadata if available, otherwise get from rows
+            let fieldNames;
+            if (fields && fields.length > 0) {
+              // Use fields from metadata (filtered by --columns)
+              fieldNames = fields.map(f => f.FIELD || f.field);
+            } else {
+              // Fallback: get all unique field names from all rows
+              const allFields = new Set();
+              rows.forEach(row => {
+                Object.keys(row).forEach(key => allFields.add(key));
+              });
+              fieldNames = Array.from(allFields);
+            }
 
             // Calculate column widths
             const colWidths = {};
