@@ -1,3 +1,10 @@
+## v1.4.5
+
+### Bug Fixes
+- Properly format multiline release notes in GitHub Actions
+
+---
+
 ## v1.4.4
 
 ### New Features
