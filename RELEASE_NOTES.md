@@ -1,3 +1,12 @@
+Based on the commits, here's the release notes for v1.4.6:
+
+## v1.4.6
+
+### Improvements
+- Simplify release notes generation in GitHub Actions
+
+---
+
 ## v1.4.5
 
 ### Bug Fixes
