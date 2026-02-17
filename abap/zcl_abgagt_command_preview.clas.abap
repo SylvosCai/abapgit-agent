@@ -250,10 +250,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
       lv_limit = 10.
     ENDIF.
 
-    " Check if table/view exists in DD01L/DD02L
+    " Check if table/view exists in DD02L
+    DATA lv_tabname_check TYPE dd02l-tabname.
     SELECT SINGLE tabname FROM dd02l
-      INTO @DATA(lv_exists)
-      WHERE tabname = @iv_tabname
+      INTO lv_tabname_check
+      WHERE tabname = iv_tabname
         AND as4local = 'A'
         AND tabclass IN ('TRANSP', 'VIEW').
 
