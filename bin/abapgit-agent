@@ -1730,7 +1730,7 @@ Examples:
         const objectsArgIndex = args.indexOf('--objects');
         if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
           console.error('Error: --objects parameter required');
-          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--where <condition>] [--columns <cols>] [--vertical] [--json]');
+          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--where <condition>] [--columns <cols>] [--vertical] [--compact] [--json]');
           console.error('Example: abapgit-agent preview --objects SFLIGHT');
           console.error('Example: abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS');
           console.error('Example: abapgit-agent preview --objects SFLIGHT --where "CARRID = \'AA\'"');
@@ -1747,6 +1747,7 @@ Examples:
         const columnsArg = args.indexOf('--columns');
         const columns = columnsArg !== -1 ? args[columnsArg + 1].split(',').map(c => c.trim().toUpperCase()) : null;
         const verticalOutput = args.includes('--vertical');
+        const compactOutput = args.includes('--compact');
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Previewing ${objects.length} object(s)`);
@@ -1868,7 +1869,9 @@ Examples:
                 const value = String(row[field] || '');
                 maxWidth = Math.max(maxWidth, value.length);
               });
-              colWidths[field] = Math.min(maxWidth, 20); // Cap at 20 chars
+              colWidths[field] = compactOutput
+                ? Math.min(maxWidth, 10)  // Compact: max 10 chars
+                : Math.min(maxWidth, 20); // Normal: max 20 chars
             });
 
             // Render output - either vertical or table
