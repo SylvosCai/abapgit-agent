@@ -1853,11 +1853,11 @@ Examples:
             } else {
               // Auto-select columns based on terminal width
               columnsAutoSelected = true;
-              // Get terminal width (default to 200 if not available)
-              let terminalWidth = 200;
+              // Get terminal width (default to 300 if not available)
+              let terminalWidth = 300;
               try {
                 const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                terminalWidth = parseInt(tputOutput.trim(), 10) || 200;
+                terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
               } catch (e) {
                 // Use default
               }
