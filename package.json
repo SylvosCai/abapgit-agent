@@ -11,7 +11,8 @@
     "dev": "nodemon src/server.js",
     "test": "jest",
     "pull": "node bin/abapgit-agent",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "unrelease": "node scripts/unrelease.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
