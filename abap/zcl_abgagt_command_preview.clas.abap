@@ -291,14 +291,14 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         CREATE DATA lr_data TYPE HANDLE lo_tabdescr.
         ASSIGN lr_data->* TO <lt_data>.
 
-        " Use SELECT * for simplicity - dynamic field list can cause parser issues
+        " Dynamic SELECT with field list
         IF iv_where IS INITIAL.
-          SELECT * FROM (iv_tabname)
-            INTO TABLE <lt_data>
+          SELECT (lv_field_list) FROM (iv_tabname)
+            INTO CORRESPONDING FIELDS OF TABLE <lt_data>
             UP TO lv_limit ROWS.
         ELSE.
-          SELECT * FROM (iv_tabname)
-            INTO TABLE <lt_data>
+          SELECT (lv_field_list) FROM (iv_tabname)
+            INTO CORRESPONDING FIELDS OF TABLE <lt_data>
             UP TO lv_limit ROWS
             WHERE (iv_where).
         ENDIF.
