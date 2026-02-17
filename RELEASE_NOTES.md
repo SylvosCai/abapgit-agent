@@ -33,22 +33,6 @@ abapgit-agent preview --objects SFLIGHT --compact
 abapgit-agent preview --objects SFLIGHT --json
 ```
 
-### Bug Fixes
-
-- **RTTS Type Error**: Fixed "Source type CLASS=CL_ABAP_STRUCTDESCR is not compatible" error in preview command
-- **Dynamic SELECT Parser**: Fixed parser errors with dynamic field lists by using SELECT *
-- **JSON Parsing**: Fixed ROWS field being returned as JSON string instead of array
-- **WHERE Clause**: Fixed --where parameter not being passed to the backend
-- **Table Borders**: Fixed duplicate border characters in table output
-- **Header Truncation**: Fixed headers not truncating properly in compact mode
-- **Table Existence Check**: Added proper error handling for non-existent tables
-
-### Improvements
-
-- **Column Auto-Selection**: Preview now shows all columns by default, with note when columns are hidden
-- **Terminal Width**: Added ABAP_PREVIEW_WIDTH environment variable for custom terminal width
-- **Multiple Objects**: Support for previewing multiple tables/views in one command
-
 ### Documentation
 
 - Added comprehensive docs/preview-command.md
