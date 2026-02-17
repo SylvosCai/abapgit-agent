@@ -142,4 +142,31 @@ try {
 }
 console.log('');
 
+// Step 5: Restore version in package.json and abap health resource
+console.log('Restoring version in local files...');
+
+// Restore package.json to previous version (find previous tag)
+const allTags = execSync('git tag --sort=-v:refname', { cwd: repoRoot, encoding: 'utf8' });
+const tagList = allTags.trim().split('\n').filter(t => t.startsWith('v') && t !== versionTag);
+const previousTag = tagList[0];
+
+if (previousTag) {
+  try {
+    execSync(`git show ${previousTag}:package.json > ${packageJsonPath}`, { cwd: repoRoot, encoding: 'utf8' });
+    console.log('✅ package.json restored to previous version');
+  } catch (e) {
+    console.log('⚠️  Could not restore package.json');
+  }
+
+  try {
+    execSync(`git show ${previousTag}:abap/zcl_abgagt_resource_health.clas.abap > abap/zcl_abgagt_resource_health.clas.abap`, { cwd: repoRoot, encoding: 'utf8' });
+    console.log('✅ ABAP health resource restored to previous version');
+  } catch (e) {
+    console.log('⚠️  Could not restore ABAP health resource');
+  }
+} else {
+  console.log('⚠️  No previous tag found, cannot restore version');
+}
+console.log('');
+
 console.log('Done!');
