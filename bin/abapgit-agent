@@ -1856,13 +1856,18 @@ Examples:
             } else {
               // Auto-select columns based on terminal width
               columnsAutoSelected = true;
-              // Get terminal width (default to 300 if not available)
+              // Get terminal width: check env var first, then tput, then default
               let terminalWidth = 300;
-              try {
-                const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-                terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
-              } catch (e) {
-                // Use default
+              // Priority: ABAP_PREVIEW_WIDTH env > tput cols > default
+              if (process.env.ABAP_PREVIEW_WIDTH) {
+                terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 300;
+              } else {
+                try {
+                  const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
+                  terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
+                } catch (e) {
+                  // Use default
+                }
               }
 
               // Use a smaller portion of terminal width to leave room for borders
@@ -1889,10 +1894,14 @@ Examples:
 
             // Calculate column widths - ensure they fit in terminal
             let terminalWidth = 300;
-            try {
-              const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
-              terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
-            } catch (e) {}
+            if (process.env.ABAP_PREVIEW_WIDTH) {
+              terminalWidth = parseInt(process.env.ABAP_PREVIEW_WIDTH, 10) || 300;
+            } else {
+              try {
+                const tputOutput = require('child_process').execSync('tput cols 2>/dev/null', { encoding: 'utf8' });
+                terminalWidth = parseInt(tputOutput.trim(), 10) || 300;
+              } catch (e) {}
+            }
             const usableWidth = terminalWidth - 4;
 
             const colWidths = {};
