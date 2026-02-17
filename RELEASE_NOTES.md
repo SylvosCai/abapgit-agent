@@ -1,3 +1,9 @@
+## v1.4.4
+
+See commit history for changes.
+
+---
+
 # Release Notes
 
 ## v1.4.0
