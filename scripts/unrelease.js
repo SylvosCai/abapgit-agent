@@ -159,22 +159,41 @@ if (previousTag) {
 }
 console.log('');
 
-// Step 6: Remove the version bump commit (created by npm version patch)
-console.log('Removing version bump commit...');
+// Step 6: Remove version bump and release commits if they are the top 2 commits
+console.log('Checking for release commits to remove...');
 try {
-  // Check if the current commit is a version bump (contains package.json changes)
-  const currentCommit = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
-  const commitMsg = execSync(`git log -1 --format="%s"`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+  // Get top 2 commit messages
+  const topCommits = execSync('git log -2 --format="%s"', { cwd: repoRoot, encoding: 'utf8' }).trim().split('\n');
 
-  // Check if commit message looks like a version bump (e.g., "1.4.1" or "v1.4.1")
-  if (commitMsg.match(/^v?\d+\.\d+\.\d+$/)) {
-    execSync('git reset --hard HEAD~1', { cwd: repoRoot });
-    console.log('✅ Version bump commit removed');
+  if (topCommits.length >= 2) {
+    const firstCommit = topCommits[0];  // Most recent (HEAD)
+    const secondCommit = topCommits[1]; // Second most recent
+
+    // Check if they match the expected pattern
+    const isVersionBump = firstCommit.match(/^v?\d+\.\d+\.\d+$/);
+    const isReleaseCommit = secondCommit && secondCommit.match(/^chore: release v\d+\.\d+\.\d+$/);
+
+    if (isVersionBump && isReleaseCommit) {
+      // Check if these commits are already pushed to remote
+      const remoteRef = execSync('git rev-parse origin/master 2>/dev/null', { cwd: repoRoot, encoding: 'utf8' }).trim();
+      const secondCommitRef = execSync('git rev-parse HEAD~1', { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+      if (remoteRef === secondCommitRef) {
+        // Both commits are already pushed - can't remove without force push
+        console.log('⚠️  Release commits already pushed to remote. Skipping commit removal.');
+      } else {
+        // Remove both commits
+        execSync('git reset --hard HEAD~2', { cwd: repoRoot });
+        console.log('✅ Version bump and release commits removed (2 commits)');
+      }
+    } else {
+      console.log('⚠️  Top commits do not match expected release pattern, skipping removal');
+    }
   } else {
-    console.log('⚠️  No version bump commit found to remove');
+    console.log('⚠️  Not enough commits to check');
   }
 } catch (e) {
-  console.log('⚠️  Could not remove version bump commit');
+  console.log('⚠️  Could not check/remove release commits:', e.message);
 }
 console.log('');
 
