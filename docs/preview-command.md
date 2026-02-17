@@ -108,7 +108,7 @@ GET /health (with X-CSRF-Token: fetch)
 
 ### Table Data - Default (Human-readable)
 
-Displays first 6 columns with indicator for hidden columns:
+Displays all columns with row count:
 
 ```
 📊 Preview: SFLIGHT (Table)
@@ -204,23 +204,34 @@ abapgit-agent preview --objects SFLIGHT --vertical
 ```
 
 ```
-📊 Preview: SFLIGHT (1 of 10 rows, vertical)
+  Previewing 1 object(s)
 
-Row 1:
-────────────────────────────────────────────────────────────
-  CARRID:      AA
-  CONNID:      0017
-  FLDATE:      20240201
-  PRICE:       422.94
-  CURRENCY:    USD
-  PLANETYPE:   747-400
-  SEATSMAX:    400
-  SEATSOCC:    350
-  PAYMENTSUM:  145000
-────────────────────────────────────────────────────────────
+  Retrieved data
 
-Showing 1 of 10 rows
-Use --limit to show more rows
+  📊 Preview: SFLIGHT (Table)
+
+  Row 1:
+  ──────────────────────────────
+  MANDT: 100
+  CARRID: AA
+  CONNID: 17
+  FLDATE: 2024-10-24
+  PRICE: 422.94
+  CURRENCY: USD
+  PLANETYPE: 747-400
+  SEATSMAX: 385
+  SEATSOCC: 372
+  PAYMENTSUM: 192556.43
+
+  Row 2:
+  ──────────────────────────────
+  MANDT: 100
+  CARRID: AA
+  CONNID: 17
+  FLDATE: 2024-11-25
+  PRICE: 422.94
+  CURRENCY: USD
+  PLANETYPE: 747-400
 ```
 
 ### Compact Mode
@@ -230,14 +241,16 @@ abapgit-agent preview --objects SFLIGHT --compact
 ```
 
 ```
-📊 Preview: SFLIGHT (compact mode)
+  Previewing 1 object(s)
 
-CARRID | CONNID | FLDATE | PRICE | CURRENCY | PLANETYPE | SEATSMAX | SEATSOCC | PAYMENTSUM
--------+--------+--------+-------+----------+-----------+----------+----------+-----------
-AA     | 0017   | 2024.. | 422.. | USD      | 747-400   | 400      | 350      | 145000
-AA     | 0017   | 2024.. | 445.. | USD      | 747-400   | 400      | 380      | 165000
+  Retrieved data
 
-Showing 2 of 10 rows
+  📊 Preview: SPFLI (Table)
+  ┌───────┬────────┬────────┬───────────┬──────────┬──────────┬───────────┬────────────┬────────┬────────┬──────────┬──────────┬──────────┬────────┬────────┬────────┐
+  │ MANDT │ CARRID │ CONNID │ COUNTRYFR │ CITYFROM │ AIRPFROM │ COUNTRYTO │ CITYTO     │ AIRPTO │ FLTIME │ DEPTIME  │ ARRTIME  │ DISTANCE │ DISTID │ FLTYPE │ PERIOD │
+  ├───────┼────────┼────────┼───────────┼──────────┼──────────┼───────────┼────────────┼────────┼────────┼──────────┼──────────┼──────────┼────────┼────────┼────────┤
+  │ 100   │ AA     │ 17     │ US        │ NEW YORK │ JFK      │ US        │ SAN FRA... │ SFO    │ 361    │ 11:00:00 │ 14:01:00 │ 2572     │ MI     │        │        │
+  └───────┴────────┴────────┴───────────┴──────────┴──────────┴───────────┴────────────┴────────┴────────┴──────────┴──────────┴──────────┴────────┴────────┴────────┘
 ```
 
 ### Multiple Objects

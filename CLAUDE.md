@@ -88,6 +88,8 @@ abapgit-agent preview --objects SFLIGHT
 abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
 abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE --limit 20
 abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+abapgit-agent preview --objects SFLIGHT --vertical
+abapgit-agent preview --objects SFLIGHT --compact
 
 # Health check
 abapgit-agent health
