@@ -169,4 +169,23 @@ if (previousTag) {
 }
 console.log('');
 
+// Step 6: Remove the version bump commit (created by npm version patch)
+console.log('Removing version bump commit...');
+try {
+  // Check if the current commit is a version bump (contains package.json changes)
+  const currentCommit = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
+  const commitMsg = execSync(`git log -1 --format="%s"`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+  // Check if commit message looks like a version bump (e.g., "1.4.1" or "v1.4.1")
+  if (commitMsg.match(/^v?\d+\.\d+\.\d+$/)) {
+    execSync('git reset --hard HEAD~1', { cwd: repoRoot });
+    console.log('✅ Version bump commit removed');
+  } else {
+    console.log('⚠️  No version bump commit found to remove');
+  }
+} catch (e) {
+  console.log('⚠️  Could not remove version bump commit');
+}
+console.log('');
+
 console.log('Done!');
