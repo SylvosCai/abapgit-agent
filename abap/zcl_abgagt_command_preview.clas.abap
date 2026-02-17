@@ -250,6 +250,19 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
       lv_limit = 10.
     ENDIF.
 
+    " Check if table/view exists in DD01L/DD02L
+    SELECT SINGLE tabname FROM dd02l
+      INTO @DATA(lv_exists)
+      WHERE tabname = @iv_tabname
+        AND as4local = 'A'
+        AND tabclass IN ('TRANSP', 'VIEW').
+
+    IF sy-subrc <> 0.
+      cs_result-error = |Table or view not found: { iv_tabname }|.
+      cs_result-row_count = 0.
+      RETURN.
+    ENDIF.
+
     TRY.
         " Get structure descriptor first (describe_by_name returns struct descr for table lines)
         lo_strucdescr ?= cl_abap_structdescr=>describe_by_name( iv_tabname ).
