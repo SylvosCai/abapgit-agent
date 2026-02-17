@@ -65,7 +65,7 @@ async function checkVersionCompatibility(strict = false) {
       const req = https.request(options, (res) => {
         let body = '';
         res.on('data', chunk => body += chunk);
-        res.on('end () => {
+        res.on('end', () => {
           try {
             const result = JSON.parse(body);
             const apiVersion = result.version || '1.0.0';
