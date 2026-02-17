@@ -52,8 +52,6 @@ jobs:
           fi
 
           echo "Generating release notes for $VERSION..."
-          echo "Changes since $LAST_TAG:"
-          echo "$CHANGES"
 
           # Call Claude API if available
           if [ -n "$ANTHROPIC_API_KEY" ]; then
@@ -72,24 +70,18 @@ jobs:
           fi
 
           if [ -z "$content" ]; then
-            echo "Using fallback..."
-            # Fallback: build from commits
+            # Fallback: format commits as list
             content="## $VERSION\n\n"
             if [ -n "$CHANGES" ]; then
-              content+="### Changes\n"
-              echo "$CHANGES" | while read line; do
-                content+="- $line\n"
-              done
+              content+="### Commits\n"
+              content+="$CHANGES"
             else
               content+="See commit history for changes."
             fi
           fi
 
-          # Write to GITHUB_OUTPUT using heredoc for multiline
-          delimiter="EOF_$(date +%s)"
-          echo "CONTENT<<$delimiter" >> $GITHUB_OUTPUT
-          echo "$content" >> $GITHUB_OUTPUT
-          echo "$delimiter" >> $GITHUB_OUTPUT
+          # Write using printf for proper multiline
+          printf 'CONTENT=%s\n' "$content" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
