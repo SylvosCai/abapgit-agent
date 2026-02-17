@@ -1730,7 +1730,7 @@ Examples:
         const objectsArgIndex = args.indexOf('--objects');
         if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
           console.error('Error: --objects parameter required');
-          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--where <condition>] [--json]');
+          console.error('Usage: abapgit-agent preview --objects <table1>,<view1>,... [--type <type>] [--limit <n>] [--where <condition>] [--columns <cols>] [--vertical] [--json]');
           console.error('Example: abapgit-agent preview --objects SFLIGHT');
           console.error('Example: abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS');
           console.error('Example: abapgit-agent preview --objects SFLIGHT --where "CARRID = \'AA\'"');
@@ -1746,6 +1746,7 @@ Examples:
         const where = whereArg !== -1 ? args[whereArg + 1] : null;
         const columnsArg = args.indexOf('--columns');
         const columns = columnsArg !== -1 ? args[columnsArg + 1].split(',').map(c => c.trim().toUpperCase()) : null;
+        const verticalOutput = args.includes('--vertical');
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Previewing ${objects.length} object(s)`);
@@ -1869,6 +1870,23 @@ Examples:
               });
               colWidths[field] = Math.min(maxWidth, 20); // Cap at 20 chars
             });
+
+            // Render output - either vertical or table
+            if (verticalOutput) {
+              // Vertical format: each field on its own line
+              rows.forEach((row, rowIndex) => {
+                if (rows.length > 1) {
+                  console.log(`\n  Row ${rowIndex + 1}:`);
+                  console.log('  ' + '─'.repeat(30));
+                }
+                fieldNames.forEach(field => {
+                  const value = String(row[field] || '');
+                  console.log(`  ${field}: ${value}`);
+                });
+              });
+              console.log('');
+              continue;
+            }
 
             // Build table header
             let headerLine = '  ┌';
