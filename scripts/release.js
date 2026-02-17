@@ -132,7 +132,7 @@ try {
 
     // Create Claude prompt - escape for shell
     const commitsEscaped = commits.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const prompt = `Generate release notes for version ${version} of this project based on these commits:\\n\\n${commitsEscaped}\\n\\nFormat as:\\n\\n## v${version}\\n\\n### New Features\\n- (list new features)\\n\\n### Bug Fixes\\n- (list bug fixes)\\n\\n### Improvements\\n- (list improvements)\\n\\n### Documentation\\n- (list documentation changes)\\n\\nIf there are no commits in a category, omit that category. Keep it concise.`;
+    const prompt = `Generate release notes for version ${version}. Commits: ${commitsEscaped}. Output ONLY release notes in this exact format, no extra text: ## v${version} ### New Features - ### Bug Fixes - ### Improvements - ### Documentation -`;
 
     // Call Claude CLI
     try {
