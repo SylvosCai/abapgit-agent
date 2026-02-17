@@ -42,7 +42,12 @@ jobs:
       - name: Check for draft mode
         id: check_draft
         run: |
+          # For tag pushes, default to draft mode (safer)
+          # For workflow_dispatch, use the input value
           if [ -f ".draft-release" ]; then
+            echo "DRAFT=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # Tag push: default to draft mode
             echo "DRAFT=true" >> $GITHUB_OUTPUT
           else
             echo "DRAFT=false" >> $GITHUB_OUTPUT
