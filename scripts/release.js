@@ -171,8 +171,28 @@ if (fs.existsSync(releaseNotesPath)) {
   if (existingContent.includes(`## v${version}`)) {
     console.log(`Release notes for v${version} already exist`);
   } else {
-    // Add new version at the top, before existing content
-    const newContent = releaseNotesContent + '\n\n---\n\n' + existingContent;
+    let newContent;
+
+    // Check if there's a "# Release Notes" header - insert after it if present
+    if (existingContent.startsWith('# Release Notes')) {
+      // Find the position after "# Release Notes" and any following content
+      const lines = existingContent.split('\n');
+      let insertIndex = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^## v\d+\.\d+\.\d+/)) {
+          insertIndex = i;
+          break;
+        }
+      }
+      // Insert new content before the first version header
+      const before = lines.slice(0, insertIndex).join('\n');
+      const after = lines.slice(insertIndex).join('\n');
+      newContent = before + '\n\n' + releaseNotesContent + '\n\n---\n\n' + after;
+    } else {
+      // Add new version at the top
+      newContent = releaseNotesContent + '\n\n---\n\n' + existingContent;
+    }
+
     fs.writeFileSync(releaseNotesPath, newContent);
     if (dryRun) {
       console.log('📄 RELEASE_NOTES.md: would add new version at top');
