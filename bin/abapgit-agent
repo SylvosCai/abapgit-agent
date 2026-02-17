@@ -1825,6 +1825,13 @@ Examples:
 
             console.log(`  📊 Preview: ${objName} (${objTypeText})`);
 
+            // Check for errors first
+            const objError = obj.ERROR || obj.error;
+            if (objError) {
+              console.log(`     ❌ Error: ${objError}`);
+              continue;
+            }
+
             if (rows.length === 0) {
               console.log('     No data found');
               continue;
