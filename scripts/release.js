@@ -43,14 +43,18 @@ console.log('');
 const tags = execSync('git tag --list', { cwd: repoRoot, encoding: 'utf8' });
 const versionTag = `v${version}`;
 if (!tags.includes(versionTag)) {
-  console.log(`No git tag found for version ${version}`);
-  console.log('');
-  console.log('Please run one of the following first:');
-  console.log('  npm version patch    # e.g., 1.4.0 -> 1.4.1');
-  console.log('  npm version minor    # e.g., 1.4.0 -> 1.5.0');
-  console.log('  npm version major    # e.g., 1.4.0 -> 2.0.0');
-  console.log('');
-  process.exit(1);
+  if (dryRun) {
+    console.log(`No git tag found for ${version} (dry-run allows this)`);
+  } else {
+    console.log(`No git tag found for version ${version}`);
+    console.log('');
+    console.log('Please run one of the following first:');
+    console.log('  npm version patch    # e.g., 1.4.0 -> 1.4.1');
+    console.log('  npm version minor    # e.g., 1.4.0 -> 1.5.0');
+    console.log('  npm version major    # e.g., 1.4.0 -> 2.0.0');
+    console.log('');
+    process.exit(1);
+  }
 }
 
 console.log(`Current version: ${version} (tag: ${versionTag})`);
