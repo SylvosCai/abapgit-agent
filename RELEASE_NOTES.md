@@ -1,3 +1,29 @@
+Looking at the commits provided:
+
+- `74877ee` - Version tag
+- `d82b110` - New feature: draft mode for releases
+- `ba51ac4` - Previous release chore (v1.4.6)
+
+## v1.4.7
+
+### New Features
+- Use draft mode for releases
+
+### Bug Fixes
+- (none)
+
+### Improvements
+- (none)
+
+### Documentation
+- (none)
+
+---
+
+This is a minor release with only one change related to the release process itself (draft mode for releases in GitHub Actions). There are no code changes, bug fixes, or improvements to the CLI tool in this release.
+
+---
+
 Based on the commits, here's the release notes for v1.4.6:
 
 ## v1.4.6
