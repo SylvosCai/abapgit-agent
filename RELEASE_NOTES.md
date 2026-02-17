@@ -1,3 +1,10 @@
+## v1.4.4
+
+### New Features
+- Generate release notes in GitHub Actions from commits
+
+---
+
 ## v1.4.3
 
 ### Bug Fixes
