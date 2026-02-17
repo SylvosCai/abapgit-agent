@@ -39,21 +39,32 @@ const version = pkg.version;
 console.log(`Current version: ${version}`);
 console.log('');
 
-// Check if there's a git tag for this version
-const tags = execSync('git tag --list', { cwd: repoRoot, encoding: 'utf8' });
+// Check if version has been bumped - version must be greater than or equal to latest tag
+const allTags = execSync('git tag --sort=-v:refname', { cwd: repoRoot, encoding: 'utf8' });
+const tagList = allTags.trim().split('\n').filter(t => t.startsWith('v'));
+const latestTag = tagList[0] ? tagList[0].replace('v', '') : '';
+
 const versionTag = `v${version}`;
-if (!tags.includes(versionTag)) {
-  if (dryRun) {
-    console.log(`No git tag found for ${version} (dry-run allows this)`);
-  } else {
-    console.log(`No git tag found for version ${version}`);
-    console.log('');
-    console.log('Please run one of the following first:');
-    console.log('  npm version patch    # e.g., 1.4.0 -> 1.4.1');
-    console.log('  npm version minor    # e.g., 1.4.0 -> 1.5.0');
-    console.log('  npm version major    # e.g., 1.4.0 -> 2.0.0');
-    console.log('');
-    process.exit(1);
+
+if (version === latestTag) {
+  // Check if the tag points to HEAD (new release we just created)
+  try {
+    const tagRef = execSync(`git rev-parse ${versionTag}^{commit}`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+    const headRef = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+    if (tagRef !== headRef) {
+      console.log(`Version ${version} has already been released (tag v${version} exists on different commit)`);
+      console.log('');
+      console.log('To bump version, run one of:');
+      console.log('  npm version patch    # e.g., 1.4.0 -> 1.4.1');
+      console.log('  npm version minor    # e.g., 1.4.0 -> 1.5.0');
+      console.log('  npm version major    # e.g., 1.4.0 -> 2.0.0');
+      console.log('');
+      process.exit(1);
+    }
+    // If tag points to HEAD, this is the new release we just created - continue
+  } catch (e) {
+    // Tag doesn't exist - this is a new version
   }
 }
 
