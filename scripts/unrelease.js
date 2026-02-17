@@ -178,4 +178,12 @@ try {
 }
 console.log('');
 
+// Step 7: Remove .draft-release marker file if exists
+const draftFilePath = path.join(repoRoot, '.draft-release');
+if (fs.existsSync(draftFilePath)) {
+  fs.unlinkSync(draftFilePath);
+  console.log('✅ .draft-release marker file removed');
+}
+console.log('');
+
 console.log('Done!');
