@@ -132,7 +132,33 @@ try {
 
     // Create Claude prompt - escape for shell
     const commitsEscaped = commits.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const prompt = `Generate release notes for version ${version}. Commits: ${commitsEscaped}. OMIT any section (New Features, Bug Fixes, Improvements, Documentation) that has no items. Output ONLY the release notes in this format: ## v${version} ### Category - item`;
+    const prompt = `Generate concise release notes for version ${version} of a Node.js CLI tool called abapgit-agent.
+
+Commits since last release:
+${commitsEscaped}
+
+Instructions:
+1. IGNORE commits that revert, undo, or remove previous changes (e.g., "remove draft mode", "remove X from Y")
+2. IGNORE commits that fix/improve the release process itself (e.g., "fix unrelease script", "fix release notes")
+3. Focus on actual USER-FACING features and fixes
+4. Group related changes into 2-4 bullet points MAX per category
+5. Keep each bullet brief (under 10 words)
+6. Use this format:
+## v${version}
+
+### New Features
+- Brief feature description
+
+### Bug Fixes
+- Brief fix description
+
+### Improvements
+- Brief improvement
+
+### Documentation
+- Brief doc update (only if significant)
+
+OMIT any category that has no significant items.`;
 
     // Call Claude CLI
     try {
