@@ -53,7 +53,7 @@ class ABAPGitAgent {
       return {
         status: 'healthy',
         abap: 'connected',
-        version: result.version || '1.0.0'
+        version: result.version || '1.4.0'
       };
     } catch (error) {
       return {
