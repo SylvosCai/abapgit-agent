@@ -89,3 +89,4 @@ jobs:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           name: Release ${{ steps.get_tag.outputs.VERSION }}
           body: ${{ steps.release_notes.outputs.CONTENT }}
+          draft: true
