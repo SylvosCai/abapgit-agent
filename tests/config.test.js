@@ -88,4 +88,37 @@ describe('Config', () => {
       gitPassword: 'git-pass'
     });
   });
+
+  test('getAgentConfig returns agent config', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      host: 'test.com',
+      sapport: 44300,
+      client: '100',
+      user: 'user',
+      password: 'pass',
+      agent: { port: 3000, host: 'localhost' }
+    }));
+
+    const { getAgentConfig } = require('../src/config');
+    const agentConfig = getAgentConfig();
+
+    expect(agentConfig).toEqual({ port: 3000, host: 'localhost' });
+  });
+
+  test('getAgentConfig returns undefined when agent config not present', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      host: 'test.com',
+      user: 'user',
+      password: 'pass'
+    }));
+
+    const { getAgentConfig } = require('../src/config');
+    const agentConfig = getAgentConfig();
+
+    expect(agentConfig).toBeUndefined();
+  });
 });

@@ -9,6 +9,8 @@ const mockSyntaxCheck = jest.fn();
 const mockUnitTest = jest.fn();
 const mockCreate = jest.fn();
 const mockImport = jest.fn();
+const mockTree = jest.fn();
+const mockPreview = jest.fn();
 
 // Mock abap-client before requiring agent
 jest.mock('../src/abap-client', () => ({
@@ -18,7 +20,9 @@ jest.mock('../src/abap-client', () => ({
     syntaxCheck: mockSyntaxCheck,
     unitTest: mockUnitTest,
     create: mockCreate,
-    import: mockImport
+    import: mockImport,
+    tree: mockTree,
+    preview: mockPreview
   }))
 }));
 
@@ -41,7 +45,9 @@ describe('ABAPGitAgent', () => {
         syntaxCheck: mockSyntaxCheck,
         unitTest: mockUnitTest,
         create: mockCreate,
-        import: mockImport
+        import: mockImport,
+        tree: mockTree,
+        preview: mockPreview
       }))
     }));
 
@@ -135,6 +141,19 @@ describe('ABAPGitAgent', () => {
       expect(result.job_id).toBe('UPPER123');
       expect(result.activated_count).toBe(5);
     });
+
+    test('handles missing response fields gracefully', async () => {
+      mockPull.mockResolvedValue({});
+
+      const result = await agent.pull('http://test.com/repo');
+
+      expect(result.success).toBe(false);
+      expect(result.job_id).toBeUndefined();
+      expect(result.activated_count).toBe(0);
+      expect(result.failed_count).toBe(0);
+      expect(result.activated_objects).toEqual([]);
+      expect(result.failed_objects).toEqual([]);
+    });
   });
 
   describe('healthCheck', () => {
@@ -158,6 +177,14 @@ describe('ABAPGitAgent', () => {
 
       expect(result.status).toBe('unhealthy');
       expect(result.abap).toBe('disconnected');
+    });
+
+    test('uses default version when not returned', async () => {
+      mockHealthCheck.mockResolvedValue({});
+
+      const result = await agent.healthCheck();
+
+      expect(result.version).toBe('1.4.0');
     });
   });
 
@@ -220,6 +247,16 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(true);
       expect(result.object_type).toBe('CLAS');
       expect(result.error_count).toBe(1);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockSyntaxCheck.mockResolvedValue({});
+
+      const result = await agent.syntaxCheck('CLAS', 'ZCL_TEST');
+
+      expect(result.success).toBe(false);
+      expect(result.error_count).toBe(0);
+      expect(result.errors).toEqual([]);
     });
   });
 
@@ -307,6 +344,18 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(true);
       expect(result.test_count).toBe(5);
       expect(result.passed_count).toBe(5);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockUnitTest.mockResolvedValue({});
+
+      const result = await agent.unitCheck('ZTEST_PACKAGE');
+
+      expect(result.success).toBe(false);
+      expect(result.test_count).toBe(0);
+      expect(result.passed_count).toBe(0);
+      expect(result.failed_count).toBe(0);
+      expect(result.errors).toEqual([]);
     });
   });
 
@@ -422,6 +471,128 @@ describe('ABAPGitAgent', () => {
         'https://github.com/org/repo.git',
         'Custom commit message'
       );
+    });
+  });
+
+  describe('tree', () => {
+    test('returns success=true for tree command', async () => {
+      mockTree.mockResolvedValue({
+        success: 'X',
+        command: 'TREE',
+        package: '$ZTEST',
+        hierarchy: [{ package: '$ZTEST', objects: 10 }],
+        summary: { total_packages: 1, total_objects: 10 }
+      });
+
+      const result = await agent.tree('$ZTEST');
+
+      expect(result.success).toBe(true);
+      expect(result.command).toBe('TREE');
+      expect(result.package).toBe('$ZTEST');
+      expect(result.hierarchy).toHaveLength(1);
+    });
+
+    test('returns success with depth parameter', async () => {
+      mockTree.mockResolvedValue({
+        success: 'X',
+        package: '$ZTEST',
+        hierarchy: []
+      });
+
+      await agent.tree('$ZTEST', 2, true);
+
+      expect(mockTree).toHaveBeenCalledWith('$ZTEST', 2, true);
+    });
+
+    test('throws error on exception', async () => {
+      mockTree.mockRejectedValue(new Error('Package not found'));
+
+      await expect(agent.tree('$ZTEST'))
+        .rejects.toThrow('Tree command failed: Package not found');
+    });
+
+    test('handles uppercase response keys', async () => {
+      mockTree.mockResolvedValue({
+        SUCCESS: 'X',
+        COMMAND: 'TREE',
+        PACKAGE: '$ZTEST',
+        HIERARCHY: [{ package: '$ZTEST' }],
+        SUMMARY: { TOTAL_PACKAGES: 1 }
+      });
+
+      const result = await agent.tree('$ZTEST');
+
+      expect(result.success).toBe(true);
+      expect(result.hierarchy).toHaveLength(1);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockTree.mockResolvedValue({});
+
+      const result = await agent.tree('$ZTEST');
+
+      expect(result.success).toBe(false);
+      expect(result.hierarchy).toBeNull();
+      expect(result.summary).toBeNull();
+    });
+  });
+
+  describe('preview', () => {
+    test('returns success=true for preview command', async () => {
+      mockPreview.mockResolvedValue({
+        success: 'X',
+        command: 'PREVIEW',
+        objects: [{ name: 'SFLIGHT', type: 'TABL', rows: [] }],
+        summary: { total_objects: 1, total_rows: 0 }
+      });
+
+      const result = await agent.preview(['SFLIGHT']);
+
+      expect(result.success).toBe(true);
+      expect(result.command).toBe('PREVIEW');
+      expect(result.objects).toHaveLength(1);
+    });
+
+    test('passes type and limit parameters', async () => {
+      mockPreview.mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+
+      await agent.preview(['SFLIGHT'], 'TABL', 20);
+
+      expect(mockPreview).toHaveBeenCalledWith(['SFLIGHT'], 'TABL', 20);
+    });
+
+    test('throws error on exception', async () => {
+      mockPreview.mockRejectedValue(new Error('Table not found'));
+
+      await expect(agent.preview(['INVALID']))
+        .rejects.toThrow('Preview command failed: Table not found');
+    });
+
+    test('handles uppercase response keys', async () => {
+      mockPreview.mockResolvedValue({
+        SUCCESS: 'X',
+        COMMAND: 'PREVIEW',
+        OBJECTS: [{ NAME: 'SFLIGHT', TYPE: 'TABL' }],
+        SUMMARY: { TOTAL_OBJECTS: 1 }
+      });
+
+      const result = await agent.preview(['SFLIGHT']);
+
+      expect(result.success).toBe(true);
+      expect(result.objects).toHaveLength(1);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockPreview.mockResolvedValue({});
+
+      const result = await agent.preview(['SFLIGHT']);
+
+      expect(result.success).toBe(false);
+      expect(result.objects).toEqual([]);
+      expect(result.summary).toBeNull();
     });
   });
 });

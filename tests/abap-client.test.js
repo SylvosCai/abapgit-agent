@@ -298,4 +298,188 @@ describe('ABAPClient', () => {
       expect(callArgs[2].message).toBe('Custom commit message');
     });
   });
+
+  describe('syntaxCheck method', () => {
+    test('syntaxCheck method exists and is callable', () => {
+      expect(typeof client.syntaxCheck).toBe('function');
+    });
+
+    test('syntaxCheck sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        object_type: 'CLAS',
+        object_name: 'ZCL_TEST',
+        error_count: 0,
+        errors: []
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const result = await client.syntaxCheck('CLAS', 'ZCL_TEST');
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/syntax-check');
+      expect(callArgs[2].object_type).toBe('CLAS');
+      expect(callArgs[2].object_name).toBe('ZCL_TEST');
+      expect(result.object_type).toBe('CLAS');
+    });
+  });
+
+  describe('unitTest method', () => {
+    test('unitTest method exists and is callable', () => {
+      expect(typeof client.unitTest).toBe('function');
+    });
+
+    test('unitTest sends package in request', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        test_count: 5,
+        passed_count: 5,
+        failed_count: 0
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.unitTest('ZTEST_PACKAGE');
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].package).toBe('ZTEST_PACKAGE');
+    });
+
+    test('unitTest sends objects array in request', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        test_count: 2
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const objects = [
+        { object_type: 'CLAS', object_name: 'ZCL_TEST1' },
+        { object_type: 'CLAS', object_name: 'ZCL_TEST2' }
+      ];
+
+      await client.unitTest(null, objects);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].objects).toEqual(objects);
+    });
+
+    test('unitTest handles empty parameters', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.unitTest();
+
+      expect(client.request).toHaveBeenCalled();
+    });
+  });
+
+  describe('tree method', () => {
+    test('tree method exists and is callable', () => {
+      expect(typeof client.tree).toBe('function');
+    });
+
+    test('tree sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        hierarchy: []
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.tree('$ZTEST', 3, false);
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/tree');
+      expect(callArgs[2].package).toBe('$ZTEST');
+      expect(callArgs[2].depth).toBe(3);
+      expect(callArgs[2].include_objects).toBe(false);
+    });
+
+    test('tree clamps depth to valid range', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.tree('$ZTEST', 100, false);
+      await client.tree('$ZTEST', 0, false);
+
+      // First call should clamp to 10
+      let callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].depth).toBe(10);
+
+      // Second call should clamp to 1
+      callArgs = client.request.mock.calls[1];
+      expect(callArgs[2].depth).toBe(1);
+    });
+
+    test('tree includes objects when requested', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.tree('$ZTEST', 3, true);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].include_objects).toBe(true);
+    });
+  });
+
+  describe('preview method', () => {
+    test('preview method exists and is callable', () => {
+      expect(typeof client.preview).toBe('function');
+    });
+
+    test('preview sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.preview(['SFLIGHT']);
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/preview');
+      expect(callArgs[2].objects).toEqual(['SFLIGHT']);
+    });
+
+    test('preview includes type when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.preview(['ZC_VIEW'], 'DDLS');
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].type).toBe('DDLS');
+    });
+
+    test('preview clamps limit to valid range', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.preview(['SFLIGHT'], null, 200);
+      await client.preview(['SFLIGHT'], null, 0);
+
+      // First call should clamp to 100
+      let callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].limit).toBe(100);
+
+      // Second call should clamp to 1
+      callArgs = client.request.mock.calls[1];
+      expect(callArgs[2].limit).toBe(1);
+    });
+  });
+
+  describe('getClient singleton', () => {
+    test('getClient returns singleton instance', () => {
+      const { getClient } = require('../src/abap-client');
+      const client1 = getClient();
+      const client2 = getClient();
+
+      expect(client1).toBe(client2);
+    });
+  });
 });
