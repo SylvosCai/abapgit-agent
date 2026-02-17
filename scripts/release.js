@@ -1,14 +1,17 @@
 /**
  * Release script - Creates release for github.com
  *
- * Usage: npm run release
+ * Usage: npm run release [--dry-run]
+ *
+ * Options:
+ *   --dry-run    Test the release flow without pushing to github.com
  *
  * This script:
  * 1. Reads version from package.json
  * 2. Updates the ABAP health resource with the new version
  * 3. Uses Claude CLI to generate release notes from commits
  * 4. Updates RELEASE_NOTES.md with new version notes
- * 5. Pushes to github.com to trigger GitHub Actions
+ * 5. Pushes to github.com to trigger GitHub Actions (unless --dry-run)
  * 6. GitHub Actions will publish to npm and create GitHub release
  */
 
@@ -20,6 +23,14 @@ const packageJsonPath = path.join(__dirname, '..', 'package.json');
 const abapHealthPath = path.join(__dirname, '..', 'abap', 'zcl_abgagt_resource_health.clas.abap');
 const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
 const repoRoot = path.join(__dirname, '..');
+
+// Check for --dry-run flag
+const args = process.argv.slice(2);
+const dryRun = args.includes('--dry-run');
+
+if (dryRun) {
+  console.log('🔹 DRY RUN MODE - No actual release will be created\n');
+}
 
 // Read version from package.json
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -145,18 +156,24 @@ if (fs.existsSync(releaseNotesPath)) {
 }
 console.log('');
 
-// Check git status
+// Check git status and commit (skip in dry-run)
 const status = execSync('git status --porcelain', { cwd: repoRoot, encoding: 'utf8' });
 
 if (status.trim()) {
-  // Stage and commit
-  try {
-    execSync('git add abap/zcl_abgagt_resource_health.clas.abap package.json RELEASE_NOTES.md', { cwd: repoRoot });
-    execSync(`git commit -m "chore: release v${version}"`, { cwd: repoRoot });
-    console.log('Created git commit for version update');
+  if (dryRun) {
+    console.log('🔹 DRY RUN - Would create commit with changes:');
+    console.log(status);
     console.log('');
-  } catch (e) {
-    console.log('No changes to commit or commit failed');
+  } else {
+    // Stage and commit
+    try {
+      execSync('git add abap/zcl_abgagt_resource_health.clas.abap package.json RELEASE_NOTES.md', { cwd: repoRoot });
+      execSync(`git commit -m "chore: release v${version}"`, { cwd: repoRoot });
+      console.log('Created git commit for version update');
+      console.log('');
+    } catch (e) {
+      console.log('No changes to commit or commit failed');
+    }
   }
 } else {
   console.log('No changes to commit (version already up to date)');
@@ -164,25 +181,33 @@ if (status.trim()) {
 }
 
 // Push to trigger GitHub Actions
-console.log('Pushing to github.com to trigger release...');
-console.log('');
+if (dryRun) {
+  console.log('🔹 DRY RUN - Skipping push to github.com');
+  console.log('');
+  console.log('To actually release, run:');
+  console.log(`  git push ${remoteName} master --follow-tags`);
+  console.log('');
+} else {
+  console.log('Pushing to github.com to trigger release...');
+  console.log('');
 
-try {
-  // Push master and tags to github.com
-  execSync(`git push ${remoteName} master --follow-tags`, { cwd: repoRoot });
-  console.log('Pushed to github.com successfully!');
+  try {
+    // Push master and tags to github.com
+    execSync(`git push ${remoteName} master --follow-tags`, { cwd: repoRoot });
+    console.log('Pushed to github.com successfully!');
+    console.log('');
+  } catch (e) {
+    console.log('Push failed, please push manually');
+    console.log('');
+  }
+
+  console.log('Release workflow triggered!');
   console.log('');
-} catch (e) {
-  console.log('Push failed, please push manually');
+  console.log('The GitHub Actions workflow will:');
+  console.log('1. Run tests');
+  console.log('2. Publish to npm');
+  console.log('3. Create GitHub release with Claude-generated notes');
   console.log('');
+  console.log('Next step for ABAP system:');
+  console.log('  abapgit-agent pull --files abap/zcl_abgagt_resource_health.clas.abap');
 }
-
-console.log('Release workflow triggered!');
-console.log('');
-console.log('The GitHub Actions workflow will:');
-console.log('1. Run tests');
-console.log('2. Publish to npm');
-console.log('3. Create GitHub release with Claude-generated notes');
-console.log('');
-console.log('Next step for ABAP system:');
-console.log('  abapgit-agent pull --files abap/zcl_abgagt_resource_health.clas.abap');
