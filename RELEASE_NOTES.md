@@ -1,3 +1,10 @@
+## v1.4.8
+
+### Bug Fixes
+- Use single-line release notes in GitHub Actions workflow (simplifies release process)
+
+---
+
 Looking at the commits provided:
 
 - `74877ee` - Version tag
