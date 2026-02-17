@@ -1,5 +1,49 @@
 # Release Notes
 
+## v1.4.0
+
+### New Features
+
+#### preview Command
+Preview data from ABAP tables or CDS views directly from the ABAP system:
+
+```bash
+# Preview table data (auto-detect type)
+abapgit-agent preview --objects SFLIGHT
+
+# Preview CDS view data
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
+
+# Preview with row limit
+abapgit-agent preview --objects SFLIGHT --limit 20
+
+# Preview with WHERE clause filter
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+
+# Preview specific columns only
+abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE
+
+# Vertical format (for wide tables)
+abapgit-agent preview --objects SFLIGHT --vertical
+
+# Compact mode (truncated values)
+abapgit-agent preview --objects SFLIGHT --compact
+
+# JSON output
+abapgit-agent preview --objects SFLIGHT --json
+```
+
+### Documentation
+
+- Added comprehensive docs/preview-command.md
+- Updated API.md with /preview endpoint
+- Updated IMPLEMENTATION_PLAN.md with tree, view, preview commands
+- Simplified INSTALL.md ABAP components section
+- Updated README.md with preview command examples
+- Improved CLAUDE.md files with best practices
+
+---
+
 ## v1.3.0
 
 ### New Features
