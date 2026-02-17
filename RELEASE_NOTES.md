@@ -1,5 +1,65 @@
 # Release Notes
 
+## v1.4.0
+
+### New Features
+
+#### preview Command
+Preview data from ABAP tables or CDS views directly from the ABAP system:
+
+```bash
+# Preview table data (auto-detect type)
+abapgit-agent preview --objects SFLIGHT
+
+# Preview CDS view data
+abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
+
+# Preview with row limit
+abapgit-agent preview --objects SFLIGHT --limit 20
+
+# Preview with WHERE clause filter
+abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+
+# Preview specific columns only
+abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE
+
+# Vertical format (for wide tables)
+abapgit-agent preview --objects SFLIGHT --vertical
+
+# Compact mode (truncated values)
+abapgit-agent preview --objects SFLIGHT --compact
+
+# JSON output
+abapgit-agent preview --objects SFLIGHT --json
+```
+
+### Bug Fixes
+
+- **RTTS Type Error**: Fixed "Source type CLASS=CL_ABAP_STRUCTDESCR is not compatible" error in preview command
+- **Dynamic SELECT Parser**: Fixed parser errors with dynamic field lists by using SELECT *
+- **JSON Parsing**: Fixed ROWS field being returned as JSON string instead of array
+- **WHERE Clause**: Fixed --where parameter not being passed to the backend
+- **Table Borders**: Fixed duplicate border characters in table output
+- **Header Truncation**: Fixed headers not truncating properly in compact mode
+- **Table Existence Check**: Added proper error handling for non-existent tables
+
+### Improvements
+
+- **Column Auto-Selection**: Preview now shows all columns by default, with note when columns are hidden
+- **Terminal Width**: Added ABAP_PREVIEW_WIDTH environment variable for custom terminal width
+- **Multiple Objects**: Support for previewing multiple tables/views in one command
+
+### Documentation
+
+- Added comprehensive docs/preview-command.md
+- Updated API.md with /preview endpoint
+- Updated IMPLEMENTATION_PLAN.md with tree, view, preview commands
+- Simplified INSTALL.md ABAP components section
+- Updated README.md with preview command examples
+- Improved CLAUDE.md files with best practices
+
+---
+
 ## v1.3.0
 
 ### New Features
