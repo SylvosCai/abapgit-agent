@@ -8,8 +8,6 @@
 
 ---
 
-# Release Notes
-
 ## v1.4.0
 
 ### New Features

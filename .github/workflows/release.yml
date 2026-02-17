@@ -40,8 +40,8 @@ jobs:
         id: release_notes
         run: |
           if [ -f "RELEASE_NOTES.md" ]; then
-            # Read release notes content
-            content=$(cat RELEASE_NOTES.md)
+            # Extract only the current release (first section until --- separator, or end of first ## block)
+            content=$(awk '/^---$/{exit}1' RELEASE_NOTES.md)
             echo "CONTENT<<EOF" >> $GITHUB_OUTPUT
             echo "$content" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
