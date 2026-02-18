@@ -44,6 +44,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES: BEGIN OF ty_inspect_params,
              files TYPE string_table,
+             variant TYPE string,
            END OF ty_inspect_params.
 
     TYPES ty_object_keys TYPE TABLE OF scir_objs WITH NON-UNIQUE DEFAULT KEY.
@@ -53,6 +54,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS run_syntax_check
       IMPORTING it_objects TYPE ty_object_keys
+                iv_variant TYPE string DEFAULT 'SYNTAX_CHECK'
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
 
     " Validate DDLS (CDS views)
@@ -120,7 +122,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Run syntax check for non-DDLS objects
     IF lt_objects IS NOT INITIAL.
-      DATA(lt_sci_results) = run_syntax_check( lt_objects ).
+      DATA(lt_sci_results) = run_syntax_check(
+        it_objects = lt_objects
+        iv_variant = ls_params-variant ).
       INSERT LINES OF lt_sci_results INTO TABLE lt_results.
     ENDIF.
 
@@ -315,10 +319,16 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           p_name    = lv_name
           p_objects = it_objects ).
 
-        " Get check variant for syntax check
+        " Get check variant (default: SYNTAX_CHECK)
+        DATA lv_variant TYPE sci_chkv.
+        lv_variant = iv_variant.
+        IF lv_variant IS INITIAL.
+          lv_variant = 'SYNTAX_CHECK'.
+        ENDIF.
+
         lo_variant = cl_ci_checkvariant=>get_ref(
           p_user = ''
-          p_name = 'SYNTAX_CHECK' ).
+          p_name = lv_variant ).
 
         " Create inspection
         cl_ci_inspection=>create(

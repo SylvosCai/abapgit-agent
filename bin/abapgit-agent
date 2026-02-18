@@ -453,7 +453,7 @@ async function syntaxCheckSource(sourceFile, csrfToken, config) {
 /**
  * Inspect all files in one request
  */
-async function inspectAllFiles(files, csrfToken, config) {
+async function inspectAllFiles(files, csrfToken, config, variant = null) {
   // Convert files to uppercase names (same as syntaxCheckSource does)
   const fileNames = files.map(f => {
     const baseName = pathModule.basename(f).toUpperCase();
@@ -465,6 +465,11 @@ async function inspectAllFiles(files, csrfToken, config) {
     const data = {
       files: fileNames
     };
+
+    // Add variant if specified
+    if (variant) {
+      data.variant = variant;
+    }
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
 
@@ -1501,31 +1506,32 @@ Examples:
         break;
 
       case 'inspect': {
-        // TODO: Implement full inspect feature with:
-        // - Syntax check (currently implemented via /inspect)
-        // - Code Inspector checks (SE51, SCI)
-        // - ATC checks (SATC)
-        // - Custom rule checks
-        // Add --check-type parameter to specify which check to run
-
         const filesArgIndex = args.indexOf('--files');
         if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
           console.error('Error: --files parameter required');
-          console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,...');
+          console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>]');
           console.error('Example: abapgit-agent inspect --files zcl_my_class.clas.abap');
+          console.error('Example: abapgit-agent inspect --files zcl_my_class.clas.abap --variant ALL_CHECKS');
           process.exit(1);
         }
 
         const filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
+        // Parse optional --variant parameter
+        const variantArgIndex = args.indexOf('--variant');
+        const variant = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
+
         console.log(`\n  Inspect for ${filesSyntaxCheck.length} file(s)`);
+        if (variant) {
+          console.log(`  Using variant: ${variant}`);
+        }
         console.log('');
 
         const config = loadConfig();
         const csrfToken = await fetchCsrfToken(config);
 
         // Send all files in one request
-        const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config);
+        const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant);
 
         // Process results
         for (const result of results) {
