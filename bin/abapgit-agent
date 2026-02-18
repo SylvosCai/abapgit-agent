@@ -1579,14 +1579,36 @@ Examples:
 
       case 'tree': {
         const packageArgIndex = args.indexOf('--package');
-        if (packageArgIndex === -1 || packageArgIndex + 1 >= args.length) {
+        if (packageArgIndex === -1) {
           console.error('Error: --package parameter required');
           console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
-          console.error('Example: abapgit-agent tree --package $ZMY_PACKAGE');
+          console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
+          process.exit(1);
+        }
+
+        // Check if package value is missing (happens when shell variable expands to empty)
+        if (packageArgIndex + 1 >= args.length) {
+          console.error('Error: --package parameter value is missing');
+          console.error('');
+          console.error('Tip: If you are using a shell variable, make sure to quote it:');
+          console.error('  abapgit-agent tree --package "$ZMY_PACKAGE"');
+          console.error('  or escape the $ character:');
+          console.error('  abapgit-agent tree --package \\$ZMY_PACKAGE');
+          console.error('');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
           process.exit(1);
         }
 
         const packageName = args[packageArgIndex + 1];
+
+        // Check for empty/whitespace-only package name
+        if (!packageName || packageName.trim() === '') {
+          console.error('Error: --package parameter cannot be empty');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
+          process.exit(1);
+        }
 
         // Optional depth parameter
         const depthArgIndex = args.indexOf('--depth');
