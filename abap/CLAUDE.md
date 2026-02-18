@@ -788,6 +788,118 @@ ENDCLASS.
 - Syntax errors in one command don't affect others
 - Add new commands by updating the mapping table
 
+## Exception Handling in ABAP
+
+ABAP has two different ways to handle exceptions. Understanding the difference is critical.
+
+### Classical ABAP Exceptions (EXCEPTIONS)
+
+Used in older function modules and some OO classes. Defined in method signature using `EXCEPTIONS` keyword.
+
+**Method Definition:**
+```abap
+METHODS method_name
+  IMPORTING iv_param TYPE string
+  EXCEPTIONS
+    exc1 = 1
+    exc2 = 2
+    OTHERS = 3.
+```
+
+**Method Call:**
+```abap
+method_name(
+  EXPORTING iv_param = lv_value
+  EXCEPTIONS
+    exc1 = 1
+    exc2 = 2
+    OTHERS = 3 ).
+
+IF sy-subrc <> 0.
+  " Handle error - check sy-subrc for exception number
+ENDIF.
+```
+
+**Characteristics:**
+- Return code in `sy-subrc`
+- No exception objects
+- Legacy approach
+
+### Modern ABAP Exceptions (TRY-CATCH)
+
+Used in modern OO ABAP (7.40+). Uses exception classes and RAISING clause.
+
+**Exception Class:**
+```abap
+CLASS cx_my_exception DEFINITION INHERITING FROM cx_dynamic_check.
+  PUBLIC SECTION.
+    METHODS constructor IMPORTING textid LIKE textid OPTIONAL.
+ENDCLASS.
+```
+
+**Method Definition:**
+```abap
+METHODS method_name
+  IMPORTING iv_param TYPE string
+  RAISING cx_my_exception.
+```
+
+**Method Call:**
+```abap
+TRY.
+    method_name( iv_param = lv_value ).
+  CATCH cx_my_exception INTO lx_error.
+    lv_message = lx_error->get_text( ).
+ENDTRY.
+```
+
+### How to Identify Which to Use
+
+Look at the method signature:
+
+| Syntax | Type |
+|--------|------|
+| `EXCEPTIONS exc1 = 1` | Classical |
+| `RAISING cx_exception` | Modern (TRY-CATCH) |
+
+### Real Example: cl_ci_checkvariant=>get_ref
+
+This method uses **classical exceptions**:
+
+```abap
+" WRONG - using TRY-CATCH
+TRY.
+    lo_variant = cl_ci_checkvariant=>get_ref(
+      p_user = ''
+      p_name = lv_variant ).
+  CATCH cx_root.
+    " This won't work!
+ENDTRY.
+
+" CORRECT - using EXCEPTIONS with EXPORTING and RECEIVING
+cl_ci_checkvariant=>get_ref(
+  EXPORTING
+    p_user = ''
+    p_name = lv_variant
+  RECEIVING
+    p_ref = lo_variant
+  EXCEPTIONS
+    chkv_not_exists = 1
+    missing_parameter = 2
+    broken_variant = 3
+    OTHERS = 4 ).
+
+IF sy-subrc <> 0.
+  " Handle error
+ENDIF.
+```
+
+**Key Points:**
+1. Use `EXPORTING` before importing parameters when using `EXCEPTIONS`
+2. Use `RECEIVING` for RETURNING parameters (not direct assignment)
+3. Check `sy-subrc` for exception codes
+4. Not all OO methods use TRY-CATCH - some still use classical exceptions
+
 ## Best Practices
 
 ### Always Return Interface Types, Not Class Types
