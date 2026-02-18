@@ -143,7 +143,8 @@ Instructions:
 3. Focus on actual USER-FACING features and fixes
 4. Group related changes into 2-4 bullet points MAX per category
 5. Keep each bullet brief (under 10 words)
-6. Use this format:
+6. OUTPUT ONLY the release notes in the exact format below - NO intro text, NO explanation, NO commentary
+7. Use this format:
 ## v${version}
 
 ### New Features
