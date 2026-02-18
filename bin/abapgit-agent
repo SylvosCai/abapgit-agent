@@ -110,8 +110,17 @@ function loadConfig() {
     password: process.env.ABAP_PASSWORD,
     language: process.env.ABAP_LANGUAGE || 'EN',
     gitUsername: process.env.GIT_USERNAME,
-    gitPassword: process.env.GIT_PASSWORD
+    gitPassword: process.env.GIT_PASSWORD,
+    transport: process.env.ABAP_TRANSPORT
   };
+}
+
+/**
+ * Get transport request from config or environment
+ */
+function getTransport() {
+  const config = loadConfig();
+  return config.transport;
 }
 
 /**
@@ -1469,14 +1478,19 @@ Examples:
         let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
         let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : getGitBranch();
         let files = null;
+
+        // Transport: CLI arg takes priority, then config/environment, then null
         let transportRequest = null;
+        if (transportArgIndex !== -1 && transportArgIndex + 1 < args.length) {
+          // Explicit --transport argument
+          transportRequest = args[transportArgIndex + 1];
+        } else {
+          // Fall back to config or environment variable
+          transportRequest = getTransport();
+        }
 
         if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
           files = args[filesArgIndex + 1].split(',').map(f => f.trim());
-        }
-
-        if (transportArgIndex !== -1 && transportArgIndex + 1 < args.length) {
-          transportRequest = args[transportArgIndex + 1];
         }
 
         if (!gitUrl) {

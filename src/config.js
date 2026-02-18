@@ -33,7 +33,8 @@ function loadConfig() {
       password: process.env.ABAP_PASSWORD,
       language: process.env.ABAP_LANGUAGE || 'EN',
       gitUsername: process.env.GIT_USERNAME,
-      gitPassword: process.env.GIT_PASSWORD
+      gitPassword: process.env.GIT_PASSWORD,
+      transport: process.env.ABAP_TRANSPORT
     };
   }
 
@@ -59,8 +60,14 @@ function getAgentConfig() {
   return cfg.agent;
 }
 
+function getTransport() {
+  const cfg = loadConfig();
+  return cfg.transport;
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
-  getAgentConfig
+  getAgentConfig,
+  getTransport
 };
