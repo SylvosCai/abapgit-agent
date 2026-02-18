@@ -19,6 +19,7 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
     " Parse JSON using /ui2/cl_json
     DATA: BEGIN OF ls_request,
             files TYPE string_table,
+            variant TYPE string,
           END OF ls_request.
 
     /ui2/cl_json=>deserialize(
