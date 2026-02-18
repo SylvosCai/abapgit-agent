@@ -332,7 +332,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             lo_variant = cl_ci_checkvariant=>get_ref(
               p_user = ''
               p_name = lv_variant ).
-          CATCH cx_root INTO lx_error.
+          CATCH cx_sci_checkvariant INTO lx_error.
             " Variant not found, return error
             ls_result-object_type = 'VARIANT'.
             ls_result-object_name = lv_variant.
