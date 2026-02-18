@@ -327,9 +327,21 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lv_variant = 'SYNTAX_CHECK'.
         ENDIF.
 
-        lo_variant = cl_ci_checkvariant=>get_ref(
-          p_user = ''
-          p_name = lv_variant ).
+        " Try to get the variant
+        TRY.
+            lo_variant = cl_ci_checkvariant=>get_ref(
+              p_user = ''
+              p_name = lv_variant ).
+          CATCH cx_root INTO lx_error.
+            " Variant not found, return error
+            ls_result-object_type = 'VARIANT'.
+            ls_result-object_name = lv_variant.
+            ls_result-success = abap_false.
+            ls_result-error_count = 1.
+            APPEND VALUE #( line = '0' column = '0' text = |Check variant "{ lv_variant }" not found| word = '' ) TO ls_result-errors.
+            APPEND ls_result TO rt_results.
+            RETURN.
+        ENDTRY.
 
         " Create inspection
         cl_ci_inspection=>create(
