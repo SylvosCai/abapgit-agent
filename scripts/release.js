@@ -138,28 +138,35 @@ Commits since last release:
 ${commitsEscaped}
 
 Instructions:
-1. IGNORE commits that revert, undo, or remove previous changes (e.g., "remove draft mode", "remove X from Y")
-2. IGNORE commits that fix/improve the release process itself (e.g., "fix unrelease script", "fix release notes")
+1. IGNORE commits that revert, undo, or remove previous changes
+2. IGNORE commits that fix/improve the release process itself
 3. Focus on actual USER-FACING features and fixes
-4. Group related changes into 2-4 bullet points MAX per category
+4. Use 2-4 bullet points MAX per category
 5. Keep each bullet brief (under 10 words)
-6. OUTPUT ONLY the release notes in the exact format below - NO intro text, NO explanation, NO commentary
-7. Use this format:
+6. START your response with "## v${version}" and END with "---"
+7. OUTPUT ONLY the release notes - do NOT add any intro text, explanation, or commentary
+8. Use this exact format with blank lines between categories:
 ## v${version}
 
 ### New Features
+
 - Brief feature description
 
 ### Bug Fixes
+
 - Brief fix description
 
 ### Improvements
+
 - Brief improvement
 
 ### Documentation
-- Brief doc update (only if significant)
 
-OMIT any category that has no significant items.`;
+- Brief doc update
+
+---
+
+OMIT any category that has no items.`;
 
     // Call Claude CLI
     try {
