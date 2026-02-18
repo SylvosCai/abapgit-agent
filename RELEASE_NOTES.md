@@ -1,5 +1,21 @@
 # Release Notes
 
+
+## Release Notes for v1.5.0
+
+### Features
+- Add `--variant` parameter to inspect command for Code Inspector variant selection
+- Add transport request configuration option (`--transport`, config file, env var)
+- Add `--dry-run` flag to test release flow without publishing
+
+### Fixes
+- Improve tree command error messages for shell variable issues
+- Properly separate warnings and errors in inspect command output
+- Fail with error when check variant not found in inspect command
+- Fix get_ref method to use EXPORTING/EXCEPTIONS correctly
+
+---
+
 ## v1.4.0
 
 ### New Features
