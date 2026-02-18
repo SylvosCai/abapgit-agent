@@ -238,7 +238,20 @@ abapgit-agent inspect --files abap/zc_my_view.ddls.asddls
 
 # Inspect mixed file types (DDLS + CLAS)
 abapgit-agent inspect --files abap/zc_my_view.ddls.asddls,abap/zcl_my_class.clas.abap
+
+# Inspect with specific Code Inspector variant
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
+
+# Inspect with no variant (uses default SAP standard checks)
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant EMPTY
 ```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--files` | Yes | Comma-separated list of ABAP files to inspect |
+| `--variant` | No | Code Inspector variant name (e.g., `ALL_CHECKS`, `EMPTY`) |
 
 ### Supported Object Types
 
@@ -810,6 +823,7 @@ Create `.abapGitAgent` in repository root:
 | `language` | SAP language | EN |
 | `gitUsername` | Git username/token | Optional |
 | `gitPassword` | Git password/token | Optional |
+| `transport` | Default transport request for pull | Optional |
 
 ### Environment Variables
 ```bash
@@ -821,7 +835,19 @@ export ABAP_PASSWORD="your-password"
 export ABAP_LANGUAGE="EN"
 export GIT_USERNAME="git-username"
 export GIT_PASSWORD="git-token"
+export ABAP_TRANSPORT="DEVK900001"
 ```
+
+### Transport Request Precedence
+
+When running `pull` command, the transport request is determined in this order:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | CLI `--transport` argument | `--transport DEVK900001` |
+| 2 | Config file `transport` | `"transport": "DEVK900001"` |
+| 3 | Environment variable `ABAP_TRANSPORT` | `export ABAP_TRANSPORT="DEVK900001"` |
+| 4 (default) | Not set | abapGit creates/uses default |
 
 ## Troubleshooting
 
