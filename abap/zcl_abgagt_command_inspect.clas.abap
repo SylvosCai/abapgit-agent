@@ -304,6 +304,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_inspection TYPE REF TO cl_ci_inspection,
           lt_list TYPE scit_alvlist,
           ls_error TYPE ty_error,
+          ls_warning TYPE ty_warning,
           ls_list TYPE scir_alvlist,
           lx_error TYPE REF TO cx_root,
           ls_result TYPE ty_inspect_result.
@@ -365,14 +366,28 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           ls_result-object_name = ls_obj-objname.
           ls_result-success = abap_true.
 
-          " Get errors for this object
+          " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
-            CLEAR ls_error.
-            ls_error-line = ls_list-line.
-            ls_error-column = ls_list-col.
-            ls_error-text = ls_list-text.
-            ls_error-word = ls_list-code.
-            APPEND ls_error TO ls_result-errors.
+            " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
+            IF ls_list-kind = 'E'.
+              " Error
+              CLEAR ls_error.
+              ls_error-line = ls_list-line.
+              ls_error-column = ls_list-col.
+              ls_error-text = ls_list-text.
+              ls_error-word = ls_list-code.
+              APPEND ls_error TO ls_result-errors.
+            ELSEIF ls_list-kind = 'W' OR ls_list-kind = 'I'.
+              " Warning or Info
+              CLEAR ls_warning.
+              ls_warning-line = ls_list-line.
+              ls_warning-column = ls_list-col.
+              ls_warning-severity = ls_list-kind.
+              ls_warning-message = ls_list-text.
+              ls_warning-object_type = ls_obj-objtype.
+              ls_warning-object_name = ls_obj-objname.
+              APPEND ls_warning TO ls_result-warnings.
+            ENDIF.
           ENDLOOP.
 
           ls_result-error_count = lines( ls_result-errors ).
