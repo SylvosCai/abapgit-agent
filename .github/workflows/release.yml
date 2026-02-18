@@ -36,10 +36,13 @@ jobs:
       - name: Check if version already published
         id: check_version
         run: |
-          echo "Checking if version ${{ steps.get_tag.outputs.VERSION }} exists in npm..."
+          # Strip 'v' prefix from tag (e.g., v1.5.0 -> 1.5.0)
+          VERSION_NO_V="${{ steps.get_tag.outputs.VERSION }}"
+          VERSION_NO_V="${VERSION_NO_V#v}"
+          echo "Checking if version $VERSION_NO_V exists in npm..."
           NPM_VERSION=$(npm view . version 2>/dev/null || echo "")
           echo "Latest npm version: $NPM_VERSION"
-          if echo "$NPM_VERSION" | grep -q "^${{ steps.get_tag.outputs.VERSION }}$"; then
+          if echo "$NPM_VERSION" | grep -q "^$VERSION_NO_V$"; then
             echo "VERSION_EXISTS=true" >> $GITHUB_OUTPUT
             echo "Version already published, will skip npm publish"
           else
