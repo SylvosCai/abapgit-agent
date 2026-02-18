@@ -329,8 +329,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
         " Try to get the variant using EXCEPTIONS
         lo_variant = cl_ci_checkvariant=>get_ref(
-          p_user = ''
-          p_name = lv_variant
+          EXPORTING
+            p_user = ''
+            p_name = lv_variant
           EXCEPTIONS
             chkv_not_exists = 1
             missing_parameter = 2
