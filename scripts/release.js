@@ -197,13 +197,19 @@ if (dryRun) {
   console.log('');
 }
 
-// Update RELEASE_NOTES.md
-if (fs.existsSync(releaseNotesPath)) {
-  const existingContent = fs.readFileSync(releaseNotesPath, 'utf8');
+// Update RELEASE_NOTES.md - read from git to avoid local modifications affecting check
+let existingContent = '';
+try {
+  existingContent = execSync(`git show HEAD:RELEASE_NOTES.md`, { cwd: repoRoot, encoding: 'utf8' });
+} catch (e) {
+  // File doesn't exist in git yet, use empty content
+  existingContent = '';
+}
 
-  // Check if version already exists
+if (existingContent) {
+  // Check if version already exists in the committed file (not local modifications)
   if (existingContent.includes(`## v${version}`)) {
-    console.log(`Release notes for v${version} already exist`);
+    console.log(`Release notes for v${version} already exist in git`);
   } else {
     let newContent;
 
