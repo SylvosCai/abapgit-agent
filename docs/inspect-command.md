@@ -15,6 +15,12 @@ abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_other.clas.abap
 
 # With path
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+
+# With Code Inspector variant
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
+
+# With no variant (uses default SAP standard checks)
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant EMPTY
 ```
 
 ## Prerequisite
@@ -27,6 +33,7 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--files` | Yes | Comma-separated list of files to inspect |
+| `--variant` | No | Code Inspector variant name (e.g., `ALL_CHECKS`, `EMPTY`) |
 
 ---
 
@@ -54,7 +61,8 @@ GET /health (with X-CSRF-Token: fetch)
 **Request Body:**
 ```json
 {
-  "files": ["ZCL_MY_CLASS.CLASS.ABAP"]
+  "files": ["ZCL_MY_CLASS.CLASS.ABAP"],
+  "variant": "ALL_CHECKS"
 }
 ```
 
@@ -140,6 +148,9 @@ abapgit-agent inspect --files zcl_my_class.clas.abap
 
 # Multiple files
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap,abap/zcl_other.clas.abap
+
+# With Code Inspector variant
+abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
 ```
 
 ## Use Case

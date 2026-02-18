@@ -24,6 +24,9 @@ abapgit-agent pull --transport DEVK900001
 
 # Combined options
 abapgit-agent pull --branch develop --files src/zcl_my_class.clas.abap --transport DEVK900001
+
+# Using transport from config/environment (no --transport flag needed)
+abapgit-agent pull
 ```
 
 ## Prerequisite
@@ -39,7 +42,18 @@ abapgit-agent pull --branch develop --files src/zcl_my_class.clas.abap --transpo
 | `--url` | No | Git repository URL (auto-detected if not specified) |
 | `--branch` | No | Branch name (default: current branch) |
 | `--files` | No | Comma-separated list of files to pull |
-| `--transport` | No | Transport request for activation |
+| `--transport` | No | Transport request (config/env takes priority if not specified) |
+
+## Transport Request Precedence
+
+The transport request is determined in this order:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | CLI `--transport` argument | `--transport DEVK900001` |
+| 2 | Config file `transport` | `"transport": "DEVK900001"` in `.abapGitAgent` |
+| 3 | Environment variable `ABAP_TRANSPORT` | `export ABAP_TRANSPORT="DEVK900001"` |
+| 4 (default) | Not set | abapGit creates/uses default |
 
 ---
 
