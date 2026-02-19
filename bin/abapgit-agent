@@ -24,6 +24,27 @@ const TERM_WIDTH = getTermWidth();
 const COOKIE_FILE = '.abapgit_agent_cookies.txt';
 
 /**
+ * Convert ISO date formats (YYYY-MM-DD) to ABAP DATS format (YYYYMMDD) in WHERE clause
+ * This allows users to use familiar ISO date formats while ensuring compatibility with ABAP SQL
+ * @param {string} whereClause - SQL WHERE clause
+ * @returns {string} - WHERE clause with dates converted to YYYYMMDD format
+ */
+function convertDatesInWhereClause(whereClause) {
+  if (!whereClause) return whereClause;
+
+  // Pattern to match ISO date format: 'YYYY-MM-DD'
+  const isoDatePattern = /'\d{4}-\d{2}-\d{2}'/g;
+
+  return whereClause.replace(isoDatePattern, (match) => {
+    // Extract YYYY, MM, DD from 'YYYY-MM-DD'
+    const dateContent = match.slice(1, -1); // Remove quotes: YYYY-MM-DD
+    const [year, month, day] = dateContent.split('-');
+    // Return in ABAP format: 'YYYYMMDD'
+    return `'${year}${month}${day}'`;
+  });
+}
+
+/**
  * Get CLI version from package.json
  */
 function getCliVersion() {
@@ -2013,7 +2034,7 @@ Examples:
         }
 
         if (where) {
-          data.where = where;
+          data.where = convertDatesInWhereClause(where);
         }
 
         if (columns) {

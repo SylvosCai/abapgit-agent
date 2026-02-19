@@ -379,7 +379,7 @@ class ABAPClient {
     return await this.request('POST', '/tree', data, { csrfToken: this.csrfToken });
   }
 
-  async preview(objects, type = null, limit = 10) {
+  async preview(objects, type = null, limit = 10, where = null, columns = null) {
     // Fetch CSRF token first
     await this.fetchCsrfToken();
 
@@ -392,9 +392,40 @@ class ABAPClient {
       data.type = type;
     }
 
-    logger.info('Previewing data', { objects, type, limit: data.limit, service: 'abapgit-agent' });
+    if (where) {
+      // Convert ISO date format (YYYY-MM-DD) to ABAP DATS format (YYYYMMDD)
+      // This handles date literals in WHERE clauses like "FLDATE = '2024-10-24'"
+      data.where = this.convertDatesInWhereClause(where);
+    }
+
+    if (columns) {
+      data.columns = columns;
+    }
+
+    logger.info('Previewing data', { objects, type, limit: data.limit, where: data.where, service: 'abapgit-agent' });
 
     return await this.request('POST', '/preview', data, { csrfToken: this.csrfToken });
+  }
+
+  /**
+   * Convert ISO date formats to ABAP DATS format in WHERE clause
+   * @param {string} whereClause - SQL WHERE clause
+   * @returns {string} - WHERE clause with dates converted to YYYYMMDD format
+   */
+  convertDatesInWhereClause(whereClause) {
+    if (!whereClause) return whereClause;
+
+    // Pattern to match ISO date format: 'YYYY-MM-DD'
+    // Uses negative lookbehind and lookahead to ensure we're matching complete dates
+    const isoDatePattern = /'\d{4}-\d{2}-\d{2}'/g;
+
+    return whereClause.replace(isoDatePattern, (match) => {
+      // Extract YYYY, MM, DD from 'YYYY-MM-DD'
+      const dateContent = match.slice(1, -1); // Remove quotes: YYYY-MM-DD
+      const [year, month, day] = dateContent.split('-');
+      // Return in ABAP format: 'YYYYMMDD'
+      return `'${year}${month}${day}'`;
+    });
   }
 
   /**

@@ -192,11 +192,20 @@ class ABAPGitAgent {
     }
   }
 
-  async preview(objects, type = null, limit = 10) {
-    logger.info('Previewing data', { objects, type, limit });
+  /**
+   * Preview data from ABAP tables or CDS views
+   * @param {Array} objects - Array of table/view names
+   * @param {string} type - Object type (TABL, DDLS, etc.)
+   * @param {number} limit - Maximum rows to return
+   * @param {string} where - WHERE clause filter
+   * @param {Array} columns - Array of column names to display
+   * @returns {object} Preview result with rows, fields, and metadata
+   */
+  async preview(objects, type = null, limit = 10, where = null, columns = null) {
+    logger.info('Previewing data', { objects, type, limit, where, columns });
 
     try {
-      const result = await this.abap.preview(objects, type, limit);
+      const result = await this.abap.preview(objects, type, limit, where, columns);
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'PREVIEW',
