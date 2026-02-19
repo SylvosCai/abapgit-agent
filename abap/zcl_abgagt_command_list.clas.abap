@@ -214,14 +214,14 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Get all objects
     SELECT object, obj_name FROM tadir
-      WHERE devclass = @lv_package
+      WHERE devclass = lv_package
       ORDER BY object, obj_name
-      INTO TABLE @lt_objects.
+      INTO TABLE lt_objects.
 
     " Get total count
     SELECT COUNT( * ) FROM tadir
-      INTO @rs_result-total
-      WHERE devclass = @lv_package.
+      INTO rs_result-total
+      WHERE devclass = lv_package.
 
     " Handle offset - delete first n rows
     IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
