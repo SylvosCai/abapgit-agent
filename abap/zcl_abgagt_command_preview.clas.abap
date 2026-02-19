@@ -298,27 +298,16 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         CREATE DATA lr_data TYPE HANDLE lo_tabdescr.
         ASSIGN lr_data->* TO <lt_data>.
 
-        " Use field list for SELECT - required for CDS view entity support
-        " Build dynamic field list from components
-        IF lv_field_list IS INITIAL.
-          " Use all fields if no specific columns requested
-          LOOP AT lt_components INTO DATA(ls_comp_all).
-            IF lv_field_list IS INITIAL.
-              lv_field_list = ls_comp_all-name.
-            ELSE.
-              lv_field_list = lv_field_list && ',' && ls_comp_all-name.
-            ENDIF.
-          ENDLOOP.
-        ENDIF.
-
+        " Use SELECT * - CDS view entities require static SQL
+        " Column filtering is done in the response
         IF iv_where IS INITIAL.
-          SELECT (lv_field_list) FROM (iv_tabname)
-            INTO TABLE <lt_data>
-            UP TO lv_limit ROWS.
+          SELECT * FROM (iv_tabname)
+            INTO TABLE @<lt_data>
+            UP TO @lv_limit ROWS.
         ELSE.
-          SELECT (lv_field_list) FROM (iv_tabname)
-            INTO TABLE <lt_data>
-            UP TO lv_limit ROWS
+          SELECT * FROM (iv_tabname)
+            INTO TABLE @<lt_data>
+            UP TO @lv_limit ROWS
             WHERE (iv_where).
         ENDIF.
 
