@@ -174,10 +174,12 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_package TYPE tdevc-devclass,
           lv_name_pattern TYPE tadir-obj_name,
           lv_type_filter TYPE string,
-          lt_types TYPE STANDARD TABLE OF tadir-object,
+          lt_types TYPE RANGE OF tadir-object,
+          ls_type LIKE LINE OF lt_types,
           lt_type_strings TYPE STANDARD TABLE OF string,
           lv_type_str TYPE string,
-          lv_type_trimmed TYPE tadir-object.
+          lv_type_trimmed TYPE tadir-object,
+          lv_offset TYPE i.
 
     lv_package = is_params-package.
 
@@ -188,7 +190,11 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         lv_type_trimmed = lv_type_str.
         CONDENSE lv_type_trimmed.
         IF lv_type_trimmed IS NOT INITIAL.
-          APPEND lv_type_trimmed TO lt_types.
+          CLEAR ls_type.
+          ls_type-sign = 'I'.
+          ls_type-option = 'EQ'.
+          ls_type-low = lv_type_trimmed.
+          APPEND ls_type TO lt_types.
         ENDIF.
       ENDLOOP.
     ENDIF.
@@ -203,39 +209,43 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF '*' IN lv_name_pattern WITH '%'.
     ENDIF.
 
+    " Calculate offset for pagination
+    lv_offset = is_params-offset.
+
     " Get objects with filters
     IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
       SELECT object obj_name FROM tadir
+        UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND object IN ( lt_types )
           AND obj_name LIKE lv_name_pattern
-        ORDER BY object obj_name
-        LIMIT is_params-limit
-        OFFSET is_params-offset.
+        ORDER BY object obj_name.
     ELSEIF lv_has_type_filter = abap_true.
       SELECT object obj_name FROM tadir
+        UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND object IN ( lt_types )
-        ORDER BY object obj_name
-        LIMIT is_params-limit
-        OFFSET is_params-offset.
+        ORDER BY object obj_name.
     ELSEIF lv_name_pattern IS NOT INITIAL.
       SELECT object obj_name FROM tadir
+        UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND obj_name LIKE lv_name_pattern
-        ORDER BY object obj_name
-        LIMIT is_params-limit
-        OFFSET is_params-offset.
+        ORDER BY object obj_name.
     ELSE.
       SELECT object obj_name FROM tadir
+        UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
-        ORDER BY object obj_name
-        LIMIT is_params-limit
-        OFFSET is_params-offset.
+        ORDER BY object obj_name.
+    ENDIF.
+
+    " Handle offset by removing first n rows
+    IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
+      DELETE lt_objects FROM 1 TO lv_offset.
     ENDIF.
 
     " Get total count for pagination
