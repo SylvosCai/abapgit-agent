@@ -144,8 +144,17 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ENDLOOP.
 
     " Build result
-    ls_result-success = abap_true.
-    ls_result-message = 'Retrieved data'.
+    " Check if any objects have errors
+    DATA lv_has_error TYPE abap_bool.
+    LOOP AT lt_objects INTO DATA(ls_obj_check).
+      IF ls_obj_check-error IS NOT INITIAL.
+        lv_has_error = abap_true.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    ls_result-success = COND #( WHEN lv_has_error = abap_true THEN abap_false ELSE abap_true ).
+    ls_result-message = COND #( WHEN lv_has_error = abap_true THEN 'Some objects could not be retrieved' ELSE 'Retrieved data' ).
     ls_result-objects = lt_objects.
 
     " Build summary
