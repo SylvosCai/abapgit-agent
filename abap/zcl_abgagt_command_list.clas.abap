@@ -162,7 +162,9 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         DATA lv_pattern TYPE string.
         lv_pattern = lv_name_filter.
         REPLACE ALL OCCURRENCES OF '*' IN lv_pattern WITH '%'.
-        IF lv_objname NP lv_pattern.
+        IF lv_objname CP lv_pattern.
+          " matches - continue
+        ELSE.
           CONTINUE.
         ENDIF.
       ENDIF.
