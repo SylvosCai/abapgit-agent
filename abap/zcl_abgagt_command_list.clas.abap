@@ -136,11 +136,12 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Get all objects from tadir - use separate fields
     DATA lv_objname TYPE tadir-obj_name.
-    SELECT obj_name FROM tadir
-      INTO lv_objname
+    DATA lv_object TYPE tadir-object.
+    SELECT object obj_name FROM tadir
+      INTO (lv_object, lv_objname)
       WHERE devclass = lv_package.
       ls_object-name = lv_objname.
-      ls_object-type = 'CLAS'.
+      ls_object-type = lv_object.
       APPEND ls_object TO lt_objects.
     ENDSELECT.
 
