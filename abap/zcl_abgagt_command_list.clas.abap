@@ -220,32 +220,31 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         WHERE devclass = lv_package
           AND object IN ( lt_types )
           AND obj_name LIKE lv_name_pattern
-        ORDER BY object obj_name.
+        ORDER BY object obj_name
+        OFFSET lv_offset.
     ELSEIF lv_has_type_filter = abap_true.
       SELECT object obj_name FROM tadir
         UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND object IN ( lt_types )
-        ORDER BY object obj_name.
+        ORDER BY object obj_name
+        OFFSET lv_offset.
     ELSEIF lv_name_pattern IS NOT INITIAL.
       SELECT object obj_name FROM tadir
         UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND obj_name LIKE lv_name_pattern
-        ORDER BY object obj_name.
+        ORDER BY object obj_name
+        OFFSET lv_offset.
     ELSE.
       SELECT object obj_name FROM tadir
         UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
-        ORDER BY object obj_name.
-    ENDIF.
-
-    " Handle offset by removing first n rows
-    IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
-      DELETE lt_objects FROM 1 TO lv_offset.
+        ORDER BY object obj_name
+        OFFSET lv_offset.
     ENDIF.
 
     " Get total count for pagination
