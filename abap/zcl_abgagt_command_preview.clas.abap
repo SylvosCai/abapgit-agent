@@ -260,13 +260,21 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ENDIF.
 
     " Check if object exists using RTTI (works for tables, DDIC views, and CDS entities)
-    TRY.
-        lo_strucdescr ?= cl_abap_structdescr=>describe_by_name( iv_tabname ).
-      CATCH cx_root INTO DATA(lx_desc_error).
-        cs_result-error = |Object not found or not accessible: { iv_tabname }|.
-        cs_result-row_count = 0.
-        RETURN.
-    ENDTRY.
+    " Note: describe_by_name uses classical exceptions, not class-based
+    cl_abap_structdescr=>describe_by_name(
+      EXPORTING
+        p_name = iv_tabname
+      RECEIVING
+        p_descr_ref = DATA(lo_descr_ref)
+      EXCEPTIONS
+        type_not_found = 1
+        OTHERS = 2 ).
+    IF sy-subrc <> 0.
+      cs_result-error = |Object not found or not accessible: { iv_tabname }|.
+      cs_result-row_count = 0.
+      RETURN.
+    ENDIF.
+    lo_strucdescr ?= lo_descr_ref.
 
     TRY.
         " Create table descriptor from structure (already validated above)
