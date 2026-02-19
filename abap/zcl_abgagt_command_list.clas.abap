@@ -128,27 +128,50 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_package TYPE tdevc-devclass,
           lv_limit TYPE i,
           lv_offset TYPE i,
-          lv_obj_name TYPE tadir-obj_name.
+          lv_objname TYPE tadir-obj_name,
+          lv_object TYPE tadir-object,
+          lv_type_filter TYPE string,
+          lv_name_filter TYPE string.
 
     lv_package = is_params-package.
     lv_limit = is_params-limit.
     lv_offset = is_params-offset.
+    lv_type_filter = is_params-type.
+    lv_name_filter = is_params-name.
 
-    " Get all objects from tadir - use separate fields
-    DATA lv_objname TYPE tadir-obj_name.
-    DATA lv_object TYPE tadir-object.
+    " Get all objects from tadir
     SELECT object obj_name FROM tadir
       INTO (lv_object, lv_objname)
       WHERE devclass = lv_package.
       ls_object-name = lv_objname.
       ls_object-type = lv_object.
+
+      " Apply type filter
+      IF lv_type_filter IS NOT INITIAL.
+        DATA lt_types TYPE STANDARD TABLE OF string.
+        SPLIT to_upper( lv_type_filter ) AT ',' INTO TABLE lt_types.
+        READ TABLE lt_types WITH KEY table_line = lv_object TRANSPORTING NO FIELDS.
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
+      " Apply name filter
+      IF lv_name_filter IS NOT INITIAL.
+        " Convert * to % for LIKE match
+        DATA lv_pattern TYPE string.
+        lv_pattern = lv_name_filter.
+        REPLACE ALL OCCURRENCES OF '*' IN lv_pattern WITH '%'.
+        IF lv_objname NP lv_pattern.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
       APPEND ls_object TO lt_objects.
     ENDSELECT.
 
     " Get total count
-    SELECT COUNT( * ) FROM tadir
-      INTO rs_result-total
-      WHERE devclass = lv_package.
+    rs_result-total = lines( lt_objects ).
 
     " Handle offset
     IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
@@ -160,6 +183,20 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       DELETE lt_objects FROM ( lv_limit + 1 ) TO lines( lt_objects ).
     ENDIF.
 
+    " Build BY_TYPE aggregation
+    SORT lt_objects BY type.
+    LOOP AT lt_objects INTO ls_object.
+      AT NEW type.
+        CLEAR ls_count.
+        ls_count-type = ls_object-type.
+        ls_count-count = 1.
+      ENDAT.
+      AT END OF type.
+        ls_count-count = lines( lt_objects ).
+        APPEND ls_count TO lt_counts.
+      ENDAT.
+    ENDLOOP.
+
     " Build result
     rs_result-success = abap_true.
     rs_result-command = 'LIST'.
@@ -167,6 +204,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     rs_result-limit = lv_limit.
     rs_result-offset = lv_offset.
     rs_result-objects = lt_objects.
+    rs_result-by_type = lt_counts.
   ENDMETHOD.
 
 ENDCLASS.
