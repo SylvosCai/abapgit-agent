@@ -207,7 +207,8 @@ if (previousTag) {
 console.log('');
 
 // Step 5: Remove release commits from remote if they exist
-// Pattern: "chore: release vX.X.X" followed by "X.X.X"
+// Pattern: "X.X.X" followed by "chore: release vX.X.X" (new order)
+// OR old pattern: "chore: release vX.X.X" followed by "X.X.X" (for backwards compatibility)
 console.log('Checking for release commits on remote...');
 try {
   // Get top 2 commit messages from remote
@@ -232,15 +233,20 @@ try {
       const firstCommit = remoteTopCommits[0];  // Most recent on remote
       const secondCommit = remoteTopCommits[1]; // Second most recent on remote
 
-      // Check if they match the expected pattern
-      // firstCommit (HEAD) = "chore: release vX.X.X"
-      // secondCommit (HEAD~1) = "X.X.X" (just version number)
-      const isReleaseCommit = firstCommit && firstCommit.match(/^chore: release v\d+\.\d+\.\d+$/);
-      const isVersionBump = secondCommit && secondCommit.match(/^\d+\.\d+\.\d+$/);
+      // Check for NEW pattern first (v1.5.0+):
+      // firstCommit (HEAD) = "X.X.X" (just version number)
+      // secondCommit (HEAD~1) = "chore: release vX.X.X"
+      const isNewPattern = firstCommit && firstCommit.match(/^\d+\.\d+\.\d+$/) &&
+                          secondCommit && secondCommit.match(/^chore: release v\d+\.\d+\.\d+$/);
 
-      if (isReleaseCommit && isVersionBump) {
-        // Found release commits on remote - need to force push to remove them
-        // Find the commit to reset to (before the version bump)
+      // Check for OLD pattern (v1.4.x and earlier):
+      // firstCommit (HEAD) = "chore: release vX.X.X"
+      // secondCommit (HEAD~1) = "X.X.X"
+      const isOldPattern = firstCommit && firstCommit.match(/^chore: release v\d+\.\d+\.\d+$/) &&
+                          secondCommit && secondCommit.match(/^\d+\.\d+\.\d+$/);
+
+      if (isNewPattern) {
+        // New pattern: remove last 2 commits
         const resetToRef = execSync(`git rev-parse ${remoteRef}~2`, { cwd: repoRoot, encoding: 'utf8' }).trim();
 
         if (dryRun) {
@@ -248,11 +254,25 @@ try {
           console.log(`   Would remove: "${firstCommit}" and "${secondCommit}"`);
           console.log(`   Would reset remote to: ${resetToRef.slice(0, 7)}`);
         } else {
-          // Reset to the commit before release, then force push
           execSync(`git reset --hard ${resetToRef}`, { cwd: repoRoot });
           console.log('✅ Reset to commit before release');
 
-          // Force push to remove from remote
+          console.log('Force pushing to remote...');
+          execSync(`git push ${remoteName} +HEAD --force`, { cwd: repoRoot });
+          console.log('✅ Force pushed to remote - release commits removed from history');
+        }
+      } else if (isOldPattern) {
+        // Old pattern: remove last 2 commits
+        const resetToRef = execSync(`git rev-parse ${remoteRef}~2`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+        if (dryRun) {
+          console.log(`🔹 DRY RUN - Would force push to remove release commits from remote`);
+          console.log(`   Would remove: "${firstCommit}" and "${secondCommit}"`);
+          console.log(`   Would reset remote to: ${resetToRef.slice(0, 7)}`);
+        } else {
+          execSync(`git reset --hard ${resetToRef}`, { cwd: repoRoot });
+          console.log('✅ Reset to commit before release');
+
           console.log('Force pushing to remote...');
           execSync(`git push ${remoteName} +HEAD --force`, { cwd: repoRoot });
           console.log('✅ Force pushed to remote - release commits removed from history');
@@ -260,6 +280,27 @@ try {
       } else {
         console.log('⚠️  Remote top commits do not match release pattern, skipping');
         console.log(`   Found: "${firstCommit}" and "${secondCommit}"`);
+      }
+    } else if (remoteTopCommits.length === 1) {
+      // Edge case: only 1 commit - check if it's a version bump
+      const singleCommit = remoteTopCommits[0];
+      if (singleCommit && singleCommit.match(/^\d+\.\d+\.\d+$/)) {
+        const resetToRef = execSync(`git rev-parse ${remoteRef}~1`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+        if (dryRun) {
+          console.log(`🔹 DRY RUN - Would force push to remove single release commit from remote`);
+          console.log(`   Would remove: "${singleCommit}"`);
+          console.log(`   Would reset remote to: ${resetToRef.slice(0, 7)}`);
+        } else {
+          execSync(`git reset --hard ${resetToRef}`, { cwd: repoRoot });
+          console.log('✅ Reset to commit before release');
+
+          console.log('Force pushing to remote...');
+          execSync(`git push ${remoteName} +HEAD --force`, { cwd: repoRoot });
+          console.log('✅ Force pushed to remote - release commit removed from history');
+        }
+      } else {
+        console.log('⚠️  Single commit does not match release pattern, skipping');
       }
     } else {
       console.log('⚠️  Not enough commits on remote to check');

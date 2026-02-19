@@ -1,18 +1,23 @@
 /**
  * Release script - Creates release for github.com
  *
- * Usage: npm run release [--dry-run]
+ * Usage: npm run release -- --patch | --minor | --major
  *
  * Options:
- *   --dry-run    Test the release flow without pushing to github.com
+ *   --patch    Bump patch version (e.g., 1.4.0 -> 1.4.1)
+ *   --minor    Bump minor version (e.g., 1.4.0 -> 1.5.0)
+ *   --major    Bump major version (e.g., 1.4.0 -> 2.0.0)
+ *   --dry-run  Test the release flow without pushing to github.com
  *
  * This script:
- * 1. Reads version from package.json
- * 2. Updates the ABAP health resource with the new version
- * 3. Uses Claude CLI to generate release notes from commits
- * 4. Updates RELEASE_NOTES.md with new version notes
- * 5. Pushes to github.com to trigger GitHub Actions (unless --dry-run)
- * 6. GitHub Actions will publish to npm and create GitHub release
+ * 1. Determines new version based on --patch/--minor/--major flag
+ * 2. Generates release notes using Claude
+ * 3. Updates RELEASE_NOTES.md with new version notes
+ * 4. Updates the ABAP health resource with the new version
+ * 5. Creates a git commit with all changes
+ * 6. Runs npm version command to create the tag (LAST step)
+ * 7. Pushes to github.com to trigger GitHub Actions (unless --dry-run)
+ * 8. GitHub Actions will publish to npm and create GitHub release
  */
 
 const fs = require('fs');
@@ -24,9 +29,25 @@ const abapHealthPath = path.join(__dirname, '..', 'abap', 'zcl_abgagt_resource_h
 const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
 const repoRoot = path.join(__dirname, '..');
 
-// Check for --dry-run flag
+// Parse arguments
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+
+// Get bump type (--patch, --minor, or --major)
+let bumpType = null;
+if (args.includes('--patch')) bumpType = 'patch';
+else if (args.includes('--minor')) bumpType = 'minor';
+else if (args.includes('--major')) bumpType = 'major';
+
+if (!bumpType) {
+  console.error('Error: Please specify --patch, --minor, or --major');
+  console.error('');
+  console.error('Usage:');
+  console.error('  npm run release -- --patch    # e.g., 1.4.0 -> 1.4.1');
+  console.error('  npm run release -- --minor    # e.g., 1.4.0 -> 1.5.0');
+  console.error('  npm run release -- --major    # e.g., 1.4.0 -> 2.0.0');
+  process.exit(1);
+}
 
 if (dryRun) {
   console.log('🔹 DRY RUN MODE - No actual release will be created\n');
@@ -34,42 +55,28 @@ if (dryRun) {
 
 // Read version from package.json
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const version = pkg.version;
+const currentVersion = pkg.version;
 
-console.log(`Current version: ${version}`);
-console.log('');
-
-// Check if version has been bumped - version must be greater than or equal to latest tag
-const allTags = execSync('git tag --sort=-v:refname', { cwd: repoRoot, encoding: 'utf8' });
-const tagList = allTags.trim().split('\n').filter(t => t.startsWith('v'));
-const latestTag = tagList[0] ? tagList[0].replace('v', '') : '';
-
-const versionTag = `v${version}`;
-
-if (version === latestTag) {
-  // Check if the tag points to HEAD (new release we just created)
-  try {
-    const tagRef = execSync(`git rev-parse ${versionTag}^{commit}`, { cwd: repoRoot, encoding: 'utf8' }).trim();
-    const headRef = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
-
-    if (tagRef !== headRef) {
-      console.log(`Version ${version} has already been released (tag v${version} exists on different commit)`);
-      console.log('');
-      console.log('To bump version, run one of:');
-      console.log('  npm version patch    # e.g., 1.4.0 -> 1.4.1');
-      console.log('  npm version minor    # e.g., 1.4.0 -> 1.5.0');
-      console.log('  npm version major    # e.g., 1.4.0 -> 2.0.0');
-      console.log('');
-      process.exit(1);
-    }
-    // If tag points to HEAD, this is the new release we just created - continue
-  } catch (e) {
-    // Tag doesn't exist - this is a new version
-  }
+// Calculate new version based on bump type
+const [major, minor, patch] = currentVersion.split('.').map(Number);
+let newVersion;
+switch (bumpType) {
+  case 'patch':
+    newVersion = `${major}.${minor}.${patch + 1}`;
+    break;
+  case 'minor':
+    newVersion = `${major}.${minor + 1}.0`;
+    break;
+  case 'major':
+    newVersion = `${major + 1}.0.0`;
+    break;
 }
 
-console.log(`Current version: ${version} (tag: ${versionTag})`);
+console.log(`Current version: ${currentVersion}`);
+console.log(`New version: ${newVersion} (${bumpType} bump)`);
 console.log('');
+
+const versionTag = `v${newVersion}`;
 
 // Check if there's a remote for github.com
 let remoteName = 'origin';
@@ -96,12 +103,12 @@ if (oldVersionMatch) {
   const oldVersion = oldVersionMatch[1];
   abapContent = abapContent.replace(
     `version":"${oldVersion}"`,
-    `version":"${version}"`
+    `version":"${newVersion}"`
   );
 
   // Write updated content
   fs.writeFileSync(abapHealthPath, abapContent);
-  console.log(`📦 ABAP version: ${oldVersion} -> ${version}`);
+  console.log(`📦 ABAP version: ${oldVersion} -> ${newVersion}`);
   if (dryRun) {
     console.log('   (file modified, not committed)');
   }
@@ -121,7 +128,7 @@ try {
   // Find previous tag
   const allTags = execSync('git tag --sort=-v:refname', { cwd: repoRoot, encoding: 'utf8' });
   const tagList = allTags.trim().split('\n').filter(t => t.startsWith('v'));
-  const previousTag = tagList[1] || 'HEAD~10';
+  const previousTag = tagList[0] || 'HEAD~10';
 
   // Get commits since last release
   const commits = execSync(`git log ${previousTag}..HEAD --oneline`, { cwd: repoRoot, encoding: 'utf8' });
@@ -132,7 +139,7 @@ try {
 
     // Create Claude prompt - escape for shell
     const commitsEscaped = commits.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const prompt = `Generate concise release notes for version ${version} of a Node.js CLI tool called abapgit-agent.
+    const prompt = `Generate concise release notes for version ${newVersion} of a Node.js CLI tool called abapgit-agent.
 
 Commits since last release:
 ${commitsEscaped}
@@ -143,10 +150,10 @@ Instructions:
 3. Focus on actual USER-FACING features and fixes
 4. Use 2-4 bullet points MAX per category
 5. Keep each bullet brief (under 10 words)
-6. START your response with "## v${version}" and END with "---"
+6. START your response with "## v${newVersion}" and END with "---"
 7. OUTPUT ONLY the release notes - do NOT add any intro text, explanation, or commentary
 8. Use this exact format with blank lines between categories:
-## v${version}
+## v${newVersion}
 
 ### New Features
 
@@ -168,24 +175,30 @@ Instructions:
 
 OMIT any category that has no items.`;
 
-    // Call Claude CLI
+    // Call Claude CLI - use stdin to avoid shell escaping issues
     try {
-      releaseNotesContent = execSync(`claude --print "${prompt}"`, { cwd: repoRoot, encoding: 'utf8', timeout: 60000 });
+      releaseNotesContent = execSync('claude --print', {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 120000,
+        input: prompt
+      });
       releaseNotesContent = releaseNotesContent.trim();
       console.log('Generated release notes:');
       console.log(releaseNotesContent);
       console.log('');
     } catch (e) {
-      console.log('Claude CLI not available, using fallback');
-      releaseNotesContent = `## v${version}\n\nSee commit history for changes.`;
+      console.log('Claude CLI error:', e.message);
+      console.log('Using fallback release notes');
+      releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
     }
   } else {
     console.log('No commits since last release');
-    releaseNotesContent = `## v${version}\n\nSee commit history for changes.`;
+    releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
   }
 } catch (e) {
   console.log('Could not generate release notes:', e.message);
-  releaseNotesContent = `## v${version}\n\nSee commit history for changes.`;
+  releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
 }
 
 // Show release notes in dry-run mode
@@ -208,18 +221,21 @@ try {
 
 if (existingContent) {
   // Check if version already exists in the committed file (not local modifications)
-  if (existingContent.includes(`## v${version}`)) {
-    console.log(`Release notes for v${version} already exist in git`);
+  // Match both "## v1.0.0" and "## Release Notes for v1.0.0" formats
+  const versionRegex = new RegExp(`## (Release Notes for )?v${newVersion.replace(/\./g, '\\.')}`);
+  if (versionRegex.test(existingContent)) {
+    console.log(`Release notes for v${newVersion} already exist in git`);
   } else {
     let newContent;
 
     // Check if there's a "# Release Notes" header - insert after it if present
     if (existingContent.startsWith('# Release Notes')) {
       // Find the position after "# Release Notes" and any following content
+      // Match both "## v1.0.0" and "## Release Notes for v1.0.0" formats
       const lines = existingContent.split('\n');
       let insertIndex = 0;
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i].match(/^## v\d+\.\d+\.\d+/)) {
+        if (lines[i].match(/^## (Release Notes for )?v\d+\.\d+\.\d+/)) {
           insertIndex = i;
           break;
         }
@@ -237,13 +253,13 @@ if (existingContent) {
     if (dryRun) {
       console.log('📄 RELEASE_NOTES.md: would add new version at top');
     } else {
-      console.log(`Updated RELEASE_NOTES.md with v${version}`);
+      console.log(`Updated RELEASE_NOTES.md with v${newVersion}`);
     }
   }
 } else {
   // Create new RELEASE_NOTES.md
   fs.writeFileSync(releaseNotesPath, releaseNotesContent);
-  console.log(`Created RELEASE_NOTES.md with v${version}`);
+  console.log(`Created RELEASE_NOTES.md with v${newVersion}`);
 }
 console.log('');
 
@@ -256,10 +272,10 @@ if (status.trim()) {
     console.log(status);
     console.log('');
   } else {
-    // Stage and commit
+    // Stage and commit (NOTE: don't include package.json - npm version will handle it)
     try {
-      execSync('git add abap/zcl_abgagt_resource_health.clas.abap package.json RELEASE_NOTES.md', { cwd: repoRoot });
-      execSync(`git commit -m "chore: release v${version}"`, { cwd: repoRoot });
+      execSync('git add abap/zcl_abgagt_resource_health.clas.abap RELEASE_NOTES.md', { cwd: repoRoot });
+      execSync(`git commit -m "chore: release v${newVersion}"`, { cwd: repoRoot });
       console.log('Created git commit for version update');
       console.log('');
     } catch (e) {
@@ -267,8 +283,24 @@ if (status.trim()) {
     }
   }
 } else {
-  console.log('No changes to commit (version already up to date)');
+  console.log('No changes to commit');
   console.log('');
+}
+
+// Run npm version command to create tag (must be done AFTER commit)
+if (dryRun) {
+  console.log(`🔹 DRY RUN - Would run: npm version ${bumpType}`);
+  console.log('');
+} else {
+  console.log(`Running npm version ${bumpType} to create tag...`);
+  try {
+    execSync(`npm version ${bumpType} --no-git-tag-version`, { cwd: repoRoot, encoding: 'utf8' });
+    console.log(`✅ Created version ${newVersion} in package.json`);
+    console.log('');
+  } catch (e) {
+    console.log('⚠️ npm version failed:', e.message);
+    console.log('');
+  }
 }
 
 // Push to trigger GitHub Actions
