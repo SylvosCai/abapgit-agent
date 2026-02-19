@@ -218,7 +218,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
-          AND object IN ( lt_types )
+          AND object IN lt_types
           AND obj_name LIKE lv_name_pattern
         ORDER BY object obj_name
         OFFSET lv_offset.
@@ -227,7 +227,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         UP TO is_params-limit ROWS
         INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
-          AND object IN ( lt_types )
+          AND object IN lt_types
         ORDER BY object obj_name
         OFFSET lv_offset.
     ELSEIF lv_name_pattern IS NOT INITIAL.
@@ -252,13 +252,13 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       SELECT COUNT( * ) FROM tadir
         INTO rs_result-total
         WHERE devclass = lv_package
-          AND object IN ( lt_types )
+          AND object IN lt_types
           AND obj_name LIKE lv_name_pattern.
     ELSEIF lv_has_type_filter = abap_true.
       SELECT COUNT( * ) FROM tadir
         INTO rs_result-total
         WHERE devclass = lv_package
-          AND object IN ( lt_types ).
+          AND object IN lt_types.
     ELSEIF lv_name_pattern IS NOT INITIAL.
       SELECT COUNT( * ) FROM tadir
         INTO rs_result-total
@@ -282,7 +282,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       SELECT object COUNT( * ) AS count FROM tadir
         INTO TABLE lt_counts
         WHERE devclass = lv_package
-          AND object IN ( lt_types )
+          AND object IN lt_types
           AND obj_name LIKE lv_name_pattern
         GROUP BY object
         ORDER BY object.
@@ -290,7 +290,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       SELECT object COUNT( * ) AS count FROM tadir
         INTO TABLE lt_counts
         WHERE devclass = lv_package
-          AND object IN ( lt_types )
+          AND object IN lt_types
         GROUP BY object
         ORDER BY object.
     ELSEIF lv_name_pattern IS NOT INITIAL.
