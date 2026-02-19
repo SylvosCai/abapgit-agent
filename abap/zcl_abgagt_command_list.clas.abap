@@ -142,7 +142,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     SPLIT to_upper( iv_type ) AT ',' INTO TABLE lt_type_strings.
 
     LOOP AT lt_type_strings INTO DATA(lv_type_str).
-      DATA(lv_type) = trim( lv_type_str ).
+      DATA(lv_type) = shift_left( val = lv_type_str ).
 
       " Check if type is valid
       IF lv_type <> gc_type_clas AND
@@ -178,7 +178,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       DATA lt_type_strings TYPE STANDARD TABLE OF string.
       SPLIT to_upper( is_params-type ) AT ',' INTO TABLE lt_type_strings.
       LOOP AT lt_type_strings INTO DATA(lv_type_str).
-        DATA(lv_type_trimmed) = trim( lv_type_str ).
+        DATA(lv_type_trimmed) = shift_left( val = shift_right( val = lv_type_str ) ).
         IF lv_type_trimmed IS NOT INITIAL.
           APPEND lv_type_trimmed TO lt_types.
         ENDIF.
