@@ -305,10 +305,7 @@ if (dryRun) {
 
 // Push to trigger GitHub Actions
 if (dryRun) {
-  console.log('🔹 DRY RUN - Skipping push to github.com');
-  console.log('');
-  console.log('To actually release, run:');
-  console.log(`  git push ${remoteName} master --follow-tags`);
+  console.log('🔹 DRY RUN - Would push to github.com with --follow-tags');
   console.log('');
 } else {
   console.log('Pushing to github.com to trigger release...');
