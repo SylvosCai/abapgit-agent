@@ -182,7 +182,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         UP TO @lv_limit ROWS
         OFFSET @lv_offset.
     ELSE.
-      SELECT object obj_name FROM tadir
+      SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
         ORDER BY object, obj_name
         INTO TABLE @lt_objects
