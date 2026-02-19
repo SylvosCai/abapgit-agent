@@ -298,17 +298,21 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         CREATE DATA lr_data TYPE HANDLE lo_tabdescr.
         ASSIGN lr_data->* TO <lt_data>.
 
-        " Use SELECT * - dynamic field list has parser issues
-        " Column filtering will be done in the response
-        IF iv_where IS INITIAL.
-          SELECT * FROM (iv_tabname)
-            INTO TABLE <lt_data>
-            UP TO lv_limit ROWS.
+        " Use field list for SELECT - needed for CDS view entities
+        " Build dynamic SELECT statement with explicit fields
+        DATA lv_select_stmt TYPE string.
+        IF lv_field_list IS NOT INITIAL.
+          lv_select_stmt = |SELECT { lv_field_list } FROM { iv_tabname }|.
         ELSE.
-          SELECT * FROM (iv_tabname)
-            INTO TABLE <lt_data>
-            UP TO lv_limit ROWS
-            WHERE (iv_where).
+          lv_select_stmt = |SELECT * FROM { iv_tabname }|.
+        ENDIF.
+
+        IF iv_where IS INITIAL.
+          lv_select_stmt = lv_select_stmt && | UP TO { lv_limit } ROWS|.
+          EXECUTE IMMEDIATE lv_select_stmt INTO TABLE <lt_data>.
+        ELSE.
+          lv_select_stmt = lv_select_stmt && | WHERE { iv_where } UP TO { lv_limit } ROWS|.
+          EXECUTE IMMEDIATE lv_select_stmt INTO TABLE <lt_data>.
         ENDIF.
 
         " Get row count
