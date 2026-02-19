@@ -139,10 +139,15 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
   METHOD validate_type.
     " Validate each type in the comma-separated list
     DATA lt_type_strings TYPE STANDARD TABLE OF string.
+    DATA lv_type_str TYPE string.
+    DATA lv_type TYPE string.
+
     SPLIT to_upper( iv_type ) AT ',' INTO TABLE lt_type_strings.
 
-    LOOP AT lt_type_strings INTO DATA(lv_type_str).
-      DATA(lv_type) = shift_left( val = lv_type_str ).
+    LOOP AT lt_type_strings INTO lv_type_str.
+      " Use CONV for string conversion and remove spaces manually
+      lv_type = lv_type_str.
+      CONDENSE lv_type.
 
       " Check if type is valid
       IF lv_type <> gc_type_clas AND
@@ -169,16 +174,19 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_package TYPE tdevc-devclass,
           lv_name_pattern TYPE tadir-obj_name,
           lv_type_filter TYPE string,
-          lt_types TYPE STANDARD TABLE OF tadir-object.
+          lt_types TYPE STANDARD TABLE OF tadir-object,
+          lt_type_strings TYPE STANDARD TABLE OF string,
+          lv_type_str TYPE string,
+          lv_type_trimmed TYPE tadir-object.
 
     lv_package = is_params-package.
 
     " Parse type filter and build range table
     IF is_params-type IS NOT INITIAL.
-      DATA lt_type_strings TYPE STANDARD TABLE OF string.
       SPLIT to_upper( is_params-type ) AT ',' INTO TABLE lt_type_strings.
-      LOOP AT lt_type_strings INTO DATA(lv_type_str).
-        DATA(lv_type_trimmed) = shift_left( val = shift_right( val = lv_type_str ) ).
+      LOOP AT lt_type_strings INTO lv_type_str.
+        lv_type_trimmed = lv_type_str.
+        CONDENSE lv_type_trimmed.
         IF lv_type_trimmed IS NOT INITIAL.
           APPEND lv_type_trimmed TO lt_types.
         ENDIF.
