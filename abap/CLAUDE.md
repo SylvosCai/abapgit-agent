@@ -423,20 +423,20 @@ Search ABAP cheat sheets for syntax patterns and topics. Works offline without A
 
 ```bash
 # Search for a pattern in cheat sheets
-abapgit-agent ref-search "CORRESPONDING"
-abapgit-agent ref-search "CX_SY_"
-abapgit-agent ref-search "FILTER #"
+abapgit-agent ref "CORRESPONDING"
+abapgit-agent ref "CX_SY_"
+abapgit-agent ref "FILTER #"
 
 # View specific topic
-abapgit-agent ref-search --topic exceptions
-abapgit-agent ref-search --topic sql
-abapgit-agent ref-search --topic unit-tests
+abapgit-agent ref --topic exceptions
+abapgit-agent ref --topic sql
+abapgit-agent ref --topic unit-tests
 
 # List all available topics
-abapgit-agent ref-search --list-topics
+abapgit-agent ref --list-topics
 
 # JSON output for scripting
-abapgit-agent ref-search "VALUE #(" --json
+abapgit-agent ref "VALUE #(" --json
 ```
 
 **Available Topics:**
@@ -609,7 +609,7 @@ Look for:
 Or search the cheat sheets:
 
 ```bash
-abapgit-agent ref-search --topic exceptions
+abapgit-agent ref --topic exceptions
 ```
 
 ## Interface Method Implementation
@@ -732,8 +732,8 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
    - Search local ABAP reference materials:
      ```bash
      # Search cheat sheets for error pattern
-     abapgit-agent ref-search "error pattern"
-     abapgit-agent ref-search --topic exceptions  # For exception-related errors
+     abapgit-agent ref "error pattern"
+     abapgit-agent ref --topic exceptions  # For exception-related errors
      ```
    - Search the web for the specific ABAP error message or syntax issue
    - Use keywords like "ABAP", the error code, and relevant context
@@ -781,11 +781,11 @@ When implementing new features or fixing issues:
 
 3. **Use ABAP Reference Materials (Portable):**
    ```bash
-   # Use the built-in ref-search command (works from any directory)
-   abapgit-agent ref-search "CORRESPONDING"
-   abapgit-agent ref-search --topic exceptions
-   abapgit-agent ref-search --topic sql
-   abapgit-agent ref-search --list-topics
+   # Use the built-in ref command (works from any directory)
+   abapgit-agent ref "CORRESPONDING"
+   abapgit-agent ref --topic exceptions
+   abapgit-agent ref --topic sql
+   abapgit-agent ref --list-topics
    ```
 
    The command auto-detects the reference folder from `.abapGitAgent` or common locations (`~/abap-reference`).
@@ -833,23 +833,23 @@ When network issues prevent accessing online resources, maintain a local folder 
 
 **Portable Reference Lookup:**
 
-Use the built-in `ref-search` command (works from any directory without ABAP connection):
+Use the built-in `ref` command (works from any directory without ABAP connection):
 
 ```bash
 # Search for a pattern in cheat sheets
-abapgit-agent ref-search "CORRESPONDING"
-abapgit-agent ref-search "CX_SY_ZERODIVIDE"
+abapgit-agent ref "CORRESPONDING"
+abapgit-agent ref "CX_SY_ZERODIVIDE"
 
 # Search by topic
-abapgit-agent ref-search --topic exceptions
-abapgit-agent ref-search --topic sql
-abapgit-agent ref-search --topic unit-tests
+abapgit-agent ref --topic exceptions
+abapgit-agent ref --topic sql
+abapgit-agent ref --topic unit-tests
 
 # List all available topics
-abapgit-agent ref-search --list-topics
+abapgit-agent ref --list-topics
 
 # JSON output for scripting
-abapgit-agent ref-search "CORRESPONDING" --json
+abapgit-agent ref "CORRESPONDING" --json
 ```
 
 **Configuration:** The command auto-detects the reference folder from `.abapGitAgent` or common locations (`~/abap-reference`, `~/Documents/abap-reference`).

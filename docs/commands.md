@@ -24,7 +24,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
-| [ref-search](ref-search-command.md) | ✅ | Search ABAP cheat sheets offline |
+| [ref](ref-command.md) | ✅ | Search ABAP cheat sheets offline |
 | [status](status-command.md) | ✅ | Status check |
 
 ---
@@ -95,20 +95,20 @@ abapgit-agent health
 
 ```bash
 # Search for ABAP syntax patterns (no ABAP connection needed)
-abapgit-agent ref-search "CORRESPONDING"
-abapgit-agent ref-search "FILTER #"
-abapgit-agent ref-search "CX_SY_"
+abapgit-agent ref "CORRESPONDING"
+abapgit-agent ref "FILTER #"
+abapgit-agent ref "CX_SY_"
 
 # View specific topic documentation
-abapgit-agent ref-search --topic exceptions
-abapgit-agent ref-search --topic sql
-abapgit-agent ref-search --topic unit-tests
+abapgit-agent ref --topic exceptions
+abapgit-agent ref --topic sql
+abapgit-agent ref --topic unit-tests
 
 # List all available topics
-abapgit-agent ref-search --list-topics
+abapgit-agent ref --list-topics
 
 # Get JSON output for scripting
-abapgit-agent ref-search "VALUE #(" --json
+abapgit-agent ref "VALUE #(" --json
 ```
 
 ---

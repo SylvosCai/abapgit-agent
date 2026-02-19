@@ -1,4 +1,4 @@
-# ref-search Command Requirements
+# ref Command Requirements
 
 ## Overview
 
@@ -8,21 +8,21 @@ Search ABAP cheat sheets for syntax patterns and topics. This command works offl
 
 ```bash
 # Search for a pattern
-abapgit-agent ref-search "CORRESPONDING"
-abapgit-agent ref-search "CX_SY_"
-abapgit-agent ref-search "FILTER #"
+abapgit-agent ref "CORRESPONDING"
+abapgit-agent ref "CX_SY_"
+abapgit-agent ref "FILTER #"
 
 # View specific topic
-abapgit-agent ref-search --topic exceptions
-abapgit-agent ref-search --topic sql
-abapgit-agent ref-search --topic unit-tests
+abapgit-agent ref --topic exceptions
+abapgit-agent ref --topic sql
+abapgit-agent ref --topic unit-tests
 
 # List available topics
-abapgit-agent ref-search --list-topics
+abapgit-agent ref --list-topics
 
 # JSON output for scripting
-abapgit-agent ref-search "VALUE #(" --json
-abapgit-agent ref-search --topic sql --json
+abapgit-agent ref "VALUE #(" --json
+abapgit-agent ref --topic sql --json
 ```
 
 ## Prerequisite
