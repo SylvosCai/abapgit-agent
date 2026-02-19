@@ -855,7 +855,7 @@ abapgit-agent ref "CORRESPONDING" --json
 **Configuration:** The command auto-detects the reference folder from `.abapGitAgent` or common locations (`~/abap-reference`, `~/Documents/abap-reference`).
 
 **Legacy bash script (if needed):**
-If you prefer the bash script, it's still available at `./bin/abap-ref-search`.
+If you prefer the bash script, it's still available at `./bin/abap-ref`.
 
 **Manual Search:**
 
@@ -886,7 +886,7 @@ grep -ri "pattern" "$REF_FOLDER/abap-cheat-sheets/" --include="*.md" -l | head -
 
 **Usage for AI:**
 
-- When you encounter unfamiliar ABAP syntax, use `./bin/abap-ref-search` to find relevant documentation
+- When you encounter unfamiliar ABAP syntax, use `./bin/abap-ref` to find relevant documentation
 - Read the specific cheat sheet file for the topic
 - Use `abapgit-agent view` to check object definitions in the ABAP system
 - Never guess ABAP syntax - always verify against references

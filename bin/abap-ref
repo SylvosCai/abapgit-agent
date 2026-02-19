@@ -1,7 +1,7 @@
 #!/bin/bash
-# abap-ref-search - Search ABAP cheat sheets for patterns
-# Usage: abap-ref-search <pattern>
-#        abap-ref-search --topic <topic_name>
+# abap-ref - Search ABAP cheat sheets for patterns
+# Usage: abap-ref <pattern>
+#        abap-ref --topic <topic_name>
 #
 # This script auto-detects the reference folder location from .abapGitAgent
 # or falls back to common locations.
@@ -95,16 +95,16 @@ show_help() {
 ABAP Reference Search Tool
 
 Usage:
-  abap-ref-search <pattern>           Search for pattern in cheat sheets
-  abap-ref-search --topic <topic>     Search by topic keyword
-  abap-ref-search --list-topics       List available topics
-  abap-ref-search --help              Show this help
+  abap-ref <pattern>           Search for pattern in cheat sheets
+  abap-ref --topic <topic>     Search by topic keyword
+  abap-ref --list-topics       List available topics
+  abap-ref --help              Show this help
 
 Examples:
-  abap-ref-search "CORRESPONDING"
-  abap-ref-search "CX_SY_"
-  abap-ref-search --topic exceptions
-  abap-ref-search --topic sql
+  abap-ref "CORRESPONDING"
+  abap-ref "CX_SY_"
+  abap-ref --topic exceptions
+  abap-ref --topic sql
 
 Configuration:
   Set 'referenceFolder' in .abapGitAgent to specify cheat sheets location.
