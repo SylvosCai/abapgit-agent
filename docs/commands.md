@@ -2,6 +2,13 @@
 
 All available CLI commands for abapGit Agent.
 
+> **Shortcut Alias:** Use `abgagt` as a shorter alternative to `abapgit-agent`:
+> ```bash
+> abgagt pull
+> abgagt ref "CORRESPONDING"
+> abgagt status
+> ```
+
 ## Command Reference
 
 ### ABAP Integration Commands (Require ABAP Connection)

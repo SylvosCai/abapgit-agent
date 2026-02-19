@@ -5,8 +5,7 @@
   "main": "src/index.js",
   "bin": {
     "abapgit-agent": "bin/abapgit-agent",
-    "aga": "bin/abapgit-agent",
-    "abg": "bin/abapgit-agent"
+    "abgagt": "bin/abgagt"
   },
   "scripts": {
     "start": "node src/server.js",
