@@ -210,6 +210,51 @@ class ABAPGitAgent {
       throw new Error(`Preview command failed: ${error.message}`);
     }
   }
+
+  /**
+   * List objects in an ABAP package
+   * @param {string} packageName - ABAP package name
+   * @param {string} type - Comma-separated object types to filter (optional)
+   * @param {string} name - Name pattern to filter (optional)
+   * @param {number} limit - Maximum number of objects to return (default: 100)
+   * @param {number} offset - Offset for pagination (default: 0)
+   * @returns {object} List result with objects, by_type, total, and error
+   */
+  async list(packageName, type = null, name = null, limit = 100, offset = 0) {
+    logger.info('Listing objects', { package: packageName, type, name, limit, offset });
+
+    try {
+      const result = await this.abap.list(packageName, type, name, limit, offset);
+
+      // Normalize objects array to use lowercase keys
+      const rawObjects = result.OBJECTS || result.objects || [];
+      const normalizedObjects = rawObjects.map(obj => ({
+        type: obj.TYPE || obj.type,
+        name: obj.NAME || obj.name
+      }));
+
+      // Normalize by_type array to use lowercase keys
+      const rawByType = result.BY_TYPE || result.by_type || [];
+      const normalizedByType = rawByType.map(item => ({
+        type: item.TYPE || item.type,
+        count: item.COUNT || item.count || 0
+      }));
+
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        command: result.COMMAND || result.command || 'LIST',
+        package: result.PACKAGE || result.package || packageName,
+        message: result.MESSAGE || result.message || '',
+        objects: normalizedObjects,
+        by_type: normalizedByType,
+        total: result.TOTAL || result.total || 0,
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('List command failed', { error: error.message });
+      throw new Error(`List command failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

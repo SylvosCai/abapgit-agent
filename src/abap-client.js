@@ -396,6 +396,38 @@ class ABAPClient {
 
     return await this.request('POST', '/preview', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * List objects in an ABAP package
+   * @param {string} packageName - ABAP package name
+   * @param {string} type - Comma-separated object types to filter (optional, e.g., 'CLAS,INTF')
+   * @param {string} name - Name pattern to filter (optional)
+   * @param {number} limit - Maximum number of objects to return (default: 100, max: 1000)
+   * @param {number} offset - Offset for pagination (default: 0)
+   * @returns {object} List result with objects, by_type, and total
+   */
+  async list(packageName, type = null, name = null, limit = 100, offset = 0) {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      package: packageName,
+      limit: Math.min(Math.max(1, limit), 1000),
+      offset: Math.max(0, offset)
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
+    if (name) {
+      data.name = name;
+    }
+
+    logger.info('Listing objects', { package: packageName, type, name, limit: data.limit, offset: data.offset, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/list', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance
