@@ -417,6 +417,48 @@ abapgit-agent preview --objects SFLIGHT --compact
 abapgit-agent preview --objects SFLIGHT --json
 ```
 
+### Reference Search Command
+
+Search ABAP cheat sheets for syntax patterns and topics. Works offline without ABAP connection.
+
+```bash
+# Search for a pattern in cheat sheets
+abapgit-agent ref-search "CORRESPONDING"
+abapgit-agent ref-search "CX_SY_"
+abapgit-agent ref-search "FILTER #"
+
+# View specific topic
+abapgit-agent ref-search --topic exceptions
+abapgit-agent ref-search --topic sql
+abapgit-agent ref-search --topic unit-tests
+
+# List all available topics
+abapgit-agent ref-search --list-topics
+
+# JSON output for scripting
+abapgit-agent ref-search "VALUE #(" --json
+```
+
+**Available Topics:**
+- `internal-tables` - Internal table operations
+- `sql` - ABAP SQL syntax
+- `oop` - Object-oriented ABAP
+- `constructors` - Constructor expressions (VALUE, FILTER, etc.)
+- `exceptions` - Exception handling (TRY-CATCH, classical)
+- `unit-tests` - ABAP Unit testing
+- `cds` - CDS View Entities
+- `json-xml` - JSON/XML processing
+- `performance` - Performance optimization
+- `patterns` - Design patterns
+- `dynamic` - Dynamic programming (RTTI)
+- And more...
+
+**Configuration:**
+The command auto-detects cheat sheets from:
+1. `referenceFolder` in `.abapGitAgent`
+2. `~/abap-reference/abap-cheat-sheets`
+3. `~/Documents/abap-reference/abap-cheat-sheets`
+
 ## JSON Handling - ALWAYS Use /ui2/cl_json
 
 **CRITICAL**: Always use `/ui2/cl_json` for JSON serialization and deserialization.
@@ -578,6 +620,12 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
 1. **First 2-3 attempts**: Analyze the error message and try to fix based on the error details
 2. **If errors persist after 2-3 iterations**:
    - Stop repeating the same fix attempts
+   - Search local ABAP reference materials:
+     ```bash
+     # Search cheat sheets for error pattern
+     abapgit-agent ref-search "error pattern"
+     abapgit-agent ref-search --topic exceptions  # For exception-related errors
+     ```
    - Search the web for the specific ABAP error message or syntax issue
    - Use keywords like "ABAP", the error code, and relevant context
    - Examples: "ABAP error 'XXXX' CLAS", "ABAP syntax MESSAGE is not a declaration"
@@ -585,7 +633,7 @@ When fixing ABAP syntax errors using the commit-pull-commit loop:
    - Apply the correct fix based on documentation
    - Test again with `abapgit-agent pull`
 
-**Never guess** - ABAP syntax is strict. If you're unsure, search first.
+**Never guess** - ABAP syntax is strict. If you're unsure, search first using the local reference materials or web search.
 
 ## Understanding abapgit-agent Output
 
@@ -622,10 +670,22 @@ When implementing new features or fixing issues:
    - Reuse existing helper classes and methods
    - Follow the established code style
 
-3. **Examples:**
+3. **Use ABAP Reference Materials (Portable):**
+   ```bash
+   # Use the built-in ref-search command (works from any directory)
+   abapgit-agent ref-search "CORRESPONDING"
+   abapgit-agent ref-search --topic exceptions
+   abapgit-agent ref-search --topic sql
+   abapgit-agent ref-search --list-topics
+   ```
+
+   The command auto-detects the reference folder from `.abapGitAgent` or common locations (`~/abap-reference`).
+
+4. **Examples:**
    - Need to create a new REST endpoint? → Study `zcl_abgagt_resource_pull.clas.abap`
    - Need to serialize JSON? → Use `/ui2/cl_json` as shown in existing handlers
    - Need to query TADIR? → Check how other classes do it
+   - Unfamiliar with exception types? → Search `27_Exceptions.md` in cheat sheets
 
 **Don't guess patterns** - The codebase has proven implementations. Reuse them.
 
@@ -636,7 +696,7 @@ When implementing new features or fixing issues:
 
 ## Local Code Reference (Offline Support)
 
-When network issues prevent accessing online resources, you can maintain a local folder with ABAP code examples for reference.
+When network issues prevent accessing online resources, maintain a local folder with ABAP code examples for reference.
 
 **Setup:**
 
@@ -649,6 +709,9 @@ When network issues prevent accessing online resources, you can maintain a local
 
 2. Clone ABAP repositories for reference into this folder:
    ```bash
+   mkdir -p ~/abap-reference
+   cd ~/abap-reference
+
    # abapGit itself - best reference for ABAP patterns
    git clone https://github.com/abapGit/abapGit.git
 
@@ -656,14 +719,68 @@ When network issues prevent accessing online resources, you can maintain a local
    git clone https://github.com/SAP/styleguides.git
 
    # ABAP cheat sheets with code snippets for various topics
-   git clone https://github.com/SAP/abap-cheat-sheets.git
+   git clone https://github.com/SAP-samples/abap-cheat-sheets.git
    ```
 
-**Usage:**
+**Portable Reference Lookup:**
 
-- When Claude needs to reference ABAP patterns, read files from the folder configured in `.abapGitAgent` (`referenceFolder`)
-- Useful for offline development or when network is unreliable
-- Keep commonly used ABAP utilities, class patterns, and examples
+Use the built-in `ref-search` command (works from any directory without ABAP connection):
+
+```bash
+# Search for a pattern in cheat sheets
+abapgit-agent ref-search "CORRESPONDING"
+abapgit-agent ref-search "CX_SY_ZERODIVIDE"
+
+# Search by topic
+abapgit-agent ref-search --topic exceptions
+abapgit-agent ref-search --topic sql
+abapgit-agent ref-search --topic unit-tests
+
+# List all available topics
+abapgit-agent ref-search --list-topics
+
+# JSON output for scripting
+abapgit-agent ref-search "CORRESPONDING" --json
+```
+
+**Configuration:** The command auto-detects the reference folder from `.abapGitAgent` or common locations (`~/abap-reference`, `~/Documents/abap-reference`).
+
+**Legacy bash script (if needed):**
+If you prefer the bash script, it's still available at `./bin/abap-ref-search`.
+
+**Manual Search:**
+
+```bash
+# Detect reference folder from .abapGitAgent config
+REF_FOLDER=$(cat .abapGitAgent 2>/dev/null | grep -o '"referenceFolder"[^}]*' | cut -d'"' -f4)
+
+# Fallback to common locations
+[ -z "$REF_FOLDER" ] && for path in "$HOME/abap-reference" "$HOME/Documents/abap-reference"; do
+  [ -d "$path/abap-cheat-sheets" ] && REF_FOLDER="$path" && break
+done
+
+# Search cheat sheets
+grep -ri "pattern" "$REF_FOLDER/abap-cheat-sheets/" --include="*.md" -l | head -10
+```
+
+**Common Topics:**
+
+| Topic | Cheat Sheet File |
+|-------|------------------|
+| Internal Tables | `01_Internal_Tables.md` |
+| ABAP SQL | `03_ABAP_SQL.md` |
+| Constructor Expressions | `05_Constructor_Expressions.md` |
+| Exceptions | `27_Exceptions.md` |
+| Unit Tests | `14_ABAP_Unit_Tests.md` |
+| JSON/XML | `21_XML_JSON.md` |
+| Performance | `32_Performance_Notes.md` |
+
+**Usage for AI:**
+
+- When you encounter unfamiliar ABAP syntax, use `./bin/abap-ref-search` to find relevant documentation
+- Read the specific cheat sheet file for the topic
+- Use `abapgit-agent view` to check object definitions in the ABAP system
+- Never guess ABAP syntax - always verify against references
 
 ## ABAP Object Types
 

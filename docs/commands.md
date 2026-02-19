@@ -4,6 +4,8 @@ All available CLI commands for abapGit Agent.
 
 ## Command Reference
 
+### ABAP Integration Commands (Require ABAP Connection)
+
 | Command | Status | Description |
 |---------|--------|-------------|
 | [init](init-command.md) | ✅ | Initialize local configuration |
@@ -12,10 +14,17 @@ All available CLI commands for abapGit Agent.
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
 | [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
 | [tree](tree-command.md) | ✅ | Display package hierarchy tree |
+| [list](list-command.md) | ✅ | List ABAP objects in package |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
 | [view](view-command.md) | ✅ | View ABAP object source code from system |
-| [preview](preview-command.md) | 🔄 | Preview table/CDS view data |
+| [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [health](health-command.md) | ✅ | Health check |
+
+### Offline Commands (No ABAP Connection Required)
+
+| Command | Status | Description |
+|---------|--------|-------------|
+| [ref-search](ref-search-command.md) | ✅ | Search ABAP cheat sheets offline |
 | [status](status-command.md) | ✅ | Status check |
 
 ---
@@ -80,6 +89,26 @@ abapgit-agent status
 
 # Verify ABAP connection
 abapgit-agent health
+```
+
+### Offline Reference
+
+```bash
+# Search for ABAP syntax patterns (no ABAP connection needed)
+abapgit-agent ref-search "CORRESPONDING"
+abapgit-agent ref-search "FILTER #"
+abapgit-agent ref-search "CX_SY_"
+
+# View specific topic documentation
+abapgit-agent ref-search --topic exceptions
+abapgit-agent ref-search --topic sql
+abapgit-agent ref-search --topic unit-tests
+
+# List all available topics
+abapgit-agent ref-search --list-topics
+
+# Get JSON output for scripting
+abapgit-agent ref-search "VALUE #(" --json
 ```
 
 ---

@@ -1253,8 +1253,9 @@ async function main() {
   const command = args[0];
 
   // Check if ABAP integration is enabled for this repo
-  // (skip for init, help commands)
-  if (command && command !== 'init' && command !== 'help' && command !== '--help' && command !== '-h') {
+  // (skip for init, help, ref-search commands - these don't need ABAP connection)
+  const noAbapRequired = ['init', 'help', '--help', '-h', 'ref-search'];
+  if (command && !noAbapRequired.includes(command)) {
     if (!isAbapIntegrationEnabled()) {
       console.log(`
 ⚠️  ABAP Git Agent not configured for this repository.
@@ -2210,6 +2211,60 @@ Examples:
         break;
       }
 
+      case 'ref-search': {
+        const refSearch = require('../src/ref-search');
+        const topicIndex = args.indexOf('--topic');
+        const listTopics = args.includes('--list-topics') || args.includes('-l');
+        const jsonOutput = args.includes('--json');
+
+        if (listTopics) {
+          const result = await refSearch.listTopics();
+          if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            refSearch.displayTopics(result);
+          }
+          break;
+        }
+
+        if (topicIndex !== -1 && topicIndex + 1 < args.length) {
+          const topic = args[topicIndex + 1];
+          const result = await refSearch.getTopic(topic);
+          if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            refSearch.displayTopic(result);
+          }
+          break;
+        }
+
+        // Pattern search (default)
+        const patternIndex = args.findIndex((arg, idx) => idx > 0 && !arg.startsWith('--'));
+        if (patternIndex === -1) {
+          console.error('Error: No pattern specified');
+          console.error('');
+          console.error('Usage:');
+          console.error('  abapgit-agent ref-search <pattern>           Search for pattern');
+          console.error('  abapgit-agent ref-search --topic <name>      View specific topic');
+          console.error('  abapgit-agent ref-search --list-topics       List available topics');
+          console.error('');
+          console.error('Examples:');
+          console.error('  abapgit-agent ref-search "CORRESPONDING"');
+          console.error('  abapgit-agent ref-search --topic exceptions');
+          console.error('  abapgit-agent ref-search --list-topics');
+          process.exit(1);
+        }
+
+        const pattern = args[patternIndex];
+        const result = await refSearch.searchPattern(pattern);
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          refSearch.displaySearchResults(result);
+        }
+        break;
+      }
+
       case 'help':
       case '--help':
       case '-h':
@@ -2252,6 +2307,15 @@ Commands:
   view --objects <obj1>,<obj2>,... [--type <type>] [--json]
     View ABAP object definitions from the ABAP system
 
+  ref-search <pattern> [--json]
+    Search ABAP cheat sheets for patterns. Requires referenceFolder in .abapGitAgent.
+
+  ref-search --topic <topic> [--json]
+    View specific topic from cheat sheets (exceptions, sql, unit-tests, etc.)
+
+  ref-search --list-topics
+    List available topics for reference search
+
   health
     Check if ABAP REST API is healthy
 
@@ -2282,6 +2346,12 @@ Examples:
   abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
   abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
   abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json        # Multiple objects
+  abapgit-agent ref-search "CORRESPONDING"                         # Search cheat sheets
+  abapgit-agent ref-search "CX_SY_"                                 # Search exceptions
+  abapgit-agent ref-search --topic exceptions                       # View exception topic
+  abapgit-agent ref-search --topic sql                              # View SQL topic
+  abapgit-agent ref-search --topic unit-tests                       # View unit test topic
+  abapgit-agent ref-search --list-topics                            # List all topics
   abapgit-agent health
   abapgit-agent status
 `);
