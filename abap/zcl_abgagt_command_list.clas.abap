@@ -216,9 +216,8 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     SELECT object obj_name FROM tadir
       WHERE devclass = lv_package
       ORDER BY object obj_name
-      INTO CORRESPONDING FIELDS OF TABLE lt_objects
       UP TO is_params-limit ROWS
-      OFFSET lv_offset.
+      INTO CORRESPONDING FIELDS OF TABLE lt_objects.
 
     " Get total count for pagination
     IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
