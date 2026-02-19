@@ -10,7 +10,8 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_import TYPE string VALUE 'IMPORT',
     gc_tree TYPE string VALUE 'TREE',
     gc_view TYPE string VALUE 'VIEW',
-    gc_preview TYPE string VALUE 'PREVIEW'.
+    gc_preview TYPE string VALUE 'PREVIEW',
+    gc_list TYPE string VALUE 'LIST'.
 
   " Get command name
   METHODS get_name
