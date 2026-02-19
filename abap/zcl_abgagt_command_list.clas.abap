@@ -217,7 +217,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       WHERE devclass = lv_package
       ORDER BY object obj_name
       UP TO is_params-limit ROWS
-      INTO CORRESPONDING FIELDS OF TABLE lt_objects.
+      INTO TABLE @lt_objects.
 
     " Get total count for pagination
     IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
