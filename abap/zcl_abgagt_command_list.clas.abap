@@ -139,6 +139,12 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     lv_type_filter = is_params-type.
     lv_name_filter = is_params-name.
 
+    " Parse type filter once
+    DATA lt_types TYPE STANDARD TABLE OF string.
+    IF lv_type_filter IS NOT INITIAL.
+      SPLIT to_upper( lv_type_filter ) AT ',' INTO TABLE lt_types.
+    ENDIF.
+
     " Get all objects from tadir
     SELECT object obj_name FROM tadir
       INTO (lv_object, lv_objname)
@@ -148,8 +154,6 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
       " Apply type filter
       IF lv_type_filter IS NOT INITIAL.
-        DATA lt_types TYPE STANDARD TABLE OF string.
-        SPLIT to_upper( lv_type_filter ) AT ',' INTO TABLE lt_types.
         READ TABLE lt_types WITH KEY table_line = lv_object TRANSPORTING NO FIELDS.
         IF sy-subrc <> 0.
           CONTINUE.
