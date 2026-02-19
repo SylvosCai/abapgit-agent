@@ -162,10 +162,9 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
       " Apply name filter
       IF lv_name_filter IS NOT INITIAL.
-        " Convert * to % for LIKE match
+        " Convert * to + for CP match (CP uses * as wildcard)
         DATA lv_pattern TYPE string.
         lv_pattern = lv_name_filter.
-        REPLACE ALL OCCURRENCES OF '*' IN lv_pattern WITH '%'.
         IF lv_objname CP lv_pattern.
           " matches - continue
         ELSE.
