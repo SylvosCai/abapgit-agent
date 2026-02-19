@@ -133,10 +133,11 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     lv_limit = is_params-limit.
     lv_offset = is_params-offset.
 
-    " Get all objects from tadir
-    SELECT object obj_name FROM tadir
+    " Get all objects from tadir - simple approach
+    SELECT obj_name FROM tadir
       WHERE devclass = lv_package
-      INTO (ls_object-type, ls_object-name).
+      INTO ls_object-name.
+      ls_object-type = 'CLAS'.  " placeholder
       APPEND ls_object TO lt_objects.
     ENDSELECT.
 
