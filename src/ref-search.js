@@ -1,8 +1,8 @@
 /**
- * ABAP Reference Search - Search ABAP cheat sheets for patterns
+ * ABAP Reference Search - Search ABAP reference repositories for patterns
  *
- * This module provides portable reference lookup that works regardless
- * of where the user stores their ABAP cheat sheets.
+ * This module provides portable reference lookup across multiple ABAP repositories
+ * including cheat sheets and any other ABAP code repositories in the reference folder.
  */
 
 const fs = require('fs');
@@ -10,6 +10,7 @@ const path = require('path');
 const { promisify } = require('util');
 const readdir = promisify(fs.readdir);
 const readFile = promisify(fs.readFile);
+const stat = promisify(fs.stat);
 
 // Topic to file mapping
 const TOPIC_MAP = {
@@ -112,57 +113,212 @@ function getCheatSheetsDir() {
 }
 
 /**
- * Search for a pattern in cheat sheets
+ * Get all ABAP repositories in the reference folder
+ * @returns {Promise<Array<{name: string, path: string}>>}
+ */
+async function getReferenceRepositories() {
+  const refFolder = detectReferenceFolder();
+  if (!refFolder) return [];
+
+  const repos = [];
+
+  try {
+    const entries = await readdir(refFolder);
+
+    for (const entry of entries) {
+      const fullPath = path.join(refFolder, entry);
+      const stats = await stat(fullPath);
+
+      // Check if it's a directory and looks like a git repo or contains ABAP code
+      if (stats.isDirectory()) {
+        const gitDir = path.join(fullPath, '.git');
+        const hasGit = fs.existsSync(gitDir);
+
+        // Check for ABAP files or common ABAP project files
+        const hasAbapFiles = await hasAbapContent(fullPath);
+
+        if (hasGit || hasAbapFiles) {
+          repos.push({
+            name: entry,
+            path: fullPath,
+            isGitRepo: hasGit
+          });
+        }
+      }
+    }
+  } catch (error) {
+    // Return empty array on error
+  }
+
+  return repos.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Check if a directory contains ABAP-related content
+ * @param {string} dirPath
+ * @returns {Promise<boolean>}
+ */
+async function hasAbapContent(dirPath) {
+  const abapIndicators = [
+    'abap/', 'src/', 'zcl_', 'zif_',
+    '.abapgit.xml', 'package.devc.xml',
+    '.clas.abap', '.intf.abap', '.tabl.xml'
+  ];
+
+  try {
+    const entries = await readdir(dirPath);
+
+    for (const entry of entries) {
+      const lowerEntry = entry.toLowerCase();
+
+      // Check for ABAP file extensions
+      if (lowerEntry.endsWith('.abap') ||
+          lowerEntry.endsWith('.clas.xml') ||
+          lowerEntry.endsWith('.intf.xml') ||
+          lowerEntry.endsWith('.tabl.xml') ||
+          lowerEntry.endsWith('.ddls.asddls') ||
+          lowerEntry.includes('zcl_') ||
+          lowerEntry.includes('zif_')) {
+        return true;
+      }
+
+      // Check for abap folder
+      if (lowerEntry === 'abap' || lowerEntry === 'src') {
+        return true;
+      }
+    }
+  } catch (error) {
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Recursively get all searchable files from a repository
+ * @param {string} repoPath
+ * @param {string} repoName
+ * @param {Array<string>} extensions
+ * @returns {Promise<Array<{repo: string, path: string, relativePath: string}>>}
+ */
+async function getSearchableFiles(repoPath, repoName, extensions = ['.md', '.abap', '.txt', '.asddls']) {
+  const files = [];
+
+  async function walkDir(currentPath, relativePath = '') {
+    try {
+      const entries = await readdir(currentPath);
+
+      for (const entry of entries) {
+        const fullPath = path.join(currentPath, entry);
+        const relPath = path.join(relativePath, entry);
+        const stats = await stat(fullPath);
+
+        if (stats.isDirectory()) {
+          // Skip common non-source directories
+          const skipDirs = ['.git', 'node_modules', 'bin', 'tests', 'test'];
+          if (!skipDirs.includes(entry.toLowerCase())) {
+            await walkDir(fullPath, relPath);
+          }
+        } else if (stats.isFile()) {
+          const ext = path.extname(entry).toLowerCase();
+          const lowerEntry = entry.toLowerCase();
+
+          // Check if file matches searchable extensions
+          const isSearchable = extensions.includes(ext) ||
+                              extensions.some(e => lowerEntry.endsWith(e));
+
+          if (isSearchable) {
+            files.push({
+              repo: repoName,
+              path: fullPath,
+              relativePath: relPath
+            });
+          }
+        }
+      }
+    } catch (error) {
+      // Skip directories we can't read
+    }
+  }
+
+  await walkDir(repoPath);
+  return files;
+}
+
+/**
+ * Search for a pattern across all reference repositories
  * @param {string} pattern - Pattern to search for
  * @returns {Promise<Object>} Search results
  */
 async function searchPattern(pattern) {
-  const cheatSheetsDir = getCheatSheetsDir();
+  const refFolder = detectReferenceFolder();
+  const repos = await getReferenceRepositories();
 
-  if (!cheatSheetsDir) {
+  if (!refFolder) {
     return {
       error: 'Reference folder not found',
       hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
     };
   }
 
+  if (repos.length === 0) {
+    return {
+      error: 'No ABAP repositories found in reference folder',
+      hint: 'Clone ABAP repositories to the reference folder to enable searching'
+    };
+  }
+
   const results = {
     pattern,
-    referenceFolder: path.dirname(cheatSheetsDir),
+    referenceFolder: refFolder,
+    repositories: repos.map(r => r.name),
     files: [],
     matches: []
   };
 
   try {
-    const files = await readdir(cheatSheetsDir);
-    const mdFiles = files.filter(f => f.endsWith('.md'));
+    // Search across all repositories
+    for (const repo of repos) {
+      const searchableFiles = await getSearchableFiles(repo.path, repo.name);
 
-    for (const file of mdFiles) {
-      const filePath = path.join(cheatSheetsDir, file);
-      const content = await readFile(filePath, 'utf8');
+      for (const fileInfo of searchableFiles) {
+        try {
+          const content = await readFile(fileInfo.path, 'utf8');
 
-      if (content.toLowerCase().includes(pattern.toLowerCase())) {
-        results.files.push(file);
-
-        // Find matching lines with context
-        const lines = content.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
-            const start = Math.max(0, i - 1);
-            const end = Math.min(lines.length, i + 2);
-            const context = lines.slice(start, end).join('\n');
-
-            results.matches.push({
-              file,
-              line: i + 1,
-              context
+          if (content.toLowerCase().includes(pattern.toLowerCase())) {
+            results.files.push({
+              repo: repo.name,
+              file: fileInfo.relativePath
             });
 
-            // Limit matches per file to avoid overwhelming output
-            if (results.matches.filter(m => m.file === file).length >= 3) {
-              break;
+            // Find matching lines with context
+            const lines = content.split('\n');
+            let matchCount = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+              if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
+                const start = Math.max(0, i - 1);
+                const end = Math.min(lines.length, i + 2);
+                const context = lines.slice(start, end).join('\n');
+
+                results.matches.push({
+                  repo: repo.name,
+                  file: fileInfo.relativePath,
+                  line: i + 1,
+                  context
+                });
+
+                matchCount++;
+
+                // Limit matches per file to avoid overwhelming output
+                if (matchCount >= 3) {
+                  break;
+                }
+              }
             }
           }
+        } catch (error) {
+          // Skip files we can't read
         }
       }
     }
@@ -268,6 +424,10 @@ function displaySearchResults(results) {
 
   console.log(`\n  🔍 Searching for: '${results.pattern}'`);
   console.log(`  📁 Reference folder: ${results.referenceFolder}`);
+
+  if (results.repositories && results.repositories.length > 0) {
+    console.log(`  📚 Repositories (${results.repositories.length}): ${results.repositories.join(', ')}`);
+  }
   console.log('');
 
   if (results.files.length === 0) {
@@ -275,10 +435,21 @@ function displaySearchResults(results) {
     return;
   }
 
-  console.log(`  ✅ Found in ${results.files.length} file(s):`);
-  results.files.forEach(file => {
-    console.log(`     • ${file}`);
+  // Group files by repository
+  const filesByRepo = {};
+  results.files.forEach(fileInfo => {
+    const repo = fileInfo.repo || 'unknown';
+    if (!filesByRepo[repo]) filesByRepo[repo] = [];
+    filesByRepo[repo].push(fileInfo.file);
   });
+
+  console.log(`  ✅ Found in ${results.files.length} file(s):`);
+  for (const [repo, files] of Object.entries(filesByRepo)) {
+    console.log(`\n     📦 ${repo}/`);
+    files.forEach(file => {
+      console.log(`        • ${file}`);
+    });
+  }
   console.log('');
 
   // Show first 5 matches
@@ -289,7 +460,7 @@ function displaySearchResults(results) {
   const seenContexts = new Set();
 
   for (const match of results.matches) {
-    const key = `${match.file}:${match.context}`;
+    const key = `${match.repo}:${match.file}:${match.context}`;
     if (!seenContexts.has(key)) {
       uniqueMatches.push(match);
       seenContexts.add(key);
@@ -298,7 +469,7 @@ function displaySearchResults(results) {
   }
 
   for (const match of uniqueMatches) {
-    console.log(`  📄 ${match.file} (line ${match.line}):`);
+    console.log(`  📄 ${match.repo}/${match.file} (line ${match.line}):`);
     const lines = match.context.split('\n');
     lines.forEach((line, idx) => {
       const prefix = idx === 1 ? '  → ' : '    ';
@@ -367,13 +538,75 @@ function displayTopics(result) {
   });
 }
 
+/**
+ * List all reference repositories
+ * @returns {Promise<Object>} List of repositories
+ */
+async function listRepositories() {
+  const refFolder = detectReferenceFolder();
+  const repos = await getReferenceRepositories();
+
+  if (!refFolder) {
+    return {
+      error: 'Reference folder not found',
+      hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
+    };
+  }
+
+  return {
+    referenceFolder: refFolder,
+    repositories: repos
+  };
+}
+
+/**
+ * Display repositories in console format
+ * @param {Object} result - Repositories result
+ */
+function displayRepositories(result) {
+  if (result.error) {
+    console.error(`\n  ❌ ${result.error}`);
+    if (result.hint) {
+      console.error(`\n  💡 ${result.hint}`);
+    }
+    return;
+  }
+
+  console.log(`\n  📚 ABAP Reference Repositories`);
+  console.log(`  📁 Reference folder: ${result.referenceFolder}`);
+  console.log('');
+
+  if (result.repositories.length === 0) {
+    console.log('  ⚠️  No repositories found.');
+    console.log('');
+    console.log('  Add repositories by cloning them to the reference folder:');
+    console.log('    cd ' + result.referenceFolder);
+    console.log('    git clone <repo-url>');
+    return;
+  }
+
+  console.log(`  Found ${result.repositories.length} repository(ies):`);
+  console.log('');
+  console.log('  Repository                    Type');
+  console.log('  ' + '─'.repeat(50));
+
+  result.repositories.forEach(repo => {
+    const type = repo.isGitRepo ? 'Git Repo' : 'ABAP Folder';
+    const paddedName = repo.name.padEnd(30);
+    console.log(`  ${paddedName} ${type}`);
+  });
+}
+
 module.exports = {
   detectReferenceFolder,
+  getReferenceRepositories,
   searchPattern,
   getTopic,
   listTopics,
+  listRepositories,
   displaySearchResults,
   displayTopic,
   displayTopics,
+  displayRepositories,
   TOPIC_MAP
 };

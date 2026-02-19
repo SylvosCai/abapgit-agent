@@ -2215,7 +2215,18 @@ Examples:
         const refSearch = require('../src/ref-search');
         const topicIndex = args.indexOf('--topic');
         const listTopics = args.includes('--list-topics') || args.includes('-l');
+        const listRepos = args.includes('--list-repos') || args.includes('-r');
         const jsonOutput = args.includes('--json');
+
+        if (listRepos) {
+          const result = await refSearch.listRepositories();
+          if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            refSearch.displayRepositories(result);
+          }
+          break;
+        }
 
         if (listTopics) {
           const result = await refSearch.listTopics();
@@ -2247,11 +2258,13 @@ Examples:
           console.error('  abapgit-agent ref <pattern>           Search for pattern');
           console.error('  abapgit-agent ref --topic <name>      View specific topic');
           console.error('  abapgit-agent ref --list-topics       List available topics');
+          console.error('  abapgit-agent ref --list-repos        List reference repositories');
           console.error('');
           console.error('Examples:');
           console.error('  abapgit-agent ref "CORRESPONDING"');
           console.error('  abapgit-agent ref --topic exceptions');
           console.error('  abapgit-agent ref --list-topics');
+          console.error('  abapgit-agent ref --list-repos');
           process.exit(1);
         }
 
@@ -2308,13 +2321,16 @@ Commands:
     View ABAP object definitions from the ABAP system
 
   ref <pattern> [--json]
-    Search ABAP cheat sheets for patterns. Requires referenceFolder in .abapGitAgent.
+    Search ABAP reference repositories for patterns. Requires referenceFolder in .abapGitAgent.
 
   ref --topic <topic> [--json]
     View specific topic from cheat sheets (exceptions, sql, unit-tests, etc.)
 
   ref --list-topics
     List available topics for reference search
+
+  ref --list-repos
+    List all reference repositories in the reference folder
 
   health
     Check if ABAP REST API is healthy
@@ -2346,12 +2362,13 @@ Examples:
   abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
   abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
   abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json        # Multiple objects
-  abapgit-agent ref "CORRESPONDING"                         # Search cheat sheets
+  abapgit-agent ref "CORRESPONDING"                         # Search all reference repos
   abapgit-agent ref "CX_SY_"                                 # Search exceptions
   abapgit-agent ref --topic exceptions                       # View exception topic
   abapgit-agent ref --topic sql                              # View SQL topic
   abapgit-agent ref --topic unit-tests                       # View unit test topic
   abapgit-agent ref --list-topics                            # List all topics
+  abapgit-agent ref --list-repos                             # List reference repositories
   abapgit-agent health
   abapgit-agent status
 `);
