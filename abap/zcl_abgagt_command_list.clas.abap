@@ -213,10 +213,10 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     lv_offset = is_params-offset.
 
     " Get all objects - filter in ABAP after query
-    SELECT object obj_name FROM tadir
-      WHERE devclass = lv_package
-      ORDER BY object obj_name
-      UP TO is_params-limit ROWS
+    SELECT object, obj_name FROM tadir
+      WHERE devclass = @lv_package
+      ORDER BY object, obj_name
+      UP TO @is_params-limit ROWS
       INTO TABLE @lt_objects.
 
     " Get total count for pagination
