@@ -213,9 +213,8 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     lv_offset = is_params-offset.
 
     " Get all objects
-    SELECT object, obj_name FROM tadir
+    SELECT object obj_name FROM tadir
       WHERE devclass = lv_package
-      ORDER BY object, obj_name
       INTO TABLE lt_objects.
 
     " Get total count
