@@ -7,17 +7,18 @@
  *   --patch    Bump patch version (e.g., 1.4.0 -> 1.4.1)
  *   --minor    Bump minor version (e.g., 1.4.0 -> 1.5.0)
  *   --major    Bump major version (e.g., 1.4.0 -> 2.0.0)
- *   --dry-run  Test the release flow without pushing to github.com
+ *   --dry-run  Preview only, don't make any changes
  *
  * This script:
  * 1. Determines new version based on --patch/--minor/--major flag
  * 2. Generates release notes using Claude
- * 3. Updates RELEASE_NOTES.md with new version notes
- * 4. Updates the ABAP health resource with the new version
- * 5. Creates a git commit with all changes
- * 6. Runs npm version command to create the tag (LAST step)
- * 7. Pushes to github.com to trigger GitHub Actions (unless --dry-run)
- * 8. GitHub Actions will publish to npm and create GitHub release
+ * 3. Shows preview of what will happen
+ * 4. Asks for confirmation (unless --dry-run is specified)
+ * 5. Updates RELEASE_NOTES.md with new version notes
+ * 6. Updates the ABAP health resource with the new version
+ * 7. Creates a git commit with all changes
+ * 8. Runs npm version command to create the tag (LAST step)
+ * 9. Pushes to github.com to trigger GitHub Actions
  */
 
 const fs = require('fs');
@@ -46,11 +47,13 @@ if (!bumpType) {
   console.error('  npm run release -- --patch    # e.g., 1.4.0 -> 1.4.1');
   console.error('  npm run release -- --minor    # e.g., 1.4.0 -> 1.5.0');
   console.error('  npm run release -- --major    # e.g., 1.4.0 -> 2.0.0');
+  console.error('');
+  console.error('  npm run release -- --patch --dry-run    # Preview only');
   process.exit(1);
 }
 
 if (dryRun) {
-  console.log('🔹 DRY RUN MODE - No actual release will be created\n');
+  console.log('🔹 DRY RUN MODE - Preview only, no changes will be made\n');
 }
 
 // Read version from package.json
@@ -94,30 +97,6 @@ try {
 
 console.log('');
 
-// Read ABAP health resource file
-let abapContent = fs.readFileSync(abapHealthPath, 'utf8');
-
-// Update version in ABAP file (replace existing version)
-const oldVersionMatch = abapContent.match(/version":"(\d+\.\d+\.\d+)"/);
-if (oldVersionMatch) {
-  const oldVersion = oldVersionMatch[1];
-  abapContent = abapContent.replace(
-    `version":"${oldVersion}"`,
-    `version":"${newVersion}"`
-  );
-
-  // Write updated content
-  fs.writeFileSync(abapHealthPath, abapContent);
-  console.log(`📦 ABAP version: ${oldVersion} -> ${newVersion}`);
-  if (dryRun) {
-    console.log('   (file modified, not committed)');
-  }
-  console.log('');
-} else {
-  console.error('Could not find version in ABAP file');
-  process.exit(1);
-}
-
 // Get commits since last tag for release notes
 console.log('Generating release notes with Claude...');
 console.log('');
@@ -137,7 +116,7 @@ try {
     console.log(`Found ${commits.trim().split('\n').length} commits since last release`);
     console.log('');
 
-    // Create Claude prompt - escape for shell
+    // Create Claude prompt - use stdin to avoid shell escaping issues
     const commitsEscaped = commits.replace(/"/g, '\\"').replace(/\n/g, '\\n');
     const prompt = `Generate concise release notes for version ${newVersion} of a Node.js CLI tool called abapgit-agent.
 
@@ -175,7 +154,7 @@ Instructions:
 
 OMIT any category that has no items.`;
 
-    // Call Claude CLI - use stdin to avoid shell escaping issues
+    // Call Claude CLI - use stdin
     try {
       releaseNotesContent = execSync('claude --print', {
         cwd: repoRoot,
@@ -201,133 +180,146 @@ OMIT any category that has no items.`;
   releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
 }
 
-// Show release notes in dry-run mode
-if (dryRun) {
-  console.log('📝 Generated Release Notes:');
-  console.log('─'.repeat(50));
-  console.log(releaseNotesContent);
-  console.log('─'.repeat(50));
-  console.log('');
-}
-
-// Update RELEASE_NOTES.md - read from git to avoid local modifications affecting check
-let existingContent = '';
-try {
-  existingContent = execSync(`git show HEAD:RELEASE_NOTES.md`, { cwd: repoRoot, encoding: 'utf8' });
-} catch (e) {
-  // File doesn't exist in git yet, use empty content
-  existingContent = '';
-}
-
-if (existingContent) {
-  // Check if version already exists in the committed file (not local modifications)
-  // Match both "## v1.0.0" and "## Release Notes for v1.0.0" formats
-  const versionRegex = new RegExp(`## (Release Notes for )?v${newVersion.replace(/\./g, '\\.')}`);
-  if (versionRegex.test(existingContent)) {
-    console.log(`Release notes for v${newVersion} already exist in git`);
-  } else {
-    let newContent;
-
-    // Check if there's a "# Release Notes" header - insert after it if present
-    if (existingContent.startsWith('# Release Notes')) {
-      // Find the position after "# Release Notes" and any following content
-      // Match both "## v1.0.0" and "## Release Notes for v1.0.0" formats
-      const lines = existingContent.split('\n');
-      let insertIndex = 0;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].match(/^## (Release Notes for )?v\d+\.\d+\.\d+/)) {
-          insertIndex = i;
-          break;
-        }
-      }
-      // Insert new content before the first version header
-      const before = lines.slice(0, insertIndex).join('\n');
-      const after = lines.slice(insertIndex).join('\n');
-      newContent = before + '\n\n' + releaseNotesContent + '\n\n---\n\n' + after;
-    } else {
-      // Add new version at the top
-      newContent = releaseNotesContent + '\n\n---\n\n' + existingContent;
-    }
-
-    fs.writeFileSync(releaseNotesPath, newContent);
-    if (dryRun) {
-      console.log('📄 RELEASE_NOTES.md: would add new version at top');
-    } else {
-      console.log(`Updated RELEASE_NOTES.md with v${newVersion}`);
-    }
-  }
-} else {
-  // Create new RELEASE_NOTES.md
-  fs.writeFileSync(releaseNotesPath, releaseNotesContent);
-  console.log(`Created RELEASE_NOTES.md with v${newVersion}`);
-}
+// Show release notes preview
+console.log('📝 Release Notes Preview:');
+console.log('─'.repeat(50));
+console.log(releaseNotesContent);
+console.log('─'.repeat(50));
 console.log('');
 
-// Check git status and commit (skip in dry-run)
-const status = execSync('git status --porcelain', { cwd: repoRoot, encoding: 'utf8' });
+// Show what will happen
+console.log('📋 Release Summary:');
+console.log(`   Version: ${currentVersion} -> ${newVersion}`);
+console.log(`   ABAP version: will be updated to ${newVersion}`);
+console.log(`   Release notes: will be added to RELEASE_NOTES.md`);
+console.log(`   Git commit: "chore: release v${newVersion}"`);
+console.log(`   Git tag: v${newVersion}`);
+console.log(`   Remote: ${remoteName}`);
+console.log('');
 
-if (status.trim()) {
-  if (dryRun) {
-    console.log('🔹 DRY RUN - Would create commit with changes:');
-    console.log(status);
-    console.log('');
-  } else {
-    // Stage and commit (NOTE: don't include package.json - npm version will handle it)
-    try {
-      execSync('git add abap/zcl_abgagt_resource_health.clas.abap RELEASE_NOTES.md', { cwd: repoRoot });
-      execSync(`git commit -m "chore: release v${newVersion}"`, { cwd: repoRoot });
-      console.log('Created git commit for version update');
-      console.log('');
-    } catch (e) {
-      console.log('No changes to commit or commit failed');
-    }
-  }
-} else {
-  console.log('No changes to commit');
+// If dry-run, stop here
+if (dryRun) {
+  console.log('🔹 DRY RUN - Preview complete, no changes made');
   console.log('');
+  console.log('To release, run without --dry-run:');
+  console.log(`  npm run release -- --${bumpType}`);
+  console.log('');
+  process.exit(0);
 }
 
-// Run npm version command to create tag (must be done AFTER commit)
-if (dryRun) {
-  console.log(`🔹 DRY RUN - Would run: npm version ${bumpType}`);
+// Ask for confirmation
+const readline = require('readline');
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+rl.question('Do you want to release? [Y/n] ', (answer) => {
+  rl.close();
+  const proceed = answer.toLowerCase().trim() === '' || answer.toLowerCase().trim() === 'y';
+
+  if (!proceed) {
+    console.log('');
+    console.log('Release cancelled.');
+    process.exit(0);
+  }
+
   console.log('');
-} else {
-  console.log(`Running npm version ${bumpType} to create tag...`);
+  console.log('🚀 Proceeding with release...');
+  console.log('');
+
+  // 1. Update ABAP health resource
+  console.log('Updating ABAP health resource...');
+  let abapContent = fs.readFileSync(abapHealthPath, 'utf8');
+  const oldVersionMatch = abapContent.match(/version":"(\d+\.\d+\.\d+)"/);
+  if (oldVersionMatch) {
+    const oldVersion = oldVersionMatch[1];
+    abapContent = abapContent.replace(
+      `version":"${oldVersion}"`,
+      `version":"${newVersion}"`
+    );
+    fs.writeFileSync(abapHealthPath, abapContent);
+    console.log(`✅ ABAP version: ${oldVersion} -> ${newVersion}`);
+  } else {
+    console.error('⚠️ Could not find version in ABAP file');
+  }
+  console.log('');
+
+  // 2. Update RELEASE_NOTES.md
+  console.log('Updating RELEASE_NOTES.md...');
+  let existingContent = '';
+  try {
+    existingContent = execSync(`git show HEAD:RELEASE_NOTES.md`, { cwd: repoRoot, encoding: 'utf8' });
+  } catch (e) {
+    existingContent = '';
+  }
+
+  if (existingContent) {
+    // Check if version already exists
+    const versionRegex = new RegExp(`## (Release Notes for )?v${newVersion.replace(/\./g, '\\.')}`);
+    if (!versionRegex.test(existingContent)) {
+      let newContent;
+      if (existingContent.startsWith('# Release Notes')) {
+        const lines = existingContent.split('\n');
+        let insertIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].match(/^## (Release Notes for )?v\d+\.\d+\.\d+/)) {
+            insertIndex = i;
+            break;
+          }
+        }
+        const before = lines.slice(0, insertIndex).join('\n');
+        const after = lines.slice(insertIndex).join('\n');
+        newContent = before + '\n\n' + releaseNotesContent + '\n\n---\n\n' + after;
+      } else {
+        newContent = releaseNotesContent + '\n\n---\n\n' + existingContent;
+      }
+      fs.writeFileSync(releaseNotesPath, newContent);
+    }
+  } else {
+    fs.writeFileSync(releaseNotesPath, releaseNotesContent);
+  }
+  console.log('✅ RELEASE_NOTES.md updated');
+  console.log('');
+
+  // 3. Create git commit
+  console.log('Creating git commit...');
+  try {
+    execSync('git add abap/zcl_abgagt_resource_health.clas.abap RELEASE_NOTES.md', { cwd: repoRoot });
+    execSync(`git commit -m "chore: release v${newVersion}"`, { cwd: repoRoot });
+    console.log('✅ Created commit: chore: release v' + newVersion);
+  } catch (e) {
+    console.log('⚠️ Commit failed:', e.message);
+  }
+  console.log('');
+
+  // 4. Run npm version to create tag
+  console.log(`Running npm version ${bumpType}...`);
   try {
     execSync(`npm version ${bumpType} --no-git-tag-version`, { cwd: repoRoot, encoding: 'utf8' });
-    console.log(`✅ Created version ${newVersion} in package.json`);
-    console.log('');
+    console.log(`✅ Created tag: v${newVersion}`);
   } catch (e) {
     console.log('⚠️ npm version failed:', e.message);
-    console.log('');
   }
-}
-
-// Push to trigger GitHub Actions
-if (dryRun) {
-  console.log('🔹 DRY RUN - Would push to github.com with --follow-tags');
-  console.log('');
-} else {
-  console.log('Pushing to github.com to trigger release...');
   console.log('');
 
+  // 5. Push to github.com
+  console.log(`Pushing to ${remoteName}...`);
   try {
-    // Push master and tags to github.com
     execSync(`git push ${remoteName} master --follow-tags`, { cwd: repoRoot });
-    console.log('Pushed to github.com successfully!');
-    console.log('');
+    console.log('✅ Pushed to github.com');
   } catch (e) {
-    console.log('Push failed, please push manually');
-    console.log('');
+    console.log('⚠️ Push failed, please push manually');
   }
+  console.log('');
 
-  console.log('Release workflow triggered!');
+  console.log('🎉 Release completed!');
   console.log('');
   console.log('The GitHub Actions workflow will:');
   console.log('1. Run tests');
   console.log('2. Publish to npm');
-  console.log('3. Create GitHub release with Claude-generated notes');
+  console.log('3. Create GitHub release with release notes');
   console.log('');
   console.log('Next step for ABAP system:');
   console.log('  abapgit-agent pull --files abap/zcl_abgagt_resource_health.clas.abap');
-}
+});
