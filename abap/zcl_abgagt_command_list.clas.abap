@@ -127,17 +127,19 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           ls_count TYPE ty_type_count,
           lv_package TYPE tdevc-devclass,
           lv_limit TYPE i,
-          lv_offset TYPE i.
+          lv_offset TYPE i,
+          lv_obj_name TYPE tadir-obj_name.
 
     lv_package = is_params-package.
     lv_limit = is_params-limit.
     lv_offset = is_params-offset.
 
-    " Get all objects from tadir - simple approach
+    " Get all objects from tadir
     SELECT obj_name FROM tadir
       WHERE devclass = lv_package
-      INTO ls_object-name.
-      ls_object-type = 'CLAS'.  " placeholder
+      INTO lv_obj_name.
+      ls_object-name = lv_obj_name.
+      ls_object-type = 'CLAS'.
       APPEND ls_object TO lt_objects.
     ENDSELECT.
 
