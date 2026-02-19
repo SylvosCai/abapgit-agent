@@ -212,34 +212,25 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     " Calculate offset for pagination
     lv_offset = is_params-offset.
 
-    " Get all objects - filter in ABAP after query
+    " Get all objects
     SELECT object, obj_name FROM tadir
       WHERE devclass = @lv_package
       ORDER BY object, obj_name
-      UP TO @is_params-limit ROWS
       INTO TABLE @lt_objects.
 
-    " Get total count for pagination
-    IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
-      SELECT COUNT( * ) FROM tadir
-        INTO rs_result-total
-        WHERE devclass = lv_package
-          AND object IN lt_types
-          AND obj_name LIKE lv_name_pattern.
-    ELSEIF lv_has_type_filter = abap_true.
-      SELECT COUNT( * ) FROM tadir
-        INTO rs_result-total
-        WHERE devclass = lv_package
-          AND object IN lt_types.
-    ELSEIF lv_name_pattern IS NOT INITIAL.
-      SELECT COUNT( * ) FROM tadir
-        INTO rs_result-total
-        WHERE devclass = lv_package
-          AND obj_name LIKE lv_name_pattern.
-    ELSE.
-      SELECT COUNT( * ) FROM tadir
-        INTO rs_result-total
-        WHERE devclass = lv_package.
+    " Get total count
+    SELECT COUNT( * ) FROM tadir
+      INTO @rs_result-total
+      WHERE devclass = @lv_package.
+
+    " Handle offset - delete first n rows
+    IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
+      DELETE lt_objects FROM 1 TO lv_offset.
+    ENDIF.
+
+    " Handle limit - keep only n rows
+    IF is_params-limit > 0 AND lines( lt_objects ) > is_params-limit.
+      DELETE lt_objects FROM ( is_params-limit + 1 ) TO lines( lt_objects ).
     ENDIF.
 
     rs_result-success = abap_true.
