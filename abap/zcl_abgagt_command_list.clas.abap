@@ -215,35 +215,35 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     " Get objects with filters
     IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
       SELECT object obj_name FROM tadir
-        UP TO is_params-limit ROWS
-        INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND object IN lt_types
           AND obj_name LIKE lv_name_pattern
         ORDER BY object obj_name
+        INTO CORRESPONDING FIELDS OF TABLE lt_objects
+        UP TO is_params-limit ROWS
         OFFSET lv_offset.
     ELSEIF lv_has_type_filter = abap_true.
       SELECT object obj_name FROM tadir
-        UP TO is_params-limit ROWS
-        INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND object IN lt_types
         ORDER BY object obj_name
+        INTO CORRESPONDING FIELDS OF TABLE lt_objects
+        UP TO is_params-limit ROWS
         OFFSET lv_offset.
     ELSEIF lv_name_pattern IS NOT INITIAL.
       SELECT object obj_name FROM tadir
-        UP TO is_params-limit ROWS
-        INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
           AND obj_name LIKE lv_name_pattern
         ORDER BY object obj_name
+        INTO CORRESPONDING FIELDS OF TABLE lt_objects
+        UP TO is_params-limit ROWS
         OFFSET lv_offset.
     ELSE.
       SELECT object obj_name FROM tadir
-        UP TO is_params-limit ROWS
-        INTO CORRESPONDING FIELDS OF TABLE lt_objects
         WHERE devclass = lv_package
         ORDER BY object obj_name
+        INTO CORRESPONDING FIELDS OF TABLE lt_objects
+        UP TO is_params-limit ROWS
         OFFSET lv_offset.
     ENDIF.
 
