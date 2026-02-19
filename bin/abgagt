@@ -15,9 +15,8 @@ const { spawn } = require('child_process');
 const agentPath = path.join(__dirname, 'abapgit-agent');
 const args = process.argv.slice(2);
 
-const child = spawn(agentPath, args, {
-  stdio: 'inherit',
-  shell: true
+const child = spawn('node', [agentPath, ...args], {
+  stdio: 'inherit'
 });
 
 child.on('exit', (code) => {
