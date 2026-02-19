@@ -238,39 +238,6 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     rs_result-limit = is_params-limit.
     rs_result-offset = is_params-offset.
     rs_result-objects = lt_objects.
-
-    " Get counts by type
-    IF lv_has_type_filter = abap_true AND lv_name_pattern IS NOT INITIAL.
-      SELECT object COUNT( * ) AS count FROM tadir
-        INTO TABLE lt_counts
-        WHERE devclass = lv_package
-          AND object IN lt_types
-          AND obj_name LIKE lv_name_pattern
-        GROUP BY object
-        ORDER BY object.
-    ELSEIF lv_has_type_filter = abap_true.
-      SELECT object COUNT( * ) AS count FROM tadir
-        INTO TABLE lt_counts
-        WHERE devclass = lv_package
-          AND object IN lt_types
-        GROUP BY object
-        ORDER BY object.
-    ELSEIF lv_name_pattern IS NOT INITIAL.
-      SELECT object COUNT( * ) AS count FROM tadir
-        INTO TABLE lt_counts
-        WHERE devclass = lv_package
-          AND obj_name LIKE lv_name_pattern
-        GROUP BY object
-        ORDER BY object.
-    ELSE.
-      SELECT object COUNT( * ) AS count FROM tadir
-        INTO TABLE lt_counts
-        WHERE devclass = lv_package
-        GROUP BY object
-        ORDER BY object.
-    ENDIF.
-
-    rs_result-by_type = lt_counts.
   ENDMETHOD.
 
 ENDCLASS.
