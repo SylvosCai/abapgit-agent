@@ -128,64 +128,89 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_package TYPE tdevc-devclass,
           lv_limit TYPE i,
           lv_offset TYPE i,
-          lv_objname TYPE tadir-obj_name,
-          lv_object TYPE tadir-object,
-          lv_type_filter TYPE string,
-          lv_name_filter TYPE string.
+          lv_name_pattern TYPE tadir-obj_name,
+          lt_type_range TYPE RANGE OF tadir-object,
+          ls_type LIKE LINE OF lt_type_range.
 
     lv_package = is_params-package.
     lv_limit = is_params-limit.
     lv_offset = is_params-offset.
-    lv_type_filter = is_params-type.
-    lv_name_filter = is_params-name.
+    lv_name_pattern = is_params-name.
 
-    " Parse type filter once
-    DATA lt_types TYPE STANDARD TABLE OF string.
-    IF lv_type_filter IS NOT INITIAL.
-      SPLIT to_upper( lv_type_filter ) AT ',' INTO TABLE lt_types.
+    " Build type range table
+    IF is_params-type IS NOT INITIAL.
+      DATA lt_type_strings TYPE STANDARD TABLE OF string.
+      SPLIT to_upper( is_params-type ) AT ',' INTO TABLE lt_type_strings.
+      LOOP AT lt_type_strings INTO DATA(lv_type_str).
+        CLEAR ls_type.
+        ls_type-sign = 'I'.
+        ls_type-option = 'EQ'.
+        ls_type-low = lv_type_str.
+        APPEND ls_type TO lt_type_range.
+      ENDLOOP.
     ENDIF.
 
-    " Get all objects from tadir
-    SELECT object obj_name FROM tadir
-      INTO (lv_object, lv_objname)
-      WHERE devclass = lv_package.
-      ls_object-name = lv_objname.
-      ls_object-type = lv_object.
-
-      " Apply type filter
-      IF lv_type_filter IS NOT INITIAL.
-        READ TABLE lt_types WITH KEY table_line = lv_object TRANSPORTING NO FIELDS.
-        IF sy-subrc <> 0.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-
-      " Apply name filter
-      IF lv_name_filter IS NOT INITIAL.
-        " Convert * to + for CP match (CP uses * as wildcard)
-        DATA lv_pattern TYPE string.
-        lv_pattern = lv_name_filter.
-        IF lv_objname CP lv_pattern.
-          " matches - continue
-        ELSE.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-
-      APPEND ls_object TO lt_objects.
-    ENDSELECT.
-
-    " Get total count
-    rs_result-total = lines( lt_objects ).
-
-    " Handle offset
-    IF lv_offset > 0 AND lv_offset <= lines( lt_objects ).
-      DELETE lt_objects FROM 1 TO lv_offset.
+    " Convert name pattern - replace * with % for SQL LIKE
+    IF lv_name_pattern IS NOT INITIAL.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_name_pattern WITH '%'.
     ENDIF.
 
-    " Handle limit
-    IF lv_limit > 0 AND lines( lt_objects ) > lv_limit.
-      DELETE lt_objects FROM ( lv_limit + 1 ) TO lines( lt_objects ).
+    " Get objects with filters in SELECT
+    IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
+      SELECT object obj_name FROM tadir
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range
+          AND obj_name LIKE @lv_name_pattern
+        ORDER BY object, obj_name
+        INTO TABLE @lt_objects
+        UP TO @lv_limit ROWS
+        OFFSET @lv_offset.
+    ELSEIF lt_type_range IS NOT INITIAL.
+      SELECT object obj_name FROM tadir
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range
+        ORDER BY object, obj_name
+        INTO TABLE @lt_objects
+        UP TO @lv_limit ROWS
+        OFFSET @lv_offset.
+    ELSEIF lv_name_pattern IS NOT INITIAL.
+      SELECT object obj_name FROM tadir
+        WHERE devclass = @lv_package
+          AND obj_name LIKE @lv_name_pattern
+        ORDER BY object, obj_name
+        INTO TABLE @lt_objects
+        UP TO @lv_limit ROWS
+        OFFSET @lv_offset.
+    ELSE.
+      SELECT object obj_name FROM tadir
+        WHERE devclass = @lv_package
+        ORDER BY object, obj_name
+        INTO TABLE @lt_objects
+        UP TO @lv_limit ROWS
+        OFFSET @lv_offset.
+    ENDIF.
+
+    " Get total count (without limit/offset)
+    IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
+      SELECT COUNT( * ) FROM tadir
+        INTO @rs_result-total
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range
+          AND obj_name LIKE @lv_name_pattern.
+    ELSEIF lt_type_range IS NOT INITIAL.
+      SELECT COUNT( * ) FROM tadir
+        INTO @rs_result-total
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range.
+    ELSEIF lv_name_pattern IS NOT INITIAL.
+      SELECT COUNT( * ) FROM tadir
+        INTO @rs_result-total
+        WHERE devclass = @lv_package
+          AND obj_name LIKE @lv_name_pattern.
+    ELSE.
+      SELECT COUNT( * ) FROM tadir
+        INTO @rs_result-total
+        WHERE devclass = @lv_package.
     ENDIF.
 
     " Build BY_TYPE aggregation
@@ -197,7 +222,6 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         ls_count-count = 1.
       ENDAT.
       AT END OF type.
-        ls_count-count = lines( lt_objects ).
         APPEND ls_count TO lt_counts.
       ENDAT.
     ENDLOOP.
