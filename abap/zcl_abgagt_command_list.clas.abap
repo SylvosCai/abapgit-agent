@@ -157,7 +157,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Get objects with filters in SELECT
     IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
-      SELECT object obj_name FROM tadir
+      SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
           AND object IN @lt_type_range
           AND obj_name LIKE @lv_name_pattern
@@ -166,7 +166,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         UP TO @lv_limit ROWS
         OFFSET @lv_offset.
     ELSEIF lt_type_range IS NOT INITIAL.
-      SELECT object obj_name FROM tadir
+      SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
           AND object IN @lt_type_range
         ORDER BY object, obj_name
@@ -174,7 +174,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
         UP TO @lv_limit ROWS
         OFFSET @lv_offset.
     ELSEIF lv_name_pattern IS NOT INITIAL.
-      SELECT object obj_name FROM tadir
+      SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
           AND obj_name LIKE @lv_name_pattern
         ORDER BY object, obj_name
