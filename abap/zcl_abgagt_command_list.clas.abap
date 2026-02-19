@@ -19,14 +19,14 @@ CLASS zcl_abgagt_command_list DEFINITION PUBLIC FINAL CREATE PUBLIC.
              name TYPE string,
            END OF ty_object.
 
-    TYPES ty_objects TYPE STANDARD TABLE OF ty_object.
+    TYPES ty_objects TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_type_count,
              type TYPE string,
              count TYPE i,
            END OF ty_type_count.
 
-    TYPES ty_type_counts TYPE STANDARD TABLE OF ty_type_count.
+    TYPES ty_type_counts TYPE STANDARD TABLE OF ty_type_count WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_list_result,
              success TYPE abap_bool,
