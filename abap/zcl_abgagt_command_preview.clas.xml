@@ -8,6 +8,7 @@
     <DESCRIPT>PREVIEW command - preview table/CDS view data</DESCRIPT>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>
