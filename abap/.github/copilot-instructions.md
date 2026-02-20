@@ -195,8 +195,8 @@ AI assistant SHOULD call `view` command when:
 
 ## Error Handling
 
-- Activation fails with "Error updating where-used list" = **syntax error**
-- Use `abapgit-agent inspect --files <file>` for detailed error messages
+- **"Error updating where-used list"** → This is a **SYNTAX ERROR** (not a warning!)
+- Use `abapgit-agent inspect --files <file>` for detailed error messages with line numbers
 
 ---
 

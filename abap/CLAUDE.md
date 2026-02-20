@@ -112,6 +112,7 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
        │
        ▼
 6. Verify → Check pull output
+   - **"Error updating where-used list"** → This is a **SYNTAX ERROR** (check inspect for details)
    - Objects NOT in "Activated Objects" but in "Failed Objects Log" → Syntax error (check inspect)
    - Objects NOT appearing at all → XML metadata issue (check XML format in 08_abapgit.md)
        │
