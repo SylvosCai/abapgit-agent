@@ -94,7 +94,9 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 5. Activate → abapgit-agent pull --files src/file.clas.abap
        │
        ▼
-6. Verify → Check pull output to confirm objects recognized by abapGit
+6. Verify → Check pull output
+   - Objects NOT in "Activated Objects" but in "Failed Objects Log" → Syntax error (check inspect)
+   - Objects NOT appearing at all → XML metadata issue (check XML format in 08_abapgit.md)
        │
        ▼
 7. If needed → Use inspect to check syntax (runs against ABAP system)
@@ -103,7 +105,9 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 **IMPORTANT**:
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
 - **Use inspect AFTER pull** to check syntax on objects already in ABAP
-- **Check pull output** to verify objects were created/updated
+- **Check pull output**:
+  - In "Failed Objects Log" → Syntax error (use inspect for details)
+  - Not appearing at all → XML metadata is wrong
 
 ### Commands
 
