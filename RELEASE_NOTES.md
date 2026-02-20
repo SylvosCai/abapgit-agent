@@ -83,8 +83,8 @@ Display package hierarchy tree from ABAP system:
 # Basic usage
 abapgit-agent tree --package $MY_PACKAGE
 
-# With object counts
-abapgit-agent tree --package $MY_PACKAGE --include-objects
+# With object type counts
+abapgit-agent tree --package $MY_PACKAGE --include-types
 
 # Limit depth
 abapgit-agent tree --package $MY_PACKAGE --depth 2

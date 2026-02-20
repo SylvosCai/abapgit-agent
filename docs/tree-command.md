@@ -10,8 +10,8 @@ Display the package hierarchy tree from an ABAP system, showing parent packages,
 # Basic usage
 abapgit-agent tree --package $ZMY_PACKAGE
 
-# With object breakdown
-abapgit-agent tree --package $ZMY_PACKAGE --include-objects
+# With object type breakdown
+abapgit-agent tree --package $ZMY_PACKAGE --include-types
 
 # Limit depth
 abapgit-agent tree --package $ZMY_PACKAGE --depth 3
@@ -31,7 +31,7 @@ abapgit-agent tree --package $ZMY_PACKAGE --json
 |-----------|----------|-------------|
 | `--package` | Yes | ABAP package name (e.g., `$ZMY_PACKAGE`, `ZMY_PACKAGE`) |
 | `--depth` | No | Maximum depth to traverse (default: 3) |
-| `--include-objects` | No | Include object counts breakdown |
+| `--include-types` | No | Include object type counts (e.g., CLAS=10 INTF=2) |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -250,8 +250,8 @@ Error: Package $ZNONEXISTENT does not exist in the system.
 # Basic usage
 abapgit-agent tree --package $ZMY_PACKAGE
 
-# With object breakdown
-abapgit-agent tree --package $ZMY_PACKAGE --include-objects
+# With object type breakdown
+abapgit-agent tree --package $ZMY_PACKAGE --include-types
 
 # Shallow tree (depth 1)
 abapgit-agent tree --package $ZMY_PACKAGE --depth 1

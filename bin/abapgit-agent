@@ -727,11 +727,11 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
 /**
  * Run tree command and return raw result
  */
-async function runTreeCommand(packageName, depth, includeObjects, csrfToken, config) {
+async function runTreeCommand(packageName, depth, includeTypes, csrfToken, config) {
   const data = {
     package: packageName,
     depth: depth,
-    include_objects: includeObjects
+    include_objects: includeTypes
   };
 
   return await request('POST', '/sap/bc/z_abapgit_agent/tree', data, { csrfToken });
@@ -740,13 +740,13 @@ async function runTreeCommand(packageName, depth, includeObjects, csrfToken, con
 /**
  * Display tree output in human-readable format
  */
-async function displayTreeOutput(packageName, depth, includeObjects) {
+async function displayTreeOutput(packageName, depth, includeTypes) {
   const config = loadConfig();
   const csrfToken = await fetchCsrfToken(config);
 
   console.log(`\n  Getting package tree for: ${packageName}`);
 
-  const result = await runTreeCommand(packageName, depth, includeObjects, csrfToken, config);
+  const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, config);
 
   // Handle uppercase keys from ABAP
   const success = result.SUCCESS || result.success;
@@ -786,7 +786,7 @@ async function displayTreeOutput(packageName, depth, includeObjects) {
   console.log(`  OBJECTS: ${totalObjects}`);
 
   // Display object types if available
-  if (includeObjects && objectTypes.length > 0) {
+  if (includeTypes && objectTypes.length > 0) {
     const typeStr = objectTypes.map(t => `${t.OBJECT || t.object}=${t.COUNT || t.count}`).join(' ');
     console.log(`  TYPES: ${typeStr}`);
   }
@@ -1632,7 +1632,7 @@ Examples:
         const packageArgIndex = args.indexOf('--package');
         if (packageArgIndex === -1) {
           console.error('Error: --package parameter required');
-          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-types] [--json]');
           console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
           process.exit(1);
         }
@@ -1646,7 +1646,7 @@ Examples:
           console.error('  or escape the $ character:');
           console.error('  abapgit-agent tree --package \\$ZMY_PACKAGE');
           console.error('');
-          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-types] [--json]');
           console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
           process.exit(1);
         }
@@ -1656,7 +1656,7 @@ Examples:
         // Check for empty/whitespace-only package name
         if (!packageName || packageName.trim() === '') {
           console.error('Error: --package parameter cannot be empty');
-          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-objects] [--json]');
+          console.error('Usage: abapgit-agent tree --package <package> [--depth <n>] [--include-types] [--json]');
           console.error('Example: abapgit-agent tree --package ZMY_PACKAGE');
           process.exit(1);
         }
@@ -1672,8 +1672,8 @@ Examples:
           }
         }
 
-        // Optional include-objects parameter
-        const includeObjects = args.includes('--include-objects');
+        // Optional include-types parameter (--include-objects is deprecated alias)
+        const includeTypes = args.includes('--include-types') || args.includes('--include-objects');
 
         // Optional json parameter
         const jsonOutput = args.includes('--json');
@@ -1681,10 +1681,10 @@ Examples:
         if (jsonOutput) {
           const config = loadConfig();
           const csrfToken = await fetchCsrfToken(config);
-          const result = await runTreeCommand(packageName, depth, includeObjects, csrfToken, config);
+          const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, config);
           console.log(JSON.stringify(result, null, 2));
         } else {
-          await displayTreeOutput(packageName, depth, includeObjects);
+          await displayTreeOutput(packageName, depth, includeTypes);
         }
         break;
       }
@@ -2397,7 +2397,7 @@ Commands:
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
 
-  tree --package <package> [--depth <n>] [--include-objects] [--json]
+  tree --package <package> [--depth <n>] [--include-types] [--json]
     Display package hierarchy tree from ABAP system
 
   list --package <package> [--type <types>] [--name <pattern>] [--limit <n>] [--offset <n>] [--json]
@@ -2440,7 +2440,7 @@ Examples:
   abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
   abapgit-agent tree --package $ZMY_PACKAGE                      # Show package tree
   abapgit-agent tree --package $ZMY_PACKAGE --depth 2             # Shallow tree
-  abapgit-agent tree --package $ZMY_PACKAGE --include-objects     # With object counts
+  abapgit-agent tree --package $ZMY_PACKAGE --include-types      # With type counts
   abapgit-agent tree --package $ZMY_PACKAGE --json                # JSON output
   abapgit-agent list --package $ZMY_PACKAGE                      # List all objects
   abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF      # Filter by type
