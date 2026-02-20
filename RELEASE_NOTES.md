@@ -1,6 +1,38 @@
 # Release Notes
 
 
+
+## v1.6.0
+
+### New Features
+
+- Add `ref` command to search ABAP reference materials
+- Add `list` command to list ABAP objects with filtering
+- Add CLI aliases (`aga`, `abg`, `abgagt`) for convenience
+- Add `--include-types` flag to tree command for object counts
+
+### Bug Fixes
+
+- Auto-convert ISO dates to ABAP format in WHERE clauses
+- Support CDS entities in preview command
+- Use proper ABAP SQL syntax with @ for host variables
+- Fix preview command to set success=false on errors
+
+### Improvements
+
+- Make unit test step optional in workflow
+- Add confirmation prompt for release command
+
+### Documentation
+
+- Add CDS syntax reference section to guidelines
+- Add CDS Test Double Framework guidance for unit tests
+- Clarify when to use inspect vs view commands
+
+---
+
+---
+
 ## Release Notes for v1.5.0
 
 ### Features
