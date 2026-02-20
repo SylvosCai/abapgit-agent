@@ -142,6 +142,11 @@ See `../guidelines/03_testing.md` for code examples.
   - In "Failed Objects Log" → Syntax error (use inspect for details)
   - Not appearing at all → XML metadata is wrong
 
+**When to use inspect vs view**:
+- **inspect**: Use when there are SYNTAX ERRORS (to find line numbers and details)
+- **view**: Use when you need to understand an object STRUCTURE (table fields, class methods)
+- Do NOT use view to debug syntax errors - view shows definitions, not errors
+
 ### Commands
 
 ```bash
