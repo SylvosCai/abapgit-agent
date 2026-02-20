@@ -72,6 +72,20 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 **Use `ref --topic abapgit` for complete XML templates.**
 
+### 4. Use `unit` Command for Unit Tests
+
+**Use `abapgit-agent unit` to run ABAP unit tests (AUnit).**
+
+```
+❌ WRONG: Try to use SE24 or other transaction codes
+✅ CORRECT: Use abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
+```
+
+```bash
+# Run unit tests (after pulling to ABAP)
+abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
+```
+
 ---
 
 ## Development Workflow
