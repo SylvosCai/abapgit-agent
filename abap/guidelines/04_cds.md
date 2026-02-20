@@ -106,3 +106,15 @@ where devclass not like '$%'
 2. **Association cardinality**: `[0..1]`, `[1..1]`, `[0..n]`, `[1..n]`
 3. **Expose associations**: Add the association name at the end of the SELECT to expose it for OData navigation
 4. **Activation warnings**: Search help warnings are informational and don't block activation
+
+## CDS Syntax Reference
+
+When working with CDS view syntax (arithmetic, built-in functions, aggregations, etc.):
+
+1. Run `abapgit-agent ref --topic cds` to see available topics and example files
+2. Check the example files in `abap-cheat-sheets/src/`:
+   - `zdemo_abap_cds_ve_sel.ddls.asddls` - Arithmetic expressions, built-in functions (division, cast, etc.)
+   - `zdemo_abap_cds_ve_agg_exp.ddls.asddls` - Aggregate expressions (SUM, AVG, COUNT)
+   - `zdemo_abap_cds_ve_assoc.ddls.asddls` - Associations
+
+**Note**: This requires `abap-cheat-sheets` to be in the reference folder (configured in `.abapGitAgent`).
