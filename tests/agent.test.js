@@ -561,7 +561,7 @@ describe('ABAPGitAgent', () => {
 
       await agent.preview(['SFLIGHT'], 'TABL', 20);
 
-      expect(mockPreview).toHaveBeenCalledWith(['SFLIGHT'], 'TABL', 20);
+      expect(mockPreview).toHaveBeenCalledWith(['SFLIGHT'], 'TABL', 20, null, null);
     });
 
     test('throws error on exception', async () => {
