@@ -129,7 +129,7 @@ See `../guidelines/03_testing.md` for code examples.
    - Objects NOT appearing at all → XML metadata issue
        │
        ▼
-7. Run unit tests → abapgit-agent unit --files src/zcl_test.clas.testclasses.abap (AFTER successful pull)
+7. (Optional) Run unit tests → abapgit-agent unit --files src/zcl_test.clas.testclasses.abap (ONLY if test file exists, AFTER successful pull)
        │
        ▼
 8. If needed → Use inspect to check syntax (runs against ABAP system)
