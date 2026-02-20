@@ -641,6 +641,100 @@ function detectGuidelinesFolder() {
 }
 
 /**
+ * Get the path to the built-in guidelines in abapgit-agent
+ * @returns {string|null} Path to built-in guidelines or null if not found
+ */
+function getBuiltInGuidelinesPath() {
+  // Try to find the guidelines relative to this module
+  // This allows the CLI to work from any location
+  const possiblePaths = [
+    // When running from source (bin/abapgit-agent)
+    path.join(__dirname, '..', 'abap', 'guidelines'),
+    // When running from installed package
+    path.join(__dirname, '..', '..', 'abap', 'guidelines')
+  ];
+
+  for (const guidelinesPath of possiblePaths) {
+    if (fs.existsSync(guidelinesPath)) {
+      const stats = fs.statSync(guidelinesPath);
+      if (stats.isDirectory()) {
+        return guidelinesPath;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Initialize guidelines in current project by copying from abapgit-agent
+ * @returns {Object} Init result
+ */
+function initGuidelines() {
+  const builtInPath = getBuiltInGuidelinesPath();
+
+  if (!builtInPath) {
+    return {
+      success: false,
+      error: 'Built-in guidelines not found',
+      hint: 'Make sure abapgit-agent is properly installed'
+    };
+  }
+
+  const cwd = process.cwd();
+  const targetPath = path.join(cwd, 'abap', 'guidelines');
+
+  // Check if guidelines already exist
+  if (fs.existsSync(targetPath)) {
+    return {
+      success: false,
+      error: 'Guidelines folder already exists',
+      hint: `Delete or rename '${targetPath}' first, then run --init again`,
+      existingPath: targetPath
+    };
+  }
+
+  try {
+    // Create target directory
+    fs.mkdirSync(targetPath, { recursive: true });
+
+    // Copy all files from built-in guidelines
+    const files = fs.readdirSync(builtInPath);
+    let copied = 0;
+
+    for (const file of files) {
+      if (file.endsWith('.md')) {
+        const srcPath = path.join(builtInPath, file);
+        const destPath = path.join(targetPath, file);
+        const content = fs.readFileSync(srcPath, 'utf8');
+        fs.writeFileSync(destPath, content);
+        copied++;
+      }
+    }
+
+    if (copied === 0) {
+      return {
+        success: false,
+        error: 'No guideline files found in built-in guidelines'
+      };
+    }
+
+    return {
+      success: true,
+      message: `Initialized ${copied} guideline(s) in your project`,
+      sourceFolder: builtInPath,
+      targetFolder: targetPath,
+      files: files.filter(f => f.endsWith('.md'))
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to initialize: ${error.message}`
+    };
+  }
+}
+
+/**
  * Get all guideline files from the project
  * @returns {Promise<Array<{name: string, path: string, content: string}>>}
  */
@@ -812,9 +906,36 @@ function displayExportResult(result) {
   }
 }
 
+/**
+ * Display init result
+ * @param {Object} result - Init result
+ */
+function displayInitResult(result) {
+  if (result.success) {
+    console.log(`\n  ✅ ${result.message}`);
+    console.log(`\n  📁 Source: ${result.sourceFolder}`);
+    console.log(`  📁 Created: ${result.targetFolder}`);
+    console.log(`\n  Files copied:`);
+    for (const file of result.files) {
+      console.log(`    - ${file}`);
+    }
+    console.log(`\n  💡 Next steps:`);
+    console.log(`    1. Review the guidelines in abap/guidelines/`);
+    console.log(`    2. Customize as needed for your project`);
+    console.log(`    3. Run 'abapgit-agent ref --export' to make them searchable`);
+  } else {
+    console.error(`\n  ❌ ${result.error}`);
+    if (result.hint) {
+      console.error(`\n  💡 ${result.hint}`);
+    }
+  }
+}
+
 module.exports = {
   detectReferenceFolder,
   detectGuidelinesFolder,
+  getBuiltInGuidelinesPath,
+  initGuidelines,
   getReferenceRepositories,
   getGuidelineFiles,
   searchPattern,
@@ -828,5 +949,6 @@ module.exports = {
   displayTopics,
   displayRepositories,
   displayExportResult,
+  displayInitResult,
   TOPIC_MAP
 };

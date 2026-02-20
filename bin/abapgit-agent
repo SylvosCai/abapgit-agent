@@ -2238,7 +2238,18 @@ Examples:
         const listTopics = args.includes('--list-topics') || args.includes('-l');
         const listRepos = args.includes('--list-repos') || args.includes('-r');
         const exportGuidelines = args.includes('--export') || args.includes('-e');
+        const initGuidelines = args.includes('--init') || args.includes('-i');
         const jsonOutput = args.includes('--json');
+
+        if (initGuidelines) {
+          const result = refSearch.initGuidelines();
+          if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            refSearch.displayInitResult(result);
+          }
+          break;
+        }
 
         if (exportGuidelines) {
           const result = await refSearch.exportGuidelines();
@@ -2291,6 +2302,7 @@ Examples:
           console.error('  abapgit-agent ref --topic <name>      View specific topic');
           console.error('  abapgit-agent ref --list-topics       List available topics');
           console.error('  abapgit-agent ref --list-repos        List reference repositories');
+          console.error('  abapgit-agent ref --init              Initialize guidelines in project');
           console.error('  abapgit-agent ref --export            Export guidelines to reference folder');
           console.error('');
           console.error('Examples:');
@@ -2298,6 +2310,7 @@ Examples:
           console.error('  abapgit-agent ref --topic exceptions');
           console.error('  abapgit-agent ref --list-topics');
           console.error('  abapgit-agent ref --list-repos');
+          console.error('  abapgit-agent ref --init');
           console.error('  abapgit-agent ref --export');
           process.exit(1);
         }
