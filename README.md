@@ -154,6 +154,7 @@ npm run pull -- --url <git-url> --branch main
 | tree Command | [docs/tree-command.md](docs/tree-command.md) |
 | view Command | [docs/view-command.md](docs/view-command.md) |
 | preview Command | [docs/preview-command.md](docs/preview-command.md) |
+| ref Command | [docs/ref-command.md](docs/ref-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 | ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
