@@ -128,6 +128,7 @@ See `guidelines/03_testing.md` for code examples.
        │
        ▼
 6. Verify → Check pull output
+   - **Do NOT run inspect before commit/push/pull** - ABAP validates on pull
    - **"Error updating where-used list"** → This is a **SYNTAX ERROR** (check inspect for details)
    - Objects NOT in "Activated Objects" but in "Failed Objects Log" → Syntax error (check inspect)
    - Objects NOT appearing at all → XML metadata issue (check XML format in 08_abapgit.md)

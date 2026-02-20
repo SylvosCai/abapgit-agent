@@ -123,6 +123,7 @@ See `../guidelines/03_testing.md` for code examples.
        │
        ▼
 6. Verify → Check pull output
+   - **Do NOT run inspect before commit/push/pull** - ABAP validates on pull
    - Objects NOT in "Activated Objects" but in "Failed Objects Log" → Syntax error (check inspect)
    - Objects NOT appearing at all → XML metadata issue
        │
