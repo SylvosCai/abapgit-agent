@@ -3,7 +3,7 @@
  * ABAP Git Agent - CLI Tool
  *
  * Usage:
- *   abapgit-agent init --folder <folder> --package <package>
+ *   abapgit-agent init --folder <folder> --package <package>  # Initialize: copies config, CLAUDE.md, guidelines
  *   abapgit-agent create
  *   abapgit-agent import [--message <message>]
  *   abapgit-agent pull [--branch <branch>]
@@ -1209,7 +1209,7 @@ async function runInit(args) {
   }
 
   // Copy copilot-instructions.md for GitHub Copilot
-  const copilotMdPath = pathModule.join(__dirname, '..', 'abap', 'copilot-instructions.md');
+  const copilotMdPath = pathModule.join(__dirname, '..', 'abap', '.github', 'copilot-instructions.md');
   const githubDir = pathModule.join(process.cwd(), '.github');
   const localCopilotMdPath = pathModule.join(githubDir, 'copilot-instructions.md');
   try {
@@ -1225,6 +1225,35 @@ async function runInit(args) {
     }
   } catch (error) {
     console.error(`Error copying copilot-instructions.md: ${error.message}`);
+  }
+
+  // Copy guidelines folder
+  const guidelinesSrcPath = pathModule.join(__dirname, '..', 'abap', 'guidelines');
+  const guidelinesDestPath = pathModule.join(process.cwd(), 'abap', 'guidelines');
+  try {
+    if (fs.existsSync(guidelinesSrcPath)) {
+      if (!fs.existsSync(guidelinesDestPath)) {
+        // Create abap/guidelines directory
+        fs.mkdirSync(guidelinesDestPath, { recursive: true });
+        // Copy all files from guidelines folder
+        const files = fs.readdirSync(guidelinesSrcPath);
+        for (const file of files) {
+          if (file.endsWith('.md')) {
+            fs.copyFileSync(
+              pathModule.join(guidelinesSrcPath, file),
+              pathModule.join(guidelinesDestPath, file)
+            );
+          }
+        }
+        console.log(`✅ Created abap/guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
+      } else {
+        console.log(`⚠️  abap/guidelines/ already exists, skipped`);
+      }
+    } else {
+      console.log(`⚠️  guidelines folder not found in abap/ directory`);
+    }
+  } catch (error) {
+    console.error(`Error copying guidelines: ${error.message}`);
   }
 
   // Create folder
@@ -2238,18 +2267,7 @@ Examples:
         const listTopics = args.includes('--list-topics') || args.includes('-l');
         const listRepos = args.includes('--list-repos') || args.includes('-r');
         const exportGuidelines = args.includes('--export') || args.includes('-e');
-        const initGuidelines = args.includes('--init') || args.includes('-i');
         const jsonOutput = args.includes('--json');
-
-        if (initGuidelines) {
-          const result = refSearch.initGuidelines();
-          if (jsonOutput) {
-            console.log(JSON.stringify(result, null, 2));
-          } else {
-            refSearch.displayInitResult(result);
-          }
-          break;
-        }
 
         if (exportGuidelines) {
           const result = await refSearch.exportGuidelines();
@@ -2302,15 +2320,13 @@ Examples:
           console.error('  abapgit-agent ref --topic <name>      View specific topic');
           console.error('  abapgit-agent ref --list-topics       List available topics');
           console.error('  abapgit-agent ref --list-repos        List reference repositories');
-          console.error('  abapgit-agent ref --init              Initialize guidelines in project');
-          console.error('  abapgit-agent ref --export            Export guidelines to reference folder');
+          console.error('  abapgit-agent ref --export            Export local guidelines to reference folder');
           console.error('');
           console.error('Examples:');
           console.error('  abapgit-agent ref "CORRESPONDING"');
           console.error('  abapgit-agent ref --topic exceptions');
           console.error('  abapgit-agent ref --list-topics');
           console.error('  abapgit-agent ref --list-repos');
-          console.error('  abapgit-agent ref --init');
           console.error('  abapgit-agent ref --export');
           process.exit(1);
         }

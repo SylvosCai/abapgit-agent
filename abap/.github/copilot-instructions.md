@@ -118,17 +118,17 @@ AI assistant SHOULD call `view` command when:
 
 ## Guidelines Index
 
-Detailed guidelines are available in the `guidelines/` folder:
+Detailed guidelines are available in the `abap/guidelines/` folder:
 
 | File | Topic |
 |------|-------|
-| `guidelines/01_sql.md` | ABAP SQL Best Practices |
-| `guidelines/02_exceptions.md` | Exception Handling |
-| `guidelines/03_testing.md` | Unit Testing (including CDS) |
-| `guidelines/04_cds.md` | CDS Views |
-| `guidelines/05_classes.md` | ABAP Classes and Objects |
-| `guidelines/06_objects.md` | XML Metadata, Naming Conventions |
-| `guidelines/07_json.md` | JSON Handling |
+| `../abap/guidelines/01_sql.md` | ABAP SQL Best Practices |
+| `../abap/guidelines/02_exceptions.md` | Exception Handling |
+| `../abap/guidelines/03_testing.md` | Unit Testing (including CDS) |
+| `../abap/guidelines/04_cds.md` | CDS Views |
+| `../abap/guidelines/05_classes.md` | ABAP Classes and Objects |
+| `../abap/guidelines/06_objects.md` | XML Metadata, Naming Conventions |
+| `../abap/guidelines/07_json.md` | JSON Handling |
 
 These guidelines are automatically searched by the `ref` command.
 
