@@ -13,7 +13,29 @@ abapgit-agent unit --files test.clas.testclasses.abap  # Run tests
 abapgit-agent preview --objects TABLE           # Preview table data
 abapgit-agent view --objects OBJ               # View object definition
 abapgit-agent tree --package $PACKAGE          # Show package hierarchy
+abapgit-agent ref "PATTERN"                    # Search ABAP reference (cheat sheets + guidelines)
 ```
+
+## When Working on Unfamiliar ABAP Topics
+
+**IMPORTANT**: When working on unfamiliar ABAP syntax, patterns, or APIs, ALWAYS use the `ref` command first:
+
+```bash
+# Search for a specific pattern (searches SAP cheat sheets + custom guidelines)
+abapgit-agent ref "CORRESPONDING"
+abapgit-agent ref "FILTER #"
+abapgit-agent ref "VALUE #("
+
+# Browse by topic
+abapgit-agent ref --topic exceptions
+abapgit-agent ref --topic sql
+abapgit-agent ref --topic internal-tables
+
+# List all available topics
+abapgit-agent ref --list-topics
+```
+
+This ensures you use correct ABAP syntax rather than guessing.
 
 ## Common Tasks
 
@@ -907,152 +929,18 @@ abapgit-agent view --objects ZMY_TABLE --type TABL --json
 ### CLI Tool Development
 
 1. Make changes to CLI code (JavaScript)
-2. Test locally: `node bin/abapgit-agent pull`
-3. Test against real ABAP system
+2. Test locally:
+   ```bash
+   node bin/abapgit-agent --help
+   node bin/abapgit-agent <command> --help
+   ```
+3. Test against real ABAP system (requires configured `.abapGitAgent`)
 4. Commit and push
 
 ### ABAP Backend Development
 
-1. Make changes to ABAP backend (abap/ folder)
-2. Pull only changed files (faster):
-   ```bash
-   abapgit-agent pull --files abap/zcl_my_class.clas.abap
-   ```
-   Or pull all files:
-   ```bash
-   abapgit-agent pull
-   ```
-3. Commit and push
-4. Deploy changes via abapGit to your SAP system
-
-### Fast Iteration Workflow
-
-For quick ABAP code changes:
-1. Make small change to ABAP file
-2. `git add <file> && git commit -m "fix"`
-3. `abapgit-agent pull --files <file>` (seconds, not minutes)
-4. Verify activation results
-5. Repeat until done
-
-## Creating CDS Views
-
-For guidelines on creating CDS views and CDS view entities, see **ABAP Code Generation** below.
+For ABAP backend development workflow, see `/abap/CLAUDE.md`.
 
 ## For ABAP Code Generation
 
 **NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see `/abap/CLAUDE.md`. Copy that file to your ABAP repository root when setting up new projects.
-
-## ABAP Unit Tests
-
-### File Structure
-- Main class: `zcl_xxx.clas.abap`
-- Test class: `zcl_xxx.clas.testclasses.abap`
-- No separate XML needed for test classes
-
-### XML Configuration
-Add `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` to main class XML file:
-```xml
-<VSEOCLASS>
-  <CLSNAME>ZCL_ABGAGT_UTIL</CLSNAME>
-  ...
-  <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
-</VSEOCLASS>
-```
-
-### Test Class Naming
-- Short name: `ltcl_<name>` (e.g., `ltcl_util`, not `ltcl_abgagt_util_test`)
-- Must include `FINAL` keyword
-- **CRITICAL: Class name MUST NOT exceed 30 characters!**
-  - Example: `ltcl_cmd_inspect` (18 chars) is OK
-  - `ltcl_zcl_abgagt_command_infect` (32 chars) is NOT OK
-
-### Test Class Declaration
-```abap
-CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
-```
-
-### Test Methods
-- Must have `FOR TESTING` keyword
-- Can optionally include `RAISING <exception>`
-- **CRITICAL: Method names MUST NOT exceed 30 characters!**
-  - Example: `test_exec_multi_files` (20 chars) is OK
-  - `test_exec_multiple_files` (25 chars) is OK
-  - `test_exec_multiple_files_with_long_name` (40 chars) is NOT OK
-
-### Setup Method
-```abap
-METHOD setup.
-  mo_util = zcl_abgagt_util=>get_instance( ).
-ENDMETHOD.
-```
-
-### Assertions
-Use `CL_ABAP_UNIT_ASSERT` class:
-- `assert_equals( act = lv_act exp = lv_exp msg = 'message' )`
-- `assert_initial( act = lv_act msg = 'message' )`
-- `assert_not_initial( act = lv_act msg = 'message' )`
-
-### Method Call Format
-- Instance methods: `mo_object->method( )`
-- Class/static methods: `zcl_class=>method( )`
-
-### DATA() vs VALUE #() Rule
-**When assigning to a typed variable, ABAP can infer the type from the target.**
-
-**CORRECT:**
-```abap
-" When target has explicit type, VALUE #() infers from it
-DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
-lt_so_class = VALUE #( ( sign = 'I' option = 'EQ' low = lv_value ) ).
-
-" Or append with inline VALUE
-APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_value ) TO lt_so_class.
-```
-
-**WRONG (untyped variable):**
-```abap
-DATA(ls_range) = VALUE #( sign = 'I' option = 'EQ' low = lv_value ).  " Type unknown!
-```
-
-### Example Test Class
-```abap
-*----------------------------------------------------------------------*
-*       CLASS ltcl_util DEFINITION
-*----------------------------------------------------------------------*
-CLASS ltcl_util DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
-
-  PRIVATE SECTION.
-    METHODS setup.
-    DATA mo_util TYPE REF TO zcl_abgagt_util.
-
-    METHODS parse_class_file FOR TESTING.
-
-ENDCLASS.
-
-*----------------------------------------------------------------------*
-*       CLASS ltcl_util IMPLEMENTATION
-*----------------------------------------------------------------------*
-CLASS ltcl_util IMPLEMENTATION.
-
-  METHOD setup.
-    mo_util = zcl_abgagt_util=>get_instance( ).
-  ENDMETHOD.
-
-  METHOD parse_class_file.
-    DATA lv_file TYPE string VALUE 'zcl_my_class.clas.abap'.
-    DATA lv_obj_type TYPE string.
-    DATA lv_obj_name TYPE string.
-
-    mo_util->zif_abgagt_util~parse_file_to_object(
-      EXPORTING iv_file = lv_file
-      IMPORTING ev_obj_type = lv_obj_type
-                ev_obj_name = lv_obj_name ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lv_obj_type
-      exp = 'CLAS'
-      msg = 'Object type should be CLAS' ).
-  ENDMETHOD.
-
-ENDCLASS.
-```
