@@ -3,6 +3,11 @@
   "version": "1.5.0",
   "description": "ABAP Git Agent - Pull and activate ABAP code via abapGit from any git repository",
   "main": "src/index.js",
+  "files": [
+    "bin/",
+    "src/",
+    "abap/guidelines/"
+  ],
   "bin": {
     "abapgit-agent": "bin/abapgit-agent",
     "abgagt": "bin/abgagt"
