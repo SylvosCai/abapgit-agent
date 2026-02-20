@@ -112,12 +112,17 @@ Use `CL_CDS_TEST_ENVIRONMENT` for controlled test data:
 CLASS ltcl_cds_test DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT FINAL.
 
   PRIVATE SECTION.
-    DATA mo_cds_env TYPE REF TO cl_cds_test_environment.
+    " IMPORTANT: Use interface type, not class type!
+    DATA mo_cds_env TYPE REF TO if_cds_test_environment.
+
+    " IMPORTANT: class_setup/teardown must be CLASS-METHODS (static)!
+    CLASS-DATA mo_cds_env_static TYPE REF TO if_cds_test_environment.
 
     METHODS setup.
-    METHODS class_setup.
-    METHODS class_teardown.
     METHODS test_cds_with_doubles FOR TESTING.
+
+    CLASS-METHODS: class_setup,
+                   class_teardown.
 
 ENDCLASS.
 
@@ -127,33 +132,34 @@ ENDCLASS.
 CLASS ltcl_cds_test IMPLEMENTATION.
 
   METHOD class_setup.
-    " Create CDS test environment for the CDS view entity
-    mo_cds_env = cl_cds_test_environment=>create(
-      i_for_entity = 'ZC_MY_CDS_VIEW'
-      test_associations = 'X' ).  " Enable if testing associations
+    " Create CDS test environment - framework auto-creates doubles for dependencies
+    mo_cds_env_static = cl_cds_test_environment=>create(
+      i_for_entity = 'ZC_MY_CDS_VIEW' ).
   ENDMETHOD.
 
   METHOD class_teardown.
     " Clean up test environment
-    mo_cds_env->destroy( ).
+    mo_cds_env_static->destroy( ).
   ENDMETHOD.
 
   METHOD setup.
-    " Clear test doubles before each test
+    " IMPORTANT: Assign static env to instance and clear doubles
+    mo_cds_env = mo_cds_env_static.
     mo_cds_env->clear_doubles( ).
   ENDMETHOD.
 
   METHOD test_cds_with_doubles.
-    " Prepare test data
-    DATA(lt_test_data) = VALUE zc_my_cds_view(
+    " IMPORTANT: Must declare table type first, cannot inline in VALUE!
+    DATA lt_test_data TYPE TABLE OF zc_my_cds_view WITH EMPTY KEY.
+    lt_test_data = VALUE #(
       ( field1 = 'A' field2 = 100 )
       ( field1 = 'B' field2 = 200 ) ).
 
-    " Insert test data into the CDS view test double
-    mo_cds_env->insert_test_data( lt_test_data ).
+    " Insert test data using named parameter
+    mo_cds_env->insert_test_data( i_data = lt_test_data ).
 
-    " Call the method under test (which reads from CDS view)
-    DATA(lt_result) = mo_cut->get_data_from_cds( ).
+    " Select from CDS view
+    SELECT * FROM zc_my_cds_view INTO TABLE @DATA(lt_result).
 
     " Verify results
     cl_abap_unit_assert=>assert_not_initial(
@@ -169,29 +175,74 @@ CLASS ltcl_cds_test IMPLEMENTATION.
 ENDCLASS.
 ```
 
+### Testing CDS Views with Aggregations (SUM, COUNT, GROUP BY)
+
+For CDS views with aggregations, insert test data into the **base tables** (SFLIGHT, SCARR, SBOOK), not directly into the CDS view:
+
+```abap
+METHOD test_aggregation.
+  " Insert data into base tables via CDS test doubles
+  DATA lt_scarr TYPE TABLE OF scarr WITH EMPTY KEY.
+  lt_scarr = VALUE #( ( carrid = 'LH' carrname = 'Lufthansa' currcode = 'EUR' ) ).
+  mo_cds_env->insert_test_data( i_data = lt_scarr ).
+
+  DATA lt_sflight TYPE TABLE OF sflight WITH EMPTY KEY.
+  lt_sflight = VALUE #( ( carrid = 'LH' connid = '0400' fldate = '20240115'
+                          seatsmax = 200 seatsocc = 100 ) ).
+  mo_cds_env->insert_test_data( i_data = lt_sflight ).
+
+  DATA lt_sbook TYPE TABLE OF sbook WITH EMPTY KEY.
+  lt_sbook = VALUE #(
+    ( carrid = 'LH' connid = '0400' fldate = '20240115' bookid = '0001' forcuram = 1000 )
+    ( carrid = 'LH' connid = '0400' fldate = '20240115' bookid = '0002' forcuram = 2000 )
+    ( carrid = 'LH' connid = '0400' fldate = '20240115' bookid = '0003' forcuram = 3000 ) ).
+  mo_cds_env->insert_test_data( i_data = lt_sbook ).
+
+  " Select from CDS view - aggregations will use test double data
+  SELECT * FROM zc_flight_revenue INTO TABLE @DATA(lt_result).
+
+  " Verify aggregations
+  cl_abap_unit_assert=>assert_equals(
+    exp = 3
+    act = lt_result[ 1 ]-numberofbookings
+    msg = 'Should have 3 bookings' ).
+
+  cl_abap_unit_assert=>assert_equals(
+    exp = '6000.00'
+    act = lt_result[ 1 ]-totalrevenue
+    msg = 'Total revenue should be 6000.00' ).
+ENDMETHOD.
+```
+
 ### Key Classes for CDS Testing
 
-| Class | Purpose |
-|-------|---------|
-| `CL_CDS_TEST_ENVIRONMENT` | Create test doubles for CDS view entities |
-| `CL_CDS_GET_DATA_SET_ENVIRONMENT` | Alternative for CDS views as DOC (dependent-on components) |
-| `CL_OSQL_TEST_ENVIRONMENT` | Test doubles for database tables |
+| Item | Type/Usage |
+|------|------------|
+| `CL_CDS_TEST_ENVIRONMENT` | Class with `CREATE` method |
+| `IF_CDS_TEST_ENVIRONMENT` | Interface (CREATE returns this type) |
+| `CLASS-METHODS` | `class_setup` and `class_teardown` must be static methods |
+| `CL_OSQL_TEST_ENVIRONMENT` | Test doubles for database tables (use for aggregations) |
 | `CL_ABAP_UNIT_ASSERT` | Assertions |
 
 ### Key Methods
 
 | Method | Purpose |
 |--------|---------|
-| `CL_CDS_TEST_ENVIRONMENT=>CREATE` | Create test environment for a CDS view |
-| `INSERT_TEST_DATA` | Insert test data into the test double |
-| `CLEAR_DOUBLES` | Clear test data before each test method |
-| `DESTROY` | Clean up after test class |
+| `CL_CDS_TEST_ENVIRONMENT=>create( i_for_entity = ... )` | Create test environment (returns `if_cds_test_environment`) |
+| `insert_test_data( i_data = ... )` | Insert test data into test doubles |
+| `clear_doubles` | Clear test data before each test method |
+| `destroy` | Clean up after test class |
 
-### Important **Use test doubles Notes
+### Important Usage Notes
 
-1. when**: You need controlled data, not production data
-2. **Enable associations**: Set `test_associations = 'X'` if testing CDS associations
-3. **Always clear doubles**: Call `clear_doubles` in `setup` method
+1. **Use interface type**: `DATA mo_cds_env TYPE REF TO if_cds_test_environment` - the CREATE method returns an interface reference
+2. **CLASS-METHODS required**: `class_setup` and `class_teardown` must be declared with `CLASS-METHODS` (not `METHODS`)
+3. **Table type declaration**: Must declare `DATA lt_tab TYPE TABLE OF <type> WITH EMPTY KEY` before using `VALUE #()`
+4. **Auto-created dependencies**: CDS framework auto-creates test doubles for base tables - do not specify `i_dependency_list`
+5. **Aggregations**: For CDS views with SUM/COUNT/GROUP BY, insert test data into base tables (SFLIGHT, SCARR, etc.)
+6. **Clear doubles**: Call `clear_doubles` in `setup` method before each test
+7. **Enable associations**: Set `test_associations = 'X'` only if testing CDS associations
+8. **Exception handling**: Declare test methods with `RAISING cx_static_check` for proper exception handling
 
 ### Search Reference for More Details
 
