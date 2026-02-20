@@ -11,8 +11,9 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `03_testing.md` | Unit Testing (including CDS) |
 | `04_cds.md` | CDS Views |
 | `05_classes.md` | ABAP Classes and Objects |
-| `06_objects.md` | XML Metadata, Naming Conventions |
+| `06_objects.md` | Object Naming Conventions |
 | `07_json.md` | JSON Handling |
+| `08_abapgit.md` | abapGit XML Metadata Templates |
 
 ## Usage
 

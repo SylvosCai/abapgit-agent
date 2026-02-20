@@ -4,6 +4,7 @@
  *
  * Usage:
  *   abapgit-agent init --folder <folder> --package <package>  # Initialize: copies config, CLAUDE.md, guidelines
+ *   abapgit-agent init --update                               # Update existing files to latest version
  *   abapgit-agent create
  *   abapgit-agent import [--message <message>]
  *   abapgit-agent pull [--branch <branch>]
@@ -1090,11 +1091,85 @@ async function pull(gitUrl, branch = 'main', files = null, transportRequest = nu
 }
 
 /**
+ * Copy a file if source exists (helper for init --update)
+ * @param {string} srcPath - Source file path
+ * @param {string} destPath - Destination file path
+ * @param {string} label - Label for console output
+ * @param {boolean} createParentDir - Whether to create parent directory
+ * @returns {Promise<void>}
+ */
+async function copyFileIfExists(srcPath, destPath, label, createParentDir = false) {
+  try {
+    if (fs.existsSync(srcPath)) {
+      if (createParentDir) {
+        const parentDir = pathModule.dirname(destPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+      }
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`✅ Updated ${label}`);
+    } else {
+      console.log(`⚠️  ${label} not found in abapgit-agent`);
+    }
+  } catch (error) {
+    console.error(`Error copying ${label}: ${error.message}`);
+  }
+}
+
+/**
+ * Copy guidelines folder (helper for init --update)
+ * @param {string} srcPath - Source folder path
+ * @param {string} destPath - Destination folder path
+ * @param {boolean} overwrite - Whether to overwrite existing files
+ * @returns {Promise<void>}
+ */
+async function copyGuidelinesFolder(srcPath, destPath, overwrite = false) {
+  try {
+    if (fs.existsSync(srcPath)) {
+      // Create destination directory if needed
+      if (!fs.existsSync(destPath)) {
+        fs.mkdirSync(destPath, { recursive: true });
+      }
+
+      const files = fs.readdirSync(srcPath);
+      let copied = 0;
+
+      for (const file of files) {
+        if (file.endsWith('.md')) {
+          const srcFile = pathModule.join(srcPath, file);
+          const destFile = pathModule.join(destPath, file);
+
+          // Skip if file exists and not overwriting
+          if (fs.existsSync(destFile) && !overwrite) {
+            continue;
+          }
+
+          fs.copyFileSync(srcFile, destFile);
+          copied++;
+        }
+      }
+
+      if (copied > 0) {
+        console.log(`✅ Updated guidelines/ (${copied} files)`);
+      } else {
+        console.log(`⚠️  No guideline files found`);
+      }
+    } else {
+      console.log(`⚠️  guidelines folder not found in abapgit-agent`);
+    }
+  } catch (error) {
+    console.error(`Error copying guidelines: ${error.message}`);
+  }
+}
+
+/**
  * Run init command - Initialize local configuration
  */
 async function runInit(args) {
   const folderArgIndex = args.indexOf('--folder');
   const packageArgIndex = args.indexOf('--package');
+  const updateMode = args.includes('--update');
 
   // Get parameters
   const folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
@@ -1105,17 +1180,13 @@ async function runInit(args) {
     ? args[packageArgIndex + 1]
     : null;
 
-  // Validate package is required
-  if (!packageName) {
+  // Validate package is required for non-update mode
+  if (!updateMode && !packageName) {
     console.error('Error: --package is required');
     console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
+    console.error('       abapgit-agent init --update    # Update files to latest version');
     process.exit(1);
   }
-
-  console.log(`\n🚀 Initializing abapGit Agent for local repository`);
-  console.log(`   Folder: ${folder}`);
-  console.log(`   Package: ${packageName}`);
-  console.log('');
 
   // Check if current folder is git repo root
   const gitDir = pathModule.join(process.cwd(), '.git');
@@ -1124,6 +1195,53 @@ async function runInit(args) {
     console.error('Run this command from the root folder of your git repository.');
     process.exit(1);
   }
+
+  // In update mode, just copy the files and return
+  if (updateMode) {
+    console.log(`\n🔄 Updating abapGit Agent files`);
+    console.log('');
+
+    // Copy CLAUDE.md
+    await copyFileIfExists(
+      pathModule.join(__dirname, '..', 'abap', 'CLAUDE.md'),
+      pathModule.join(process.cwd(), 'CLAUDE.md'),
+      'CLAUDE.md'
+    );
+
+    // Copy copilot-instructions.md
+    await copyFileIfExists(
+      pathModule.join(__dirname, '..', 'abap', '.github', 'copilot-instructions.md'),
+      pathModule.join(process.cwd(), '.github', 'copilot-instructions.md'),
+      '.github/copilot-instructions.md',
+      true  // create parent dir
+    );
+
+    // Copy guidelines folder to project root
+    await copyGuidelinesFolder(
+      pathModule.join(__dirname, '..', 'abap', 'guidelines'),
+      pathModule.join(process.cwd(), 'guidelines'),
+      true  // overwrite
+    );
+
+    console.log(`
+📋 Update complete!
+   Run 'abapgit-agent ref --list-topics' to see available topics.
+`);
+    return;
+  }
+
+  // Validate package is required
+  if (!packageName) {
+    console.error('Error: --package is required');
+    console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
+    console.error('       abapgit-agent init --update    # Update files to latest version');
+    process.exit(1);
+  }
+
+  console.log(`\n🚀 Initializing abapGit Agent for local repository`);
+  console.log(`   Folder: ${folder}`);
+  console.log(`   Package: ${packageName}`);
+  console.log('');
 
   // Detect git remote URL
   const gitUrl = getGitRemoteUrl();
@@ -1227,13 +1345,13 @@ async function runInit(args) {
     console.error(`Error copying copilot-instructions.md: ${error.message}`);
   }
 
-  // Copy guidelines folder
+  // Copy guidelines folder to project root
   const guidelinesSrcPath = pathModule.join(__dirname, '..', 'abap', 'guidelines');
-  const guidelinesDestPath = pathModule.join(process.cwd(), 'abap', 'guidelines');
+  const guidelinesDestPath = pathModule.join(process.cwd(), 'guidelines');
   try {
     if (fs.existsSync(guidelinesSrcPath)) {
       if (!fs.existsSync(guidelinesDestPath)) {
-        // Create abap/guidelines directory
+        // Create guidelines directory
         fs.mkdirSync(guidelinesDestPath, { recursive: true });
         // Copy all files from guidelines folder
         const files = fs.readdirSync(guidelinesSrcPath);
@@ -1245,9 +1363,9 @@ async function runInit(args) {
             );
           }
         }
-        console.log(`✅ Created abap/guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
+        console.log(`✅ Created guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
       } else {
-        console.log(`⚠️  abap/guidelines/ already exists, skipped`);
+        console.log(`⚠️  guidelines/ already exists, skipped`);
       }
     } else {
       console.log(`⚠️  guidelines folder not found in abap/ directory`);
@@ -2376,6 +2494,8 @@ Usage:
 Commands:
   init --folder <folder> --package <package>
     Initialize local configuration for an existing git repository.
+  init --update
+    Update existing files (CLAUDE.md, copilot-instructions.md, guidelines) to latest version.
 
   create
     Create abapGit online repository in ABAP system.
@@ -2429,6 +2549,7 @@ Commands:
 
 Examples:
   abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
+  abapgit-agent init --update                                # Update files to latest
   abapgit-agent create                                       # Create repo
   abapgit-agent import                                       # Import objects to git
   abapgit-agent import --message "Initial import"            # Import with message
@@ -2438,10 +2559,10 @@ Examples:
   abapgit-agent pull --transport DEVK900001                  # With transport
   abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
   abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
-  abapgit-agent tree --package $ZMY_PACKAGE                      # Show package tree
-  abapgit-agent tree --package $ZMY_PACKAGE --depth 2             # Shallow tree
-  abapgit-agent tree --package $ZMY_PACKAGE --include-types      # With type counts
-  abapgit-agent tree --package $ZMY_PACKAGE --json                # JSON output
+  abapgit-agent tree --package \$ZMY_PACKAGE                      # Show package tree
+  abapgit-agent tree --package \$ZMY_PACKAGE --depth 2             # Shallow tree
+  abapgit-agent tree --package \$ZMY_PACKAGE --include-types      # With type counts
+  abapgit-agent tree --package \$ZMY_PACKAGE --json                # JSON output
   abapgit-agent list --package $ZMY_PACKAGE                      # List all objects
   abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF      # Filter by type
   abapgit-agent list --package $ZMY_PACKAGE --name ZCL_*         # Filter by name

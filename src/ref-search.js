@@ -348,6 +348,41 @@ async function searchPattern(pattern) {
  * @returns {Promise<Object>} Topic content
  */
 async function getTopic(topic) {
+  const topicLower = topic.toLowerCase();
+
+  // First, check local guidelines folder
+  const guidelinesDir = detectGuidelinesFolder();
+  if (guidelinesDir) {
+    // Map topic to local guideline file
+    const guidelineMap = {
+      'abapgit': '08_abapgit.md',
+      'xml': '06_objects.md',
+      'objects': '06_objects.md',
+      'naming': '06_objects.md'
+    };
+
+    const guidelineFile = guidelineMap[topicLower];
+    if (guidelineFile) {
+      const guidelinePath = path.join(guidelinesDir, guidelineFile);
+      if (fs.existsSync(guidelinePath)) {
+        try {
+          const content = await readFile(guidelinePath, 'utf8');
+          return {
+            topic,
+            file: guidelineFile,
+            content: content.slice(0, 5000),
+            truncated: content.length > 5000,
+            totalLength: content.length,
+            source: 'guidelines'
+          };
+        } catch (error) {
+          // Continue to check external reference
+        }
+      }
+    }
+  }
+
+  // Fall back to external reference folder
   const cheatSheetsDir = getCheatSheetsDir();
 
   if (!cheatSheetsDir) {
@@ -357,7 +392,7 @@ async function getTopic(topic) {
     };
   }
 
-  const fileName = TOPIC_MAP[topic.toLowerCase()];
+  const fileName = TOPIC_MAP[topicLower];
   if (!fileName) {
     return {
       error: `Unknown topic: ${topic}`,
