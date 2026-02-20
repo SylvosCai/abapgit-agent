@@ -129,8 +129,19 @@ async function getReferenceRepositories() {
       const fullPath = path.join(refFolder, entry);
       const stats = await stat(fullPath);
 
-      // Check if it's a directory and looks like a git repo or contains ABAP code
+      // Check if it's a directory
       if (stats.isDirectory()) {
+        // Check for custom-guidelines folder
+        if (entry === 'custom-guidelines') {
+          repos.push({
+            name: entry,
+            path: fullPath,
+            isGitRepo: false,
+            isCustomGuidelines: true
+          });
+          continue;
+        }
+
         const gitDir = path.join(fullPath, '.git');
         const hasGit = fs.existsSync(gitDir);
 
@@ -591,22 +602,231 @@ function displayRepositories(result) {
   console.log('  ' + '─'.repeat(50));
 
   result.repositories.forEach(repo => {
-    const type = repo.isGitRepo ? 'Git Repo' : 'ABAP Folder';
+    let type;
+    if (repo.isCustomGuidelines) {
+      type = 'Custom Guidelines';
+    } else if (repo.isGitRepo) {
+      type = 'Git Repo';
+    } else {
+      type = 'ABAP Folder';
+    }
     const paddedName = repo.name.padEnd(30);
     console.log(`  ${paddedName} ${type}`);
   });
 }
 
+/**
+ * Detect guidelines folder in current project
+ * Looks for abap/guidelines/ folder
+ * @returns {string|null} Path to guidelines folder or null if not found
+ */
+function detectGuidelinesFolder() {
+  const cwd = process.cwd();
+  const possiblePaths = [
+    path.join(cwd, 'abap', 'guidelines'),
+    path.join(cwd, 'guidelines'),
+    path.join(cwd, 'docs', 'guidelines')
+  ];
+
+  for (const guidelinesPath of possiblePaths) {
+    if (fs.existsSync(guidelinesPath)) {
+      const stats = fs.statSync(guidelinesPath);
+      if (stats.isDirectory()) {
+        return guidelinesPath;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get all guideline files from the project
+ * @returns {Promise<Array<{name: string, path: string, content: string}>>}
+ */
+async function getGuidelineFiles() {
+  const guidelinesFolder = detectGuidelinesFolder();
+  if (!guidelinesFolder) {
+    return [];
+  }
+
+  const files = [];
+
+  try {
+    const entries = await readdir(guidelinesFolder);
+
+    for (const entry of entries) {
+      if (entry.endsWith('.md')) {
+        const fullPath = path.join(guidelinesFolder, entry);
+        const content = await readFile(fullPath, 'utf8');
+        files.push({
+          name: entry,
+          path: fullPath,
+          content,
+          relativePath: path.join('guidelines', entry)
+        });
+      }
+    }
+  } catch (error) {
+    // Return empty array on error
+  }
+
+  return files.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Export guidelines to reference folder
+ * Copies guideline files to the reference folder for searching
+ * @returns {Promise<Object>} Export result
+ */
+async function exportGuidelines() {
+  const guidelinesFolder = detectGuidelinesFolder();
+  const refFolder = detectReferenceFolder();
+
+  if (!guidelinesFolder) {
+    return {
+      success: false,
+      error: 'No guidelines folder found',
+      hint: 'Create abap/guidelines/ folder in your project'
+    };
+  }
+
+  if (!refFolder) {
+    return {
+      success: false,
+      error: 'Reference folder not found',
+      hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
+    };
+  }
+
+  const guidelineFiles = await getGuidelineFiles();
+
+  if (guidelineFiles.length === 0) {
+    return {
+      success: false,
+      error: 'No guideline files found',
+      hint: 'Create .md files in abap/guidelines/'
+    };
+  }
+
+  // Create a dedicated folder in reference for guidelines
+  const exportPath = path.join(refFolder, 'custom-guidelines');
+
+  try {
+    // Create export directory if it doesn't exist
+    if (!fs.existsSync(exportPath)) {
+      fs.mkdirSync(exportPath, { recursive: true });
+    }
+
+    let exported = 0;
+
+    for (const file of guidelineFiles) {
+      const destPath = path.join(exportPath, file.name);
+      fs.writeFileSync(destPath, file.content);
+      exported++;
+    }
+
+    return {
+      success: true,
+      message: `Exported ${exported} guideline(s) to reference folder`,
+      sourceFolder: guidelinesFolder,
+      exportFolder: exportPath,
+      files: guidelineFiles.map(f => f.name)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to export: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Search guidelines in current project
+ * @param {string} pattern - Pattern to search for
+ * @returns {Promise<Object>} Search results
+ */
+async function searchGuidelines(pattern) {
+  const guidelineFiles = await getGuidelineFiles();
+
+  if (guidelineFiles.length === 0) {
+    return {
+      pattern,
+      guidelinesFound: false,
+      message: 'No guideline files found in project'
+    };
+  }
+
+  const results = {
+    pattern,
+    guidelinesFound: true,
+    files: [],
+    matches: []
+  };
+
+  for (const file of guidelineFiles) {
+    if (file.content.toLowerCase().includes(pattern.toLowerCase())) {
+      results.files.push(file.relativePath);
+
+      // Find matching lines with context
+      const lines = file.content.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
+          const start = Math.max(0, i - 1);
+          const end = Math.min(lines.length, i + 2);
+          const context = lines.slice(start, end).join('\n');
+
+          results.matches.push({
+            file: file.relativePath,
+            line: i + 1,
+            context
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Display export result
+ * @param {Object} result - Export result
+ */
+function displayExportResult(result) {
+  if (result.success) {
+    console.log(`\n  ✅ ${result.message}`);
+    console.log(`\n  📁 Source: ${result.sourceFolder}`);
+    console.log(`  📁 Export: ${result.exportFolder}`);
+    console.log(`\n  Files exported:`);
+    for (const file of result.files) {
+      console.log(`    - ${file}`);
+    }
+    console.log(`\n  💡 These guidelines will now be searchable via 'ref' command`);
+  } else {
+    console.error(`\n  ❌ ${result.error}`);
+    if (result.hint) {
+      console.error(`\n  💡 ${result.hint}`);
+    }
+  }
+}
+
 module.exports = {
   detectReferenceFolder,
+  detectGuidelinesFolder,
   getReferenceRepositories,
+  getGuidelineFiles,
   searchPattern,
+  searchGuidelines,
   getTopic,
   listTopics,
   listRepositories,
+  exportGuidelines,
   displaySearchResults,
   displayTopic,
   displayTopics,
   displayRepositories,
+  displayExportResult,
   TOPIC_MAP
 };
