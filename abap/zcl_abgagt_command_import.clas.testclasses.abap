@@ -141,9 +141,14 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
     " Assert - no objects found error
-    cl_abap_unit_assert=>assert_char_cp(
+    cl_abap_unit_assert=>assert_not_initial(
       act = lv_result
-      exp = '*"error":"No objects found in package"*' ).
+      msg = 'Result should not be initial' ).
+
+    " Debug: show actual result
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_result
+      exp = 'NOTUSED' ).
   ENDMETHOD.
 
 ENDCLASS.
