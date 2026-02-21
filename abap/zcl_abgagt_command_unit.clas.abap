@@ -250,10 +250,13 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Get coverage results if requested
     IF iv_coverage = abap_true AND ls_str-cov_id IS NOT INITIAL.
+      " Convert XSTRING to X(16) for method call
+      DATA(lv_cov_id) = CONV x( ls_str-cov_id ).
+
       " Get coverage statistics using COV_ID from results
       TRY.
           DATA(ls_cov_stats) = lo_runner->get_coverage_result_stats(
-            i_cov_id = ls_str-cov_id ).
+            i_cov_id = lv_cov_id ).
           rs_result-coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
           rs_result-coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
           rs_result-coverage_stats-coverage_rate = ls_cov_stats-cov_lines_rate.
@@ -264,7 +267,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       " Get detailed coverage lines
       TRY.
           DATA(lt_cov_flat) = lo_runner->get_coverage_result_flat(
-            i_cov_id = ls_str-cov_id ).
+            i_cov_id = lv_cov_id ).
           LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
             APPEND VALUE #(
               program = <ls_cov>-object_name
