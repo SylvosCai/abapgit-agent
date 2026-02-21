@@ -102,19 +102,19 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA lo_repo_double TYPE REF TO zif_abapgit_repo_online.
     lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
 
-    " Step 2: Configure get_package to return a package
+    " Step 2: Configure get_package to return a package (use parent interface prefix)
     DATA lv_package TYPE devclass VALUE '$TEST'.
     cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lv_package ).
-    lo_repo_double->get_package( ).
+    lo_repo_double->zif_abapgit_repo~get_package( ).
 
-    " Step 3: Configure refresh (no parameters)
+    " Step 3: Configure refresh (no parameters) - use parent interface prefix
     cl_abap_testdouble=>configure_call( lo_repo_double ).
-    lo_repo_double->refresh( ).
+    lo_repo_double->zif_abapgit_repo~refresh( ).
 
-    " Step 4: Configure get_files_local to return empty table
+    " Step 4: Configure get_files_local to return empty table - use parent interface prefix
     DATA lt_empty_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
     cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_empty_files ).
-    lo_repo_double->get_files_local( ).
+    lo_repo_double->zif_abapgit_repo~get_files_local( ).
 
     " Step 5: Create test double for repo service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
