@@ -8,6 +8,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_get_name FOR TESTING.
     METHODS test_missing_url FOR TESTING.
     METHODS test_repo_not_found FOR TESTING.
+    METHODS test_exception DURATION SHORT RISK LEVEL HARMLESS.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -63,6 +64,36 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"Repository not found"*' ).
+  ENDMETHOD.
+
+  METHOD test_exception.
+    " Step 1: Create test double for repo service
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+
+    " Step 2: Configure to raise exception
+    DATA lx_error TYPE REF TO zcx_abapgit_exception.
+    CREATE OBJECT lx_error.
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
+
+    " Step 3: Register the method call with matching parameters
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 4: Create CUT with test double injected
+    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+
+    " Step 5: Execute
+    DATA: BEGIN OF ls_param,
+            url TYPE string VALUE 'https://github.com/test/repo.git',
+          END OF ls_param.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Assert - error should be in result
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error":"*' ).
   ENDMETHOD.
 
 ENDCLASS.
