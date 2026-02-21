@@ -275,7 +275,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_coverage.
-    " Get coverage statistics from AUnit runner
+    " Get coverage statistics from AUnit runner using flat results
     DATA: lv_cov_id TYPE sut_au_results-cov_id.
     lv_cov_id = io_runner->str_results-cov_id.
 
@@ -284,11 +284,22 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        DATA(ls_cov_stats) = io_runner->get_coverage_result_stats(
+        DATA(lt_cov_flat) = io_runner->get_coverage_result_flat(
           i_cov_id = lv_cov_id ).
-        rs_coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
-        rs_coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
-        rs_coverage_stats-coverage_rate = ls_cov_stats-cov_lines_rate.
+
+        " Calculate stats from flat results
+        LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
+          rs_coverage_stats-total_lines = rs_coverage_stats-total_lines + 1.
+          IF <ls_cov>-exec_count > 0.
+            rs_coverage_stats-covered_lines = rs_coverage_stats-covered_lines + 1.
+          ENDIF.
+        ENDLOOP.
+
+        " Calculate percentage
+        IF rs_coverage_stats-total_lines > 0.
+          rs_coverage_stats-coverage_rate =
+            rs_coverage_stats-covered_lines / rs_coverage_stats-total_lines * 100.
+        ENDIF.
       CATCH cx_sut_error.
         " Coverage stats not available
     ENDTRY.
