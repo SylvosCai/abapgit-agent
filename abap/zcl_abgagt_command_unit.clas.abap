@@ -26,7 +26,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_coverage_stats,
              total_lines TYPE i,
              covered_lines TYPE i,
-             coverage_rate TYPE p,
+             coverage_rate TYPE p LENGTH 10 DECIMALS 1,
            END OF ty_coverage_stats.
 
     " Coverage line details
