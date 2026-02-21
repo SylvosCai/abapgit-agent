@@ -409,7 +409,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             DATA lv_classname TYPE string.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
-            DATA(lv_method_name) = ''.
+            DATA lv_method_name TYPE string.
 
             " Get last 3 characters (CM003) and extract numeric part
             DATA(lv_cm_part) = substring(
