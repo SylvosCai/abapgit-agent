@@ -73,6 +73,14 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_errors) TYPE ty_errors.
 
+    " Get coverage results from AUnit runner
+    METHODS get_coverage
+      IMPORTING
+        io_runner TYPE REF TO cl_sut_aunit_runner
+        iv_cov_id TYPE sut_au_results-cov_id
+      RETURNING
+        VALUE(rs_coverage_stats) TYPE ty_coverage_stats.
+
     METHODS extract_errors_from_object
       IMPORTING
         is_object TYPE cl_sut_aunit_runner=>typ_str_object
@@ -246,36 +254,26 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Get coverage results if requested
     IF iv_coverage = abap_true AND ls_str-cov_id IS NOT INITIAL.
-      " Convert XSTRING to RAW(16) for method call
-      DATA: lv_cov_id TYPE sut_au_results-cov_id.
-      lv_cov_id = ls_str-cov_id.
-
-      " Get coverage statistics
-      TRY.
-          DATA(ls_cov_stats) = lo_runner->get_coverage_result_stats(
-            i_cov_id = lv_cov_id ).
-          rs_result-coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
-          rs_result-coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
-          rs_result-coverage_stats-coverage_rate = ls_cov_stats-cov_lines_rate.
-        CATCH cx_sut_error.
-          " Coverage stats not available
-      ENDTRY.
-
-      " Get detailed coverage lines (commented out - structure unknown)
-*      TRY.
-*          DATA(lt_cov_flat) = lo_runner->get_coverage_result_flat(
-*            i_cov_id = lv_cov_id ).
-*          LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
-*            APPEND VALUE #(
-*              program = <ls_cov>-object_name
-*              line = <ls_cov>-source_line
-*              hits = <ls_cov>-exec_count
-*            ) TO rs_result-coverage_lines.
-*          ENDLOOP.
-*        CATCH cx_sut_error.
-*          " Coverage details not available
-*      ENDTRY.
+      rs_result-coverage_stats = get_coverage(
+        io_runner = lo_runner
+        iv_cov_id = ls_str-cov_id ).
     ENDIF.
+  ENDMETHOD.
+
+  METHOD get_coverage.
+    " Get coverage statistics from AUnit runner
+    DATA: lv_cov_id TYPE sut_au_results-cov_id.
+    lv_cov_id = iv_cov_id.
+
+    TRY.
+        DATA(ls_cov_stats) = io_runner->get_coverage_result_stats(
+          i_cov_id = lv_cov_id ).
+        rs_coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
+        rs_coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
+        rs_coverage_stats-coverage_rate = ls_cov_stats-cov_lines_rate.
+      CATCH cx_sut_error.
+        " Coverage stats not available
+    ENDTRY.
   ENDMETHOD.
 
   METHOD get_failed_methods.
