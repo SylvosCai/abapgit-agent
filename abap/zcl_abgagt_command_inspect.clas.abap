@@ -426,25 +426,39 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
-            " Extract method name from SOBJNAME (format: CLASSNAME====CM###)
+            " Extract include name from SOBJNAME (format: CLASSNAME=======INCLUDE)
             DATA lv_classname TYPE string.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA lv_method_name TYPE string.
 
-            " Get last 3 characters (CM003) and extract numeric part
-            DATA(lv_cm_part) = substring(
-              val = lv_include_str
-              off = strlen( lv_include_str ) - 3
-              len = 3 ).
-            " Convert CM003 to 3 (remove CM prefix, get last 1 char)
-            DATA(lv_num_str) = substring( val = lv_cm_part off = 2 ).
-            DATA(lv_include_num) = CONV i( lv_num_str ).
+            " Split by ======= to get include name
+            SPLIT lv_include_str AT '=======' INTO DATA(lv_part_class) DATA(lv_include_name).
 
-            " Get method name from TMDIR
-            lv_method_name = get_method_name(
-              iv_classname   = lv_classname
-              iv_include_num = lv_include_num ).
+            " Check include type
+            IF lv_include_name = 'CCAU'.
+              " Unit test include
+              lv_method_name = 'UNIT TEST'.
+            ELSEIF lv_include_name = 'CCDEF'.
+              " Local definitions
+              lv_method_name = 'LOCAL DEFINITIONS'.
+            ELSEIF lv_include_name = 'CCIMP'.
+              " Local implementations
+              lv_method_name = 'LOCAL IMPLEMENTATIONS'.
+            ELSEIF lv_include_name = 'CCINC'.
+              " Macros
+              lv_method_name = 'MACROS'.
+            ELSEIF lv_include_name(2) = 'CM'.
+              " Method include (CM###) - extract method name from TMDIR
+              " Convert CM003 to 3 (remove CM prefix, get last 1 char)
+              DATA(lv_num_str) = substring( val = lv_include_name off = 2 ).
+              DATA(lv_include_num) = CONV i( lv_num_str ).
+
+              " Get method name from TMDIR
+              lv_method_name = get_method_name(
+                iv_classname   = lv_classname
+                iv_include_num = lv_include_num ).
+            ENDIF.
 
             " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
             IF ls_list-kind = 'E'.
