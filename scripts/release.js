@@ -313,11 +313,11 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   }
   console.log('');
 
-  // 6. Push to github.com
+  // 6. Push to github.com (push commit and tag explicitly)
   console.log(`Pushing to ${remoteName}...`);
   try {
-    execSync(`git push ${remoteName} master --follow-tags`, { cwd: repoRoot });
-    console.log('✅ Pushed to github.com');
+    execSync(`git push ${remoteName} master v${newVersion}`, { cwd: repoRoot });
+    console.log('✅ Pushed commit and tag to github.com');
   } catch (e) {
     console.log('⚠️ Push failed, please push manually');
   }
