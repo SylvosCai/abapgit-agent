@@ -203,6 +203,11 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     lo_runner->p_save = abap_true.     " Save results
     lo_runner->p_runmd = 'E'.         " Execute mode
 
+    " Configure coverage scope if enabled
+    IF iv_coverage = abap_true.
+      lo_runner->p_cvrau = lo_runner->c_str_cov_scope-specified_range.
+    ENDIF.
+
     " Set selection type to OBJECT
     lo_runner->p_seltyp = 'OBJECT'.
     lo_runner->p_selcl = abap_true.   " Enable class selection mode
