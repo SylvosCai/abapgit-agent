@@ -53,30 +53,36 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_success.
-    " Step 1: Create test double with correct interface type
+    " Step 1: Create test double for repo service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Create mock repo (use correct type - ZIF_ABAPGIT_REPO)
+    " Step 2: Create mock repo
     DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
     " Step 3: Configure new_online to return mock repo
-    lo_repo_srv_double->new_online(
-      EXPORTING
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->
+      new_online(
         iv_url            = 'https://github.com/test/repo.git'
         iv_branch_name    = 'main'
         iv_display_name   = 'Test'
         iv_name           = 'test'
         iv_package        = '$ZTEST'
-        iv_folder_logic   = 'PREFIX'
-      RECEIVING
-        ri_repo           = lo_mock_repo ).
+        iv_folder_logic   = 'PREFIX' )->returning( lo_mock_repo ).
 
-    " Step 4: Create CUT with test double
+    " Step 4: Configure get_key method
+    cl_abap_testdouble=>configure_call( lo_mock_repo )->
+      get_key( )->returning( 'TEST_KEY' ).
+
+    " Step 5: Configure get_name method
+    cl_abap_testdouble=>configure_call( lo_mock_repo )->
+      get_name( )->returning( 'Test Repo' ).
+
+    " Step 6: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 5: Execute
+    " Step 7: Execute
     DATA: BEGIN OF ls_param,
             url      TYPE string VALUE 'https://github.com/test/repo.git',
             branch   TYPE string VALUE 'main',
@@ -92,33 +98,25 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_error.
-    " Create test double
+    " Step 1: Create test double for repo service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Dummy repo for returning
-    DATA lo_dummy_repo TYPE REF TO zif_abapgit_repo.
-    lo_dummy_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
-
-    " Configure new_online to raise exception
-    lo_repo_srv_double->new_online(
-      EXPORTING
+    " Step 2: Configure new_online to raise exception
+    DATA(lx_error) = NEW zcx_abapgit_exception( text = 'Repository creation failed' ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->
+      new_online(
         iv_url            = 'https://github.com/test/repo.git'
         iv_branch_name    = 'main'
         iv_display_name   = 'Test'
         iv_name           = 'test'
         iv_package        = '$ZTEST'
-        iv_folder_logic   = 'PREFIX'
-      RECEIVING
-        ri_repo           = lo_dummy_repo ).
+        iv_folder_logic   = 'PREFIX' )->raise( lx_error ).
 
-    " Raise exception on next call - this needs different approach
-    " For now, skip the error test
-
-    " Create CUT anyway
+    " Step 3: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Execute
+    " Step 4: Execute
     DATA: BEGIN OF ls_param,
             url     TYPE string VALUE 'https://github.com/test/repo.git',
             branch  TYPE string VALUE 'main',
