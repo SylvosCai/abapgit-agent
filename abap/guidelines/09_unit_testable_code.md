@@ -336,6 +336,29 @@ lo_mock->get_files_local( ).
 | Forgot to mock a method | Mock ALL methods the code under test calls |
 | Interface prefix not used | Use `zif_parent~method()` for inherited methods |
 | Didn't check source code first | ALWAYS read source code to see how method is called |
+| Cannot add RAISING to interface method | Use TRY..CATCH to handle exceptions in implementation |
+
+### Handling Exceptions in Interface Implementation
+
+When implementing an interface method that calls other methods raising exceptions:
+
+- **DO NOT** add RAISING to the interface method - you cannot change the interface
+- **USE** TRY..CATCH to catch and handle exceptions within the implementation
+
+```abap
+" Interface method does NOT declare RAISING
+METHOD zif_abgagt_command~execute.
+
+  " Method being called can raise exception
+  TRY.
+      get_user( )->set_repo_git_user_name( ... ).
+    CATCH zcx_abapgit_exception INTO DATA(lx_error).
+      rv_result = '{"error":"' && lx_error->get_text( ) && '"}'.
+      RETURN.
+  ENDTRY.
+
+ENDMETHOD.
+```
 
 ### Important: Read Source Code First
 
