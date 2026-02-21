@@ -427,17 +427,29 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
             " Extract include name from SOBJNAME (format: CLASSNAME{30-char-pad}INCLUDE)
-            " Position 30 (0-indexed) = start of include name (CCAU, CM001, CCDEF, CCIMP, CCINC)
+            " Find 'CM' from the end to handle variable length CM### (CM001 to CM09999)
             DATA lv_classname TYPE string.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA lv_method_name TYPE string.
 
-            " Get include name starting at position 30
-            DATA(lv_include_name) = substring(
-              val = lv_include_str
-              off = 30
-              len = 4 ).
+            " Find position of 'CM' by searching backwards from the end
+            DATA lv_pos TYPE i.
+            lv_pos = find( val = reverse( lv_include_str ) sub = 'MC' ).
+            IF lv_pos >= 0.
+              " Calculate actual position in original string (length - pos - 2)
+              lv_pos = strlen( lv_include_str ) - lv_pos - 2.
+              DATA(lv_include_name) = substring(
+                val = lv_include_str
+                off = lv_pos
+                len = 5 ).
+            ELSE.
+              " Fallback: get last 4 characters
+              lv_include_name = substring(
+                val = lv_include_str
+                off = strlen( lv_include_str ) - 4
+                len = 4 ).
+            ENDIF.
 
             " Check include type
             IF lv_include_name = 'CCAU'.
