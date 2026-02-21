@@ -6,10 +6,10 @@ CLASS ltcl_zcl_abgagt_command_create DEFINITION FOR TESTING DURATION SHORT RISK 
 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
-    METHODS test_missing_url FOR TESTING.
-    METHODS test_missing_package FOR TESTING.
-    METHODS test_create_repo_success FOR TESTING.
-    METHODS test_create_repo_error FOR TESTING.
+    METHODS test_missing_url FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_missing_package FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_create_repo_success FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_create_repo_error FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
