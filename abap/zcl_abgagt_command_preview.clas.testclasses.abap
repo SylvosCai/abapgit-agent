@@ -1,6 +1,6 @@
 *"* use this source file for your test class implementation
 *"* local test class
-CLASS ltcl_zcl_abgagt_command_preview DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+CLASS ltcl_cmd_preview DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
     DATA mo_cut TYPE REF TO zcl_abgagt_command_preview.
     CLASS-DATA: go_env TYPE REF TO if_osql_test_environment.
@@ -17,7 +17,7 @@ CLASS ltcl_zcl_abgagt_command_preview DEFINITION FOR TESTING DURATION SHORT RISK
     METHODS: test_fetch_table_data_with_limit FOR TESTING.
 ENDCLASS.
 
-CLASS ltcl_zcl_abgagt_command_preview IMPLEMENTATION.
+CLASS ltcl_cmd_preview IMPLEMENTATION.
 
   METHOD class_setup.
     go_env = cl_osql_test_environment=>create(
