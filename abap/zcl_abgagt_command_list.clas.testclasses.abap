@@ -31,6 +31,7 @@ CLASS ltcl_zcl_abgagt_command_list IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD setup.
+    go_env->clear_doubles( ).
     CREATE OBJECT mo_cut.
   ENDMETHOD.
 
