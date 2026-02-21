@@ -1,0 +1,192 @@
+*"*"use source
+*"*"Local Interface:
+*"**********************************************************************
+" WHERE command implementation - where-used list for ABAP objects
+CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_command.
+
+    TYPES: BEGIN OF ty_where_params,
+             objects TYPE string_table,
+             type TYPE string,
+             limit TYPE i,
+           END OF ty_where_params.
+
+    TYPES: BEGIN OF ty_reference,
+             object TYPE string,
+             object_type TYPE string,
+             include_name TYPE string,
+             sub_type TYPE string,
+             package TYPE string,
+           END OF ty_reference.
+
+    TYPES ty_references TYPE STANDARD TABLE OF ty_reference WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_where_object,
+             name TYPE string,
+             type TYPE string,
+             references TYPE ty_references,
+             count TYPE i,
+           END OF ty_where_object.
+
+    TYPES ty_where_objects TYPE STANDARD TABLE OF ty_where_object WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_summary,
+             total_objects TYPE i,
+             total_references TYPE i,
+           END OF ty_summary.
+
+    TYPES: BEGIN OF ty_where_result,
+             success TYPE abap_bool,
+             command TYPE string,
+             message TYPE string,
+             objects TYPE ty_where_objects,
+             summary TYPE ty_summary,
+             error TYPE string,
+           END OF ty_where_result.
+
+    METHODS detect_object_type
+      IMPORTING iv_name TYPE string
+      RETURNING VALUE(rv_type) TYPE string.
+
+    METHODS get_where_used_list
+      IMPORTING iv_obj_type TYPE trobjtype
+                iv_obj_name TYPE sobj_name
+      RETURNING VALUE(rt_references) TYPE ty_references.
+
+ENDCLASS.
+
+CLASS zcl_abgagt_command_where IMPLEMENTATION.
+
+  METHOD zif_abgagt_command~get_name.
+    rv_name = zif_abgagt_command=>gc_where.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_command~execute.
+    DATA: ls_params TYPE ty_where_params,
+          ls_result TYPE ty_where_result,
+          lt_objects TYPE ty_where_objects,
+          lv_object TYPE string,
+          ls_where_obj TYPE ty_where_object,
+          lt_references TYPE ty_references.
+
+    ls_result-command = zif_abgagt_command=>gc_where.
+
+    IF is_param IS SUPPLIED.
+      ls_params = CORRESPONDING #( is_param ).
+    ENDIF.
+
+    IF ls_params-objects IS INITIAL.
+      ls_result-success = abap_false.
+      ls_result-error = 'Objects parameter is required'.
+      rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+      RETURN.
+    ENDIF.
+
+    " Default limit
+    IF ls_params-limit IS INITIAL.
+      ls_params-limit = 100.
+    ENDIF.
+
+    LOOP AT ls_params-objects INTO lv_object.
+      ls_where_obj-name = lv_object.
+
+      DATA(lv_type) = ls_params-type.
+      IF lv_type IS INITIAL.
+        lv_type = detect_object_type( lv_object ).
+      ENDIF.
+
+      " Default to CLAS if not detected
+      IF lv_type IS INITIAL.
+        lv_type = 'CLAS'.
+      ENDIF.
+
+      ls_where_obj-type = lv_type.
+
+      " Get where-used list
+      lt_references = get_where_used_list(
+        iv_obj_type = lv_type
+        iv_obj_name = lv_object
+      ).
+
+      " Apply limit
+      DATA(lt_limited_refs) = lt_references.
+      IF lines( lt_limited_refs ) > ls_params-limit.
+        lt_limited_refs = lt_limited_refs[ 1 = ls_params-limit ].
+      ENDIF.
+
+      ls_where_obj-references = lt_limited_refs.
+      ls_where_obj-count = lines( lt_limited_refs ).
+
+      APPEND ls_where_obj TO lt_objects.
+      CLEAR ls_where_obj.
+    ENDLOOP.
+
+    " Build summary
+    ls_result-summary-total_objects = lines( lt_objects ).
+    LOOP AT lt_objects INTO ls_where_obj.
+      ls_result-summary-total_references = ls_result-summary-total_references + ls_where_obj-count.
+    ENDLOOP.
+
+    ls_result-success = abap_true.
+    IF ls_result-summary-total_references = 1.
+      ls_result-message = |Found { ls_result-summary-total_references } reference|.
+    ELSE.
+      ls_result-message = |Found { ls_result-summary-total_references } references|.
+    ENDIF.
+
+    ls_result-objects = lt_objects.
+
+    rv_result = /ui2/cl_json=>serialize( data = ls_result ).
+  ENDMETHOD.
+
+  METHOD detect_object_type.
+    " Auto-detect object type from name pattern
+    IF iv_name CP 'ZCL_*' OR iv_name CP 'CL_*'.
+      rv_type = 'CLAS'.
+    ELSEIF iv_name CP 'ZIF_*' OR iv_name CP 'IF_*'.
+      rv_type = 'INTF'.
+    ELSEIF iv_name CP 'SAPL*'.
+      rv_type = 'PROG'.
+    ELSE.
+      " Check TADIR for actual type
+      SELECT SINGLE object FROM tadir
+        INTO rv_type
+        WHERE obj_name = iv_name
+          AND object IN ('CLAS', 'INTF', 'PROG').
+      IF sy-subrc <> 0.
+        rv_type = 'CLAS'. " Default fallback
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_where_used_list.
+    DATA: lt_refs TYPE TABLE OF akb_except_type,
+          ls_ref TYPE akb_except_type,
+          ls_ref_out TYPE ty_reference.
+
+    " Call the function module
+    CALL FUNCTION 'AKB_WHERE_USED_LIST'
+      EXPORTING
+        obj_type = iv_obj_type
+        obj_name = iv_obj_name
+      IMPORTING
+        references = lt_refs.
+
+    " Map to output structure
+    LOOP AT lt_refs INTO ls_ref.
+      ls_ref_out-object = ls_ref-obj_name.
+      ls_ref_out-object_type = ls_ref-obj_.
+      ls_ref_out-include_name = ls_ref-sub_name.
+      ls_ref_out-sub_type = ls_ref-sub_.
+      ls_ref_out-package = ls_ref-appl_packet.
+      APPEND ls_ref_out TO rt_references.
+      CLEAR ls_ref_out.
+    ENDLOOP.
+
+    " Sort by object name
+    SORT rt_references BY object.
+  ENDMETHOD.
+
+ENDCLASS.

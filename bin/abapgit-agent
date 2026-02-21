@@ -2439,6 +2439,99 @@ Examples:
         break;
       }
 
+      case 'where': {
+        const objectsArgIndex = args.indexOf('--objects');
+        if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
+          console.error('Error: --objects parameter required');
+          console.error('Usage: abapgit-agent where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]');
+          console.error('Example: abapgit-agent where --objects ZCL_MY_CLASS');
+          console.error('Example: abapgit-agent where --objects ZIF_MY_INTERFACE');
+          console.error('Example: abapgit-agent where --objects CL_SUT_AUNIT_RUNNER --limit 20');
+          process.exit(1);
+        }
+
+        const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim().toUpperCase());
+        const typeArg = args.indexOf('--type');
+        const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
+        const limitArg = args.indexOf('--limit');
+        const limit = limitArg !== -1 ? parseInt(args[limitArg + 1], 10) : 100;
+        const jsonOutput = args.includes('--json');
+
+        console.log(`\n  Where-used list for ${objects.length} object(s)`);
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        const data = {
+          objects: objects,
+          limit: Math.min(Math.max(1, limit), 500)
+        };
+
+        if (type) {
+          data.type = type;
+        }
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/where', data, { csrfToken });
+
+        // Handle uppercase keys from ABAP
+        const success = result.SUCCESS || result.success;
+        const whereObjects = result.OBJECTS || result.objects || [];
+        const message = result.MESSAGE || result.message || '';
+        const error = result.ERROR || result.error;
+
+        if (!success || error) {
+          console.error(`\n  Error: ${error || 'Failed to get where-used list'}`);
+          break;
+        }
+
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  ${message}`);
+          console.log('');
+
+          for (let i = 0; i < whereObjects.length; i++) {
+            const obj = whereObjects[i];
+            const objName = obj.NAME || obj.name || `Object ${i + 1}`;
+            const objType = obj.TYPE || obj.type || '';
+            const references = obj.REFERENCES || obj.references || [];
+            const count = obj.COUNT || obj.count || 0;
+
+            if (count === 0) {
+              console.log(`  ❌ ${objName} (${objType})`);
+              console.log(`     No references found`);
+              console.log('');
+              continue;
+            }
+
+            console.log(`  🔍 ${objName} (${objType})`);
+            console.log(`     Found ${count} reference(s):`);
+            console.log('');
+
+            // Display references
+            for (let j = 0; j < references.length; j++) {
+              const ref = references[j];
+              const refObj = ref.OBJECT || ref.object || '';
+              const refType = ref.OBJECT_TYPE || ref.object_type || '';
+              const includeName = ref.INCLUDE_NAME || ref.include_name || '';
+              const subType = ref.SUB_TYPE || ref.sub_type || '';
+              const package = ref.PACKAGE || ref.package || '';
+
+              console.log(`     ${j + 1}. ${refObj} (${refType})`);
+              console.log(`        Include: ${includeName}`);
+              if (subType) {
+                console.log(`        Sub: ${subType}`);
+              }
+              if (package) {
+                console.log(`        Package: ${package}`);
+              }
+              console.log('');
+            }
+          }
+        }
+        break;
+      }
+
       case 'ref': {
         const refSearch = require('../src/ref-search');
         const topicIndex = args.indexOf('--topic');
@@ -2564,6 +2657,9 @@ Commands:
   view --objects <obj1>,<obj2>,... [--type <type>] [--json]
     View ABAP object definitions from the ABAP system
 
+  where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]
+    Find where-used list for ABAP objects (classes, interfaces, programs)
+
   ref <pattern> [--json]
     Search ABAP reference repositories for patterns. Requires referenceFolder in .abapGitAgent.
 
@@ -2610,6 +2706,10 @@ Examples:
   abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
   abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
   abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json        # Multiple objects
+  abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER               # Find where class is used
+  abapgit-agent where --objects ZIF_MY_INTERFACE                   # Find interface implementations
+  abapgit-agent where --objects CL_SUT_AUNIT_RUNNER --limit 20    # Limit results
+  abapgit-agent where --objects ZIF_MY_INTERFACE --json            # JSON output
   abapgit-agent ref "CORRESPONDING"                         # Search all reference repos
   abapgit-agent ref "CX_SY_"                                 # Search exceptions
   abapgit-agent ref --topic exceptions                       # View exception topic

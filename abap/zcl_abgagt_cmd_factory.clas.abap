@@ -31,6 +31,7 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
       ( command = zif_abgagt_command=>gc_view   class_name = 'ZCL_ABGAGT_COMMAND_VIEW' )
       ( command = zif_abgagt_command=>gc_preview class_name = 'ZCL_ABGAGT_COMMAND_PREVIEW' )
       ( command = zif_abgagt_command=>gc_list   class_name = 'ZCL_ABGAGT_COMMAND_LIST' )
+      ( command = zif_abgagt_command=>gc_where   class_name = 'ZCL_ABGAGT_COMMAND_WHERE' )
     ).
   ENDMETHOD.
 

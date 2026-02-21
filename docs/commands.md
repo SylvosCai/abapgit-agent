@@ -24,6 +24,7 @@ All available CLI commands for abapGit Agent.
 | [list](list-command.md) | ✅ | List ABAP objects in package |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
 | [view](view-command.md) | ✅ | View ABAP object source code from system |
+| [where](where-command.md) | 🆕 | Where-used list - find object references |
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [health](health-command.md) | ✅ | Health check |
 
@@ -86,6 +87,11 @@ abapgit-agent tree --package $MY_PACKAGE
 # View object definitions (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects SFLIGHT --type TABL
+
+# Find where an object is used (where-used list)
+abapgit-agent where --objects CL_SUT_AUNIT_RUNNER
+abapgit-agent where --objects ZIF_ABGAGT_COMMAND
+abapgit-agent where --objects ZCL_AGENT=>PULL --type CLAS
 
 # Preview table/CDS view data
 abapgit-agent preview --objects SFLIGHT
