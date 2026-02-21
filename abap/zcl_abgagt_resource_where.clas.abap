@@ -67,7 +67,7 @@ CLASS zcl_abgagt_resource_where IMPLEMENTATION.
         lo_entity->set_string_data( lv_result ).
         mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
       CATCH cx_root INTO DATA(lx_exception).
-        lv_json_resp = |{{"success":false,"command":"WHERE","error":"{ lx_exception->get_text( ) }"}}|.
+        CONCATENATE '{"success":false,"command":"WHERE","error":"' lx_exception->get_text( ) '"}' INTO lv_json_resp.
         lo_entity = mo_response->create_entity( ).
         lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
         lo_entity->set_string_data( lv_json_resp ).
