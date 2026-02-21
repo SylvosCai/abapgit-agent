@@ -9,6 +9,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_missing_url FOR TESTING.
     METHODS test_repo_not_found FOR TESTING.
     METHODS test_exception FOR TESTING.
+    METHODS test_no_objects_found FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -94,6 +95,47 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"*' ).
+  ENDMETHOD.
+
+  METHOD test_no_objects_found.
+    " Step 1: Create test double for repo service
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+
+    " Step 2: Create test double for repo
+    DATA lo_repo_double TYPE REF TO zif_abapgit_repo.
+    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
+
+    " Step 3: Configure get_repo_from_url to return the repo
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 4: Configure get_files_local to return empty table
+    DATA lt_empty_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    cl_abap_testdouble=>configure_call( lo_repo_double )->get_files_local(
+      EXPORTING iv_get_active = abap_true
+      iv_get_inactive = abap_false )->returning( lt_empty_files ).
+
+    " Step 5: Register the method call
+    lo_repo_double->get_files_local(
+      EXPORTING iv_get_active = abap_true
+      iv_get_inactive = abap_false ).
+
+    " Step 6: Create CUT with test double
+    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+
+    " Step 7: Execute
+    DATA: BEGIN OF ls_param,
+            url TYPE string VALUE 'https://github.com/test/repo.git',
+          END OF ls_param.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Assert - no objects found error
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error":"No objects found*' ).
   ENDMETHOD.
 
 ENDCLASS.
