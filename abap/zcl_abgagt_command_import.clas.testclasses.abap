@@ -10,6 +10,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_missing_username FOR TESTING.
     METHODS test_with_custom_message FOR TESTING.
     METHODS test_with_username_password FOR TESTING.
+    METHODS test_is_param_not_supplied FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -81,6 +82,16 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error"*' ).
+  ENDMETHOD.
+
+  METHOD test_is_param_not_supplied.
+    " Test without supplying is_param at all
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( ).
+
+    " Should get error because URL is required
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error":"URL is required"*' ).
   ENDMETHOD.
 
 ENDCLASS.
