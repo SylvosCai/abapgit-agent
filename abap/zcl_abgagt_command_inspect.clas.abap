@@ -412,8 +412,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             DATA(lv_method_name) = ''.
 
             " Get last 3 characters (CM003) and extract numeric part
-            DATA(lv_len) = strlen( lv_include_str ).
-            DATA(lv_cm_part) = lv_include_str+lv_len-3(3). " CM003
+            DATA(lv_cm_part) = substring(
+              val = lv_include_str
+              off = strlen( lv_include_str ) - 3
+              len = 3 ).
             DATA(lv_include_num) = CONV i( lv_cm_part+2 ). " 003 -> 3
 
             " Get method name from TMDIR
