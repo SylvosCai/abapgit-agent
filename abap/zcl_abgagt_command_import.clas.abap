@@ -6,6 +6,11 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
+    METHODS constructor
+      IMPORTING
+        io_repo_srv TYPE REF TO zif_abapgit_repo_srv OPTIONAL
+        io_user     TYPE REF TO zif_abapgit_persist_user OPTIONAL.
+
     TYPES: BEGIN OF ty_import_params,
              url TYPE string,
              message TYPE string,
@@ -13,12 +18,40 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
              password TYPE string,
            END OF ty_import_params.
 
+  PRIVATE SECTION.
+    DATA mo_repo_srv TYPE REF TO zif_abapgit_repo_srv.
+    DATA mo_user TYPE REF TO zif_abapgit_persist_user.
+
+    METHODS get_repo_srv
+      RETURNING VALUE(ro_srv) TYPE REF TO zif_abapgit_repo_srv.
+    METHODS get_user
+      RETURNING VALUE(ro_user) TYPE REF TO zif_abapgit_persist_user.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = 'IMPORT'.
+  ENDMETHOD.
+
+  METHOD constructor.
+    mo_repo_srv = io_repo_srv.
+    mo_user = io_user.
+  ENDMETHOD.
+
+  METHOD get_repo_srv.
+    IF mo_repo_srv IS NOT BOUND.
+      mo_repo_srv = zcl_abapgit_repo_srv=>get_instance( ).
+    ENDIF.
+    ro_srv = mo_repo_srv.
+  ENDMETHOD.
+
+  METHOD get_user.
+    IF mo_user IS NOT BOUND.
+      mo_user = zcl_abapgit_persist_factory=>get_user( ).
+    ENDIF.
+    ro_user = mo_user.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
@@ -31,7 +64,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           lv_message TYPE string,
           lv_files_staged TYPE i.
 
-    " Use separate variables to avoid inline DATA issues
+    " Use injected dependencies
     DATA: li_user TYPE REF TO zif_abapgit_persist_user,
           lv_committer_name TYPE string,
           lv_committer_email TYPE string.
@@ -49,9 +82,9 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
         " Configure credentials if provided
         IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
-          zcl_abapgit_persist_factory=>get_user( )->set_repo_git_user_name(
+          get_user( )->set_repo_git_user_name(
             iv_url = ls_params-url iv_username = ls_params-username ).
-          zcl_abapgit_persist_factory=>get_user( )->set_repo_login(
+          get_user( )->set_repo_login(
             iv_url = ls_params-url iv_login = ls_params-username ).
           zcl_abapgit_login_manager=>set_basic(
             iv_uri      = ls_params-url
@@ -59,8 +92,8 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_password = ls_params-password ).
         ENDIF.
 
-        " Find repository by URL
-        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+        " Find repository by URL - use injected dependency
+        get_repo_srv( )->get_repo_from_url(
           EXPORTING iv_url = ls_params-url
           IMPORTING ei_repo = li_repo ).
 
@@ -108,8 +141,8 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_data     = <ls_file>-file-data ).
         ENDLOOP.
 
-        " Get user details for committer
-        li_user = zcl_abapgit_persist_factory=>get_user( ).
+        " Get user details for committer - use injected dependency
+        li_user = get_user( ).
         lv_committer_name = li_user->get_default_git_user_name( ).
         lv_committer_email = li_user->get_default_git_user_email( ).
 
