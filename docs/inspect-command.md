@@ -77,7 +77,22 @@ GET /health (with X-CSRF-Token: fetch)
 ```
   Inspect for 1 file(s)
 
-  ✅ zcl_my_class.clas.abap - Syntax check passed (0 errors)
+  ✅ CLAS ZCL_MY_CLASS - Syntax check passed
+```
+
+### With Warnings
+
+```
+  Inspect for 1 file(s)
+
+  ⚠️  CLAS ZCL_MY_CLASS - Syntax check passed with warnings (2):
+
+  Warnings:
+  ─────────────────────────────────────────────────────────────
+    Method: MY_METHOD
+    Line 000049:
+      Include: ZCL_MY_CLASS========CM002
+      The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
 ```
 
 ### With Errors
@@ -85,15 +100,14 @@ GET /health (with X-CSRF-Token: fetch)
 ```
   Inspect for 1 file(s)
 
-  ❌ Syntax check failed (2 error(s)):
+  ❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
 
   Errors:
-────────────────────────────────────────────────────────────
-  Line 15, Column 10:
-    "ZMYCLASS" is not a type
-
-  Line 20, Column 5:
-    Field "LV_VAR" is unknown
+  ─────────────────────────────────────────────────────────────
+    Method: MY_METHOD
+    Line 000021, Column 12:
+      Include: ZCL_MY_CLASS========CM002
+      Field "LV_VAR" is unknown
 ```
 
 ---
@@ -111,11 +125,39 @@ GET /health (with X-CSRF-Token: fetch)
       "line": "15",
       "column": "10",
       "text": "\"ZMYCLASS\" is not a type",
-      "word": "ZMYCLASS"
+      "word": "ZMYCLASS",
+      "sobjname": "ZCL_MY_CLASS========CM002",
+      "method_name": "MY_METHOD"
+    }
+  ],
+  "warnings": [
+    {
+      "line": "49",
+      "message": "The exception CX_DD_DDL_READ is not caught...",
+      "sobjname": "ZCL_MY_CLASS========CM002",
+      "method_name": "MY_METHOD"
+    }
+  ],
+  "infos": [
+    {
+      "line": "10",
+      "message": "Information message",
+      "sobjname": "ZCL_MY_CLASS========CM001",
+      "method_name": "CONSTRUCTOR"
     }
   ]
 }
 ```
+
+---
+
+## Key Behaviors
+
+1. **Multiple files in one request** - All files are sent in a single API call
+2. **CDS View validation** - Uses `CL_DD_DDL_HANDLER_FACTORY` to validate CDS views
+3. **Method name extraction** - For classes, extracts method name from TMDIR based on include number (CM00X)
+4. **Separate warnings and info** - Warnings ('W') and Information ('I') are displayed in separate sections
+5. **Sorted results** - Errors, warnings, and info are sorted by method name and line number ascending
 
 ---
 
@@ -165,5 +207,8 @@ abapgit-agent pull
    ❌ CLAS ZCL_MY_CLASS: Error updating where-used list
 
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
-   ❌ Line 15, Column 10: "ZMYCLASS" is not a type
+   ❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
+      Method: MY_METHOD
+      Line 000021, Column 12:
+        Field "LV_VAR" is unknown
 ```
