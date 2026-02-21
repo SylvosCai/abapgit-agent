@@ -7,11 +7,11 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
     METHODS test_missing_url FOR TESTING.
-    METHODS test_repo_not_found FOR TESTING.
-    METHODS test_exception FOR TESTING.
-    METHODS test_no_objects_found FOR TESTING.
-    METHODS test_partial_credentials FOR TESTING.
-    METHODS test_default_commit_message FOR TESTING.
+    METHODS test_repo_not_found FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_exception FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_no_objects_found FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_partial_credentials FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_default_commit_message FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
