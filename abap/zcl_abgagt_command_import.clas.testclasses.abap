@@ -106,8 +106,8 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA lt_empty_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
     cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_empty_files ).
 
-    " Step 3: Register the method call (just call without configure)
-    lo_repo_double->get_files_local( ).
+    " Step 3: Register the method call with matching parameters
+    lo_repo_double->get_files_local( ii_log = ).
 
     " Step 4: Create test double for repo service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
