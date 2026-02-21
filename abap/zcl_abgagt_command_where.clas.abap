@@ -188,12 +188,12 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         references = lt_ref.
 
     " Map to output structure - convert to string fields for JSON serialization
-    LOOP AT rt_references ASSIGNING FIELD-SYMBOL(<ls_ref>).
-      ls_ref_out-object = <ls_ref>-object.
-      ls_ref_out-object_type = <ls_ref>-object_type.
-      ls_ref_out-include_name = <ls_ref>-include_name.
+    LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref>).
+      ls_ref_out-object = <ls_ref>-obj_name.
+      ls_ref_out-object_type = <ls_ref>-obj_type.
+      ls_ref_out-include_name = <ls_ref>-sub_name.
       ls_ref_out-sub_type = <ls_ref>-sub_type.
-      ls_ref_out-package = <ls_ref>-package.
+      ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
 
