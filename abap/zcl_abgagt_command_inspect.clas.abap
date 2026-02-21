@@ -40,6 +40,21 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_warnings TYPE STANDARD TABLE OF ty_warning WITH NON-UNIQUE DEFAULT KEY.
 
+    " Info structure (same as warning)
+    TYPES: BEGIN OF ty_info,
+             type TYPE string,
+             line TYPE string,
+             column TYPE string,
+             severity TYPE string,
+             message TYPE string,
+             object_type TYPE string,
+             object_name TYPE string,
+             sobjname TYPE string,
+             method_name TYPE string,
+           END OF ty_info.
+
+    TYPES ty_infos TYPE STANDARD TABLE OF ty_info WITH NON-UNIQUE DEFAULT KEY.
+
     " Result for each individual object
     TYPES: BEGIN OF ty_inspect_result,
              object_type TYPE string,
@@ -48,6 +63,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              error_count TYPE i,
              errors TYPE ty_errors,
              warnings TYPE ty_warnings,
+             infos TYPE ty_infos,
            END OF ty_inspect_result.
 
     " Table to hold results for multiple objects
@@ -436,8 +452,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               ls_error-sobjname = ls_list-sobjname.
               ls_error-method_name = lv_method_name.
               APPEND ls_error TO ls_result-errors.
-            ELSEIF ls_list-kind = 'W' OR ls_list-kind = 'I'.
-              " Warning or Info
+            ELSEIF ls_list-kind = 'W'.
+              " Warning
               CLEAR ls_warning.
               ls_warning-line = ls_list-line.
               ls_warning-column = ls_list-col.
@@ -448,6 +464,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               ls_warning-sobjname = ls_list-sobjname.
               ls_warning-method_name = lv_method_name.
               APPEND ls_warning TO ls_result-warnings.
+            ELSEIF ls_list-kind = 'I'.
+              " Info
+              CLEAR ls_warning.
+              ls_warning-line = ls_list-line.
+              ls_warning-column = ls_list-col.
+              ls_warning-severity = ls_list-kind.
+              ls_warning-message = ls_list-text.
+              ls_warning-object_type = ls_obj-objtype.
+              ls_warning-object_name = ls_obj-objname.
+              ls_warning-sobjname = ls_list-sobjname.
+              ls_warning-method_name = lv_method_name.
+              APPEND ls_warning TO ls_result-infos.
             ENDIF.
           ENDLOOP.
 
@@ -455,6 +483,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           SORT ls_result-errors BY method_name line.
           " Sort warnings by method_name and line
           SORT ls_result-warnings BY method_name line.
+          " Sort infos by method_name and line
+          SORT ls_result-infos BY method_name line.
 
           ls_result-error_count = lines( ls_result-errors ).
           IF ls_result-error_count > 0.

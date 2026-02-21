@@ -538,12 +538,14 @@ async function processInspectResult(res) {
   const errorCount = res.ERROR_COUNT !== undefined ? res.ERROR_COUNT : (res.error_count || 0);
   const errors = res.ERRORS !== undefined ? res.ERRORS : (res.errors || []);
   const warnings = res.WARNINGS !== undefined ? res.WARNINGS : (res.warnings || []);
+  const infos = res.INFOS !== undefined ? res.INFOS : (res.infos || []);
 
-  if (errorCount > 0 || warnings.length > 0) {
+  if (errorCount > 0 || warnings.length > 0 || infos.length > 0) {
     if (errorCount > 0) {
       console.log(`❌ ${objectType} ${objectName} - Syntax check failed (${errorCount} error(s)):`);
     } else {
-      console.log(`⚠️  ${objectType} ${objectName} - Syntax check passed with warnings (${warnings.length}):`);
+      const total = warnings.length + infos.length;
+      console.log(`⚠️  ${objectType} ${objectName} - Syntax check passed with warnings (${total}):`);
     }
     console.log('\nErrors:');
     console.log('─'.repeat(60));
@@ -575,6 +577,27 @@ async function processInspectResult(res) {
         const text = warn.MESSAGE || warn.message || 'Unknown warning';
         const methodName = warn.METHOD_NAME || warn.method_name;
         const sobjname = warn.SOBJNAME || warn.sobjname;
+
+        if (methodName) {
+          console.log(`  Method: ${methodName}`);
+        }
+        console.log(`  Line ${line}:`);
+        if (sobjname && sobjname.includes('====')) {
+          console.log(`    Include: ${sobjname}`);
+        }
+        console.log(`    ${text}`);
+      }
+    }
+
+    // Show infos if any
+    if (infos.length > 0) {
+      console.log('Info:');
+      console.log('─'.repeat(60));
+      for (const info of infos) {
+        const line = info.LINE || info.line || '?';
+        const text = info.MESSAGE || info.message || 'Unknown info';
+        const methodName = info.METHOD_NAME || info.method_name;
+        const sobjname = info.SOBJNAME || info.sobjname;
 
         if (methodName) {
           console.log(`  Method: ${methodName}`);
