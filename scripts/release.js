@@ -282,10 +282,20 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   console.log('✅ RELEASE_NOTES.md updated');
   console.log('');
 
-  // 3. Create git commit
+  // 3. Run npm version FIRST (modifies package.json and package-lock.json)
+  console.log(`Running npm version ${bumpType}...`);
+  try {
+    execSync(`npm version ${bumpType} --no-git-tag-version`, { cwd: repoRoot, encoding: 'utf8' });
+    console.log(`✅ Updated package.json to v${newVersion}`);
+  } catch (e) {
+    console.log('⚠️ npm version failed:', e.message);
+  }
+  console.log('');
+
+  // 4. Create git commit (with all modified files including package.json)
   console.log('Creating git commit...');
   try {
-    execSync('git add abap/zcl_abgagt_resource_health.clas.abap RELEASE_NOTES.md', { cwd: repoRoot });
+    execSync('git add abap/zcl_abgagt_resource_health.clas.abap RELEASE_NOTES.md package.json package-lock.json', { cwd: repoRoot });
     execSync(`git commit -m "chore: release v${newVersion}"`, { cwd: repoRoot });
     console.log('✅ Created commit: chore: release v' + newVersion);
   } catch (e) {
@@ -293,17 +303,17 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   }
   console.log('');
 
-  // 4. Run npm version to create tag
-  console.log(`Running npm version ${bumpType}...`);
+  // 5. Create git tag
+  console.log(`Creating git tag v${newVersion}...`);
   try {
-    execSync(`npm version ${bumpType} --no-git-tag-version`, { cwd: repoRoot, encoding: 'utf8' });
+    execSync(`git tag v${newVersion}`, { cwd: repoRoot });
     console.log(`✅ Created tag: v${newVersion}`);
   } catch (e) {
-    console.log('⚠️ npm version failed:', e.message);
+    console.log('⚠️ Tag creation failed:', e.message);
   }
   console.log('');
 
-  // 5. Push to github.com
+  // 6. Push to github.com
   console.log(`Pushing to ${remoteName}...`);
   try {
     execSync(`git push ${remoteName} master --follow-tags`, { cwd: repoRoot });
