@@ -105,15 +105,19 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_where_obj-type = lv_type.
 
       " Get where-used list
+      DATA lv_obj_type TYPE trobjtype.
+      lv_obj_type = lv_type.
       lt_references = get_where_used_list(
-        iv_obj_type = lv_type
+        iv_obj_type = lv_obj_type
         iv_obj_name = lv_object
       ).
 
       " Apply limit
-      DATA(lt_limited_refs) = lt_references.
-      IF lines( lt_limited_refs ) > ls_params-limit.
-        lt_limited_refs = lt_limited_refs[ 1 = ls_params-limit ].
+      DATA lt_limited_refs TYPE ty_references.
+      IF ls_params-limit > 0 AND lines( lt_references ) > ls_params-limit.
+        lt_limited_refs = lt_references[ 1 TO ls_params-limit ].
+      ELSE.
+        lt_limited_refs = lt_references.
       ENDIF.
 
       ls_where_obj-references = lt_limited_refs.
@@ -163,7 +167,6 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
   METHOD get_where_used_list.
     DATA: lt_refs TYPE TABLE OF akb_except_type,
-          ls_ref TYPE akb_except_type,
           ls_ref_out TYPE ty_reference.
 
     " Call the function module
@@ -174,15 +177,15 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       IMPORTING
         references = lt_refs.
 
-    " Map to output structure
-    LOOP AT lt_refs INTO ls_ref.
-      ls_ref_out-object = ls_ref-obj_name.
-      ls_ref_out-object_type = ls_ref-obj_.
-      ls_ref_out-include_name = ls_ref-sub_name.
-      ls_ref_out-sub_type = ls_ref-sub_.
-      ls_ref_out-package = ls_ref-appl_packet.
+    " Map to output structure using field symbol
+    FIELD-SYMBOLS <ls_ref> TYPE akb_except_type.
+    LOOP AT lt_refs ASSIGNING <ls_ref>.
+      ls_ref_out-object = <ls_ref>-obj_name.
+      ls_ref_out-object_type = <ls_ref>-obj_.
+      ls_ref_out-include_name = <ls_ref>-sub_name.
+      ls_ref_out-sub_type = <ls_ref>-sub_.
+      ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
-      CLEAR ls_ref_out.
     ENDLOOP.
 
     " Sort by object name
