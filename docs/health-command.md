@@ -1,6 +1,4 @@
-# health Command Requirements
-
-## Overview
+# health Command
 
 Check if the ABAP REST API is healthy and accessible.
 
@@ -12,78 +10,37 @@ abapgit-agent health
 
 ## Prerequisite
 
-- `.abapGitAgent` file exists with valid credentials, or environment variables are set
+- `.abapGitAgent` file exists with valid credentials
 
-## Tasks
+## Version Check
 
-### 1. Load Configuration
+The health command checks compatibility between CLI and ABAP agent versions.
 
-Read from `.abapGitAgent` or environment variables:
-- `host`
-- `sapport`
-- `client`
-- `user`
-- `password`
-- `language`
-
-### 2. Make Health Check Request
-
-**Endpoint:** `GET /health`
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "abap": "connected",
-  "version": "1.0.0"
-}
-```
-
-### 3. Display Result
-
-```bash
-$ abapgit-agent health
-{
-  "status": "healthy",
-  "abap": "connected",
-  "version": "1.0.0"
-}
-```
-
----
+If versions don't match, a warning is displayed but doesn't block the operation.
 
 ## Output
 
-| Status | Output |
-|--------|--------|
-| Healthy | JSON response with status |
-| Error | Error message with details |
+### Success
 
----
+```json
+{
+  "status": "OK",
+  "version": "1.x.x"
+}
+```
 
-## Error Handling
+### Error
 
-| Error | Message |
-|-------|---------|
-| Connection failed | `Health check failed: <error message>` |
-| Invalid credentials | Authentication error |
-
----
+```
+❌ Health check failed: <error message>
+```
 
 ## Example
 
 ```bash
-# Check health
-abapgit-agent health
-
-# Output
+$ abapgit-agent health
 {
-  "status": "healthy",
-  "abap": "connected",
-  "version": "1.0.0"
+  "status": "OK",
+  "version": "1.6.0"
 }
 ```
-
-## Used By
-
-- `create` command - validates ABAP connection before creating repo

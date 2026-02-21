@@ -24,7 +24,7 @@ function loadConfig() {
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   } else {
-    // Load from environment variables
+    // Load from environment variables only when no config file exists
     config = {
       host: process.env.ABAP_HOST,
       sapport: parseInt(process.env.ABAP_PORT, 10) || 443,
