@@ -254,9 +254,13 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Get coverage results if requested
     IF iv_coverage = abap_true AND ls_str-cov_id IS NOT INITIAL.
+      " Convert XSTRING to RAW(16)
+      DATA: lv_cov_id TYPE sut_au_results-cov_id.
+      lv_cov_id = ls_str-cov_id.
+
       rs_result-coverage_stats = get_coverage(
         io_runner = lo_runner
-        iv_cov_id = ls_str-cov_id ).
+        iv_cov_id = lv_cov_id ).
     ENDIF.
   ENDMETHOD.
 
