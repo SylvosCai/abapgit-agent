@@ -2,6 +2,40 @@
 
 
 
+
+## v1.6.1
+
+### New Features
+
+- Add coverage option to unit command
+- Add coverage data retrieval to unit command
+- Separate warnings and info messages in inspect output
+- Add method name to inspect command output
+
+### Bug Fixes
+
+- Fix method name extraction from SOBJNAME
+- Fix syntax warnings in preview and inspect commands
+- Handle cx_dd_ddl_read exception in command_view
+- Fix parent_package assertions in tree command tests
+
+### Improvements
+
+- Sort errors and warnings by method name and line number
+- Simplify method name extraction from SOBJNAME
+- Add dependency injection to command_import
+- Extract coverage logic to separate method
+
+### Documentation
+
+- Update INSTALL.md and health-command.md
+- Add exception handling guidelines for interfaces
+- Update inspect command spec and documentation
+- Add unit testable code guidelines
+- Add coverage option to unit command documentation
+
+---
+
 ## v1.6.0
 
 ### New Features

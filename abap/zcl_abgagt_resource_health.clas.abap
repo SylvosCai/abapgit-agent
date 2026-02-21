@@ -14,7 +14,7 @@ CLASS zcl_abgagt_resource_health IMPLEMENTATION.
 
   METHOD if_rest_resource~get.
     DATA lv_json TYPE string.
-    lv_json = '{"status":"OK","version":"1.6.0"}'.
+    lv_json = '{"status":"OK","version":"1.6.1"}'.
 
     DATA(lo_entity) = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
