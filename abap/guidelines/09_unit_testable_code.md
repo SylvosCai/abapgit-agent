@@ -286,6 +286,56 @@ lo_mock->my_method( ... ).
 - Use `returning(value = ...)` not `IMPORTING`
 - Call method after configure_call to register the configuration
 
+### Mocking EXPORT Parameters
+
+Some methods use EXPORT parameters instead of returning values. Use `set_parameter`:
+
+```abap
+" Mock EXPORT parameter EI_REPO
+cl_abap_testdouble=>configure_call( lo_repo_srv )->set_parameter(
+  EXPORTING
+    name  = 'EI_REPO'
+    value = lo_repo_double ).
+
+" Register the method call
+lo_repo_srv->get_repo_from_url(
+  EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+```
+
+### Mocking Inherited Methods
+
+When an interface extends another interface, use the parent interface prefix:
+
+```abap
+" zif_abapgit_repo_online extends zif_abapgit_repo
+" Call inherited method with prefix
+lo_repo->zif_abapgit_repo~get_package( ).
+lo_repo->zif_abapgit_repo~refresh( ).
+lo_repo->zif_abapgit_repo~get_files_local( ).
+```
+
+### Mocking Methods with No Parameters
+
+When source code calls a method with no parameters:
+
+```abap
+" Configure returning (no method name)
+cl_abap_testdouble=>configure_call( lo_mock )->returning( lt_data ).
+
+" Register with no parameters (matches source code)
+lo_mock->get_files_local( ).
+```
+
+### Common Mistakes
+
+| Mistake | Correction |
+|---------|------------|
+| Using `IMPORTING` in configure_call | Use `returning()` or `set_parameter()` |
+| Calling method inside configure_call | Call method separately after configure_call |
+| Wrong parameter count | Match exactly what source code calls |
+| Forgot to mock a method | Mock ALL methods the code under test calls |
+| Interface prefix not used | Use `zif_parent~method()` for inherited methods |
+
 ---
 
 ## Guidelines for AI Coding Tools
