@@ -261,21 +261,20 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           " Coverage stats not available
       ENDTRY.
 
-      " Get detailed coverage lines
-      TRY.
-          DATA(lt_cov_flat) = lo_runner->get_coverage_result_flat(
-            i_cov_id = lv_cov_id ).
-          LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
-            APPEND VALUE #(
-              program = <ls_cov>-object_name
-              include = <ls_cov>-include
-              line = <ls_cov>-source_line
-              hits = <ls_cov>-exec_count
-            ) TO rs_result-coverage_lines.
-          ENDLOOP.
-        CATCH cx_sut_error.
-          " Coverage details not available
-      ENDTRY.
+      " Get detailed coverage lines (commented out - structure unknown)
+*      TRY.
+*          DATA(lt_cov_flat) = lo_runner->get_coverage_result_flat(
+*            i_cov_id = lv_cov_id ).
+*          LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
+*            APPEND VALUE #(
+*              program = <ls_cov>-object_name
+*              line = <ls_cov>-source_line
+*              hits = <ls_cov>-exec_count
+*            ) TO rs_result-coverage_lines.
+*          ENDLOOP.
+*        CATCH cx_sut_error.
+*          " Coverage details not available
+*      ENDTRY.
     ENDIF.
   ENDMETHOD.
 
