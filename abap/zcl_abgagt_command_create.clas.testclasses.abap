@@ -63,7 +63,7 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
 
     " Step 3: Configure new_online to return mock repo
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->
-      returning( value = lo_mock_repo ).
+      returning( lo_mock_repo ).
 
     " Step 4: Call method to register the configuration
     lo_repo_srv_double->new_online(
@@ -77,12 +77,12 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
 
     " Step 5: Configure get_key method
     cl_abap_testdouble=>configure_call( lo_mock_repo )->
-      returning( value = 'TEST_KEY' ).
+      returning( 'TEST_KEY' ).
     lo_mock_repo->get_key( ).
 
     " Step 6: Configure get_name method
     cl_abap_testdouble=>configure_call( lo_mock_repo )->
-      returning( value = 'Test Repo' ).
+      returning( 'Test Repo' ).
     lo_mock_repo->get_name( ).
 
     " Step 7: Create CUT with test double
@@ -112,9 +112,9 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
-    " Step 3: Configure to return mock repo (so it doesn't fail on returning)
+    " Step 3: Configure to return mock repo
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->
-      returning( value = lo_mock_repo ).
+      returning( lo_mock_repo ).
 
     " Step 4: Call method to register configuration
     lo_repo_srv_double->new_online(
