@@ -12,7 +12,16 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              column TYPE string,
              text TYPE string,
              word TYPE string,
+             sobjname TYPE string,
+             method_name TYPE string,
            END OF ty_error.
+
+    " Structure for TMDIR lookup
+    TYPES: BEGIN OF ty_tmdir,
+             classname TYPE seoclsname,
+             methodindx TYPE i,
+             methodname TYPE seocmpname,
+           END OF ty_tmdir.
 
     TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH NON-UNIQUE DEFAULT KEY.
 
@@ -25,6 +34,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              message TYPE string,
              object_type TYPE string,
              object_name TYPE string,
+             sobjname TYPE string,
+             method_name TYPE string,
            END OF ty_warning.
 
     TYPES ty_warnings TYPE STANDARD TABLE OF ty_warning WITH NON-UNIQUE DEFAULT KEY.
@@ -61,6 +72,12 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS validate_ddls
       IMPORTING it_ddls_names TYPE ty_ddls_names
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
+
+    " Get method name from TMDIR based on class name and include number
+    METHODS get_method_name
+      IMPORTING iv_classname    TYPE seoclsname
+                iv_include_num  TYPE i
+      RETURNING VALUE(rv_method_name) TYPE seocmpname.
 
 ENDCLASS.
 
@@ -388,6 +405,23 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
+            " Extract method name from SOBJNAME (format: CLASSNAME====CM###)
+            DATA(lv_classname) = ls_obj-objname.
+            DATA(lv_include_str) = ls_list-sobjname.
+            DATA(lv_method_name) = ''.
+            FIND FIRST OCCURRENCE OF '====' IN lv_include_str.
+            IF sy-fdpos > 0.
+              " Extract include number after ====
+              DATA(lv_include_part) = lv_include_str+sy-fdpos + 4.
+              " Extract numeric part (CM002 -> 2)
+              DATA(lv_include_num) = lv_include_part+2.
+              DATA(lv_num_str) = CONV i( lv_include_num ).
+              " Get method name from TMDIR
+              lv_method_name = get_method_name(
+                iv_classname   = lv_classname
+                iv_include_num = lv_num_str ).
+            ENDIF.
+
             " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
             IF ls_list-kind = 'E'.
               " Error
@@ -396,6 +430,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               ls_error-column = ls_list-col.
               ls_error-text = ls_list-text.
               ls_error-word = ls_list-code.
+              ls_error-sobjname = ls_list-sobjname.
+              ls_error-method_name = lv_method_name.
               APPEND ls_error TO ls_result-errors.
             ELSEIF ls_list-kind = 'W' OR ls_list-kind = 'I'.
               " Warning or Info
@@ -406,6 +442,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               ls_warning-message = ls_list-text.
               ls_warning-object_type = ls_obj-objtype.
               ls_warning-object_name = ls_obj-objname.
+              ls_warning-sobjname = ls_list-sobjname.
+              ls_warning-method_name = lv_method_name.
               APPEND ls_warning TO ls_result-warnings.
             ENDIF.
           ENDLOOP.
@@ -451,6 +489,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           APPEND ls_result TO rt_results.
         ENDLOOP.
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD get_method_name.
+    " Get method name from TMDIR based on class name and include number
+    " iv_include_num: 1 = CM001, 2 = CM002, etc.
+    rv_method_name = ''.
+
+    SELECT SINGLE methodname
+      FROM tmdir
+      INTO rv_method_name
+      WHERE classname = iv_classname
+        AND methodindx = iv_include_num.
   ENDMETHOD.
 
 ENDCLASS.

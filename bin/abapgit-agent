@@ -552,8 +552,16 @@ async function processInspectResult(res) {
       const line = err.LINE || err.line || '?';
       const column = err.COLUMN || err.column || '?';
       const text = err.TEXT || err.text || 'Unknown error';
+      const methodName = err.METHOD_NAME || err.method_name;
+      const sobjname = err.SOBJNAME || err.sobjname;
 
+      if (methodName) {
+        console.log(`  Method: ${methodName}`);
+      }
       console.log(`  Line ${line}, Column ${column}:`);
+      if (sobjname && sobjname.includes('====')) {
+        console.log(`    Include: ${sobjname}`);
+      }
       console.log(`    ${text}`);
       console.log('');
     }
@@ -565,7 +573,17 @@ async function processInspectResult(res) {
       for (const warn of warnings) {
         const line = warn.LINE || warn.line || '?';
         const text = warn.MESSAGE || warn.message || 'Unknown warning';
-        console.log(`  Line ${line}: ${text}`);
+        const methodName = warn.METHOD_NAME || warn.method_name;
+        const sobjname = warn.SOBJNAME || warn.sobjname;
+
+        if (methodName) {
+          console.log(`  Method: ${methodName}`);
+        }
+        console.log(`  Line ${line}:`);
+        if (sobjname && sobjname.includes('====')) {
+          console.log(`    Include: ${sobjname}`);
+        }
+        console.log(`    ${text}`);
       }
     }
   } else if (success === true || success === 'X') {
