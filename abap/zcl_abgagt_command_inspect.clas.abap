@@ -416,7 +416,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               val = lv_include_str
               off = strlen( lv_include_str ) - 3
               len = 3 ).
-            DATA(lv_include_num) = CONV i( lv_cm_part+2 ). " 003 -> 3
+            " Convert CM003 to 3 (remove CM prefix, get last 1 char)
+            DATA(lv_num_str) = substring( val = lv_cm_part off = 2 ).
+            DATA(lv_include_num) = CONV i( lv_num_str ).
 
             " Get method name from TMDIR
             lv_method_name = get_method_name(
