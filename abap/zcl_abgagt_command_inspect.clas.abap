@@ -406,7 +406,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
             " Extract method name from SOBJNAME (format: CLASSNAME====CM###)
-            DATA(lv_classname) TYPE seoclsname = ls_obj-objname.
+            DATA lv_classname TYPE seoclsname.
+            lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA(lv_method_name) = ''.
             FIND FIRST OCCURRENCE OF '====' IN lv_include_str.
