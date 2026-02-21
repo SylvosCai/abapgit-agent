@@ -439,7 +439,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             REPLACE ALL OCCURRENCES OF REGEX '=+' IN lv_normalized WITH '='.
 
             " Split by '=' to get class name and include name
-            SPLIT lv_normalized AT '=' INTO DATA(lv_part_class) lv_include_name.
+            SPLIT lv_normalized AT '=' INTO DATA(lv_part_class) DATA(lv_include_name).
 
             " Check include type
             IF lv_include_name = 'CCAU'.
