@@ -13,6 +13,17 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
              limit TYPE i,
            END OF ty_where_params.
 
+    TYPES: BEGIN OF ty_akb_ref,
+             obj_ TYPE trobjtype,
+             obj_name TYPE sobj_name,
+             sub_ TYPE trobjtype,
+             sub_name TYPE sobj_name,
+             appl TYPE c LENGTH 1,
+             appl_name TYPE string,
+             appl_dlvunit TYPE devclass,
+             appl_packet TYPE devclass,
+           END OF ty_akb_ref.
+
     TYPES: BEGIN OF ty_reference,
              object TYPE string,
              object_type TYPE string,
@@ -107,9 +118,11 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       " Get where-used list
       DATA lv_obj_type TYPE trobjtype.
       lv_obj_type = lv_type.
+      DATA lv_obj_name TYPE sobj_name.
+      lv_obj_name = lv_object.
       lt_references = get_where_used_list(
         iv_obj_type = lv_obj_type
-        iv_obj_name = lv_object
+        iv_obj_name = lv_obj_name
       ).
 
       " Apply limit
@@ -166,7 +179,8 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_where_used_list.
-    DATA: lt_refs TYPE TABLE OF akb_except_type,
+    DATA: lt_refs TYPE STANDARD TABLE OF ty_akb_ref,
+          ls_ref TYPE ty_akb_ref,
           ls_ref_out TYPE ty_reference.
 
     " Call the function module
@@ -177,14 +191,13 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       IMPORTING
         references = lt_refs.
 
-    " Map to output structure using field symbol
-    FIELD-SYMBOLS <ls_ref> TYPE akb_except_type.
-    LOOP AT lt_refs ASSIGNING <ls_ref>.
-      ls_ref_out-object = <ls_ref>-obj_name.
-      ls_ref_out-object_type = <ls_ref>-obj_.
-      ls_ref_out-include_name = <ls_ref>-sub_name.
-      ls_ref_out-sub_type = <ls_ref>-sub_.
-      ls_ref_out-package = <ls_ref>-appl_packet.
+    " Map to output structure
+    LOOP AT lt_refs INTO ls_ref.
+      ls_ref_out-object = ls_ref-obj_name.
+      ls_ref_out-object_type = ls_ref-obj_.
+      ls_ref_out-include_name = ls_ref-sub_name.
+      ls_ref_out-sub_type = ls_ref-sub_.
+      ls_ref_out-package = ls_ref-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
 
