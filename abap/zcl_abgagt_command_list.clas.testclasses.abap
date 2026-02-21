@@ -5,7 +5,8 @@ CLASS ltcl_zcl_abgagt_command_list DEFINITION FOR TESTING DURATION SHORT RISK LE
     DATA mo_cut TYPE REF TO zcl_abgagt_command_list.
     CLASS-DATA: go_env TYPE REF TO if_osql_test_environment.
 
-    METHODS: class_setup, class_teardown, setup.
+    CLASS-METHODS: class_setup, class_teardown.
+    METHODS: setup.
     METHODS: test_get_name FOR TESTING.
     METHODS: test_interface FOR TESTING.
     METHODS: test_validate_type FOR TESTING.
