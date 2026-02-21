@@ -9,6 +9,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_unit_params,
              package TYPE string,
              files TYPE string_table,
+             coverage TYPE abap_bool,
            END OF ty_unit_params.
 
     " Error structure for failed test methods
@@ -41,6 +42,7 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         iv_package TYPE devclass OPTIONAL
         it_keys TYPE ty_keys OPTIONAL
+        iv_coverage TYPE abap_bool DEFAULT abap_false
       RETURNING
         VALUE(rs_result) TYPE ty_unit_result.
 
@@ -140,7 +142,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Run tests and get result directly from str_results
     ls_result = run_aunit_tests(
       iv_package = lv_package
-      it_keys = lt_keys ).
+      it_keys = lt_keys
+      iv_coverage = ls_params-coverage ).
 
     IF ls_result-test_count = 0 AND ls_result-failed_count = 0.
       ls_result-message = 'No test results returned'.
@@ -164,7 +167,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Create runner using S_CREATE
     cl_sut_aunit_runner=>s_create(
       EXPORTING
-        p_cov       = abap_false
+        p_cov       = iv_coverage
         i_flg_api   = abap_true
       RECEIVING
         r_ref_runner = lo_runner ).
