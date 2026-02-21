@@ -114,7 +114,6 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
     " Step 5: Configure get_repo_from_url to return the repo via set_parameter
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
       EXPORTING
         name  = 'EI_REPO'
