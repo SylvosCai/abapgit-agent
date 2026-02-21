@@ -413,13 +413,14 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             IF sy-fdpos > 0.
               " Extract include number after ====
               DATA(lv_include_part) = lv_include_str+sy-fdpos + 4.
-              " Extract numeric part (CM002 -> 2)
-              DATA(lv_include_num) = lv_include_part+2.
-              DATA(lv_num_str) = CONV i( lv_include_num ).
+              " Convert to string and extract numeric part (CM002 -> 2)
+              DATA(lv_include_part_str) = CONV string( lv_include_part ).
+              DATA(lv_num_str) = lv_include_part_str+2.
+              DATA(lv_include_num) = CONV i( lv_num_str ).
               " Get method name from TMDIR
               lv_method_name = get_method_name(
                 iv_classname   = lv_classname
-                iv_include_num = lv_num_str ).
+                iv_include_num = lv_include_num ).
             ENDIF.
 
             " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
