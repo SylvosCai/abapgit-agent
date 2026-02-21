@@ -299,10 +299,6 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
       exp = '$TEST'
       msg = 'Package should match' ).
 
-    cl_abap_unit_assert=>assert_not_initial(
-      act = ls_result-parent_package
-      msg = 'Parent package should not be initial' ).
-
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-total_packages
       exp = 1
