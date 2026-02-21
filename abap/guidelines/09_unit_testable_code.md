@@ -335,6 +335,27 @@ lo_mock->get_files_local( ).
 | Wrong parameter count | Match exactly what source code calls |
 | Forgot to mock a method | Mock ALL methods the code under test calls |
 | Interface prefix not used | Use `zif_parent~method()` for inherited methods |
+| Didn't check source code first | ALWAYS read source code to see how method is called |
+
+### Important: Read Source Code First
+
+**ALWAYS check the source code to see HOW a method is called before writing tests:**
+
+1. Check what parameters are passed (none, some, or all)
+2. Check if optional parameters are used
+3. Check if parameters have default values
+4. Check for type casts (e.g., `li_repo_online ?= li_repo`)
+
+```abap
+" Source code line 122:
+lt_files = li_repo->get_files_local( ).
+
+" Test MUST match - no parameters!
+cl_abap_testdouble=>configure_call( lo_repo )->returning( lt_empty_files ).
+lo_repo->get_files_local( ).  " No parameters!
+```
+
+If the source code calls `get_files_local( )` with no parameters, your test registration must also have no parameters. Even if the method signature has optional parameters, if the source doesn't pass them, your mock registration must not pass them either.
 
 ---
 
