@@ -109,7 +109,7 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
     " Step 2: Configure new_online to raise exception
-    DATA(lx_error) = NEW zcx_abapgit_exception( text = 'Repo creation failed' ).
+    DATA(lx_error) = NEW zcx_abapgit_exception( ).
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
 
     " Step 3: Call method to register configuration
