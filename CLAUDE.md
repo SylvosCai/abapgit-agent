@@ -304,21 +304,42 @@ abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant EMPTY
 
 **With Warnings:**
 ```
-⚠️  DDLS ZC_MY_VIEW - Syntax check passed with warnings (4):
+⚠️  CLAS ZCL_MY_CLASS - Syntax check passed with warnings (2):
 
 Warnings:
 ────────────────────────────────────────────────────────────
-  Line 9 : ParentPackage
-  Line 11 : SoftwareComponent
+  Method: MY_METHOD
+  Line 000049:
+    Include: ZCL_MY_CLASS========CM002
+    The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
+  Method: MY_METHOD
+  Line 000031:
+    Include: ZCL_MY_CLASS========CM002
+    The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
+```
+
+**With Info:**
+```
+⚠️  CLAS ZCL_MY_CLASS - Syntax check passed with warnings (1):
+
+Info:
+────────────────────────────────────────────────────────────
+  Method: MY_METHOD
+  Line 000015:
+    Include: ZCL_MY_CLASS========CM002
+    Information message text
 ```
 
 **Failed:**
 ```
-❌ DDLS ZC_MY_VIEW - Syntax check failed (1 error(s)):
+❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
 
 Errors:
 ────────────────────────────────────────────────────────────
-  Line 21, Column 12: Error message text
+  Method: MY_METHOD
+  Line 000021, Column 12:
+    Include: ZCL_MY_CLASS========CM002
+    Error message text
 ```
 
 ### Key Behaviors
@@ -328,6 +349,9 @@ Errors:
 3. **Check inactive version first** - For CDS views, checks the inactive version first (`get_state = 'M'`), then falls back to active version
 4. **Detailed error messages** - Uses `get_errors()` and `get_warnings()` methods from the exception to get detailed information
 5. **Per-object results** - Returns results for each object individually
+6. **Method name extraction** - For classes, extracts method name from TMDIR based on include number (CM00X) in SOBJNAME
+7. **Separate warnings and info** - Warnings ('W') and Information ('I') messages are displayed in separate sections
+8. **Sorted results** - Errors, warnings, and info are sorted by method name and line number ascending
 
 ### File Format
 Files are parsed to extract `(obj_type, obj_name)`:
