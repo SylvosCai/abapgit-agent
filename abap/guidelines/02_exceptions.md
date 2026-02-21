@@ -8,6 +8,7 @@
 3. Class-Based Exceptions - line 25
 4. Method Signatures - line 50
 5. Best Practices - line 80
+6. Interface vs Class Methods - line 118
 
 ABAP has two exception handling mechanisms. Using the wrong one causes silent failures.
 
@@ -115,3 +116,61 @@ Or search the cheat sheets:
 ```bash
 abapgit-agent ref --topic exceptions
 ```
+
+## Interface vs Class Methods
+
+### Interface Methods
+
+Cannot add RAISING clause in the implementing class. Options:
+
+1. Add RAISING to interface definition
+2. Use TRY-CATCH in the implementation
+
+```abap
+" Interface definition - can add RAISING here
+INTERFACE zif_example.
+  methods execute
+    importing is_param type data optional
+    returning value(rv_result) type string
+    raising cx_static_check.
+ENDINTERFACE.
+
+" Implementation - CANNOT add RAISING here
+CLASS zcl_example DEFINITION.
+  INTERFACES zif_example.
+ENDCLASS.
+
+CLASS zcl_example IMPLEMENTATION.
+  METHOD zif_example~execute.
+    " Must handle cx_static_check here with TRY-CATCH
+    " or declare it in interface, not here
+  ENDMETHOD.
+ENDCLASS.
+```
+
+### Class Methods
+
+Can add RAISING clause to declare exceptions, allowing caller to handle in one place:
+
+```abap
+" Class method with RAISING clause
+METHODS process_data
+  importing iv_data type string
+  returning value(rv_result) type string
+  raising cx_static_check.
+
+" Caller can handle in one place
+TRY.
+    lv_result = lo_obj->process_data( iv_data = 'test' ).
+  CATCH cx_static_check.
+    " Handle exception
+ENDTRY.
+```
+
+### When to Use Each
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Multiple callers need to handle exception | Add RAISING to method definition |
+| Exception should be handled internally | Use TRY-CATCH in implementation |
+| Interface method | Add RAISING to interface, or use TRY-CATCH in class |
