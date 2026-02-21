@@ -206,6 +206,18 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Configure coverage scope if enabled
     IF iv_coverage = abap_true.
       lo_runner->p_cvrau = lo_runner->c_str_cov_scope-specified_range.
+
+      " Add test classes to coverage program range
+      IF it_keys IS NOT INITIAL.
+        LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+          DATA(lv_mainprog) = lo_runner->get_mainprog(
+            i_objtype = <ls_key>-obj_type
+            i_objname = <ls_key>-obj_name ).
+          IF lv_mainprog IS NOT INITIAL.
+            APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_mainprog ) TO lo_runner->so_cvprg.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
     ENDIF.
 
     " Set selection type to OBJECT
@@ -215,7 +227,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Build SO_CLASS range for test class(es)
     DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
     IF it_keys IS NOT INITIAL.
-      LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+      LOOP AT it_keys ASSIGNING <ls_key>.
         APPEND VALUE #( sign = 'I' option = 'EQ' low = <ls_key>-obj_name ) TO lt_so_class.
       ENDLOOP.
     ENDIF.
