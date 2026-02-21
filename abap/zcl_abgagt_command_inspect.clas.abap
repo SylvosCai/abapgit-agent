@@ -410,19 +410,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA(lv_method_name) = ''.
-            FIND FIRST OCCURRENCE OF '====' IN lv_include_str.
-            IF sy-fdpos > 0.
-              " Extract include number after ====
-              DATA(lv_include_part) = lv_include_str+sy-fdpos + 4.
-              " Convert to string and extract numeric part (CM002 -> 2)
-              DATA(lv_include_part_str) = CONV string( lv_include_part ).
-              DATA(lv_num_str) = lv_include_part_str+2.
-              DATA(lv_include_num) = CONV i( lv_num_str ).
-              " Get method name from TMDIR
-              lv_method_name = get_method_name(
-                iv_classname   = lv_classname
-                iv_include_num = lv_include_num ).
-            ENDIF.
+
+            " Get last 3 characters (CM003) and extract numeric part
+            DATA(lv_cm_part) = lv_include_str+20(3). " CM003
+            DATA(lv_include_num) = CONV i( lv_cm_part+2 ). " 003 -> 3
+
+            " Get method name from TMDIR
+            lv_method_name = get_method_name(
+              iv_classname   = lv_classname
+              iv_include_num = lv_include_num ).
 
             " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
             IF ls_list-kind = 'E'.
