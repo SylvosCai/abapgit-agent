@@ -98,9 +98,9 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_no_objects_found.
-    " Step 1: Create test double for repo
-    DATA lo_repo_double TYPE REF TO zif_abapgit_repo.
-    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
+    " Step 1: Create test double for online repo (needed for cast at line 106)
+    DATA lo_repo_double TYPE REF TO zif_abapgit_repo_online.
+    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
 
     " Step 2: Configure get_package to return a package
     DATA lv_package TYPE devclass VALUE '$TEST'.
@@ -141,14 +141,9 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
     " Assert - no objects found error
-    cl_abap_unit_assert=>assert_not_initial(
+    cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      msg = 'Result should not be initial' ).
-
-    " Debug: show actual result
-    cl_abap_unit_assert=>assert_equals(
-      act = lv_result
-      exp = 'NOTUSED' ).
+      exp = '*"error":"No objects found in package"*' ).
   ENDMETHOD.
 
 ENDCLASS.
