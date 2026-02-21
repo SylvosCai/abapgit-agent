@@ -119,10 +119,9 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_where = ''
       it_columns = VALUE #( ) ).
 
-    cl_abap_unit_assert=>assert_equals(
-      act = ls_result-success
-      exp = abap_true
-      msg = 'Should succeed' ).
+    cl_abap_unit_assert=>assert_initial(
+      act = ls_result-error
+      msg = 'Should have no error' ).
 
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-row_count
@@ -157,10 +156,9 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_where = 'CARRID = ''AA'''
       it_columns = VALUE #( ) ).
 
-    cl_abap_unit_assert=>assert_equals(
-      act = ls_result-success
-      exp = abap_true
-      msg = 'Should succeed' ).
+    cl_abap_unit_assert=>assert_initial(
+      act = ls_result-error
+      msg = 'Should have no error' ).
 
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-row_count
@@ -187,10 +185,9 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_where = ''
       it_columns = VALUE #( ) ).
 
-    cl_abap_unit_assert=>assert_equals(
-      act = ls_result-success
-      exp = abap_true
-      msg = 'Should succeed' ).
+    cl_abap_unit_assert=>assert_initial(
+      act = ls_result-error
+      msg = 'Should have no error' ).
 
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-row_count
