@@ -127,8 +127,16 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
       " Apply limit
       DATA lt_limited_refs TYPE ty_references.
-      IF ls_params-limit > 0 AND lines( lt_references ) > ls_params-limit.
-        lt_limited_refs = lt_references[ 1 TO ls_params-limit ].
+      DATA ls_ref TYPE ty_reference.
+      DATA lv_count TYPE i.
+      IF ls_params-limit > 0.
+        LOOP AT lt_references INTO ls_ref.
+          APPEND ls_ref TO lt_limited_refs.
+          lv_count = lv_count + 1.
+          IF lv_count >= ls_params-limit.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
       ELSE.
         lt_limited_refs = lt_references.
       ENDIF.
