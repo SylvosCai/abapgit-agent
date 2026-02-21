@@ -73,8 +73,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     rv_name = zif_abgagt_command=>gc_view.
   ENDMETHOD.
 
-  METHOD zif_abgagt_command~execute
-    RAISING cx_dd_ddl_read.
+  METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_view_params,
           ls_result TYPE ty_view_result,
           lt_objects TYPE ty_view_objects,
@@ -133,7 +132,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
             ELSE.
               ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
             ENDIF.
-          CATCH cx_sy_create_object_error.
+          CATCH cx_sy_create_object_error cx_dd_ddl_read.
             " Fallback for unknown types
             ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
         ENDTRY.
