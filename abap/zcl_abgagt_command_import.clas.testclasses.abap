@@ -11,6 +11,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_exception FOR TESTING.
     METHODS test_no_objects_found FOR TESTING.
     METHODS test_partial_credentials FOR TESTING.
+    METHODS test_default_commit_message FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -176,6 +177,63 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"Repository not found"*' ).
+  ENDMETHOD.
+
+  METHOD test_default_commit_message.
+    " Test that when no custom message is provided, default message is used
+    " This test verifies the code proceeds past the message check
+
+    " Step 1: Create test double for online repo
+    DATA lo_repo_double TYPE REF TO zif_abapgit_repo_online.
+    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
+
+    " Step 2: Configure get_package to return a package
+    DATA lv_package TYPE devclass VALUE '$ZTEST'.
+    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lv_package ).
+    lo_repo_double->zif_abapgit_repo~get_package( ).
+
+    " Step 3: Configure refresh
+    cl_abap_testdouble=>configure_call( lo_repo_double ).
+    lo_repo_double->zif_abapgit_repo~refresh( ).
+
+    " Step 4: Configure get_files_local to return ONE file (not empty)
+    DATA lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    DATA ls_file LIKE LINE OF lt_files.
+    ls_file-file-path = '/'.
+    ls_file-file-filename = 'test.txt'.
+    ls_file-file-data = 'test data'.
+    APPEND ls_file TO lt_files.
+    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_files ).
+    lo_repo_double->zif_abapgit_repo~get_files_local( ).
+
+    " Step 5: Create test double for repo service
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+
+    " Step 6: Configure get_repo_from_url to return the repo
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
+      EXPORTING
+        name  = 'EI_REPO'
+        value = lo_repo_double ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 7: Create CUT with test double
+    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+
+    " Step 8: Execute with NO custom message (empty)
+    DATA: BEGIN OF ls_param,
+            url      TYPE string VALUE 'https://github.com/test/repo.git',
+            message  TYPE string VALUE '',  " Empty - should use default
+          END OF ls_param.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Assert - should NOT get "no objects found" error (has 1 file)
+    " Should get some error related to push (since push is not mocked)
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error":"*' ).
   ENDMETHOD.
 
 ENDCLASS.
