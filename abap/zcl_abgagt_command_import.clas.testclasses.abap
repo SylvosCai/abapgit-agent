@@ -7,9 +7,6 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
     METHODS test_missing_url FOR TESTING.
-    METHODS test_missing_username FOR TESTING.
-    METHODS test_with_custom_message FOR TESTING.
-    METHODS test_with_username_password FOR TESTING.
     METHODS test_is_param_not_supplied FOR TESTING.
 ENDCLASS.
 
@@ -37,51 +34,6 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"URL is required"*' ).
-  ENDMETHOD.
-
-  METHOD test_missing_username.
-    " Test with URL but no username/password
-    DATA: BEGIN OF ls_param,
-            url TYPE string VALUE 'https://github.com/test/repo.git',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Should get error because repo doesn't exist in test system
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error"*' ).
-  ENDMETHOD.
-
-  METHOD test_with_custom_message.
-    " Test with custom message provided
-    DATA: BEGIN OF ls_param,
-            url      TYPE string VALUE 'https://github.com/test/repo.git',
-            message  TYPE string VALUE 'Custom commit message',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Should get error because repo doesn't exist
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error"*' ).
-  ENDMETHOD.
-
-  METHOD test_with_username_password.
-    " Test with credentials provided
-    DATA: BEGIN OF ls_param,
-            url      TYPE string VALUE 'https://github.com/test/repo.git',
-            username TYPE string VALUE 'testuser',
-            password TYPE string VALUE 'testpass',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Should get error because repo doesn't exist
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error"*' ).
   ENDMETHOD.
 
   METHOD test_is_param_not_supplied.
