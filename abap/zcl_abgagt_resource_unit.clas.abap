@@ -20,6 +20,7 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
     DATA: BEGIN OF ls_request,
             package TYPE string,
             files TYPE string_table,
+            coverage TYPE abap_bool,
           END OF ls_request.
 
     /ui2/cl_json=>deserialize(
