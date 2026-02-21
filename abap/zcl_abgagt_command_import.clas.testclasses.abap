@@ -229,11 +229,14 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
-    " Assert - should NOT get "no objects found" error (has 1 file)
-    " Should NOT contain "No objects found" since we have files
-    cl_abap_unit_assert=>assert_not_initial(
-      act = lv_result
-      msg = 'Result should not be initial' ).
+    " Assert - parse JSON and check values
+    DATA lv_json TYPE string.
+    lv_json = lv_result.
+
+    " Should have files_staged = 1
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_json
+      exp = '*"files_staged":"1"*' ).
   ENDMETHOD.
 
 ENDCLASS.
