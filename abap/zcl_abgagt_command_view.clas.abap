@@ -73,7 +73,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     rv_name = zif_abgagt_command=>gc_view.
   ENDMETHOD.
 
-  METHOD zif_abgagt_command~execute.
+  METHOD zif_abgagt_command~execute
+    RAISING cx_dd_ddl_read.
     DATA: ls_params TYPE ty_view_params,
           ls_result TYPE ty_view_result,
           lt_objects TYPE ty_view_objects,
