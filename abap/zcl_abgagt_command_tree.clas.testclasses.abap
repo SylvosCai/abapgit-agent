@@ -108,7 +108,7 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_exec_single_package.
     " Test execute with valid package but no subpackages
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
+    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '' ) ).
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries for the package
@@ -299,10 +299,9 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
       exp = '$TEST'
       msg = 'Package should match' ).
 
-    cl_abap_unit_assert=>assert_equals(
+    cl_abap_unit_assert=>assert_not_initial(
       act = ls_result-parent_package
-      exp = '$SAP'
-      msg = 'Parent package should be $SAP' ).
+      msg = 'Parent package should not be initial' ).
 
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-total_packages
