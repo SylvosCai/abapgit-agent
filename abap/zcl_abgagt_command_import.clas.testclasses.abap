@@ -10,6 +10,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_repo_not_found FOR TESTING.
     METHODS test_exception FOR TESTING.
     METHODS test_no_objects_found FOR TESTING.
+    METHODS test_partial_credentials FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -144,6 +145,37 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"No objects found in package"*' ).
+  ENDMETHOD.
+
+  METHOD test_partial_credentials.
+    " Test when only username is provided (password is empty)
+    " Credentials block should be skipped (line 84 requires BOTH)
+
+    " Step 1: Create test double for repo service
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+
+    " Step 2: Configure get_repo_from_url - repo not found (initial)
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 3: Create CUT with test double
+    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+
+    " Step 4: Execute with only username (no password)
+    DATA: BEGIN OF ls_param,
+            url      TYPE string VALUE 'https://github.com/test/repo.git',
+            username TYPE string VALUE 'testuser',
+            password TYPE string VALUE '',  " Empty password
+          END OF ls_param.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Assert - should get repo not found error (credentials skipped)
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error":"Repository not found"*' ).
   ENDMETHOD.
 
 ENDCLASS.
