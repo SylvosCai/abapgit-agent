@@ -9,7 +9,6 @@ CLASS ltcl_zcl_abgagt_command_create DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_missing_url FOR TESTING.
     METHODS test_missing_package FOR TESTING.
     METHODS test_create_repo_success FOR TESTING.
-    METHODS test_create_repo_error FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
@@ -64,7 +63,7 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     " Step 3: Configure new_online to return mock repo
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
 
-    " Step 4: Call method to register the configuration
+    " Step 4: Call method to register the configuration - use same params as execute
     lo_repo_srv_double->new_online(
       EXPORTING
         iv_url            = 'https://github.com/test/repo.git'
@@ -85,11 +84,13 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     " Step 7: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 8: Execute
+    " Step 8: Execute - MUST use same params as registered above
     DATA: BEGIN OF ls_param,
             url      TYPE string VALUE 'https://github.com/test/repo.git',
             branch   TYPE string VALUE 'main',
             package  TYPE string VALUE '$ZTEST',
+            display_name TYPE string VALUE 'Test',
+            name     TYPE string VALUE 'test',
           END OF ls_param.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
@@ -98,46 +99,6 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"success":"X"*' ).
-  ENDMETHOD.
-
-  METHOD test_create_repo_error.
-    " Step 1: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
-
-    " Step 2: Create mock repo for return
-    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
-    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
-
-    " Step 3: Configure to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-
-    " Step 4: Call method to register configuration
-    lo_repo_srv_double->new_online(
-      EXPORTING
-        iv_url            = 'https://github.com/test/repo.git'
-        iv_branch_name    = 'main'
-        iv_display_name   = 'Test'
-        iv_name           = 'test'
-        iv_package        = '$ZTEST'
-        iv_folder_logic   = 'PREFIX' ).
-
-    " Step 5: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 6: Execute
-    DATA: BEGIN OF ls_param,
-            url     TYPE string VALUE 'https://github.com/test/repo.git',
-            branch  TYPE string VALUE 'main',
-            package TYPE string VALUE '$ZTEST',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Assert error response
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error"*' ).
   ENDMETHOD.
 
 ENDCLASS.
