@@ -27,8 +27,18 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--files` | Yes | Comma-separated list of test class files |
+| `--coverage` | No | Enable code coverage measurement |
 
 ---
+
+## Coverage Option
+
+When `--coverage` is specified, the command runs AUnit tests with code coverage enabled and displays coverage statistics.
+
+```bash
+# Run tests with coverage
+abapgit-agent unit --files zcl_my_test.clas.testclasses.abap --coverage
+```
 
 ## Tasks
 
@@ -54,7 +64,8 @@ GET /health (with X-CSRF-Token: fetch)
 **Request Body:**
 ```json
 {
-  "files": ["ZCL_MY_TEST.CLASS.TESTCLASSES.ABAP"]
+  "files": ["ZCL_MY_TEST.CLASS.TESTCLASSES.ABAP"],
+  "coverage": true
 }
 ```
 
@@ -92,6 +103,18 @@ Failed Tests:
      Error: Expected X but got Y
 ```
 
+### With Coverage
+
+```
+  Running unit tests for 1 file(s) (with coverage)
+
+  ✅ ZCL_MY_TEST - All tests passed
+     Tests: 10 | Passed: 10 | Failed: 0
+     📊 Coverage: 65.9%
+        Total Lines: 41
+        Covered Lines: 27
+```
+
 ---
 
 ## Response Structure
@@ -110,7 +133,12 @@ Failed Tests:
       "error_kind": "ERROR",
       "error_text": "Expected X but got Y"
     }
-  ]
+  ],
+  "coverage_stats": {
+    "total_lines": 41,
+    "covered_lines": 27,
+    "coverage_rate": 65.9
+  }
 }
 ```
 
@@ -156,6 +184,9 @@ abapgit-agent unit --files zcl_my_test.clas.testclasses.abap
 
 # Multiple
 abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+
+# With coverage
+abapgit-agent unit --files zcl_my_test.clas.testclasses.abap --coverage
 ```
 
 ## Implementation
@@ -165,3 +196,7 @@ Uses `CL_SUT_AUNIT_RUNNER` to execute tests:
 - `run()` - Execute tests
 - `str_results` - Get test statistics
 - `tab_objects` - Get detailed results
+- `get_coverage_result_stats` - Get coverage statistics (when coverage enabled)
+- `p_cov = 'X'` - Enable coverage
+- `p_cvrau` - Set coverage scope to specified_range
+- `so_cvprg` - Program range for coverage measurement
