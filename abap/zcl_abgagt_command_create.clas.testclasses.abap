@@ -85,13 +85,14 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     " Step 7: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 8: Execute - use same params as registered
+    " Step 8: Execute - MUST match registered params
     DATA: BEGIN OF ls_param,
             url           TYPE string VALUE 'https://github.com/test/repo.git',
             branch        TYPE string VALUE 'main',
             package       TYPE string VALUE '$ZTEST',
             display_name  TYPE string VALUE 'Test',
             name          TYPE string VALUE 'test',
+            folder_logic  TYPE string VALUE 'PREFIX',
           END OF ls_param.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
@@ -127,13 +128,14 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     " Step 5: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 6: Execute - use same params as registered
+    " Step 6: Execute - MUST match registered params
     DATA: BEGIN OF ls_param,
             url           TYPE string VALUE 'https://github.com/test/repo.git',
             branch        TYPE string VALUE 'main',
             package       TYPE string VALUE '$ZTEST',
             display_name  TYPE string VALUE 'Test',
             name          TYPE string VALUE 'test',
+            folder_logic  TYPE string VALUE 'PREFIX',
           END OF ls_param.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
