@@ -8,7 +8,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS test_get_name FOR TESTING.
     METHODS test_missing_url FOR TESTING.
     METHODS test_repo_not_found FOR TESTING.
-    METHODS test_exception DURATION SHORT RISK LEVEL HARMLESS.
+    METHODS test_exception FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
