@@ -104,14 +104,10 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
 
     " Step 2: Configure get_files_local to return empty table
     DATA lt_empty_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
-    cl_abap_testdouble=>configure_call( lo_repo_double )->get_files_local(
-      EXPORTING iv_get_active = abap_true
-      iv_get_inactive = abap_false )->returning( lt_empty_files ).
+    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_empty_files ).
 
-    " Step 3: Register the method call
-    lo_repo_double->get_files_local(
-      EXPORTING iv_get_active = abap_true
-      iv_get_inactive = abap_false ).
+    " Step 3: Register the method call (just call without configure)
+    lo_repo_double->get_files_local( ).
 
     " Step 4: Create test double for repo service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
