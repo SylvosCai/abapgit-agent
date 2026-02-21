@@ -201,7 +201,7 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA ls_file LIKE LINE OF lt_files.
     ls_file-file-path = '/'.
     ls_file-file-filename = 'test.txt'.
-    ls_file-file-data = 'test data' ##NO_TEXT.
+    ls_file-file-data = '7465737464617461'.  " "testdata" in hex
     APPEND ls_file TO lt_files.
     cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_files ).
     lo_repo_double->zif_abapgit_repo~get_files_local( ).
