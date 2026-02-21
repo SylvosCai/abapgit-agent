@@ -411,12 +411,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA(lv_method_name) = ''.
 
-            " Find CM in SOBJNAME and extract digits after it
-            FIND FIRST OCCURRENCE OF 'CM' IN lv_include_str MATCH OFFSET DATA(lv_cm_offset).
-            IF lv_cm_offset > 0.
-              DATA(lv_cm_part) = lv_include_str+lv_cm_offset(3). " CM003
-              DATA(lv_include_num) = CONV i( lv_cm_part+2 ). " 003 -> 3
-            ENDIF.
+            " Get last 3 characters (CM003) and extract numeric part
+            DATA(lv_len) = strlen( lv_include_str ).
+            DATA(lv_cm_part) = lv_include_str+lv_len-3(3). " CM003
+            DATA(lv_include_num) = CONV i( lv_cm_part+2 ). " 003 -> 3
 
             " Get method name from TMDIR
             lv_method_name = get_method_name(
