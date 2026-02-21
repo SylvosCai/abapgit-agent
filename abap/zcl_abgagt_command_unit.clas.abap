@@ -77,7 +77,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS get_coverage
       IMPORTING
         io_runner TYPE REF TO cl_sut_aunit_runner
-        iv_cov_id TYPE sut_au_results-cov_id
       RETURNING
         VALUE(rs_coverage_stats) TYPE ty_coverage_stats.
 
@@ -253,21 +252,19 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     rs_result-errors = get_failed_methods( lo_runner->tab_objects ).
 
     " Get coverage results if requested
-    IF iv_coverage = abap_true AND ls_str-cov_id IS NOT INITIAL.
-      " Convert XSTRING to RAW(16)
-      DATA: lv_cov_id TYPE sut_au_results-cov_id.
-      lv_cov_id = ls_str-cov_id.
-
-      rs_result-coverage_stats = get_coverage(
-        io_runner = lo_runner
-        iv_cov_id = lv_cov_id ).
+    IF iv_coverage = abap_true.
+      rs_result-coverage_stats = get_coverage( io_runner = lo_runner ).
     ENDIF.
   ENDMETHOD.
 
   METHOD get_coverage.
     " Get coverage statistics from AUnit runner
     DATA: lv_cov_id TYPE sut_au_results-cov_id.
-    lv_cov_id = iv_cov_id.
+    lv_cov_id = io_runner->str_results-cov_id.
+
+    IF lv_cov_id IS INITIAL.
+      RETURN.
+    ENDIF.
 
     TRY.
         DATA(ls_cov_stats) = io_runner->get_coverage_result_stats(
