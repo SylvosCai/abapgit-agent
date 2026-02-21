@@ -86,14 +86,19 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
 
     " Use injected dependencies for credentials
     IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
-      get_user( )->set_repo_git_user_name(
-        iv_url = ls_params-url iv_username = ls_params-username ).
-      get_user( )->set_repo_login(
-        iv_url = ls_params-url iv_login = ls_params-username ).
-      zcl_abapgit_login_manager=>set_basic(
-        iv_uri      = ls_params-url
-        iv_username = ls_params-username
-        iv_password = ls_params-password ).
+      TRY.
+          get_user( )->set_repo_git_user_name(
+            iv_url = ls_params-url iv_username = ls_params-username ).
+          get_user( )->set_repo_login(
+            iv_url = ls_params-url iv_login = ls_params-username ).
+          zcl_abapgit_login_manager=>set_basic(
+            iv_uri      = ls_params-url
+            iv_username = ls_params-username
+            iv_password = ls_params-password ).
+        CATCH zcx_abapgit_exception INTO DATA(lx_cred_error).
+          rv_result = '{"success":"","error":"' && lx_cred_error->get_text( ) && '"}'.
+          RETURN.
+      ENDTRY.
     ENDIF.
 
     TRY.
