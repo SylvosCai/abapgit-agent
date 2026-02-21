@@ -41,23 +41,25 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Configure get_repo_from_url to return no repo
-    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git'
-      IMPORTING ei_repo = lo_mock_repo ).
+    " Step 2: Configure get_repo_from_url - do not configure returning
+    " The method will return ei_repo as not bound (initial)
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
 
-    " Step 3: Create CUT with test double injected
+    " Step 3: Register the method call with matching parameters
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 4: Create CUT with test double injected
     mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 4: Execute
+    " Step 5: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/repo.git',
           END OF ls_param.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
-    " Assert - repo not found because lo_mock_repo is not bound
+    " Assert - repo not found because ei_repo is not bound
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*"error":"Repository not found"*' ).
