@@ -9,6 +9,7 @@
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>
