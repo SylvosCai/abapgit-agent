@@ -53,11 +53,13 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_success.
-    " Step 1: Create test double for repo service interface
-    DATA(lo_repo_srv_double) = cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+    " Step 1: Create test double with correct interface type
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
     " Step 2: Create mock repo
-    DATA(lo_mock_repo) = cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
+    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo_online.
+    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
 
     " Step 3: Configure new_online to return mock repo
     lo_repo_srv_double->new_online(
@@ -94,15 +96,39 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_error.
-    " Step 1: Create test double
-    DATA(lo_repo_srv_double) = cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+    " Create test double
+    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Configure to raise exception
+    " Configure to raise exception
     DATA(lx_error) = NEW zcx_abapgit_exception( text = 'Repo failed' ).
-    RAISE EXCEPTION lx_error.
+    lo_repo_srv_double->new_online(
+      EXPORTING
+        iv_url            = 'https://github.com/test/repo.git'
+        iv_branch_name    = 'main'
+        iv_display_name   = 'Test'
+        iv_name           = 'test'
+        iv_package        = '$ZTEST'
+        iv_folder_logic   = 'PREFIX'
+      RECEIVING
+        ri_repo           = lx_error ).
 
-    " Step 3: Create CUT (this won't be reached due to RAISE)
+    " Create CUT
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
+
+    " Execute
+    DATA: BEGIN OF ls_param,
+            url     TYPE string VALUE 'https://github.com/test/repo.git',
+            branch  TYPE string VALUE 'main',
+            package TYPE string VALUE '$ZTEST',
+          END OF ls_param.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Assert error
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*"error"*' ).
   ENDMETHOD.
 
 ENDCLASS.
