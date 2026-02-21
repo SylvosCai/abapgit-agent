@@ -54,25 +54,17 @@ CLASS zcl_abgagt_resource_where IMPLEMENTATION.
     ENDIF.
 
     " Execute command with is_param
-    TRY.
-        DATA ls_params TYPE zcl_abgagt_command_where=>ty_where_params.
-        ls_params-objects = ls_request-objects.
-        ls_params-type = ls_request-type.
-        ls_params-limit = ls_request-limit.
+    DATA ls_params TYPE zcl_abgagt_command_where=>ty_where_params.
+    ls_params-objects = ls_request-objects.
+    ls_params-type = ls_request-type.
+    ls_params-limit = ls_request-limit.
 
-        DATA(lv_result) = lo_command->execute( is_param = ls_params ).
+    DATA(lv_result) = lo_command->execute( is_param = ls_params ).
 
-        lo_entity = mo_response->create_entity( ).
-        lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-        lo_entity->set_string_data( lv_result ).
-        mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
-      CATCH cx_root INTO DATA(lx_exception).
-        CONCATENATE '{"success":false,"command":"WHERE","error":"' lx_exception->get_text( ) '"}' INTO lv_json_resp.
-        lo_entity = mo_response->create_entity( ).
-        lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-        lo_entity->set_string_data( lv_json_resp ).
-        mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
-    ENDTRY.
+    lo_entity = mo_response->create_entity( ).
+    lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+    lo_entity->set_string_data( lv_result ).
+    mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
 ENDCLASS.
