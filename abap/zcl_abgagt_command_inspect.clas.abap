@@ -451,6 +451,11 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             ENDIF.
           ENDLOOP.
 
+          " Sort errors by method_name and line
+          SORT ls_result-errors BY method_name line.
+          " Sort warnings by method_name and line
+          SORT ls_result-warnings BY method_name line.
+
           ls_result-error_count = lines( ls_result-errors ).
           IF ls_result-error_count > 0.
             ls_result-success = abap_false.
