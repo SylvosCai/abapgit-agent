@@ -136,7 +136,7 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
     " Assert - no objects found error
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '*"error":"No objects found*' ).
+      exp = '*"error":"No objects found in package"*' ).
   ENDMETHOD.
 
 ENDCLASS.
