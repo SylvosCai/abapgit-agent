@@ -54,6 +54,16 @@ abapgit-agent preview --objects SFLIGHT              # See sample data
 abapgit-agent view --objects SFLIGHT --type TABL    # See structure
 ```
 
+## IMPORTANT: When Working on ABAP Files
+
+When making changes to files in the `abap/` folder, **always read `abap/CLAUDE.md` first**.
+
+This file contains critical ABAP development rules including:
+- Never run inspect before commit/push/pull
+- Always push to git BEFORE running pull
+- Use inspect AFTER pull to check syntax
+- ABAP naming conventions
+
 ## Project Structure
 
 ```

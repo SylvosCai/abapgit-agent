@@ -9,7 +9,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_unit_params,
              package TYPE string,
              files TYPE string_table,
-             coverage TYPE abap_bool,
            END OF ty_unit_params.
 
     " Error structure for failed test methods
@@ -22,23 +21,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES ty_errors TYPE STANDARD TABLE OF ty_error WITH DEFAULT KEY.
 
-    " Coverage statistics
-    TYPES: BEGIN OF ty_coverage_stats,
-             total_lines TYPE i,
-             covered_lines TYPE i,
-             coverage_rate TYPE p LENGTH 10 DECIMALS 1,
-           END OF ty_coverage_stats.
-
-    " Coverage line details
-    TYPES: BEGIN OF ty_coverage_line,
-             program TYPE string,
-             include TYPE string,
-             line TYPE i,
-             hits TYPE i,
-           END OF ty_coverage_line.
-
-    TYPES ty_coverage_lines TYPE STANDARD TABLE OF ty_coverage_line WITH DEFAULT KEY.
-
     TYPES: BEGIN OF ty_unit_result,
              success TYPE abap_bool,
              message TYPE string,
@@ -46,8 +28,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
              passed_count TYPE i,
              failed_count TYPE i,
              errors TYPE ty_errors,
-             coverage_stats TYPE ty_coverage_stats,
-             coverage_lines TYPE ty_coverage_lines,
            END OF ty_unit_result.
 
     TYPES: BEGIN OF ty_key,
@@ -61,7 +41,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         iv_package TYPE devclass OPTIONAL
         it_keys TYPE ty_keys OPTIONAL
-        iv_coverage TYPE abap_bool DEFAULT abap_false
       RETURNING
         VALUE(rs_result) TYPE ty_unit_result.
 
@@ -110,8 +89,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           lo_util TYPE REF TO zcl_abgagt_util,
           ls_result TYPE ty_unit_result,
           lt_keys TYPE ty_keys,
-          ls_key TYPE ty_key,
-          lv_coverage TYPE abap_bool.
+          ls_key TYPE ty_key.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
@@ -122,9 +100,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     IF ls_params-package IS NOT INITIAL.
       lv_package = ls_params-package.
     ENDIF.
-
-    " Get coverage option (default: no coverage)
-    lv_coverage = xsbool( ls_params-coverage = abap_true ).
 
     " Parse files to get object keys
     IF ls_params-files IS NOT INITIAL.
@@ -165,8 +140,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     " Run tests and get result directly from str_results
     ls_result = run_aunit_tests(
       iv_package = lv_package
-      it_keys = lt_keys
-      iv_coverage = lv_coverage ).
+      it_keys = lt_keys ).
 
     IF ls_result-test_count = 0 AND ls_result-failed_count = 0.
       ls_result-message = 'No test results returned'.
@@ -187,10 +161,10 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   METHOD run_aunit_tests.
     DATA: lo_runner TYPE REF TO cl_sut_aunit_runner.
 
-    " Create runner using S_CREATE - enable coverage if requested
+    " Create runner using S_CREATE
     cl_sut_aunit_runner=>s_create(
       EXPORTING
-        p_cov       = iv_coverage
+        p_cov       = abap_false
         i_flg_api   = abap_true
       RECEIVING
         r_ref_runner = lo_runner ).
@@ -247,39 +221,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Extract failed method details from tab_objects
     rs_result-errors = get_failed_methods( lo_runner->tab_objects ).
-
-    " Get coverage results if requested
-    IF iv_coverage = abap_true AND ls_str-cov_id IS NOT INITIAL.
-      " Convert XSTRING to X(16) for method call
-      DATA(lv_cov_id) = CONV x( ls_str-cov_id ).
-
-      " Get coverage statistics using COV_ID from results
-      TRY.
-          DATA(ls_cov_stats) = lo_runner->get_coverage_result_stats(
-            i_cov_id = lv_cov_id ).
-          rs_result-coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
-          rs_result-coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
-          rs_result-coverage_stats-coverage_rate = ls_cov_stats-cov_lines_rate.
-        CATCH cx_sut_error.
-          " Coverage stats not available
-      ENDTRY.
-
-      " Get detailed coverage lines
-      TRY.
-          DATA(lt_cov_flat) = lo_runner->get_coverage_result_flat(
-            i_cov_id = lv_cov_id ).
-          LOOP AT lt_cov_flat ASSIGNING FIELD-SYMBOL(<ls_cov>).
-            APPEND VALUE #(
-              program = <ls_cov>-object_name
-              include = <ls_cov>-include
-              line = <ls_cov>-source_line
-              hits = <ls_cov>-exec_count
-            ) TO rs_result-coverage_lines.
-          ENDLOOP.
-        CATCH cx_sut_error.
-          " Coverage details not available
-      ENDTRY.
-    ENDIF.
   ENDMETHOD.
 
   METHOD get_failed_methods.
