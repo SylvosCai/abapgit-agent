@@ -75,9 +75,9 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     " Get method name from TMDIR based on class name and include number
     METHODS get_method_name
-      IMPORTING iv_classname    TYPE seoclsname
+      IMPORTING iv_classname    TYPE string
                 iv_include_num  TYPE i
-      RETURNING VALUE(rv_method_name) TYPE seocmpname.
+      RETURNING VALUE(rv_method_name) TYPE string.
 
 ENDCLASS.
 
@@ -406,7 +406,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
             " Extract method name from SOBJNAME (format: CLASSNAME====CM###)
-            DATA lv_classname TYPE seoclsname.
+            DATA lv_classname TYPE string.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA(lv_method_name) = ''.
