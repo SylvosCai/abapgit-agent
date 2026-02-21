@@ -255,17 +255,36 @@ ENDCLASS.
 ### Using ABAP Test Double Framework
 
 ```abap
-" Create test double for class
-DATA(lo_double) = cl_abap_testdouble=>create( 'zcl_real_class' ).
+" Step 1: Declare with correct interface type, then assign
+DATA lo_mock TYPE REF TO zif_my_interface.
+lo_mock ?= cl_abap_testdouble=>create( 'ZIF_MY_INTERFACE' ).
 
-" Configure method to return test data
-cl_abap_testdouble=>configure_call( lo_double )->get_data(
-  EXPORTING iv_id = '123'
-  IMPORTING ev_result = DATA(lv_result) ).
+" Step 2: Configure return value - use returning() not IMPORTING
+cl_abap_testdouble=>configure_call( lo_mock )->returning( lo_mock_result ).
 
-" Raise exception
-cl_abap_testdouble=>configure_call( lo_double )->raise( 'cx_static_check' ).
+" Step 3: Call method to register configuration (MUST use same params in test)
+lo_mock->my_method(
+  EXPORTING
+    iv_param1 = 'value1'
+    iv_param2 = 'value2' ).
+
+" Step 4: In test, call with SAME parameters as registered above
+DATA(ls_result) = lo_mock->my_method(
+  EXPORTING
+    iv_param1 = 'value1'
+    iv_param2 = 'value2' ).
+
+" To raise exception:
+DATA(lx_error) = NEW zcx_my_exception( ).
+cl_abap_testdouble=>configure_call( lo_mock )->raise_exception( lx_error ).
+lo_mock->my_method( ... ).
 ```
+
+**Important Notes:**
+- Parameters in configure_call registration MUST match parameters in test execution
+- Always declare variable with interface type first: `DATA lo_mock TYPE REF TO zif_xxx`
+- Use `returning(value = ...)` not `IMPORTING`
+- Call method after configure_call to register the configuration
 
 ---
 
