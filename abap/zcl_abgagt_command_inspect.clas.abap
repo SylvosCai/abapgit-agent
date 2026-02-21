@@ -163,8 +163,12 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Run DDLS validation
     IF lt_ddls_names IS NOT INITIAL.
-      DATA(lt_ddls_results) = validate_ddls( lt_ddls_names ).
-      INSERT LINES OF lt_ddls_results INTO TABLE lt_results.
+      TRY.
+          DATA(lt_ddls_results) = validate_ddls( lt_ddls_names ).
+          INSERT LINES OF lt_ddls_results INTO TABLE lt_results.
+        CATCH cx_dd_ddl_read.
+          " Ignore - validation handled in method
+      ENDTRY.
     ENDIF.
 
     " If no valid objects found

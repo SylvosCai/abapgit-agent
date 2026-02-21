@@ -319,13 +319,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         " Column filtering is done in the response
         IF iv_where IS INITIAL.
           SELECT * FROM (iv_tabname)
-            INTO TABLE @<lt_data>
-            UP TO @lv_limit ROWS.
+            UP TO @lv_limit ROWS
+            INTO TABLE @<lt_data>.
         ELSE.
           SELECT * FROM (iv_tabname)
-            INTO TABLE @<lt_data>
             UP TO @lv_limit ROWS
-            WHERE (iv_where).
+            WHERE (iv_where)
+            INTO TABLE @<lt_data>.
         ENDIF.
 
         " Get row count
