@@ -108,14 +108,11 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Create mock repo for return
-    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
-    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
+    " Step 2: Configure new_online to raise exception
+    DATA(lx_error) = NEW zcx_abapgit_exception( text = 'Repo creation failed' ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
 
-    " Step 3: Configure to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-
-    " Step 4: Call method to register configuration
+    " Step 3: Call method to register configuration
     lo_repo_srv_double->new_online(
       EXPORTING
         iv_url            = 'https://github.com/test/repo.git'
@@ -125,10 +122,10 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
         iv_package        = '$ZTEST'
         iv_folder_logic   = 'PREFIX' ).
 
-    " Step 5: Create CUT with test double
+    " Step 4: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 6: Execute - MUST match registered params
+    " Step 5: Execute - MUST match registered params
     DATA: BEGIN OF ls_param,
             url           TYPE string VALUE 'https://github.com/test/repo.git',
             branch        TYPE string VALUE 'main',
