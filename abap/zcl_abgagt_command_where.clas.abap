@@ -176,7 +176,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_where_used_list.
-    DATA: ls_ref TYPE akb_except_type,
+    DATA: lt_ref TYPE akb_except_type,
           ls_ref_out TYPE ty_reference.
 
     " Call the function module
@@ -185,16 +185,16 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         obj_type = iv_obj_type
         obj_name = iv_obj_name
       IMPORTING
-        references = rt_references.
+        references = lt_ref.
 
     " Map to output structure - convert to string fields for JSON serialization
-    LOOP AT rt_references INTO ls_ref.
-      ls_ref_out-object = ls_ref-obj_name.
-      ls_ref_out-object_type = ls_ref-obj_.
-      ls_ref_out-include_name = ls_ref-sub_name.
-      ls_ref_out-sub_type = ls_ref-sub_.
-      ls_ref_out-package = ls_ref-appl_packet.
-      MODIFY rt_references FROM ls_ref_out INDEX sy-tabix.
+    LOOP AT rt_references ASSIGNING FIELD-SYMBOL(<ls_ref>).
+      ls_ref_out-object = <ls_ref>-object.
+      ls_ref_out-object_type = <ls_ref>-object_type.
+      ls_ref_out-include_name = <ls_ref>-include_name.
+      ls_ref_out-sub_type = <ls_ref>-sub_type.
+      ls_ref_out-package = <ls_ref>-package.
+      APPEND ls_ref_out TO rt_references.
     ENDLOOP.
 
     " Sort by object name
