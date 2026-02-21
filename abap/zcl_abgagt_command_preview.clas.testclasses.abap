@@ -12,9 +12,9 @@ CLASS ltcl_cmd_preview DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS: test_exec_no_objects FOR TESTING.
     METHODS: test_detect_object_type_tabl FOR TESTING.
     METHODS: test_detect_object_type_ddls FOR TESTING.
-    METHODS: test_fetch_table_data FOR TESTING.
-    METHODS: test_fetch_table_data_with_where FOR TESTING.
-    METHODS: test_fetch_table_data_with_limit FOR TESTING.
+    METHODS: test_fetch_data FOR TESTING.
+    METHODS: test_fetch_data_where FOR TESTING.
+    METHODS: test_fetch_data_limit FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_cmd_preview IMPLEMENTATION.
@@ -102,7 +102,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       msg = 'Should detect as DDLS' ).
   ENDMETHOD.
 
-  METHOD test_fetch_table_data.
+  METHOD test_fetch_data.
     " Insert test data into SCARR
     DATA lt_scarr TYPE STANDARD TABLE OF scarr.
     lt_scarr = VALUE #(
@@ -140,7 +140,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       msg = 'Rows should contain AA' ).
   ENDMETHOD.
 
-  METHOD test_fetch_table_data_with_where.
+  METHOD test_fetch_data_where.
     " Insert test data into SFLIGHT
     DATA lt_sflight TYPE STANDARD TABLE OF sflight.
     lt_sflight = VALUE #(
@@ -168,7 +168,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       msg = 'Should return 2 rows for AA' ).
   ENDMETHOD.
 
-  METHOD test_fetch_table_data_with_limit.
+  METHOD test_fetch_data_limit.
     " Insert test data into SCARR
     DATA lt_scarr TYPE STANDARD TABLE OF scarr.
     lt_scarr = VALUE #(
