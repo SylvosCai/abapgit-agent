@@ -426,14 +426,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
           " Get errors and warnings for this object
           LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
-            " Extract include name from SOBJNAME (format: CLASSNAME=======INCLUDE)
+            " Extract include name from SOBJNAME (format: CLASSNAME{30-char-pad}INCLUDE)
+            " Last 4 characters = include name (CCAU, CM001, CCDEF, etc.)
             DATA lv_classname TYPE string.
             lv_classname = ls_obj-objname.
             DATA(lv_include_str) = ls_list-sobjname.
             DATA lv_method_name TYPE string.
 
-            " Split by ======= to get include name
-            SPLIT lv_include_str AT '=======' INTO DATA(lv_part_class) DATA(lv_include_name).
+            " Get last 4 characters as include name
+            DATA(lv_include_name) = substring(
+              val = lv_include_str
+              off = strlen( lv_include_str ) - 4
+              len = 4 ).
 
             " Check include type
             IF lv_include_name = 'CCAU'.
