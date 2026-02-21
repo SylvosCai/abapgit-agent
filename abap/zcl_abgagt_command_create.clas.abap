@@ -111,10 +111,15 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
 
     " Set starting folder if provided
     IF ls_params-folder IS NOT INITIAL.
-      DATA(lo_dot) = li_repo->get_dot_abapgit( ).
-      lo_dot->set_starting_folder( ls_params-folder ).
-      li_repo->set_dot_abapgit( lo_dot ).
-      COMMIT WORK AND WAIT.
+      TRY.
+          DATA(lo_dot) = li_repo->get_dot_abapgit( ).
+          lo_dot->set_starting_folder( ls_params-folder ).
+          li_repo->set_dot_abapgit( lo_dot ).
+          COMMIT WORK AND WAIT.
+        CATCH zcx_abapgit_exception INTO DATA(lx_folder_error).
+          rv_result = '{"success":"","error":"' && lx_folder_error->get_text( ) && '"}'.
+          RETURN.
+      ENDTRY.
     ENDIF.
 
     DATA lv_response TYPE string.
