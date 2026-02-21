@@ -87,7 +87,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     " Validate DDLS (CDS views)
     METHODS validate_ddls
       IMPORTING it_ddls_names TYPE ty_ddls_names
-      RETURNING VALUE(rt_results) TYPE ty_inspect_results.
+      RETURNING VALUE(rt_results) TYPE ty_inspect_results
+      RAISING cx_dd_ddl_read.
 
     " Get method name from TMDIR based on class name and include number
     METHODS get_method_name
