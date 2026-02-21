@@ -2,6 +2,35 @@
 
 Each ABAP object requires an XML metadata file for abapGit to understand how to serialize/deserialize it. This guide provides templates for common object types.
 
+## QUICK REFERENCE
+
+```
+File Type          | ABAP File                    | XML File
+-------------------|------------------------------|-------------------
+Class              | zcl_*.clas.abap              | zcl_*.clas.xml
+Test Class         | zcl_*.clas.testclasses.abap | zcl_*.clas.xml
+Interface          | zif_*.intf.abap             | zif_*.intf.xml
+Program            | z*.prog.abap                | z*.prog.xml
+Table              | z*.tabl.abap                | z*.tabl.xml
+CDS View           | zc_*.ddls.asddls            | zc_*.ddls.xml
+CDS Entity         | ze_*.ddlx.asddlx            | ze_*.ddlx.xml
+Data Element       | z*.dtel.abap                | z*.dtel.xml
+Structure          | z*.stru.abap                | z*.stru.xml
+Table Type         | z*.ttyp.abap                | z*.ttyp.xml
+```
+
+```
+Key XML Settings:
+  Class EXPOSURE:   2=Public, 3=Protected, 4=Private
+  Class STATE:      1=Active
+  Table TABCLASS:   TRANSP, POOL, CLUSTER
+  Table DELIVERY:   A=Application, C=Customizing
+  CDS SOURCE_TYPE:  V=View, C=Consumption
+  Test Class XML:   <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+```
+
+**Searchable keywords**: class xml, interface xml, table xml, cds xml, test class, exposure, serializer, abapgit
+
 ## Why XML Metadata?
 
 abapGit needs XML files to:

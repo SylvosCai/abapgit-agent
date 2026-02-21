@@ -1,5 +1,14 @@
 # Creating CDS Views
 
+**Searchable keywords**: CDS, DDL, DDLS, CDS view, @AbapCatalog, @AccessControl, association, projection, consumption
+
+## TOPICS IN THIS FILE
+1. File Naming - line 7
+2. DDL Source (.ddls.asddls) - line 18
+3. Annotations - line 50
+4. Associations - line 75
+5. CDS Test Doubles - see 03_testing.md
+
 ## Creating CDS Views (DDLS)
 
 CDS views (Data Definition Language Source) require specific file naming and structure for abapGit.
@@ -118,3 +127,10 @@ When working with CDS view syntax (arithmetic, built-in functions, aggregations,
    - `zdemo_abap_cds_ve_assoc.ddls.asddls` - Associations
 
 **Note**: This requires `abap-cheat-sheets` to be in the reference folder (configured in `.abapGitAgent`).
+
+---
+
+## See Also
+- **Unit Testing** (03_testing.md) - for CDS Test Double Framework
+- **abapGit** (08_abapgit.md) - for CDS XML metadata templates
+- **ABAP SQL** (01_sql.md) - for SQL functions used in CDS

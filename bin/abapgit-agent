@@ -652,7 +652,7 @@ async function runUnitTests(options) {
 /**
  * Run unit test for a single file
  */
-async function runUnitTestForFile(sourceFile, csrfToken, config) {
+async function runUnitTestForFile(sourceFile, csrfToken, config, coverage = false) {
   console.log(`  Running unit test for: ${sourceFile}`);
 
   try {
@@ -687,7 +687,8 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
 
     // Send files array to unit endpoint (ABAP expects string_table of file names)
     const data = {
-      files: [sourceFile]
+      files: [sourceFile],
+      coverage: coverage
     };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
@@ -700,6 +701,9 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
     const message = result.MESSAGE || result.message || '';
     const errors = result.ERRORS || result.errors || [];
 
+    // Handle coverage data
+    const coverageStats = result.COVERAGE_STATS || result.coverage_stats;
+
     if (testCount === 0) {
       console.log(`  ➖ ${objName} - No unit tests`);
     } else if (success === 'X' || success === true) {
@@ -709,6 +713,17 @@ async function runUnitTestForFile(sourceFile, csrfToken, config) {
     }
 
     console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
+
+    // Display coverage if available
+    if (coverage && coverageStats) {
+      const totalLines = coverageStats.TOTAL_LINES || coverageStats.total_lines || 0;
+      const coveredLines = coverageStats.COVERED_LINES || coverageStats.covered_lines || 0;
+      const coverageRate = coverageStats.COVERAGE_RATE || coverageStats.coverage_rate || 0;
+
+      console.log(`     📊 Coverage: ${coverageRate}%`);
+      console.log(`        Total Lines: ${totalLines}`);
+      console.log(`        Covered Lines: ${coveredLines}`);
+    }
 
     if (failedCount > 0 && errors.length > 0) {
       for (const err of errors) {
@@ -1727,21 +1742,25 @@ Examples:
         const filesArgIndex = args.indexOf('--files');
         if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
           console.error('Error: --files parameter required');
-          console.error('Usage: abapgit-agent unit --files <file1>,<file2>,...');
+          console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage]');
           console.error('Example: abapgit-agent unit --files zcl_my_test.clas.abap');
+          console.error('Example: abapgit-agent unit --files zcl_my_test.clas.abap --coverage');
           process.exit(1);
         }
 
         const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
-        console.log(`\n  Running unit tests for ${files.length} file(s)`);
+        // Check for coverage option
+        const coverage = args.includes('--coverage');
+
+        console.log(`\n  Running unit tests for ${files.length} file(s)${coverage ? ' (with coverage)' : ''}`);
         console.log('');
 
         const config = loadConfig();
         const csrfToken = await fetchCsrfToken(config);
 
         for (const sourceFile of files) {
-          await runUnitTestForFile(sourceFile, csrfToken, config);
+          await runUnitTestForFile(sourceFile, csrfToken, config, coverage);
         }
         break;
       }
@@ -2452,32 +2471,10 @@ Examples:
         const pattern = args[patternIndex];
         const result = await refSearch.searchPattern(pattern);
 
-        // Also search guidelines if available
-        const guidelinesResult = await refSearch.searchGuidelines(pattern);
-        if (guidelinesResult && guidelinesResult.guidelinesFound && guidelinesResult.matches.length > 0) {
-          result.guidelines = guidelinesResult;
-        }
-
         if (jsonOutput) {
           console.log(JSON.stringify(result, null, 2));
         } else {
           refSearch.displaySearchResults(result);
-          // Display guidelines results if found
-          if (guidelinesResult && guidelinesResult.guidelinesFound && guidelinesResult.matches.length > 0) {
-            console.log('\n  📋 Custom Guidelines:');
-            for (const match of guidelinesResult.matches.slice(0, 5)) {
-              console.log(`    📄 ${match.file} (line ${match.line}):`);
-              const lines = match.context.split('\n');
-              lines.forEach((line, idx) => {
-                const prefix = idx === 1 ? '  → ' : '    ';
-                const trimmed = line.slice(0, 80);
-                console.log(`${prefix}${trimmed}`);
-              });
-            }
-            if (guidelinesResult.matches.length > 5) {
-              console.log(`    ... and ${guidelinesResult.matches.length - 5} more matches`);
-            }
-          }
         }
         break;
       }

@@ -1,5 +1,14 @@
 # Exception Handling - Classical vs Class-Based
 
+**Searchable keywords**: exception, RAISING, TRY, CATCH, cx_static_check, cx_dynamic_check, EXCEPTIONS, sy-subrc, class-based exception, classical exception
+
+## TOPICS IN THIS FILE
+1. Quick Identification - line 5
+2. Classical Exceptions - line 12
+3. Class-Based Exceptions - line 25
+4. Method Signatures - line 50
+5. Best Practices - line 80
+
 ABAP has two exception handling mechanisms. Using the wrong one causes silent failures.
 
 ## Quick Identification

@@ -1,5 +1,12 @@
 # ABAP Objects
 
+**Searchable keywords**: naming convention, Z prefix, namespace, object type, CLAS, INTF, PROG, TABL, DDLS, XML metadata, .abapGit.xml
+
+## TOPICS IN THIS FILE
+1. XML Metadata Required - line 3
+2. Naming Conventions - line 30
+3. Object Types - line 60
+
 ## Creating New ABAP Objects - XML Metadata Required
 
 **CRITICAL CHECKLIST - Never Forget!**

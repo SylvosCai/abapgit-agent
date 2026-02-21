@@ -1,6 +1,15 @@
 # ABAP SQL Best Practices
 
+**Searchable keywords**: SELECT, FROM, WHERE, ABAP SQL, Open SQL, host variable, @ prefix, range table, INTO, UP TO, OFFSET, GROUP BY, JOIN
+
 When writing ABAP SQL (Open SQL) queries, follow these rules:
+
+## TOPICS IN THIS FILE
+1. Host Variables (@ prefix) - line 5
+2. Range Tables (IN clause) - line 17
+3. SELECT Clause Order - line 35
+4. Fixed Point Arithmetic - line 52
+5. Field Separation - line 62
 
 ## 1. Host Variables - Use @ Prefix
 
@@ -70,3 +79,10 @@ SELECT object, obj_name FROM tadir ...
 " Wrong - missing comma
 SELECT object obj_name FROM tadir ...
 ```
+
+---
+
+## See Also
+- **Constructor Expressions** (05_classes.md) - for VALUE #(), FILTER, FOR loops
+- **Internal Tables** - for filtering and iteration patterns
+- **abapGit** (08_abapgit.md) - for XML metadata templates

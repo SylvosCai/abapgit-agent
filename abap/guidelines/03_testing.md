@@ -1,5 +1,15 @@
 # Unit Testing
 
+**Searchable keywords**: unit test, AUnit, test class, cl_abap_unit_assert, FOR TESTING, setup, teardown, RISK LEVEL, DURATION, CDS test double, CL_CDS_TEST_ENVIRONMENT
+
+## TOPICS IN THIS FILE
+1. Local Test Classes - line 3
+2. File Structure - line 5
+3. Required Elements - line 16
+4. Naming Conventions - line 48
+5. CDS Test Doubles - line 94
+6. CDS with Aggregations - line 178
+
 ## Unit Testing with Local Test Classes
 
 ### File Structure
@@ -250,3 +260,10 @@ ENDMETHOD.
 abapgit-agent ref "cl_cds_test_environment"
 abapgit-agent ref --topic unit-tests
 ```
+
+---
+
+## See Also
+- **CDS Views** (04_cds.md) - for CDS view definitions and syntax
+- **abapGit** (08_abapgit.md) - for WITH_UNIT_TESTS in XML metadata
+- **ABAP SQL** (01_sql.md) - for SELECT statements in tests

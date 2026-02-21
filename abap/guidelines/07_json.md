@@ -1,5 +1,7 @@
 # JSON Handling
 
+**Searchable keywords**: JSON, serialize, deserialize, /ui2/cl_json, REST API, API response
+
 **CRITICAL**: Always use `/ui2/cl_json` for JSON serialization and deserialization.
 
 ## Correct Usage

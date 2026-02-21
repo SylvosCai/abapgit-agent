@@ -257,79 +257,117 @@ async function getSearchableFiles(repoPath, repoName, extensions = ['.md', '.aba
 }
 
 /**
- * Search for a pattern across all reference repositories
+ * Search for a pattern across all reference repositories and local guidelines
  * @param {string} pattern - Pattern to search for
  * @returns {Promise<Object>} Search results
  */
 async function searchPattern(pattern) {
   const refFolder = detectReferenceFolder();
   const repos = await getReferenceRepositories();
+  const guidelinesFolder = detectGuidelinesFolder();
 
-  if (!refFolder) {
+  // If neither reference folder nor guidelines exist, return error
+  if (!refFolder && !guidelinesFolder) {
     return {
       error: 'Reference folder not found',
-      hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
-    };
-  }
-
-  if (repos.length === 0) {
-    return {
-      error: 'No ABAP repositories found in reference folder',
-      hint: 'Clone ABAP repositories to the reference folder to enable searching'
+      hint: 'Configure referenceFolder in .abapGitAgent, clone to ~/abap-reference, or create abap/guidelines/ folder'
     };
   }
 
   const results = {
     pattern,
     referenceFolder: refFolder,
+    guidelinesFolder: guidelinesFolder,
     repositories: repos.map(r => r.name),
     files: [],
     matches: []
   };
 
   try {
-    // Search across all repositories
-    for (const repo of repos) {
-      const searchableFiles = await getSearchableFiles(repo.path, repo.name);
+    // Search reference repositories if available
+    if (repos.length > 0) {
+      for (const repo of repos) {
+        const searchableFiles = await getSearchableFiles(repo.path, repo.name);
 
-      for (const fileInfo of searchableFiles) {
-        try {
-          const content = await readFile(fileInfo.path, 'utf8');
+        for (const fileInfo of searchableFiles) {
+          try {
+            const content = await readFile(fileInfo.path, 'utf8');
 
-          if (content.toLowerCase().includes(pattern.toLowerCase())) {
-            results.files.push({
-              repo: repo.name,
-              file: fileInfo.relativePath
-            });
+            if (content.toLowerCase().includes(pattern.toLowerCase())) {
+              results.files.push({
+                repo: repo.name,
+                file: fileInfo.relativePath
+              });
 
-            // Find matching lines with context
-            const lines = content.split('\n');
-            let matchCount = 0;
+              // Find matching lines with context
+              const lines = content.split('\n');
+              let matchCount = 0;
 
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
-                const start = Math.max(0, i - 1);
-                const end = Math.min(lines.length, i + 2);
-                const context = lines.slice(start, end).join('\n');
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
+                  const start = Math.max(0, i - 1);
+                  const end = Math.min(lines.length, i + 2);
+                  const context = lines.slice(start, end).join('\n');
 
-                results.matches.push({
-                  repo: repo.name,
-                  file: fileInfo.relativePath,
-                  line: i + 1,
-                  context
-                });
+                  results.matches.push({
+                    repo: repo.name,
+                    file: fileInfo.relativePath,
+                    line: i + 1,
+                    context
+                  });
 
-                matchCount++;
+                  matchCount++;
 
-                // Limit matches per file to avoid overwhelming output
-                if (matchCount >= 3) {
-                  break;
+                  // Limit matches per file to avoid overwhelming output
+                  if (matchCount >= 3) {
+                    break;
+                  }
                 }
               }
             }
+          } catch (error) {
+            // Skip files we can't read
           }
-        } catch (error) {
-          // Skip files we can't read
+        }
+      }
+    }
+
+    // Search local guidelines folder if available
+    if (guidelinesFolder) {
+      const guidelineFiles = await getGuidelineFiles();
+
+      for (const file of guidelineFiles) {
+        if (file.content.toLowerCase().includes(pattern.toLowerCase())) {
+          results.files.push({
+            repo: 'guidelines',
+            file: file.relativePath
+          });
+
+          // Find matching lines with context
+          const lines = file.content.split('\n');
+          let matchCount = 0;
+
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
+              const start = Math.max(0, i - 1);
+              const end = Math.min(lines.length, i + 2);
+              const context = lines.slice(start, end).join('\n');
+
+              results.matches.push({
+                repo: 'guidelines',
+                file: file.relativePath,
+                line: i + 1,
+                context
+              });
+
+              matchCount++;
+
+              // Limit matches per file to avoid overwhelming output
+              if (matchCount >= 3) {
+                break;
+              }
+            }
+          }
         }
       }
     }
@@ -469,7 +507,16 @@ function displaySearchResults(results) {
   }
 
   console.log(`\n  🔍 Searching for: '${results.pattern}'`);
-  console.log(`  📁 Reference folder: ${results.referenceFolder}`);
+
+  // Show which sources were searched
+  const sources = [];
+  if (results.referenceFolder) {
+    sources.push('reference repositories');
+  }
+  if (results.guidelinesFolder) {
+    sources.push('local guidelines');
+  }
+  console.log(`  📁 Sources searched: ${sources.join(', ') || 'none'}`);
 
   if (results.repositories && results.repositories.length > 0) {
     console.log(`  📚 Repositories (${results.repositories.length}): ${results.repositories.join(', ')}`);
@@ -491,7 +538,8 @@ function displaySearchResults(results) {
 
   console.log(`  ✅ Found in ${results.files.length} file(s):`);
   for (const [repo, files] of Object.entries(filesByRepo)) {
-    console.log(`\n     📦 ${repo}/`);
+    const icon = repo === 'guidelines' ? '📋' : '📦';
+    console.log(`\n     ${icon} ${repo}/`);
     files.forEach(file => {
       console.log(`        • ${file}`);
     });

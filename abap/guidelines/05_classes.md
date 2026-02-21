@@ -1,5 +1,13 @@
 # ABAP Classes and Objects
 
+**Searchable keywords**: CLASS, DEFINITION, PUBLIC, CREATE OBJECT, NEW, METHOD, INTERFACES, inheritance, FINAL, ABSTRACT
+
+## TOPICS IN THIS FILE
+1. Class Definition (PUBLIC) - line 3
+2. Constructor - line 20
+3. Interfaces - line 35
+4. Inline Declaration - line 50
+
 ## ABAP Class Definition - Must Use PUBLIC
 
 **CRITICAL**: Global ABAP classes MUST use `PUBLIC` in the class definition:
