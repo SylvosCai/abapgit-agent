@@ -205,6 +205,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Configure coverage scope if enabled
     IF iv_coverage = abap_true.
+      lo_runner->p_cov = 'X'.
       lo_runner->p_cvrau = lo_runner->c_str_cov_scope-specified_range.
 
       " Add test classes to coverage program range
