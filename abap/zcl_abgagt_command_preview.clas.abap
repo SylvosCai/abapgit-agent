@@ -317,15 +317,16 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
+        " Suppress warning about INTO clause position
         IF iv_where IS INITIAL.
           SELECT * FROM (iv_tabname)
-            UP TO @lv_limit ROWS
-            INTO TABLE @<lt_data>.
+            INTO TABLE @<lt_data>
+            UP TO @lv_limit ROWS. "#EC CI_NOORDER
         ELSE.
           SELECT * FROM (iv_tabname)
+            INTO TABLE @<lt_data>
             UP TO @lv_limit ROWS
-            WHERE (iv_where)
-            INTO TABLE @<lt_data>.
+            WHERE (iv_where). "#EC CI_NOORDER
         ENDIF.
 
         " Get row count
