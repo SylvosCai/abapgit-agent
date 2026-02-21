@@ -17,7 +17,7 @@ CLASS ltcl_cmd_tree DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS: test_exec_depth_limit FOR TESTING.
     METHODS: test_build_tree_method FOR TESTING.
     METHODS: test_get_object_count_method FOR TESTING.
-    METHODS: test_get_object_counts_by_type_method FOR TESTING.
+    METHODS: test_get_obj_counts_by_type FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_cmd_tree IMPLEMENTATION.
@@ -337,7 +337,7 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
       msg = 'Should count only CLAS objects (2), not DEVC' ).
   ENDMETHOD.
 
-  METHOD test_get_object_counts_by_type_method.
+  METHOD test_get_obj_counts_by_type.
     " Test get_object_counts_by_type method
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
     lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
