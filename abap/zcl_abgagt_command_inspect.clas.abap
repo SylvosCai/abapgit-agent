@@ -641,27 +641,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     DATA(lv_include_name) = lv_right.
 
-    " Check include type - only CM### needs method name from TMDIR
-    CASE lv_include_name.
-      WHEN 'CCAU'.
-        rv_method_name = 'UNIT TEST'.
-      WHEN 'CCDEF'.
-        rv_method_name = 'LOCAL DEFINITIONS'.
-      WHEN 'CCIMP'.
-        rv_method_name = 'LOCAL IMPLEMENTATIONS'.
-      WHEN 'CCINC'.
-        rv_method_name = 'MACROS'.
-      WHEN OTHERS.
-        " Check if it's a method include (CM###)
-        IF strlen( lv_include_name ) >= 2 AND lv_include_name(2) = 'CM'.
-          " Convert method index from base-36
-          DATA(lv_method_index) = io_util->convert_method_index( lv_include_name ).
-          " Get method name from TMDIR
-          rv_method_name = io_util->get_method_name(
-            iv_classname   = iv_classname
-            iv_method_index = lv_method_index ).
-        ENDIF.
-    ENDCASE.
+    " Only CM### includes need method name from TMDIR
+    IF strlen( lv_include_name ) >= 2 AND lv_include_name(2) = 'CM'.
+      " Convert method index from base-36
+      DATA(lv_method_index) = io_util->convert_method_index( lv_include_name ).
+      " Get method name from TMDIR
+      rv_method_name = io_util->get_method_name(
+        iv_classname   = iv_classname
+        iv_method_index = lv_method_index ).
+    ENDIF.
   ENDMETHOD.
 
   METHOD build_object_result.
