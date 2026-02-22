@@ -2,76 +2,45 @@
 *"*"Local Interface:
 *"**********************************************************************
 CLASS zcl_abgagt_resource_where DEFINITION PUBLIC FINAL
-                             INHERITING FROM cl_rest_resource
+                             INHERITING FROM zcl_abgagt_resource_base
                              CREATE PUBLIC.
 
-  PUBLIC SECTION.
-    METHODS if_rest_resource~post REDEFINITION.
+  PROTECTED SECTION.
+
+    METHODS get_command_constant REDEFINITION.
+    METHODS get_command_name REDEFINITION.
+    METHODS create_request_data REDEFINITION.
+    METHODS validate_request REDEFINITION.
+    METHODS get_error_message REDEFINITION.
 
 ENDCLASS.
 
 CLASS zcl_abgagt_resource_where IMPLEMENTATION.
 
-  METHOD if_rest_resource~post.
-    DATA lv_json TYPE string.
-    lv_json = mo_request->get_entity( )->get_string_data( ).
+  METHOD get_command_constant.
+    rv_constant = zif_abgagt_command=>gc_where.
+  ENDMETHOD.
 
-    " Parse JSON using /ui2/cl_json
-    DATA: BEGIN OF ls_request,
-            objects TYPE string_table,
-            type TYPE string,
-            limit TYPE i,
-          END OF ls_request.
+  METHOD get_command_name.
+    rv_name = 'Where'.
+  ENDMETHOD.
 
-    /ui2/cl_json=>deserialize(
-      EXPORTING
-        json = lv_json
-      CHANGING
-        data = ls_request ).
+  METHOD create_request_data.
+    CREATE DATA rr_request_data TYPE zcl_abgagt_command_where=>ty_where_params.
+  ENDMETHOD.
 
-    DATA lv_json_resp TYPE string.
+  METHOD validate_request.
+    DATA: ls_request TYPE zcl_abgagt_command_where=>ty_where_params.
+    ls_request = is_request.
+    rv_valid = boolc( ls_request-objects IS NOT INITIAL ).
+  ENDMETHOD.
 
+  METHOD get_error_message.
+    DATA: ls_request TYPE zcl_abgagt_command_where=>ty_where_params.
+    ls_request = is_request.
     IF ls_request-objects IS INITIAL.
-      lv_json_resp = '{"success":false,"command":"WHERE","error":"Objects parameter is required"}'.
-      DATA(lo_entity) = mo_response->create_entity( ).
-      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-      lo_entity->set_string_data( lv_json_resp ).
-      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
-      RETURN.
+      rv_message = 'Objects parameter is required'.
     ENDIF.
-
-    " Get command from factory
-    DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-    DATA(lo_command) = lo_factory->get_command( zif_abgagt_command=>gc_where ).
-
-    IF lo_command IS NOT BOUND.
-      lv_json_resp = '{"success":false,"command":"WHERE","error":"WHERE command not found"}'.
-      lo_entity = mo_response->create_entity( ).
-      lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-      lo_entity->set_string_data( lv_json_resp ).
-      mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
-      RETURN.
-    ENDIF.
-
-    " Execute command with is_param
-    DATA ls_params TYPE zcl_abgagt_command_where=>ty_where_params.
-    ls_params-objects = ls_request-objects.
-    ls_params-type = ls_request-type.
-    ls_params-limit = ls_request-limit.
-
-    TRY.
-        DATA(lv_result) = lo_command->execute( is_param = ls_params ).
-        lo_entity = mo_response->create_entity( ).
-        lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-        lo_entity->set_string_data( lv_result ).
-        mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
-      CATCH cx_root INTO DATA(lx_exception).
-        lv_json_resp = '{"success":false,"command":"WHERE","error":"' && lx_exception->get_text( ) && '"}'.
-        lo_entity = mo_response->create_entity( ).
-        lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-        lo_entity->set_string_data( lv_json_resp ).
-        mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
-    ENDTRY.
   ENDMETHOD.
 
 ENDCLASS.
