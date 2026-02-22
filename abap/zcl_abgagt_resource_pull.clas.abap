@@ -31,15 +31,21 @@ CLASS zcl_abgagt_resource_pull IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_request.
-    " Call default parse first
-    super->parse_request(
-      EXPORTING iv_json = iv_json
-      IMPORTING es_request = es_request ).
+    " Parse with typed local variable
+    DATA: ls_request TYPE zcl_abgagt_command_pull=>ty_pull_params.
+
+    /ui2/cl_json=>deserialize(
+      EXPORTING
+        json = iv_json
+      CHANGING
+        data = ls_request ).
 
     " Set default branch if not provided
-    IF es_request-branch IS INITIAL.
-      es_request-branch = 'main'.
+    IF ls_request-branch IS INITIAL.
+      ls_request-branch = 'main'.
     ENDIF.
+
+    es_request = ls_request.
   ENDMETHOD.
 
   METHOD validate_request.
