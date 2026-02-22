@@ -56,6 +56,11 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_obj_name TYPE sobj_name
       RETURNING VALUE(rt_references) TYPE ty_references.
 
+    METHODS get_method_name
+      IMPORTING iv_classname    TYPE string
+                iv_include_name TYPE string
+      RETURNING VALUE(rv_method_name) TYPE string.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_where IMPLEMENTATION.
