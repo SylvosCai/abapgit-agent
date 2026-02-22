@@ -9,6 +9,9 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_intf FOR TESTING.
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
+    METHODS test_detect_include_method FOR TESTING.
+    METHODS test_detect_include_intf_section FOR TESTING.
+    METHODS test_detect_include_public_section FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
@@ -79,6 +82,60 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       act = lv_obj_type msg = 'Invalid file should return empty type' ).
     cl_abap_unit_assert=>assert_initial(
       act = lv_obj_name msg = 'Invalid file should return empty name' ).
+  ENDMETHOD.
+
+  METHOD test_detect_include_method.
+    " Test detecting method include - obj_name should NOT have trailing equals
+    DATA ls_info TYPE zif_abgagt_util=>ty_include_info.
+
+    ls_info = mo_util->detect_include_info( 'ZCL_ABGAGT_COMMAND_PULL=======CM001' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-is_source_include exp = abap_true
+      msg = 'Should be detected as source include' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_type exp = 'CLAS'
+      msg = 'Object type should be CLAS' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_name exp = 'ZCL_ABGAGT_COMMAND_PULL'
+      msg = 'Object name should NOT have trailing equals' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-include_type exp = 'CM001'
+      msg = 'Include type should be CM001' ).
+  ENDMETHOD.
+
+  METHOD test_detect_include_intf_section.
+    " Test detecting interface section
+    DATA ls_info TYPE zif_abgagt_util=>ty_include_info.
+
+    ls_info = mo_util->detect_include_info( 'ZIF_ABGAGT_CMD_FACTORY========IU' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-is_source_include exp = abap_true
+      msg = 'Should be detected as source include' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_type exp = 'INTF'
+      msg = 'Object type should be INTF' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_name exp = 'ZIF_ABGAGT_CMD_FACTORY'
+      msg = 'Object name should NOT have trailing equals' ).
+  ENDMETHOD.
+
+  METHOD test_detect_include_public_section.
+    " Test detecting public section
+    DATA ls_info TYPE zif_abgagt_util=>ty_include_info.
+
+    ls_info = mo_util->detect_include_info( 'ZCL_ABGAGT_COMMAND_VIEW=======CU' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-is_source_include exp = abap_true
+      msg = 'Should be detected as source include' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_type exp = 'CLAS'
+      msg = 'Object type should be CLAS' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_info-obj_name exp = 'ZCL_ABGAGT_COMMAND_VIEW'
+      msg = 'Object name should NOT have trailing equals' ).
   ENDMETHOD.
 
 ENDCLASS.
