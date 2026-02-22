@@ -102,7 +102,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       ls_info-name = lv_object.
 
       DATA(lv_type) = ls_params-type.
-      DATA(lv_type_text) = ''.
+      DATA lv_type_text TYPE string.
+      lv_type_text = ''.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type(
           EXPORTING
