@@ -8,17 +8,6 @@ This file provides guidelines for **generating ABAP code** in abapGit repositori
 
 ## Critical Rules
 
-### 0. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
-
-```
-❌ WRONG: Make changes → Run inspect → Check errors → Repeat
-✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
-```
-
-**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
-
----
-
 ### 1. Use `ref` Command for Unfamiliar Topics
 
 **When starting to work on ANY unfamiliar ABAP topic, syntax, or pattern, you MUST use the `ref` command BEFORE writing any code.**
@@ -70,6 +59,17 @@ abapgit-agent ref --list-topics
 The folder is configured in `.abapGitAgent` (property: `folder`):
 - If `folder` is `/src/` → files go in `src/` (e.g., `src/zcl_my_class.clas.abap`)
 - If `folder` is `/abap/` → files go in `abap/` (e.g., `abap/zcl_my_class.clas.abap`)
+
+### 0. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
+
+```
+❌ WRONG: Make changes → Run inspect → Check errors → Repeat
+✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
+```
+
+**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
+
+---
 
 ### 3. Create XML Metadata for Each ABAP Object
 
