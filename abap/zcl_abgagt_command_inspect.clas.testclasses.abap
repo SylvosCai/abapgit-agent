@@ -165,8 +165,10 @@ CLASS lcl_ddl_handler_mock IMPLEMENTATION.
     IF mv_raise_check_error = abap_true AND mx_check_exception IS BOUND.
       RAISE EXCEPTION mx_check_exception.
     ENDIF.
+  ENDMETHOD.
 
-    et_warnings = mt_mock_warnings.
+  METHOD zif_abgagt_ddl_handler~get_warnings.
+    rt_warnings = mt_mock_warnings.
   ENDMETHOD.
 
 ENDCLASS.

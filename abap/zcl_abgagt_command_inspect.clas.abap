@@ -188,6 +188,9 @@ CLASS lcl_ddl_handler_default DEFINITION.
   " Default DDL handler wrapper that uses real SAP DDL handler
   PUBLIC SECTION.
     INTERFACES zif_abgagt_ddl_handler.
+
+  PRIVATE SECTION.
+    DATA mt_warnings TYPE zif_abgagt_ddl_handler=>ty_warnings.
 ENDCLASS.
 
 CLASS lcl_ddl_handler_default IMPLEMENTATION.
@@ -212,7 +215,8 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
   METHOD zif_abgagt_ddl_handler~check.
     " Use real SAP DDL handler
     DATA: lo_handler TYPE REF TO if_dd_ddl_handler,
-          ls_ddlsrcv_wa TYPE ddddlsrcv.
+          ls_ddlsrcv_wa TYPE ddddlsrcv,
+          lt_warnings TYPE ddl2ddicwarnings.
 
     ls_ddlsrcv_wa = VALUE #( ddlname = cs_ddlsrcv-ddlname
                             source  = cs_ddlsrcv-source ).
@@ -222,12 +226,21 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
       EXPORTING
         name = iv_name
       IMPORTING
-        warnings = et_warnings
+        warnings = lt_warnings
       CHANGING
         ddlsrcv_wa = ls_ddlsrcv_wa ).
 
+    " Convert warnings to interface type
+    mt_warnings = VALUE #( FOR wa IN lt_warnings
+      ( type = wa-type line = wa-line column = wa-column severity = wa-severity
+        arbgb = wa-arbgb msgnr = wa-msgnr var1 = wa-var1 var2 = wa-var2 var3 = wa-var3 var4 = wa-var4 ) ).
+
     cs_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
                          source  = ls_ddlsrcv_wa-source ).
+  ENDMETHOD.
+
+  METHOD zif_abgagt_ddl_handler~get_warnings.
+    rt_warnings = mt_warnings.
   ENDMETHOD.
 
 ENDCLASS.
@@ -422,7 +435,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Validate DDLS and build result
     DATA: lo_handler TYPE REF TO zif_abgagt_ddl_handler,
           ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
-          lt_warnings TYPE zif_abgagt_ddl_handler=>ty_warnings,
           lx_error TYPE REF TO cx_dd_ddl_check,
           ls_warning TYPE ty_warning,
           lv_warn_msg TYPE string,
@@ -441,9 +453,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           EXPORTING
             iv_name       = iv_ddls_name
           CHANGING
-            cs_ddlsrcv    = ls_ddlsrcv
-          IMPORTING
-            et_warnings   = lt_warnings ).
+            cs_ddlsrcv    = ls_ddlsrcv ).
+
+        " Get warnings after check
+        DATA(lt_warnings) = lo_handler->get_warnings( ).
 
         " Parse warnings from check method
         LOOP AT lt_warnings INTO DATA(ls_warn_from_check).

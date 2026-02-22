@@ -52,7 +52,10 @@ INTERFACE zif_abgagt_ddl_handler PUBLIC.
   METHODS check
     IMPORTING iv_name         TYPE ddlname
     CHANGING  cs_ddlsrcv      TYPE ty_ddlsrcv
-    EXPORTING et_warnings     TYPE ty_warnings
     RAISING   cx_dd_ddl_check.
+
+  " Get warnings from last check
+  METHODS get_warnings
+    RETURNING VALUE(rt_warnings) TYPE ty_warnings.
 
 ENDINTERFACE.
