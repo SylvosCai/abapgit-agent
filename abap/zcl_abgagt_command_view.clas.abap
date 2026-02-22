@@ -153,6 +153,10 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD detect_object_type.
     " First check if name looks like a source include (>= 32 chars)
     " Source includes have pattern: CLASSNAME=============CM00X (35 chars)
+    " Method includes: CLASS=============CM00X (35 chars) - belongs to a class
+    " Test class: CLASS=============CCAU (34 chars) - belongs to a class
+    " Local types: CLASS=============CCDEF or CCIMP (34 chars) - belongs to a class
+    " Section: CLASS=============CU/CO/CP (32 chars) - belongs to a class
     DATA: lv_name TYPE tadir-obj_name,
           lv_prog TYPE program,
           lv_name_len TYPE i,
@@ -165,6 +169,22 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       lv_prog = lv_name.
       READ REPORT lv_prog INTO lt_source_check.
       IF sy-subrc = 0.
+        " Check if this is a method include (CM00X) or test class (CCAU)
+        " These belong to a class
+        IF lv_name_len = 35 AND lv_name+30(5) CP 'CM###'.
+          " Method implementation include - belongs to a class
+          rv_type = 'CLAS'.
+          RETURN.
+        ELSEIF lv_name_len = 34 AND ( lv_name+30(4) = 'CCAU' OR lv_name+30(5) = 'CCDEF' OR lv_name+30(5) = 'CCIMP' ).
+          " Test class or local types - belongs to a class
+          rv_type = 'CLAS'.
+          RETURN.
+        ELSEIF lv_name_len = 32 AND ( lv_name+30(2) = 'CU' OR lv_name+30(2) = 'CO' OR lv_name+30(2) = 'CP' OR lv_name+30(2) = 'IU' ).
+          " Class/interface section - belongs to a class
+          rv_type = 'CLAS'.
+          RETURN.
+        ENDIF.
+        " Other programs/includes
         rv_type = 'PROG'.
         RETURN.
       ENDIF.
