@@ -11,29 +11,24 @@ CLASS zcl_abgagt_resource_base DEFINITION ABSTRACT PUBLIC
 
   PROTECTED SECTION.
 
-    METHODS get_command_constant
+    METHODS get_command_constant ABSTRACT
       IMPORTING iv_command TYPE string
-      RETURNING VALUE(rv_constant) TYPE string
-      ABSTRACT.
+      RETURNING VALUE(rv_constant) TYPE string.
 
-    METHODS get_command_name
-      RETURNING VALUE(rv_name) TYPE string
-      ABSTRACT.
+    METHODS get_command_name ABSTRACT
+      RETURNING VALUE(rv_name) TYPE string.
 
-    METHODS parse_request
+    METHODS parse_request ABSTRACT
       IMPORTING iv_json TYPE string
-      CHANGING cs_request TYPE any
-      ABSTRACT.
+      CHANGING cs_request TYPE any.
 
-    METHODS validate_request
+    METHODS validate_request ABSTRACT
       IMPORTING is_request TYPE any
-      RETURNING VALUE(rv_valid) TYPE abap_bool
-      ABSTRACT.
+      RETURNING VALUE(rv_valid) TYPE abap_bool.
 
-    METHODS get_error_message
+    METHODS get_error_message ABSTRACT
       IMPORTING is_request TYPE any
-      RETURNING VALUE(rv_message) TYPE string
-      ABSTRACT.
+      RETURNING VALUE(rv_message) TYPE string.
 
     METHODS return_error
       IMPORTING iv_error TYPE string.
