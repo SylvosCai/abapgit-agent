@@ -56,3 +56,41 @@ ENDCLASS.
 
 **Wrong**: `METHOD do_something.` - parameter `iv_param` will be unknown
 **Correct**: `METHOD zif_my_interface~do_something.` - parameters recognized
+
+## Use Interface Type for References
+
+When a class implements an interface, use the **interface type** instead of the class type for references:
+
+```abap
+" Interface definition
+INTERFACE zif_my_interface PUBLIC.
+  METHODS do_something RETURNING VALUE(rv_result) TYPE string.
+ENDINTERFACE.
+
+" Class implements interface
+CLASS zcl_my_class DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES zif_my_interface.
+    CLASS-METHODS get_instance RETURNING VALUE(ro_instance) TYPE REF TO zif_my_interface.
+ENDCLASS.
+
+" Caller - use interface type, not class type
+CLASS zcl_consumer DEFINITION PUBLIC.
+  PRIVATE SECTION.
+    DATA mo_instance TYPE REF TO zif_my_interface.  " <- Use interface type
+ENDCLASS.
+
+METHOD zcl_consumer->do_something.
+  mo_instance = zcl_my_class=>get_instance( ).
+
+  " Call without interface prefix - cleaner code
+  DATA(lv_result) = mo_instance->do_something( ).
+ENDMETHOD.
+```
+
+**Benefits:**
+- Cleaner code: `mo_instance->method( )` instead of `mo_instance->zif_my_interface~method( )`
+- Flexibility: Can swap implementation class without changing caller (dependency inversion)
+- Consistency: All callers use the same interface type
+
+**Key rule:** Always use `REF TO zif_xxx` not `REF TO zcl_xxx` for instance variables and parameters.
