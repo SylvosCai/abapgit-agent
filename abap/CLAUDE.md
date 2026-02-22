@@ -8,6 +8,17 @@ This file provides guidelines for **generating ABAP code** in abapGit repositori
 
 ## Critical Rules
 
+### 0. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
+
+```
+❌ WRONG: Make changes → Run inspect → Check errors → Repeat
+✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
+```
+
+**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
+
+---
+
 ### 1. Use `ref` Command for Unfamiliar Topics
 
 **When starting to work on ANY unfamiliar ABAP topic, syntax, or pattern, you MUST use the `ref` command BEFORE writing any code.**
