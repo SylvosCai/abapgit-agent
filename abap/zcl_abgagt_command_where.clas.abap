@@ -358,12 +358,13 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     rv_include_type = 'Unknown'.
 
     lv_include_len = strlen( iv_include_name ).
-    IF lv_include_len >= 32.
-      lv_include = iv_include_name+30(2).
+    " Check from longest to shortest (35, 34, 32)
+    IF lv_include_len >= 35.
+      lv_include = iv_include_name+30(5).
     ELSEIF lv_include_len >= 34.
       lv_include = iv_include_name+30(4).
-    ELSEIF lv_include_len >= 35.
-      lv_include = iv_include_name+30(5).
+    ELSEIF lv_include_len >= 32.
+      lv_include = iv_include_name+30(2).
     ELSE.
       lv_include = iv_include_name.
     ENDIF.
