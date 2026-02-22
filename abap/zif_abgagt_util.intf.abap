@@ -25,4 +25,33 @@ INTERFACE zif_abgagt_util PUBLIC.
     RETURNING
       VALUE(rv_detail) TYPE string.
 
+  "! Convert method index from base-36 string to integer
+  "! @parameter iv_include_name | Include name (e.g., 'CM001', 'CM00F')
+  "! @return rv_method_index | Method index as integer (e.g., 1, 15)
+  METHODS convert_method_index
+    IMPORTING
+      iv_include_name TYPE string
+    RETURNING
+      VALUE(rv_method_index) TYPE i.
+
+  "! Get method name from TMDIR by class name and method index
+  "! @parameter iv_classname | Class name (e.g., 'ZCL_MY_CLASS')
+  "! @parameter iv_method_index | Method index (e.g., 1 = CM001, 15 = CM00F)
+  "! @return rv_method_name | Method name from TMDIR
+  METHODS get_method_name
+    IMPORTING
+      iv_classname     TYPE string
+      iv_method_index TYPE i
+    RETURNING
+      VALUE(rv_method_name) TYPE string.
+
+  "! Get human-readable description of include type
+  "! @parameter iv_include_name | Full include name (e.g., 'ZCL_CLASS=============CM001')
+  "! @return rv_description | Human-readable description (e.g., 'Class Method')
+  METHODS get_include_description
+    IMPORTING
+      iv_include_name TYPE string
+    RETURNING
+      VALUE(rv_description) TYPE string.
+
 ENDINTERFACE.

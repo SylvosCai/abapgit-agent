@@ -56,22 +56,16 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_obj_name TYPE sobj_name
       RETURNING VALUE(rt_references) TYPE ty_references.
 
-    METHODS get_method_name
-      IMPORTING iv_classname    TYPE string
-                iv_include_name TYPE string
-      RETURNING VALUE(rv_method_name) TYPE string.
-
-    METHODS convert_base36_to_int
-      IMPORTING iv_base36      TYPE string
-      RETURNING VALUE(rv_result) TYPE i.
-
-    METHODS get_include_type
-      IMPORTING iv_include_name TYPE string
-      RETURNING VALUE(rv_include_type) TYPE string.
+  PRIVATE SECTION.
+    DATA mo_util TYPE REF TO zcl_abgagt_util.
 
 ENDCLASS.
 
 CLASS zcl_abgagt_command_where IMPLEMENTATION.
+
+  METHOD constructor.
+    mo_util = zcl_abgagt_util=>get_instance( ).
+  ENDMETHOD.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_where.
@@ -210,190 +204,55 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_ref_out-object = <ls_ref>-obj_name.
       ls_ref_out-object_type = <ls_ref>-obj_type.
       ls_ref_out-include_name = <ls_ref>-sub_name.
-      " Get method name for method includes
-      ls_ref_out-method_name = get_method_name(
-        iv_classname = CONV #( <ls_ref>-obj_name )
-        iv_include_name = CONV string( <ls_ref>-sub_name ) ).
-      " Get human-readable include type
-      ls_ref_out-include_type = get_include_type( CONV string( <ls_ref>-sub_name ) ).
+
+      " Get human-readable include type description
+      ls_ref_out-include_type = mo_util->get_include_description(
+        CONV string( <ls_ref>-sub_name ) ).
+
+      " Get method name if it's a method include
+      DATA lv_include TYPE string.
+      DATA lv_include_len TYPE i.
+      lv_include_len = strlen( <ls_ref>-sub_name ).
+      IF lv_include_len >= 35.
+        lv_include = <ls_ref>-sub_name+30(5).
+      ELSEIF lv_include_len >= 34.
+        lv_include = <ls_ref>-sub_name+30(4).
+      ELSEIF lv_include_len >= 32.
+        lv_include = <ls_ref>-sub_name+30(2).
+      ELSE.
+        lv_include = <ls_ref>-sub_name.
+      ENDIF.
+
+      " Check if it's a method include (CM###)
+      IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
+        " Convert method index from base-36
+        DATA(lv_method_index) = mo_util->convert_method_index( lv_include ).
+        " Get method name from TMDIR
+        ls_ref_out-method_name = mo_util->get_method_name(
+          iv_classname = CONV string( <ls_ref>-obj_name )
+          iv_method_index = lv_method_index ).
+      ELSE.
+        " For non-method includes, use special descriptions
+        CASE lv_include.
+          WHEN 'CCAU'.
+            ls_ref_out-method_name = 'UNIT TEST'.
+          WHEN 'CCDEF'.
+            ls_ref_out-method_name = 'LOCAL DEFINITIONS'.
+          WHEN 'CCIMP'.
+            ls_ref_out-method_name = 'LOCAL IMPLEMENTATIONS'.
+          WHEN 'CI'.
+            ls_ref_out-method_name = 'LOCAL INTERFACES'.
+          WHEN 'CT'.
+            ls_ref_out-method_name = 'MACROS'.
+        ENDCASE.
+      ENDIF.
+
       ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
 
     " Sort by object name
     SORT rt_references BY object.
-  ENDMETHOD.
-
-  METHOD get_method_name.
-    " Extract method name from include name
-    rv_method_name = ''.
-
-    " Split include name by '=' to get class name and include type
-    DATA lt_parts TYPE TABLE OF string.
-    SPLIT iv_include_name AT '=' INTO TABLE lt_parts.
-
-    DATA lv_include TYPE string.
-    DATA lv_include_len TYPE i.
-
-    " Check if include name contains '=' (padded case)
-    IF iv_include_name CS '='.
-      " With padding: split by '=' and get last part
-      LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
-        lv_include = lv_part.
-      ENDLOOP.
-    ELSE.
-      " No padding: extract include type by length
-      " Total length 32: last 2 chars (CU, CI, IU)
-      " Total length 34: last 4 chars (CCAU, CCIMP, CCDEF)
-      " Total length 35: last 5 chars (CM001-CM099, CM00A-CM99Z)
-      lv_include_len = strlen( iv_include_name ).
-      IF lv_include_len >= 32.
-        lv_include = iv_include_name+30(2).
-      ELSEIF lv_include_len >= 34.
-        lv_include = iv_include_name+30(4).
-      ELSEIF lv_include_len >= 35.
-        lv_include = iv_include_name+30(5).
-      ELSE.
-        " String too short, try to get whatever is left
-        lv_include = iv_include_name.
-      ENDIF.
-    ENDIF.
-
-    " Check include type
-    CASE lv_include.
-      WHEN 'CCAU'.
-        rv_method_name = 'UNIT TEST'.
-      WHEN 'CCDEF'.
-        rv_method_name = 'LOCAL DEFINITIONS'.
-      WHEN 'CCIMP'.
-        rv_method_name = 'LOCAL IMPLEMENTATIONS'.
-      WHEN 'CI'.
-        rv_method_name = 'LOCAL INTERFACES'.
-      WHEN 'CT'.
-        rv_method_name = 'MACROS'.
-      WHEN OTHERS.
-        " Check if it's a method include (CM###)
-        IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
-          " Convert CM003 to 3 (remove CM prefix)
-          " Extended methods like CM00A, CM00B need base-36 conversion
-          DATA(lv_num_str) = substring( val = lv_include off = 2 ).
-          " Use base-36 conversion (0-9 = 0-9, A-Z = 10-35)
-          DATA(lv_include_num) = convert_base36_to_int( lv_num_str ).
-          " Get method name from TMDIR
-          SELECT SINGLE methodname
-            FROM tmdir
-            INTO rv_method_name
-            WHERE classname = iv_classname
-              AND methodindx = lv_include_num.
-        ENDIF.
-    ENDCASE.
-  ENDMETHOD.
-
-  METHOD convert_base36_to_int.
-    " Convert base-36 string to integer
-    " 0-9 = 0-9, A-Z = 10-35
-    DATA lv_len TYPE i.
-    DATA lv_idx TYPE i.
-    DATA lv_char TYPE c.
-    DATA lv_val TYPE i.
-    DATA lv_digit TYPE c.
-
-    rv_result = 0.
-    lv_len = strlen( iv_base36 ).
-
-    IF lv_len = 0.
-      RETURN.
-    ENDIF.
-
-    DO lv_len TIMES.
-      lv_idx = sy-index - 1.
-      lv_digit = iv_base36+lv_idx(1).
-      lv_digit = to_upper( lv_digit ).
-
-      IF lv_digit CO '0123456789'.
-        lv_val = CONV i( lv_digit ).
-      ELSEIF lv_digit CO 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
-        " Convert A-Z to 10-35 using CASE
-        CASE lv_digit.
-          WHEN 'A'. lv_val = 10.
-          WHEN 'B'. lv_val = 11.
-          WHEN 'C'. lv_val = 12.
-          WHEN 'D'. lv_val = 13.
-          WHEN 'E'. lv_val = 14.
-          WHEN 'F'. lv_val = 15.
-          WHEN 'G'. lv_val = 16.
-          WHEN 'H'. lv_val = 17.
-          WHEN 'I'. lv_val = 18.
-          WHEN 'J'. lv_val = 19.
-          WHEN 'K'. lv_val = 20.
-          WHEN 'L'. lv_val = 21.
-          WHEN 'M'. lv_val = 22.
-          WHEN 'N'. lv_val = 23.
-          WHEN 'O'. lv_val = 24.
-          WHEN 'P'. lv_val = 25.
-          WHEN 'Q'. lv_val = 26.
-          WHEN 'R'. lv_val = 27.
-          WHEN 'S'. lv_val = 28.
-          WHEN 'T'. lv_val = 29.
-          WHEN 'U'. lv_val = 30.
-          WHEN 'V'. lv_val = 31.
-          WHEN 'W'. lv_val = 32.
-          WHEN 'X'. lv_val = 33.
-          WHEN 'Y'. lv_val = 34.
-          WHEN 'Z'. lv_val = 35.
-        ENDCASE.
-      ELSE.
-        CONTINUE.
-      ENDIF.
-
-      rv_result = rv_result * 36 + lv_val.
-    ENDDO.
-  ENDMETHOD.
-
-  METHOD get_include_type.
-    " Extract include type from include name and return human-readable description
-    DATA lv_include_len TYPE i.
-    DATA lv_include TYPE string.
-
-    rv_include_type = 'Unknown'.
-
-    lv_include_len = strlen( iv_include_name ).
-    " Check from longest to shortest (35, 34, 32)
-    IF lv_include_len >= 35.
-      lv_include = iv_include_name+30(5).
-    ELSEIF lv_include_len >= 34.
-      lv_include = iv_include_name+30(4).
-    ELSEIF lv_include_len >= 32.
-      lv_include = iv_include_name+30(2).
-    ELSE.
-      lv_include = iv_include_name.
-    ENDIF.
-
-    CASE lv_include.
-      WHEN 'CU'.
-        rv_include_type = 'Public Section'.
-      WHEN 'CO'.
-        rv_include_type = 'Protected Section'.
-      WHEN 'CP'.
-        rv_include_type = 'Private Section'.
-      WHEN 'CCAU'.
-        rv_include_type = 'Unit Test'.
-      WHEN 'CCIMP'.
-        rv_include_type = 'Local Implementations'.
-      WHEN 'CCDEF'.
-        rv_include_type = 'Local Definitions'.
-      WHEN 'CI'.
-        rv_include_type = 'Local Interfaces'.
-      WHEN 'CT'.
-        rv_include_type = 'Macros'.
-      WHEN 'IU'.
-        rv_include_type = 'Interface Section'.
-      WHEN OTHERS.
-        " Check if it's a method include (CM###)
-        IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
-          rv_include_type = 'Class Method'.
-        ENDIF.
-    ENDCASE.
   ENDMETHOD.
 
 ENDCLASS.

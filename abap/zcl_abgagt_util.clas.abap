@@ -90,4 +90,135 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD zif_abgagt_util~get_log_detail.
     rv_detail = mv_log.
   ENDMETHOD.
+
+  METHOD zif_abgagt_util~convert_method_index.
+    " Convert base-36 string to integer
+    " CM001 -> 1, CM00F -> 15, CM00A -> 10
+    DATA lv_len TYPE i.
+    DATA lv_idx TYPE i.
+    DATA lv_val TYPE i.
+    DATA lv_digit TYPE c.
+
+    rv_method_index = 0.
+    lv_len = strlen( iv_include_name ).
+
+    IF lv_len = 0.
+      RETURN.
+    ENDIF.
+
+    " Extract the numeric part (after 'CM')
+    DATA lv_num_str TYPE string.
+    IF lv_len >= 2.
+      lv_num_str = iv_include_name+2.
+    ELSE.
+      lv_num_str = iv_include_name.
+    ENDIF.
+
+    " Convert base-36 string to integer (0-9 = 0-9, A-Z = 10-35)
+    DATA lv_num_len TYPE i.
+    lv_num_len = strlen( lv_num_str ).
+
+    DO lv_num_len TIMES.
+      lv_idx = sy-index - 1.
+      lv_digit = lv_num_str+lv_idx(1).
+      lv_digit = to_upper( lv_digit ).
+
+      IF lv_digit CO '0123456789'.
+        lv_val = CONV i( lv_digit ).
+      ELSEIF lv_digit CO 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+        " Convert A-Z to 10-35 using CASE
+        CASE lv_digit.
+          WHEN 'A'. lv_val = 10.
+          WHEN 'B'. lv_val = 11.
+          WHEN 'C'. lv_val = 12.
+          WHEN 'D'. lv_val = 13.
+          WHEN 'E'. lv_val = 14.
+          WHEN 'F'. lv_val = 15.
+          WHEN 'G'. lv_val = 16.
+          WHEN 'H'. lv_val = 17.
+          WHEN 'I'. lv_val = 18.
+          WHEN 'J'. lv_val = 19.
+          WHEN 'K'. lv_val = 20.
+          WHEN 'L'. lv_val = 21.
+          WHEN 'M'. lv_val = 22.
+          WHEN 'N'. lv_val = 23.
+          WHEN 'O'. lv_val = 24.
+          WHEN 'P'. lv_val = 25.
+          WHEN 'Q'. lv_val = 26.
+          WHEN 'R'. lv_val = 27.
+          WHEN 'S'. lv_val = 28.
+          WHEN 'T'. lv_val = 29.
+          WHEN 'U'. lv_val = 30.
+          WHEN 'V'. lv_val = 31.
+          WHEN 'W'. lv_val = 32.
+          WHEN 'X'. lv_val = 33.
+          WHEN 'Y'. lv_val = 34.
+          WHEN 'Z'. lv_val = 35.
+        ENDCASE.
+      ELSE.
+        CONTINUE.
+      ENDIF.
+
+      rv_method_index = rv_method_index * 36 + lv_val.
+    ENDDO.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_util~get_method_name.
+    " Get method name from TMDIR by class name and method index
+    SELECT SINGLE methodname
+      FROM tmdir
+      INTO rv_method_name
+      WHERE classname = iv_classname
+        AND methodindx = iv_method_index.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_util~get_include_description.
+    " Get human-readable description of include type
+    " Extract include type from full include name
+    " Example: ZCL_CLASS=============CM001 -> Class Method
+    " Example: ZCL_CLASS=============CCAU -> Unit Test
+
+    DATA lv_include_len TYPE i.
+    DATA lv_include TYPE string.
+
+    rv_description = 'Unknown'.
+
+    lv_include_len = strlen( iv_include_name ).
+    " Check from longest to shortest (35, 34, 32)
+    IF lv_include_len >= 35.
+      lv_include = iv_include_name+30(5).
+    ELSEIF lv_include_len >= 34.
+      lv_include = iv_include_name+30(4).
+    ELSEIF lv_include_len >= 32.
+      lv_include = iv_include_name+30(2).
+    ELSE.
+      lv_include = iv_include_name.
+    ENDIF.
+
+    CASE lv_include.
+      WHEN 'CU'.
+        rv_description = 'Public Section'.
+      WHEN 'CO'.
+        rv_description = 'Protected Section'.
+      WHEN 'CP'.
+        rv_description = 'Private Section'.
+      WHEN 'CCAU'.
+        rv_description = 'Unit Test'.
+      WHEN 'CCIMP'.
+        rv_description = 'Local Implementations'.
+      WHEN 'CCDEF'.
+        rv_description = 'Local Definitions'.
+      WHEN 'CI'.
+        rv_description = 'Local Interfaces'.
+      WHEN 'CT'.
+        rv_description = 'Macros'.
+      WHEN 'IU'.
+        rv_description = 'Interface Section'.
+      WHEN OTHERS.
+        " Check if it's a method include (CM###)
+        IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
+          rv_description = 'Class Method'.
+        ENDIF.
+    ENDCASE.
+  ENDMETHOD.
 ENDCLASS.
