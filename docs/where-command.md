@@ -498,9 +498,10 @@ Examples:
 | `CO` | Protected section | 2 |
 | `CP` | Private section | 2 |
 | `CM001-CM099` | Method implementations (01-99) | 5 |
-| `CM00A-CM99Z` | Extended method numbers (A-Z) | 5 |
+| `CM00A-CM99Z` | Extended method numbers (A-Z, 01A-99Z) | 5 |
 | `CCAU` | Test class (AUnit) | 4 |
 | `CCIMP` | Local class implementations | 4 |
+| `CCDEF` | Local class definitions | 4 |
 | `CI` | Local interface/type definitions | 2 |
 | `CT` | Macros | 2 |
 
