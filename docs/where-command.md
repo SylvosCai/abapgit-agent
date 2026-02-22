@@ -465,17 +465,36 @@ CALL FUNCTION 'RS_EU_CROSSREF'
 
 ### Include Name Patterns
 
-The `SUB_NAME` field contains the source code include name:
+The `SUB_NAME` field contains the source code include name. The format is:
+- **Total length always 30 characters**
+- Structure: `CLASSNAME` + `=` (dynamic padding) + `INCLUDETYPE` (2 chars)
+- Example: `ZCL_ABGAGT_AGENT=============CU` (15 + 13 + 2 = 30)
 
-| Pattern | Description |
-|---------|-------------|
-| `ZCL_CLASS=============CU` | Public section |
-| `ZCL_CLASS=============CO` | Protected section |
-| `ZCL_CLASS=============CP` | Private section |
-| `ZCL_CLASS=============CM00N` | Method N implementation |
-| `ZCL_CLASS=============CCAU` | Test class |
-| `ZIF_INTERFACE============IU` | Interface section |
-| `SAPLPROGRAM===========` | Program main |
+#### Class Include Types
+
+| Include Type | Description | Example |
+|-------------|-------------|---------|
+| `CU` | Public section | `ZCL_CLASS==============CU` |
+| `CO` | Protected section | `ZCL_CLASS==============CO` |
+| `CP` | Private section | `ZCL_CLASS==============CP` |
+| `CM001-CM099` | Method implementations (01-99) | `ZCL_CLASS==============CM001` |
+| `CM00A-CM99Z` | Extended method numbers (A-Z) | `ZCL_CLASS==============CM00A` |
+| `CCAU` | Test class (AUnit) | `ZCL_CLASS==============CCAU` |
+| `CCIMP` | Local class implementations | `ZCL_CLASS==============CCIMP` |
+| `CI` | Local interface/type definitions | `ZCL_CLASS===============CI` |
+| `CT` | Macros | `ZCL_CLASS===============CT` |
+
+#### Interface Include Types
+
+| Include Type | Description | Example |
+|-------------|-------------|---------|
+| `IU` | Interface section | `ZIF_INTERFACE==============IU` |
+
+#### Program Include Types
+
+| Include Type | Description | Example |
+|-------------|-------------|---------|
+| (none) | Main program | `SAPLZWABGAGT=============` |
 
 ---
 
