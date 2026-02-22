@@ -257,7 +257,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
         IF lv_name_len = 35 AND lv_suffix(2) = 'CM'.
           " Method implementation include - belongs to a class
           rs_info-obj_type = 'CLAS'.
-          DATA(lv_obj_name) = lv_name(30).
+          lv_obj_name = lv_name(30).
           SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
           rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
