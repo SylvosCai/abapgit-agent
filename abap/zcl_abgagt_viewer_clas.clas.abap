@@ -41,6 +41,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         rs_info-name = lv_name.
         rs_info-type = 'CLAS'.
         rs_info-type_text = 'Class'.
+        rs_info-devclass = lv_devclass.
         IF lv_devclass IS NOT INITIAL.
           rs_info-description = |Class { lv_clsname } in { lv_devclass } (Source Include)|.
         ELSE.
@@ -68,6 +69,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       rs_info-name = iv_name.
       rs_info-type = 'CLAS'.
       rs_info-type_text = 'Class'.
+      rs_info-devclass = lv_devclass.
       rs_info-description = |Class { iv_name } in { lv_devclass }|.
     ELSE.
       rs_info-name = iv_name.
