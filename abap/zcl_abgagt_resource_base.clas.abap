@@ -16,6 +16,10 @@ CLASS zcl_abgagt_resource_base DEFINITION ABSTRACT PUBLIC
       RETURNING VALUE(rv_constant) TYPE string
       ABSTRACT.
 
+    METHODS get_command_name
+      RETURNING VALUE(rv_name) TYPE string
+      ABSTRACT.
+
     METHODS parse_request
       IMPORTING iv_json TYPE string
       CHANGING cs_request TYPE any
@@ -29,10 +33,6 @@ CLASS zcl_abgagt_resource_base DEFINITION ABSTRACT PUBLIC
     METHODS get_error_message
       IMPORTING is_request TYPE any
       RETURNING VALUE(rv_message) TYPE string
-      ABSTRACT.
-
-    METHODS get_command_name
-      RETURNING VALUE(rv_name) TYPE string
       ABSTRACT.
 
     METHODS return_error
@@ -84,7 +84,9 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
   METHOD return_error.
     DATA lv_json_resp TYPE string.
-    lv_json_resp = |{{"success":false,"command":"{ get_command_name( ) }","error":"{ iv_error }"}}|.
+    CONCATENATE
+      '{"success":false,"command":"' get_command_name( ) '","error":"' iv_error '"}'
+      INTO lv_json_resp.
 
     DATA(lo_entity) = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
