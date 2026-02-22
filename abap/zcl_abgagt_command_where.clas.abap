@@ -238,17 +238,16 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       " Total length 34: last 4 chars (CCAU, CCIMP, CCDEF)
       " Total length 35: last 5 chars (CM001-CM099, CM00A-CM99Z)
       lv_include_len = strlen( iv_include_name ).
-      CASE lv_include_len.
-        WHEN 32.
-          lv_include = iv_include_name+30(2).
-        WHEN 34.
-          lv_include = iv_include_name+30(4).
-        WHEN 35.
-          lv_include = iv_include_name+30(5).
-        WHEN OTHERS.
-          " Try to get last 2 chars as fallback
-          lv_include = iv_include_name+30(2).
-      ENDCASE.
+      IF lv_include_len >= 32.
+        lv_include = iv_include_name+30(2).
+      ELSEIF lv_include_len >= 34.
+        lv_include = iv_include_name+30(4).
+      ELSEIF lv_include_len >= 35.
+        lv_include = iv_include_name+30(5).
+      ELSE.
+        " String too short, try to get whatever is left
+        lv_include = iv_include_name.
+      ENDIF.
     ENDIF.
 
     " Check include type
