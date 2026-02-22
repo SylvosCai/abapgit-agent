@@ -188,7 +188,11 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         references = lt_ref.
 
     " Map to output structure - convert to string fields for JSON serialization
+    " Filter: only include CLAS and PROG types
     LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref>).
+      IF <ls_ref>-obj_type <> 'CLAS' AND <ls_ref>-obj_type <> 'PROG'.
+        CONTINUE.
+      ENDIF.
       ls_ref_out-object = <ls_ref>-obj_name.
       ls_ref_out-object_type = <ls_ref>-obj_type.
       ls_ref_out-include_name = <ls_ref>-sub_name.
