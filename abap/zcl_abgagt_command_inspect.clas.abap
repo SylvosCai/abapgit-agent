@@ -1,10 +1,14 @@
 *"*"use source
 *"*"Local Interface:
 *"**********************************************************************
-" INSPECT command implementation - uses SCI/SCIC for syntax check
+" INSPECT command implementation - uses SCI/SCIC for code inspection
 CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
+
+    " Constructor - optionally inject code inspector for testing
+    METHODS constructor
+      IMPORTING io_inspector TYPE REF TO zif_abgagt_code_inspector OPTIONAL.
 
     " Error structure for syntax check results
     TYPES: BEGIN OF ty_error,
@@ -79,6 +83,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     " Type for DDLS object names
     TYPES ty_ddls_names TYPE STANDARD TABLE OF tadir-obj_name WITH NON-UNIQUE DEFAULT KEY.
 
+    " Run inspection for given objects
     METHODS run_inspection
       IMPORTING it_objects TYPE ty_object_keys
                 iv_variant TYPE string DEFAULT 'SYNTAX_CHECK'
@@ -96,9 +101,76 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_include_num  TYPE i
       RETURNING VALUE(rv_method_name) TYPE string.
 
+  PRIVATE SECTION.
+
+    " Code inspector - injected for testing
+    DATA mo_inspector TYPE REF TO zif_abgagt_code_inspector.
+
+    " Create unique inspection name
+    METHODS create_inspection_name
+      RETURNING VALUE(rv_name) TYPE sci_objs.
+
+    " Get check variant reference
+    METHODS get_check_variant
+      IMPORTING iv_variant TYPE string
+      RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant
+      RAISING   cx_static_check.
+
+    " Create and run inspection
+    METHODS create_and_run_inspection
+      IMPORTING iv_name     TYPE sci_objs
+                io_variant  TYPE REF TO cl_ci_checkvariant
+                it_objects  TYPE ty_object_keys
+      RETURNING VALUE(ro_inspection) TYPE REF TO cl_ci_inspection.
+
+    " Extract method/include name from SOBJNAME
+    METHODS extract_method_name
+      IMPORTING iv_classname TYPE string
+                iv_sobjname  TYPE string
+      RETURNING VALUE(rv_method_name) TYPE string.
+
+    " Build result for a single object from inspection list
+    METHODS build_object_result
+      IMPORTING is_object      TYPE scir_objs
+                it_list        TYPE scit_alvlist
+      RETURNING VALUE(rs_result) TYPE ty_inspect_result.
+
+    " Categorize message into error/warning/info
+    METHODS categorize_message
+      IMPORTING is_list       TYPE scir_alvlist
+                iv_object_type TYPE string
+                iv_object_name TYPE string
+                iv_method_name TYPE string
+      EXPORTING es_error      TYPE ty_error
+                es_warning    TYPE ty_warning
+                es_info       TYPE ty_info.
+
+    " Cleanup inspection and object set
+    METHODS cleanup
+      IMPORTING io_inspection TYPE REF TO cl_ci_inspection
+                io_objset     TYPE REF TO cl_ci_objectset.
+
+    " Build error result from exception
+    METHODS build_error_result
+      IMPORTING it_objects   TYPE ty_object_keys
+                ix_error     TYPE REF TO cx_root
+      RETURNING VALUE(rt_results) TYPE ty_inspect_results.
+
+    " Build variant not found error result
+    METHODS build_variant_error
+      IMPORTING iv_variant TYPE string
+                iv_subrc   TYPE sysubrc
+      RETURNING VALUE(rt_results) TYPE ty_inspect_results.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
+
+  METHOD constructor.
+    " If no inspector injected, create default (will use static methods)
+    " For now, we allow empty - actual implementation will check in methods
+    mo_inspector = io_inspector.
+  ENDMETHOD.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_inspect.
@@ -154,7 +226,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " Run syntax check for non-DDLS objects
+    " Run inspection for non-DDLS objects
     IF lt_objects IS NOT INITIAL.
       DATA(lt_sci_results) = run_inspection(
         it_objects = lt_objects
@@ -341,217 +413,286 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_variant TYPE REF TO cl_ci_checkvariant,
           lo_inspection TYPE REF TO cl_ci_inspection,
           lt_list TYPE scit_alvlist,
-          ls_error TYPE ty_error,
-          ls_warning TYPE ty_warning,
-          ls_list TYPE scir_alvlist,
-          lx_error TYPE REF TO cx_root,
           ls_result TYPE ty_inspect_result.
 
     rt_results = VALUE #( ).
 
+    " Create inspection name
+    lv_name = create_inspection_name( ).
+
+    " Create object set (using static method - could use inspector if injected)
+    lo_objset = cl_ci_objectset=>save_from_list(
+      p_name    = lv_name
+      p_objects = it_objects ).
+
+    " Get check variant
     TRY.
-        " Create unique name for inspection
-        CONCATENATE 'SYNT_' sy-uname sy-datum sy-uzeit INTO lv_name.
-
-        " Create object set
-        lo_objset = cl_ci_objectset=>save_from_list(
-          p_name    = lv_name
-          p_objects = it_objects ).
-
-        " Get check variant (default: SYNTAX_CHECK)
-        DATA lv_variant TYPE sci_chkv.
-        lv_variant = iv_variant.
-        IF lv_variant IS INITIAL.
-          lv_variant = 'SYNTAX_CHECK'.
-        ENDIF.
-
-        " Try to get the variant using EXCEPTIONS
-        cl_ci_checkvariant=>get_ref(
-          EXPORTING
-            p_user = ''
-            p_name = lv_variant
-          RECEIVING
-            p_ref = lo_variant
-          EXCEPTIONS
-            chkv_not_exists = 1
-            missing_parameter = 2
-            broken_variant = 3
-            OTHERS = 4 ).
-
-        IF sy-subrc <> 0.
-          " Variant not found, return error
-          ls_result-object_type = 'VARIANT'.
-          ls_result-object_name = lv_variant.
-          ls_result-success = abap_false.
-          ls_result-error_count = 1.
-          APPEND VALUE #( line = '0' column = '0' text = |Check variant "{ lv_variant }" not found (rc={ sy-subrc })| word = '' ) TO ls_result-errors.
-          APPEND ls_result TO rt_results.
-          RETURN.
-        ENDIF.
-
-        " Create inspection
-        cl_ci_inspection=>create(
-          EXPORTING
-            p_user = sy-uname
-            p_name = lv_name
-          RECEIVING
-            p_ref = lo_inspection ).
-
-        " Set inspection with object set and variant
-        lo_inspection->set(
-          EXPORTING
-            p_chkv = lo_variant
-            p_objs = lo_objset ).
-
-        " Save inspection
-        lo_inspection->save( ).
-
-        " Run inspection
-        lo_inspection->run(
-          EXPORTING
-            p_howtorun = 'R'
-          EXCEPTIONS
-            invalid_check_version = 1
-            OTHERS = 2 ).
-
-        " Get results
-        lo_inspection->plain_list( IMPORTING p_list = lt_list ).
-
-        " Build result for each object
-        LOOP AT it_objects INTO DATA(ls_obj).
-          CLEAR ls_result.
-          ls_result-object_type = ls_obj-objtype.
-          ls_result-object_name = ls_obj-objname.
-          ls_result-success = abap_true.
-
-          " Get errors and warnings for this object
-          LOOP AT lt_list INTO ls_list WHERE objname = ls_obj-objname.
-            " Extract include name from SOBJNAME (format: CLASSNAME{multiple====}INCLUDE)
-            " Normalize multiple '=' to single '=' then split
-            DATA lv_classname TYPE string.
-            lv_classname = ls_obj-objname.
-            DATA(lv_include_str) = ls_list-sobjname.
-            DATA lv_method_name TYPE string.
-
-            " Normalize multiple consecutive '=' to single '='
-            DATA lv_normalized TYPE string.
-            lv_normalized = lv_include_str.
-            REPLACE ALL OCCURRENCES OF REGEX '=+' IN lv_normalized WITH '='.
-
-            " Split by '=' to get class name and include name
-            SPLIT lv_normalized AT '=' INTO DATA(lv_part_class) DATA(lv_include_name).
-
-            " Check include type
-            IF lv_include_name = 'CCAU'.
-              " Unit test include
-              lv_method_name = 'UNIT TEST'.
-            ELSEIF lv_include_name = 'CCDEF'.
-              " Local definitions
-              lv_method_name = 'LOCAL DEFINITIONS'.
-            ELSEIF lv_include_name = 'CCIMP'.
-              " Local implementations
-              lv_method_name = 'LOCAL IMPLEMENTATIONS'.
-            ELSEIF lv_include_name = 'CCINC'.
-              " Macros
-              lv_method_name = 'MACROS'.
-            ELSEIF lv_include_name(2) = 'CM'.
-              " Method include (CM###) - extract method name from TMDIR
-              " Convert CM003 to 3 (remove CM prefix, get last 1 char)
-              DATA(lv_num_str) = substring( val = lv_include_name off = 2 ).
-              DATA(lv_include_num) = CONV i( lv_num_str ).
-
-              " Get method name from TMDIR
-              lv_method_name = get_method_name(
-                iv_classname   = lv_classname
-                iv_include_num = lv_include_num ).
-            ENDIF.
-
-            " Check severity - 'E' = Error, 'W' = Warning, 'I' = Info
-            IF ls_list-kind = 'E'.
-              " Error
-              CLEAR ls_error.
-              ls_error-line = ls_list-line.
-              ls_error-column = ls_list-col.
-              ls_error-text = ls_list-text.
-              ls_error-word = ls_list-code.
-              ls_error-sobjname = ls_list-sobjname.
-              ls_error-method_name = lv_method_name.
-              APPEND ls_error TO ls_result-errors.
-            ELSEIF ls_list-kind = 'W'.
-              " Warning
-              CLEAR ls_warning.
-              ls_warning-line = ls_list-line.
-              ls_warning-column = ls_list-col.
-              ls_warning-severity = ls_list-kind.
-              ls_warning-message = ls_list-text.
-              ls_warning-object_type = ls_obj-objtype.
-              ls_warning-object_name = ls_obj-objname.
-              ls_warning-sobjname = ls_list-sobjname.
-              ls_warning-method_name = lv_method_name.
-              APPEND ls_warning TO ls_result-warnings.
-            ELSEIF ls_list-kind = 'I'.
-              " Info
-              CLEAR ls_warning.
-              ls_warning-line = ls_list-line.
-              ls_warning-column = ls_list-col.
-              ls_warning-severity = ls_list-kind.
-              ls_warning-message = ls_list-text.
-              ls_warning-object_type = ls_obj-objtype.
-              ls_warning-object_name = ls_obj-objname.
-              ls_warning-sobjname = ls_list-sobjname.
-              ls_warning-method_name = lv_method_name.
-              APPEND ls_warning TO ls_result-infos.
-            ENDIF.
-          ENDLOOP.
-
-          " Sort errors by method_name and line
-          SORT ls_result-errors BY method_name line.
-          " Sort warnings by method_name and line
-          SORT ls_result-warnings BY method_name line.
-          " Sort infos by method_name and line
-          SORT ls_result-infos BY method_name line.
-
-          ls_result-error_count = lines( ls_result-errors ).
-          IF ls_result-error_count > 0.
-            ls_result-success = abap_false.
-          ENDIF.
-
-          APPEND ls_result TO rt_results.
-        ENDLOOP.
-
-        " Cleanup
-        lo_inspection->delete(
-          EXCEPTIONS
-            locked = 1
-            error_in_enqueue = 2
-            not_authorized = 3
-            exceptn_appl_exists = 4
-            OTHERS = 5 ).
-
-        lo_objset->delete(
-          EXCEPTIONS
-            exists_in_insp = 1
-            locked = 2
-            error_in_enqueue = 3
-            not_authorized = 4
-            exists_in_objs = 5
-            OTHERS = 6 ).
-
-      CATCH cx_root INTO lx_error.
-        " Return error for all objects
-        LOOP AT it_objects INTO ls_obj.
-          CLEAR ls_result.
-          ls_result-object_type = ls_obj-objtype.
-          ls_result-object_name = ls_obj-objname.
-          ls_result-success = abap_false.
-          ls_error-line = '1'.
-          ls_error-column = '1'.
-          ls_error-text = lx_error->get_text( ).
-          APPEND ls_error TO ls_result-errors.
-          ls_result-error_count = 1.
-          APPEND ls_result TO rt_results.
-        ENDLOOP.
+        lo_variant = get_check_variant( iv_variant ).
+      CATCH cx_static_check INTO DATA(lx_variant_error).
+        " Variant not found - return error
+        rt_results = build_variant_error(
+          iv_variant = iv_variant
+          iv_subrc = sy-subrc ).
+        RETURN.
     ENDTRY.
+
+    " Create and run inspection
+    lo_inspection = create_and_run_inspection(
+      iv_name     = lv_name
+      io_variant  = lo_variant
+      it_objects  = it_objects ).
+
+    " Get results
+    lo_inspection->plain_list( IMPORTING p_list = lt_list ).
+
+    " Build result for each object
+    LOOP AT it_objects INTO DATA(ls_obj).
+      rs_result = build_object_result(
+        is_object = ls_obj
+        it_list   = lt_list ).
+      APPEND rs_result TO rt_results.
+    ENDLOOP.
+
+    " Cleanup
+    cleanup(
+      io_inspection = lo_inspection
+      io_objset     = lo_objset ).
+
+  ENDMETHOD.
+
+  METHOD create_inspection_name.
+    CONCATENATE 'SYNT_' sy-uname sy-datum sy-uzeit INTO rv_name.
+  ENDMETHOD.
+
+  METHOD get_check_variant.
+    " Default to SYNTAX_CHECK if not provided
+    DATA lv_variant TYPE sci_chkv.
+    lv_variant = iv_variant.
+    IF lv_variant IS INITIAL.
+      lv_variant = 'SYNTAX_CHECK'.
+    ENDIF.
+
+    " Get variant reference
+    cl_ci_checkvariant=>get_ref(
+      EXPORTING
+        p_user = ''
+        p_name = lv_variant
+      RECEIVING
+        p_ref = ro_variant
+      EXCEPTIONS
+        chkv_not_exists = 1
+        missing_parameter = 2
+        broken_variant = 3
+        OTHERS = 4 ).
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE cx_static_check.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD create_and_run_inspection.
+    " Create inspection
+    cl_ci_inspection=>create(
+      EXPORTING
+        p_user = sy-uname
+        p_name = iv_name
+      RECEIVING
+        p_ref = ro_inspection ).
+
+    " Set inspection with object set and variant
+    ro_inspection->set(
+      EXPORTING
+        p_chkv = io_variant
+        p_objs = it_objects ).
+
+    " Save inspection
+    ro_inspection->save( ).
+
+    " Run inspection
+    ro_inspection->run(
+      EXPORTING
+        p_howtorun = 'R'
+      EXCEPTIONS
+        invalid_check_version = 1
+        OTHERS = 2 ).
+  ENDMETHOD.
+
+  METHOD extract_method_name.
+    " Extract include name from SOBJNAME (format: CLASSNAME{multiple====}INCLUDE)
+    " Normalize multiple '=' to single '=' then split
+    DATA lv_normalized TYPE string.
+    lv_normalized = iv_sobjname.
+    REPLACE ALL OCCURRENCES OF REGEX '=+' IN lv_normalized WITH '='.
+
+    " Split by '=' to get class name and include name
+    SPLIT lv_normalized AT '=' INTO DATA(lv_part_class) DATA(lv_include_name).
+
+    " Check include type
+    CASE lv_include_name.
+      WHEN 'CCAU'.
+        " Unit test include
+        rv_method_name = 'UNIT TEST'.
+      WHEN 'CCDEF'.
+        " Local definitions
+        rv_method_name = 'LOCAL DEFINITIONS'.
+      WHEN 'CCIMP'.
+        " Local implementations
+        rv_method_name = 'LOCAL IMPLEMENTATIONS'.
+      WHEN 'CCINC'.
+        " Macros
+        rv_method_name = 'MACROS'.
+      WHEN OTHERS.
+        " Check if it's a method include (CM###)
+        IF strlen( lv_include_name ) >= 2 AND lv_include_name(2) = 'CM'.
+          " Convert CM003 to 3 (remove CM prefix)
+          DATA(lv_num_str) = substring( val = lv_include_name off = 2 ).
+          DATA(lv_include_num) = CONV i( lv_num_str ).
+
+          " Get method name from TMDIR
+          rv_method_name = get_method_name(
+            iv_classname   = iv_classname
+            iv_include_num = lv_include_num ).
+        ENDIF.
+    ENDCASE.
+  ENDMETHOD.
+
+  METHOD build_object_result.
+    DATA: ls_list TYPE scir_alvlist,
+          ls_error TYPE ty_error,
+          ls_warning TYPE ty_warning,
+          ls_info TYPE ty_info.
+
+    rs_result-object_type = is_object-objtype.
+    rs_result-object_name = is_object-objname.
+    rs_result-success = abap_true.
+
+    " Get errors and warnings for this object
+    LOOP AT it_list INTO ls_list WHERE objname = is_object-objname.
+      " Extract method name from SOBJNAME
+      DATA(lv_method_name) = extract_method_name(
+        iv_classname = is_object-objname
+        iv_sobjname  = ls_list-sobjname ).
+
+      " Categorize message
+      categorize_message(
+        EXPORTING is_list        = ls_list
+                  iv_object_type = is_object-objtype
+                  iv_object_name = is_object-objname
+                  iv_method_name = lv_method_name
+        IMPORTING es_error       = ls_error
+                  es_warning     = ls_warning
+                  es_info        = ls_info ).
+
+      IF ls_error IS NOT INITIAL.
+        APPEND ls_error TO rs_result-errors.
+      ENDIF.
+      IF ls_warning IS NOT INITIAL.
+        APPEND ls_warning TO rs_result-warnings.
+      ENDIF.
+      IF ls_info IS NOT INITIAL.
+        APPEND ls_info TO rs_result-infos.
+      ENDIF.
+    ENDLOOP.
+
+    " Sort results
+    SORT rs_result-errors BY method_name line.
+    SORT rs_result-warnings BY method_name line.
+    SORT rs_result-infos BY method_name line.
+
+    " Set error count and success flag
+    rs_result-error_count = lines( rs_result-errors ).
+    IF rs_result-error_count > 0.
+      rs_result-success = abap_false.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD categorize_message.
+    CLEAR: es_error, es_warning, es_info.
+
+    CASE is_list-kind.
+      WHEN 'E'.
+        " Error
+        es_error-line = is_list-line.
+        es_error-column = is_list-col.
+        es_error-text = is_list-text.
+        es_error-word = is_list-code.
+        es_error-sobjname = is_list-sobjname.
+        es_error-method_name = iv_method_name.
+
+      WHEN 'W'.
+        " Warning
+        es_warning-line = is_list-line.
+        es_warning-column = is_list-col.
+        es_warning-severity = is_list-kind.
+        es_warning-message = is_list-text.
+        es_warning-object_type = iv_object_type.
+        es_warning-object_name = iv_object_name.
+        es_warning-sobjname = is_list-sobjname.
+        es_warning-method_name = iv_method_name.
+
+      WHEN 'I'.
+        " Info
+        es_info-line = is_list-line.
+        es_info-column = is_list-col.
+        es_info-severity = is_list-kind.
+        es_info-message = is_list-text.
+        es_info-object_type = iv_object_type.
+        es_info-object_name = iv_object_name.
+        es_info-sobjname = is_list-sobjname.
+        es_info-method_name = iv_method_name.
+    ENDCASE.
+  ENDMETHOD.
+
+  METHOD cleanup.
+    io_inspection->delete(
+      EXCEPTIONS
+        locked = 1
+        error_in_enqueue = 2
+        not_authorized = 3
+        exceptn_appl_exists = 4
+        OTHERS = 5 ).
+
+    io_objset->delete(
+      EXCEPTIONS
+        exists_in_insp = 1
+        locked = 2
+        error_in_enqueue = 3
+        not_authorized = 4
+        exists_in_objs = 5
+        OTHERS = 6 ).
+  ENDMETHOD.
+
+  METHOD build_error_result.
+    DATA: ls_result TYPE ty_inspect_result,
+          ls_error TYPE ty_error.
+
+    LOOP AT it_objects INTO DATA(ls_obj).
+      CLEAR ls_result.
+      ls_result-object_type = ls_obj-objtype.
+      ls_result-object_name = ls_obj-objname.
+      ls_result-success = abap_false.
+      ls_error-line = '1'.
+      ls_error-column = '1'.
+      ls_error-text = ix_error->get_text( ).
+      APPEND ls_error TO ls_result-errors.
+      ls_result-error_count = 1.
+      APPEND ls_result TO rt_results.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD build_variant_error.
+    DATA: ls_result TYPE ty_inspect_result,
+          ls_error TYPE ty_error.
+
+    ls_result-object_type = 'VARIANT'.
+    ls_result-object_name = iv_variant.
+    ls_result-success = abap_false.
+    ls_result-error_count = 1.
+    ls_error-line = '0'.
+    ls_error-column = '0'.
+    ls_error-text = |Check variant "{ iv_variant }" not found (rc={ iv_subrc })|.
+    APPEND ls_error TO ls_result-errors.
+    APPEND ls_result TO rt_results.
   ENDMETHOD.
 
   METHOD get_method_name.
