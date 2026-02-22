@@ -96,6 +96,19 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rt_results) TYPE ty_inspect_results
       RAISING cx_dd_ddl_check.
 
+    " Read DDLS source (for testing)
+    METHODS read_ddls_source
+      IMPORTING iv_ddls_name   TYPE ddlname
+      EXPORTING es_ddlsrcv     TYPE any
+      RETURNING VALUE(rv_found) TYPE abap_bool
+      RAISING   cx_dd_ddl_check.
+
+    " Validate DDLS and build result (for testing)
+    METHODS validate_ddls_check
+      IMPORTING iv_ddls_name   TYPE ddlname
+                is_ddlsrcv     TYPE any
+      RETURNING VALUE(rs_result) TYPE ty_inspect_result.
+
     " Get method name from TMDIR based on class name and include number
     METHODS get_method_name
       IMPORTING iv_classname    TYPE string
@@ -164,19 +177,6 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_variant TYPE string
                 iv_subrc   TYPE sysubrc
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
-
-    " Read DDLS source (tries inactive first, then active)
-    METHODS read_ddls_source
-      IMPORTING iv_ddls_name   TYPE ddlname
-      EXPORTING es_ddlsrcv     TYPE any
-      RETURNING VALUE(rv_found) TYPE abap_bool
-      RAISING   cx_dd_ddl_check.
-
-    " Validate DDLS and build result
-    METHODS validate_ddls_check
-      IMPORTING iv_ddls_name   TYPE ddlname
-                is_ddlsrcv     TYPE any
-      RETURNING VALUE(rs_result) TYPE ty_inspect_result.
 
     " Get default DDL handler if not injected
     METHODS get_ddl_handler
