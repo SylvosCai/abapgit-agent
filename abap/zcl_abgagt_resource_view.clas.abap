@@ -7,8 +7,9 @@ CLASS zcl_abgagt_resource_view DEFINITION PUBLIC FINAL
 
   PUBLIC SECTION.
 
-    METHODS get_command_constant REDEFINITION.
-    METHODS get_command_name REDEFINITION.
+    METHODS get_command_constant ABSTRACT REDEFINITION.
+    METHODS get_command_name ABSTRACT REDEFINITION.
+    METHODS create_request_data ABSTRACT REDEFINITION.
     METHODS parse_request REDEFINITION.
     METHODS validate_request REDEFINITION.
     METHODS get_error_message REDEFINITION.
@@ -25,6 +26,11 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
     rv_name = 'VIEW'.
   ENDMETHOD.
 
+  METHOD create_request_data.
+    DATA ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
+    GET REFERENCE OF ls_request INTO rr_request_data.
+  ENDMETHOD.
+
   METHOD parse_request.
     DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
 
@@ -34,7 +40,7 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
       CHANGING
         data = ls_request ).
 
-    cs_request = ls_request.
+    es_request = ls_request.
   ENDMETHOD.
 
   METHOD validate_request.
