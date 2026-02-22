@@ -174,3 +174,27 @@ ENDTRY.
 | Multiple callers need to handle exception | Add RAISING to method definition |
 | Exception should be handled internally | Use TRY-CATCH in implementation |
 | Interface method | Add RAISING to interface, or use TRY-CATCH in class |
+
+### RAISING Clause in Method Calls
+
+The `RAISING` clause **cannot be used in method call statements**. It can only be used in method definitions.
+
+```abap
+" WRONG - syntax error
+lo_handler->read( ... ) RAISING cx_dd_ddl_check.
+
+" CORRECT - use TRY-CATCH
+TRY.
+    lo_handler->read( ... ).
+  CATCH cx_dd_ddl_check.
+    " Handle error
+ENDTRY.
+```
+
+**Correct usage in method definitions:**
+```abap
+" Interface/Class method definition
+METHODS read
+  IMPORTING iv_name TYPE string
+  RAISING   cx_static_check.
+``` |

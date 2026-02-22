@@ -27,6 +27,7 @@ Key XML Settings:
   Table DELIVERY:   A=Application, C=Customizing
   CDS SOURCE_TYPE:  V=View, C=Consumption
   Test Class XML:   <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+  Local Classes:    <CLSCCINCL>X</CLSCCINCL>
 ```
 
 **Searchable keywords**: class xml, interface xml, table xml, cds xml, test class, exposure, serializer, abapgit
@@ -68,6 +69,16 @@ abapGit needs XML files to:
 - `EXPOSURE`: Exposure (2 = Public, 3 = Protected, 4 = Private)
 - `STATE`: State (1 = Active)
 - `UNICODE`: Unicode encoding (X = Yes)
+
+**Local Classes**: If the class has local classes (e.g., test doubles), add:
+- `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` - for test classes
+- `<CLSCCINCL>X</CLSCCINCL>` - for local class definitions
+
+**Local Class Files**:
+| File | Purpose |
+|------|---------|
+| `zcl_xxx.clas.locals_def.abap` | Local class definitions |
+| `zcl_xxx.clas.locals_imp.abap` | Local class implementations |
 
 ---
 

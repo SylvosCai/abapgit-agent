@@ -113,6 +113,27 @@ DATA mo_agent TYPE REF TO zcl_abgagt_agent.   " Concrete class!
 
 This allows you to replace the implementation with test doubles.
 
+### Define Types in Interface
+
+Define types needed by the interface directly in the interface to keep it self-contained:
+
+```abap
+INTERFACE zif_my_handler.
+  " Define types needed by the interface
+  TYPES: BEGIN OF ty_response,
+           success TYPE abap_bool,
+           message TYPE string,
+         END OF ty_response.
+
+  " Use the type in method signatures
+  METHODS process
+    IMPORTING iv_data TYPE string
+    RETURNING VALUE(rs_response) TYPE ty_response.
+ENDINTERFACE.
+```
+
+This makes it easier for test doubles to implement the interface without needing separate type definitions.
+
 ### 3. Make Dependencies Injectable via Constructor
 
 **Use constructor injection, not setter injection.**

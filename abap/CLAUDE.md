@@ -74,7 +74,26 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 **Use `ref --topic abapgit` for complete XML templates.**
 
-### 4. Use `unit` Command for Unit Tests
+### 4. Local Classes (Test Doubles, Helpers)
+
+When a class needs local helper classes or test doubles, use separate files:
+
+| File | Purpose |
+|------|---------|
+| `zcl_xxx.clas.locals_def.abap` | Local class definitions |
+| `zcl_xxx.clas.locals_imp.abap` | Local class implementations |
+
+**XML Configuration**: Add `<CLSCCINCL>X</CLSCCINCL>` to the class XML to include local class definitions:
+
+```xml
+<VSEOCLASS>
+  <CLSNAME>ZCL_XXX</CLSNAME>
+  ...
+  <CLSCCINCL>X</CLSCCINCL>
+</VSEOCLASS>
+```
+
+### 5. Use `unit` Command for Unit Tests
 
 **Use `abapgit-agent unit` to run ABAP unit tests (AUnit).**
 
@@ -91,7 +110,7 @@ abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
 abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 ```
 
-### 5. Use CDS Test Double Framework for CDS View Tests
+### 6. Use CDS Test Double Framework for CDS View Tests
 
 **When creating unit tests for CDS views, use the CDS Test Double Framework (`CL_CDS_TEST_ENVIRONMENT`).**
 

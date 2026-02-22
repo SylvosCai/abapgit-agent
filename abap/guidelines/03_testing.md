@@ -79,6 +79,25 @@ Examples of compliant names:
 - `test_exec_files` (16 chars)
 - `test_interface` (15 chars)
 
+### Test Methods and RAISING Clause
+
+If a test method calls methods that raise exceptions, add `RAISING` to the method definition:
+
+```abap
+" CORRECT - declare that method can raise exceptions
+METHODS test_validate_ddls FOR TESTING RAISING cx_static_check.
+METHODS test_read_data FOR TESTING RAISING cx_dd_ddl_check.
+
+" Then implement with TRY-CATCH if needed
+METHOD test_validate_ddls.
+  TRY.
+      mo_cut->some_method( ).
+    CATCH cx_static_check.
+      " Handle exception
+  ENDTRY.
+ENDMETHOD.
+```
+
 ### Common Assertions
 
 ```abap
