@@ -84,7 +84,13 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
 
   METHOD parse_request.
-    " Default implementation - to be overridden by subclass
+
+    /ui2/cl_json=>deserialize(
+      EXPORTING
+        json = iv_json
+      CHANGING
+        data = es_request ).
+
   ENDMETHOD.
 
   METHOD validate_request.

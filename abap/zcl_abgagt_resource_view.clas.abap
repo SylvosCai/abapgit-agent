@@ -10,7 +10,6 @@ CLASS zcl_abgagt_resource_view DEFINITION PUBLIC FINAL
     METHODS get_command_constant REDEFINITION.
     METHODS get_command_name REDEFINITION.
     METHODS create_request_data REDEFINITION.
-    METHODS parse_request REDEFINITION.
     METHODS validate_request REDEFINITION.
     METHODS get_error_message REDEFINITION.
 
@@ -27,21 +26,9 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD create_request_data.
-    DATA ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
-    GET REFERENCE OF ls_request INTO rr_request_data.
+    CREATE DATA rr_request_data TYPE zcl_abgagt_command_view=>ty_view_params.
   ENDMETHOD.
 
-  METHOD parse_request.
-    DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
-
-    /ui2/cl_json=>deserialize(
-      EXPORTING
-        json = iv_json
-      CHANGING
-        data = ls_request ).
-
-    es_request = ls_request.
-  ENDMETHOD.
 
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
