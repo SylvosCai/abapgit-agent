@@ -144,12 +144,14 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS extract_method_name
       IMPORTING iv_classname TYPE string
                 iv_sobjname  TYPE string
+                io_util      TYPE REF TO zif_abgagt_util
       RETURNING VALUE(rv_method_name) TYPE string.
 
     " Build result for a single object from inspection list
     METHODS build_object_result
       IMPORTING is_object      TYPE scir_objs
                 it_list        TYPE scit_alvlist
+                io_util        TYPE REF TO zif_abgagt_util
       RETURNING VALUE(rs_result) TYPE ty_inspect_result.
 
     " Categorize message into error/warning/info
@@ -555,7 +557,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     LOOP AT it_objects INTO DATA(ls_obj).
       ls_result = build_object_result(
         is_object = ls_obj
-        it_list   = lt_list ).
+        it_list   = lt_list
+        io_util   = lo_util ).
       APPEND ls_result TO rt_results.
     ENDLOOP.
 
@@ -639,31 +642,25 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     DATA(lv_include_name) = lv_right.
 
-    " Check include type
+    " Check include type - only CM### needs method name from TMDIR
     CASE lv_include_name.
       WHEN 'CCAU'.
-        " Unit test include
         rv_method_name = 'UNIT TEST'.
       WHEN 'CCDEF'.
-        " Local definitions
         rv_method_name = 'LOCAL DEFINITIONS'.
       WHEN 'CCIMP'.
-        " Local implementations
         rv_method_name = 'LOCAL IMPLEMENTATIONS'.
       WHEN 'CCINC'.
-        " Macros
         rv_method_name = 'MACROS'.
       WHEN OTHERS.
         " Check if it's a method include (CM###)
         IF strlen( lv_include_name ) >= 2 AND lv_include_name(2) = 'CM'.
-          " Convert CM003 to 3 (remove CM prefix)
-          DATA(lv_num_str) = substring( val = lv_include_name off = 2 ).
-          DATA(lv_include_num) = CONV i( lv_num_str ).
-
+          " Convert method index from base-36
+          DATA(lv_method_index) = io_util->convert_method_index( lv_include_name ).
           " Get method name from TMDIR
-          rv_method_name = get_method_name(
+          rv_method_name = io_util->get_method_name(
             iv_classname   = iv_classname
-            iv_include_num = lv_include_num ).
+            iv_method_index = lv_method_index ).
         ENDIF.
     ENDCASE.
   ENDMETHOD.
@@ -683,7 +680,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       " Extract method name from SOBJNAME
       DATA(lv_method_name) = extract_method_name(
         iv_classname = CONV #( is_object-objname )
-        iv_sobjname  = CONV #( ls_list-sobjname ) ).
+        iv_sobjname  = CONV #( ls_list-sobjname )
+        io_util      = io_util ).
 
       " Categorize message
       categorize_message(
@@ -808,18 +806,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ls_error-text = |Check variant "{ iv_variant }" not found (rc={ iv_subrc })|.
     APPEND ls_error TO ls_result-errors.
     APPEND ls_result TO rt_results.
-  ENDMETHOD.
-
-  METHOD get_method_name.
-    " Get method name from TMDIR based on class name and include number
-    " iv_include_num: 1 = CM001, 2 = CM002, etc.
-    rv_method_name = ''.
-
-    SELECT SINGLE methodname
-      FROM tmdir
-      INTO rv_method_name
-      WHERE classname = iv_classname
-        AND methodindx = iv_include_num.
   ENDMETHOD.
 
 ENDCLASS.
