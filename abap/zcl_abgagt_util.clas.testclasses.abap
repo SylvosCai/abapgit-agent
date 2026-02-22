@@ -10,8 +10,8 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
     METHODS test_detect_include_method FOR TESTING.
-    METHODS test_detect_include_intf_section FOR TESTING.
-    METHODS test_detect_include_public_section FOR TESTING.
+    METHODS test_detect_intf_section FOR TESTING.
+    METHODS test_detect_public_section FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
@@ -104,7 +104,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       msg = 'Include type should be CM001' ).
   ENDMETHOD.
 
-  METHOD test_detect_include_intf_section.
+  METHOD test_detect_intf_section.
     " Test detecting interface section
     DATA ls_info TYPE zif_abgagt_util=>ty_include_info.
 
@@ -121,7 +121,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       msg = 'Object name should NOT have trailing equals' ).
   ENDMETHOD.
 
-  METHOD test_detect_include_public_section.
+  METHOD test_detect_public_section.
     " Test detecting public section
     DATA ls_info TYPE zif_abgagt_util=>ty_include_info.
 
