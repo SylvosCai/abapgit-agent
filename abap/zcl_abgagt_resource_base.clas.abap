@@ -11,22 +11,22 @@ CLASS zcl_abgagt_resource_base DEFINITION PUBLIC ABSTRACT
 
   PROTECTED SECTION.
 
-    METHODS get_command_constant ABSTRACT
+    METHODS get_command_constant
       IMPORTING iv_command TYPE string
       RETURNING VALUE(rv_constant) TYPE string.
 
-    METHODS get_command_name ABSTRACT
+    METHODS get_command_name
       RETURNING VALUE(rv_name) TYPE string.
 
-    METHODS parse_request ABSTRACT
+    METHODS parse_request
       IMPORTING iv_json TYPE string
       CHANGING cs_request TYPE any.
 
-    METHODS validate_request ABSTRACT
+    METHODS validate_request
       IMPORTING is_request TYPE any
       RETURNING VALUE(rv_valid) TYPE abap_bool.
 
-    METHODS get_error_message ABSTRACT
+    METHODS get_error_message
       IMPORTING is_request TYPE any
       RETURNING VALUE(rv_message) TYPE string.
 
@@ -46,8 +46,9 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
     " Parse request - use field symbol to avoid TYPE any issue
-    FIELD-SYMBOLS <ls_request> TYPE any.
+    DATA ls_request TYPE REF TO data.
     CREATE DATA ls_request TYPE any.
+    FIELD-SYMBOLS <ls_request> TYPE any.
     ASSIGN ls_request->* TO <ls_request>.
 
     parse_request(
@@ -77,6 +78,27 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
       CATCH cx_root INTO DATA(lx_exception).
         return_error( lx_exception->get_text( ) ).
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD get_command_constant.
+    " Default implementation - to be overridden by subclass
+  ENDMETHOD.
+
+  METHOD get_command_name.
+    " Default implementation - to be overridden by subclass
+  ENDMETHOD.
+
+  METHOD parse_request.
+    " Default implementation - to be overridden by subclass
+  ENDMETHOD.
+
+  METHOD validate_request.
+    " Default implementation - to be overridden by subclass
+    rv_valid = abap_true.
+  ENDMETHOD.
+
+  METHOD get_error_message.
+    " Default implementation - to be overridden by subclass
   ENDMETHOD.
 
   METHOD return_error.
