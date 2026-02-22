@@ -571,7 +571,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       " Extract method name from SOBJNAME
       DATA(lv_method_name) = extract_method_name(
         iv_classname = CONV #( is_object-objname )
-        iv_sobjname  = ls_list-sobjname ).
+        iv_sobjname  = CONV #( ls_list-sobjname ) ).
 
       " Categorize message
       categorize_message(
