@@ -12,15 +12,17 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lt_source TYPE TABLE OF string,
-          lv_line TYPE string.
+          lv_line TYPE string,
+          lv_prog TYPE program.
 
+    lv_prog = iv_name.
     rs_info-name = iv_name.
     rs_info-type = 'PROG'.
     rs_info-type_text = 'Program'.
     rs_info-description = |Program { iv_name }|.
 
     " Try to read the program/source include directly
-    READ REPORT iv_name INTO lt_source.
+    READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
       " Success - program exists
       LOOP AT lt_source INTO lv_line.
