@@ -213,9 +213,9 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       " Get method name for method includes
       ls_ref_out-method_name = get_method_name(
         iv_classname = CONV #( <ls_ref>-obj_name )
-        iv_include_name = CONV #( <ls_ref>-sub_name ) ).
+        iv_include_name = CONV string( <ls_ref>-sub_name ) ).
       " Get human-readable include type
-      ls_ref_out-include_type = get_include_type( <ls_ref>-sub_name ).
+      ls_ref_out-include_type = get_include_type( CONV string( <ls_ref>-sub_name ) ).
       ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
@@ -313,7 +313,35 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       IF lv_digit CO '0123456789'.
         lv_val = CONV i( lv_digit ).
       ELSEIF lv_digit CO 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
-        lv_val = asc( lv_digit ) - asc( 'A' ) + 10.
+        " Convert A-Z to 10-35 using CASE
+        CASE lv_digit.
+          WHEN 'A'. lv_val = 10.
+          WHEN 'B'. lv_val = 11.
+          WHEN 'C'. lv_val = 12.
+          WHEN 'D'. lv_val = 13.
+          WHEN 'E'. lv_val = 14.
+          WHEN 'F'. lv_val = 15.
+          WHEN 'G'. lv_val = 16.
+          WHEN 'H'. lv_val = 17.
+          WHEN 'I'. lv_val = 18.
+          WHEN 'J'. lv_val = 19.
+          WHEN 'K'. lv_val = 20.
+          WHEN 'L'. lv_val = 21.
+          WHEN 'M'. lv_val = 22.
+          WHEN 'N'. lv_val = 23.
+          WHEN 'O'. lv_val = 24.
+          WHEN 'P'. lv_val = 25.
+          WHEN 'Q'. lv_val = 26.
+          WHEN 'R'. lv_val = 27.
+          WHEN 'S'. lv_val = 28.
+          WHEN 'T'. lv_val = 29.
+          WHEN 'U'. lv_val = 30.
+          WHEN 'V'. lv_val = 31.
+          WHEN 'W'. lv_val = 32.
+          WHEN 'X'. lv_val = 33.
+          WHEN 'Y'. lv_val = 34.
+          WHEN 'Z'. lv_val = 35.
+        ENDCASE.
       ELSE.
         CONTINUE.
       ENDIF.
