@@ -163,7 +163,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD detect_object_type.
     " Use utility to detect source include info
     DATA: lo_util TYPE REF TO zif_abgagt_util,
-          ls_include_info TYPE zif_abgagt_util=>ty_include_info.
+          ls_include_info TYPE zif_abgagt_util=>ty_include_info,
+          ls_obj_type_info TYPE zif_abgagt_util=>ty_object_type_info.
 
     lo_util = zcl_abgagt_util=>get_instance( ).
     ls_include_info = lo_util->detect_include_info( iv_name ).
@@ -175,23 +176,10 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Query TADIR to find actual object type
-    SELECT SINGLE object FROM tadir
-      INTO rv_type
-      WHERE obj_name = iv_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG').
-
-    " Set default type text based on object type
-    CASE rv_type.
-      WHEN 'CLAS'. ev_type_text = 'Class'.
-      WHEN 'INTF'. ev_type_text = 'Interface'.
-      WHEN 'TABL'. ev_type_text = 'Table'.
-      WHEN 'STRU'. ev_type_text = 'Structure'.
-      WHEN 'DTEL'. ev_type_text = 'Data Element'.
-      WHEN 'TTYP'. ev_type_text = 'Table Type'.
-      WHEN 'DDLS'. ev_type_text = 'CDS View'.
-      WHEN 'PROG'. ev_type_text = 'Program'.
-    ENDCASE.
+    " Query TADIR to find actual object type using utility method
+    ls_obj_type_info = lo_util->get_object_type_from_tadir( iv_name ).
+    rv_type = ls_obj_type_info-obj_type.
+    ev_type_text = ls_obj_type_info-type_text.
   ENDMETHOD.
 
   METHOD get_object_info.

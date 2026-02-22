@@ -292,4 +292,23 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       ENDIF.
     ENDIF.
   ENDMETHOD.
+
+  METHOD zif_abgagt_util~get_object_type_from_tadir.
+    " Get object type and type text from TADIR by object name
+    SELECT SINGLE object FROM tadir
+      INTO rs_info-obj_type
+      WHERE obj_name = iv_obj_name
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG').
+
+    CASE rs_info-obj_type.
+      WHEN 'CLAS'. rs_info-type_text = 'Class'.
+      WHEN 'INTF'. rs_info-type_text = 'Interface'.
+      WHEN 'TABL'. rs_info-type_text = 'Table'.
+      WHEN 'STRU'. rs_info-type_text = 'Structure'.
+      WHEN 'DTEL'. rs_info-type_text = 'Data Element'.
+      WHEN 'TTYP'. rs_info-type_text = 'Table Type'.
+      WHEN 'DDLS'. rs_info-type_text = 'CDS View'.
+      WHEN 'PROG'. rs_info-type_text = 'Program'.
+    ENDCASE.
+  ENDMETHOD.
 ENDCLASS.
