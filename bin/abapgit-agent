@@ -2508,29 +2508,22 @@ Examples:
             console.log(`     Found ${count} reference(s):`);
             console.log('');
 
-            // Display references
+            // Display references - one line format: include → method (type) or include (type)
             for (let j = 0; j < references.length; j++) {
               const ref = references[j];
-              const refObj = ref.OBJECT || ref.object || '';
-              const refType = ref.OBJECT_TYPE || ref.object_type || '';
               const includeName = ref.INCLUDE_NAME || ref.include_name || '';
               const includeType = ref.INCLUDE_TYPE || ref.include_type || '';
               const methodName = ref.METHOD_NAME || ref.method_name || '';
-              const package = ref.PACKAGE || ref.package || '';
 
-              console.log(`     ${j + 1}. ${refObj} (${refType})`);
-              console.log(`        Include: ${includeName}`);
+              let line;
               if (methodName) {
-                console.log(`        Method: ${methodName}`);
+                line = `  ${j + 1}. ${includeName} → ${methodName} (${includeType})`;
+              } else {
+                line = `  ${j + 1}. ${includeName} (${includeType})`;
               }
-              if (includeType) {
-                console.log(`        Type: ${includeType}`);
-              }
-              if (package) {
-                console.log(`        Package: ${package}`);
-              }
-              console.log('');
+              console.log(line);
             }
+            console.log('');
           }
         }
         break;
