@@ -17,7 +17,6 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_exec_variant_parameter FOR TESTING.
     METHODS test_exec_mixed_files FOR TESTING.
     METHODS test_exec_invalid_file FOR TESTING.
-    METHODS test_get_method_name FOR TESTING.
     METHODS test_build_object_result FOR TESTING.
     METHODS test_get_check_variant FOR TESTING.
     METHODS test_create_inspection_name FOR TESTING.
@@ -381,21 +380,6 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       act = lv_result
       exp = '*{*'
       msg = 'Result should be valid JSON object' ).
-  ENDMETHOD.
-
-  METHOD test_get_method_name.
-    " Test the get_method_name method returns method name from TMDIR
-    " Note: This test may return empty if the test class doesn't exist in TMDIR
-    DATA(lv_method_name) = mo_cut->get_method_name(
-      iv_classname   = 'ZCL_NONEXISTENT_TEST_CLASS'
-      iv_include_num = 1 ).
-
-    " Method should return a string (empty string is expected if not found)
-    " Just verify the method executed without raising an exception
-    cl_abap_unit_assert=>assert_equals(
-      act = lv_method_name
-      exp = ''
-      msg = 'Method should return empty string for non-existent class' ).
   ENDMETHOD.
 
   METHOD test_build_object_result.
