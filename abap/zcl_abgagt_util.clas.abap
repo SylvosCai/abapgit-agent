@@ -257,24 +257,28 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           " Method implementation include - belongs to a class
           rs_info-obj_type = 'CLAS'.
           rs_info-obj_name = lv_name(30).
+          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 34 AND ( lv_suffix = 'CCAU' OR lv_suffix = 'CCDEF' OR lv_suffix = 'CCIMP' ).
           " Test class or local types - belongs to a class
           rs_info-obj_type = 'CLAS'.
           rs_info-obj_name = lv_name(30).
+          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' ).
           " Class section - belongs to a class
           rs_info-obj_type = 'CLAS'.
           rs_info-obj_name = lv_name(30).
+          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 32 AND lv_suffix = 'IU'.
           " Interface section - belongs to an interface
           rs_info-obj_type = 'INTF'.
           rs_info-obj_name = lv_name(30).
+          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Interface'.
         ELSE.
