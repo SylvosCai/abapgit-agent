@@ -5,7 +5,7 @@ CLASS zcl_abgagt_resource_view DEFINITION PUBLIC FINAL
                              INHERITING FROM zcl_abgagt_resource_base
                              CREATE PUBLIC.
 
-  PUBLIC SECTION.
+  PROTECTED SECTION.
 
     METHODS get_command_constant REDEFINITION.
     METHODS get_command_name REDEFINITION.
