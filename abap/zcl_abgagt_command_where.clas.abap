@@ -63,10 +63,6 @@ ENDCLASS.
 
 CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
-  METHOD constructor.
-    mo_util = zcl_abgagt_util=>get_instance( ).
-  ENDMETHOD.
-
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_where.
   ENDMETHOD.
