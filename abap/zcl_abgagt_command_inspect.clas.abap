@@ -480,7 +480,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_variant TYPE REF TO cl_ci_checkvariant,
           lo_inspection TYPE REF TO cl_ci_inspection,
           lt_list TYPE scit_alvlist,
-          ls_result TYPE ty_inspect_result.
+          ls_result TYPE ty_inspect_result,
+          lo_util TYPE REF TO zif_abgagt_util.
+
+    lo_util = io_util.
 
     rt_results = VALUE #( ).
 
