@@ -57,7 +57,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rt_references) TYPE ty_references.
 
   PRIVATE SECTION.
-    DATA mo_util TYPE REF TO zcl_abgagt_util.
+    DATA mo_util TYPE REF TO zif_abgagt_util.
 
 ENDCLASS.
 
@@ -68,6 +68,11 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
+    " Initialize utility instance
+    DATA lo_util TYPE REF TO zcl_abgagt_util.
+    lo_util = zcl_abgagt_util=>get_instance( ).
+    mo_util = lo_util.
+
     DATA: ls_params TYPE ty_where_params,
           ls_result TYPE ty_where_result,
           lt_objects TYPE ty_where_objects,
