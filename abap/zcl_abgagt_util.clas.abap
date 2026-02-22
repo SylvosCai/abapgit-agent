@@ -228,6 +228,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     " Example: ZIF_INTERFACE============IU -> INTF, ZIF_INTERFACE, IU
 
     DATA: lv_name TYPE tadir-obj_name,
+          lv_obj_name TYPE tadir-obj_name,
           lv_name_len TYPE i,
           lv_suffix TYPE string,
           lt_source_check TYPE STANDARD TABLE OF string.
@@ -256,29 +257,33 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
         IF lv_name_len = 35 AND lv_suffix(2) = 'CM'.
           " Method implementation include - belongs to a class
           rs_info-obj_type = 'CLAS'.
-          rs_info-obj_name = lv_name(30).
-          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
+          DATA(lv_obj_name) = lv_name(30).
+          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 34 AND ( lv_suffix = 'CCAU' OR lv_suffix = 'CCDEF' OR lv_suffix = 'CCIMP' ).
           " Test class or local types - belongs to a class
           rs_info-obj_type = 'CLAS'.
-          rs_info-obj_name = lv_name(30).
-          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
+          lv_obj_name = lv_name(30).
+          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' ).
           " Class section - belongs to a class
           rs_info-obj_type = 'CLAS'.
-          rs_info-obj_name = lv_name(30).
-          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
+          lv_obj_name = lv_name(30).
+          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
         ELSEIF lv_name_len = 32 AND lv_suffix = 'IU'.
           " Interface section - belongs to an interface
           rs_info-obj_type = 'INTF'.
-          rs_info-obj_name = lv_name(30).
-          SHIFT rs_info-obj_name RIGHT DELETING TRAILING '='.
+          lv_obj_name = lv_name(30).
+          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Interface'.
         ELSE.
