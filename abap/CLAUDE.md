@@ -137,6 +137,62 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 See `guidelines/03_testing.md` for code examples.
 
+### 7. Use `view` and `where` Commands to Learn About Unknown Classes/Methods
+
+**When working with unfamiliar ABAP classes or methods, follow this priority:**
+
+```
+1. First: Check local git repo for usage examples
+2. Second: Check ABAP reference/cheat sheets
+3. Third: Use view/where commands to query ABAP system (if needed)
+```
+
+#### Priority 1: Check Local Git Repository
+
+**Look for usage examples in your local ABAP project first:**
+- Search for class/interface names in your codebase
+- Check how similar classes are implemented
+- This gives the most relevant context for your project
+
+#### Priority 2: Check ABAP References
+
+```bash
+# Search in ABAP cheat sheets and guidelines
+abapgit-agent ref "CLASS"
+abapgit-agent ref "INTERFACE"
+abapgit-agent ref --topic classes
+```
+
+#### Priority 3: Use `where` and `view` Commands (Query ABAP System)
+
+**If local/references don't have the answer, query the ABAP system:**
+
+```bash
+# Find where a class/interface is USED (where command)
+abapgit-agent where --objects ZIF_UNKNOWN_INTERFACE
+
+# View CLASS DEFINITION (view command)
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS
+
+# View specific METHOD implementation
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS=============CM001
+```
+
+**Example workflow for AI:**
+```
+User: "How do I use ZCL_ABGAGT_AGENT?"
+
+AI thought process:
+1. Search local repo for ZCL_ABGAGT_AGENT usage
+2. Found: It's instantiated in several places with ->pull() method
+3. Still unclear about parameters? Check view command
+4. View: abapgit-agent view --objects ZCL_ABGAGT_AGENT
+```
+
+**Key differences:**
+- `where`: Shows WHERE an object is USED (references)
+- `view`: Shows what an object DEFINES (structure, methods, source)
+
 ---
 
 ## Development Workflow
