@@ -10,19 +10,22 @@ INTERFACE zif_abgagt_code_inspector PUBLIC.
   METHODS create_object_set
     IMPORTING iv_name     TYPE sci_objs
               it_objects  TYPE ty_object_keys
-    RETURNING VALUE(ro_objset) TYPE REF TO cl_ci_objectset.
+    RETURNING VALUE(ro_objset) TYPE REF TO cl_ci_objectset
+    RAISING   cx_static_check.
 
   " Get check variant reference (returns empty if not found)
   METHODS get_check_variant
     IMPORTING iv_variant TYPE string
-    RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant.
+    RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant
+    RAISING   cx_static_check.
 
   " Create and run inspection
   METHODS create_and_run_inspection
     IMPORTING iv_name     TYPE sci_objs
               io_variant  TYPE REF TO cl_ci_checkvariant
               io_objset   TYPE REF TO cl_ci_objectset
-    RETURNING VALUE(ro_inspection) TYPE REF TO cl_ci_inspection.
+    RETURNING VALUE(ro_inspection) TYPE REF TO cl_ci_inspection
+    RAISING   cx_static_check.
 
   " Get plain list results from inspection
   METHODS get_results
