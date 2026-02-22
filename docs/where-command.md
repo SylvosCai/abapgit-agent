@@ -481,8 +481,8 @@ Examples:
 | `CU` | Public section | 2 |
 | `CO` | Protected section | 2 |
 | `CP` | Private section | 2 |
-| `CM001-CM099` | Method implementations (01-99) | 4 |
-| `CM00A-CM99Z` | Extended method numbers (A-Z) | 4 |
+| `CM001-CM099` | Method implementations (01-99) | 5 |
+| `CM00A-CM99Z` | Extended method numbers (A-Z) | 5 |
 | `CCAU` | Test class (AUnit) | 4 |
 | `CCIMP` | Local class implementations | 4 |
 | `CI` | Local interface/type definitions | 2 |
