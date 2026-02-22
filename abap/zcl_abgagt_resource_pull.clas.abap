@@ -31,7 +31,7 @@ CLASS zcl_abgagt_resource_pull IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD parse_request.
-    " Parse with typed local variable
+    " Override completely - parse and set defaults
     DATA: ls_request TYPE zcl_abgagt_command_pull=>ty_pull_params.
 
     /ui2/cl_json=>deserialize(
