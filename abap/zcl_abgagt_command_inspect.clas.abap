@@ -607,7 +607,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD categorize_message.
-    CLEAR: es_error, es_warning, es_info.
+    " Initialize output parameters
+    CLEAR es_error.
+    CLEAR es_warning.
+    CLEAR es_info.
 
     CASE is_list-kind.
       WHEN 'E'.
