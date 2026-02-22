@@ -224,9 +224,32 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     SPLIT iv_include_name AT '=' INTO TABLE lt_parts.
 
     DATA lv_include TYPE string.
-    LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
-      lv_include = lv_part.
-    ENDLOOP.
+    DATA lv_include_len TYPE i.
+
+    " Check if include name contains '=' (padded case)
+    IF iv_include_name CS '='.
+      " With padding: split by '=' and get last part
+      LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
+        lv_include = lv_part.
+      ENDLOOP.
+    ELSE.
+      " No padding: extract include type by length
+      " Total length 32: last 2 chars (CU, CI, IU)
+      " Total length 34: last 4 chars (CCAU, CCIMP, CCDEF)
+      " Total length 35: last 5 chars (CM001-CM099, CM00A-CM99Z)
+      lv_include_len = strlen( iv_include_name ).
+      CASE lv_include_len.
+        WHEN 32.
+          lv_include = iv_include_name+30(2).
+        WHEN 34.
+          lv_include = iv_include_name+30(4).
+        WHEN 35.
+          lv_include = iv_include_name+30(5).
+        WHEN OTHERS.
+          " Try to get last 2 chars as fallback
+          lv_include = iv_include_name+30(2).
+      ENDCASE.
+    ENDIF.
 
     " Check include type
     CASE lv_include.
