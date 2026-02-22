@@ -239,6 +239,36 @@ The `INCLUDE_TYPE` field provides a human-readable description:
 | Access denied | `Access denied to where-used list for <object>` |
 | No references found | `No references found` (displayed with ❌ icon) |
 
+### Object Existence Check
+
+Before calling `AKB_WHERE_USED_LIST`, the command verifies the object exists in TADIR:
+
+```abap
+" Check if object exists in TADIR
+SELECT SINGLE object FROM tadir
+  INTO lv_obj_type_check
+  WHERE obj_name = iv_obj_name
+    AND object = iv_obj_type.
+
+IF sy-subrc <> 0.
+  " Object not found - return error in response
+  rs_info-error = |Object not found: { iv_obj_name }|.
+  RETURN.
+ENDIF.
+```
+
+### Error Response
+
+When object doesn't exist, the response includes the error:
+
+```json
+{
+  "SUCCESS": false,
+  "COMMAND": "WHERE",
+  "ERROR": "Object not found: ZCL_NONEXISTENT"
+}
+``` |
+
 ---
 
 ## Supported Object Types

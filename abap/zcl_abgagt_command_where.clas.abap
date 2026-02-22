@@ -27,6 +27,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_where_object,
              name TYPE string,
              type TYPE string,
+             error TYPE string,
              references TYPE ty_references,
              count TYPE i,
            END OF ty_where_object.
@@ -111,11 +112,26 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
       ls_where_obj-type = lv_type.
 
-      " Get where-used list
+      " Check if object exists in TADIR before calling where-used list
       DATA lv_obj_type TYPE trobjtype.
       lv_obj_type = lv_type.
       DATA lv_obj_name TYPE sobj_name.
       lv_obj_name = lv_object.
+
+      SELECT SINGLE object FROM tadir
+        INTO DATA(lv_exists)
+        WHERE obj_name = lv_obj_name
+          AND object = lv_obj_type.
+
+      IF sy-subrc <> 0.
+        " Object not found - add error to result and skip
+        ls_where_obj-error = |Object not found: { lv_object }|.
+        APPEND ls_where_obj TO lt_objects.
+        CLEAR ls_where_obj.
+        CONTINUE.
+      ENDIF.
+
+      " Get where-used list
       lt_references = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name

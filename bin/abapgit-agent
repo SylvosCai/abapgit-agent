@@ -2494,8 +2494,17 @@ Examples:
             const obj = whereObjects[i];
             const objName = obj.NAME || obj.name || `Object ${i + 1}`;
             const objType = obj.TYPE || obj.type || '';
+            const error = obj.ERROR || obj.error || '';
             const references = obj.REFERENCES || obj.references || [];
             const count = obj.COUNT || obj.count || 0;
+
+            // Handle object not found error
+            if (error) {
+              console.log(`  ❌ ${objName} (${objType})`);
+              console.log(`     ${error}`);
+              console.log('');
+              continue;
+            }
 
             if (count === 0) {
               console.log(`  ❌ ${objName} (${objType})`);
