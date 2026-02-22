@@ -153,10 +153,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD detect_object_type.
     " First check if name looks like a source include (>= 32 chars)
     " Source includes have pattern: CLASSNAME=============CM00X (35 chars)
-    DATA(lv_name_len) = strlen( iv_name ).
+    DATA: lv_name_len TYPE i,
+          lt_source_check TYPE STANDARD TABLE OF string.
+
+    lv_name_len = strlen( iv_name ).
     IF lv_name_len >= 32.
       " Try to read as program/include
-      READ REPORT iv_name INTO DATA(lt_source_check).
+      READ REPORT iv_name INTO lt_source_check.
       IF sy-subrc = 0.
         rv_type = 'PROG'.
         RETURN.
