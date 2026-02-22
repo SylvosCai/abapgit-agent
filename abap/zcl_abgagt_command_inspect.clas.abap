@@ -576,8 +576,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       " Categorize message
       categorize_message(
         EXPORTING is_list        = ls_list
-                  iv_object_type = is_object-objtype
-                  iv_object_name = is_object-objname
+                  iv_object_type = CONV #( is_object-objtype )
+                  iv_object_name = CONV #( is_object-objname )
                   iv_method_name = lv_method_name
         IMPORTING es_error       = ls_error
                   es_warning     = ls_warning
