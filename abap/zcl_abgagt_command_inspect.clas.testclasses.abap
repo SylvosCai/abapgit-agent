@@ -18,6 +18,62 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_build_object_result FOR TESTING.
     METHODS test_get_check_variant FOR TESTING.
     METHODS test_create_inspection_name FOR TESTING.
+    METHODS test_with_mock_success FOR TESTING.
+    METHODS test_with_mock_errors FOR TESTING.
+    METHODS test_with_mock_warnings FOR TESTING.
+    METHODS test_with_mock_variant_not_found FOR TESTING.
+ENDCLASS.
+
+"**********************************************************************
+" Local test double for code inspector
+CLASS lcl_code_inspector_mock DEFINITION.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_code_inspector.
+
+    " Configuration for mock behavior
+    DATA mv_return_errors TYPE abap_bool DEFAULT abap_false.
+    DATA mv_return_warnings TYPE abap_bool DEFAULT abap_false.
+    DATA mv_variant_not_found TYPE abap_bool DEFAULT abap_false.
+    DATA mv_raise_exception TYPE abap_bool DEFAULT abap_false.
+
+    " Mock data to return
+    DATA mt_mock_results TYPE scit_alvlist.
+
+  PRIVATE SECTION.
+    DATA mo_mock_objset TYPE REF TO cl_ci_objectset.
+    DATA mo_mock_inspection TYPE REF TO cl_ci_inspection.
+    DATA mo_mock_variant TYPE REF TO cl_ci_checkvariant.
+ENDCLASS.
+
+CLASS lcl_code_inspector_mock IMPLEMENTATION.
+
+  METHOD zif_abgagt_code_inspector~create_object_set.
+    " Return mock object set (not really used in tests)
+    ro_objset = mo_mock_objset.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_code_inspector~get_check_variant.
+    IF mv_variant_not_found = abap_true.
+      " Return empty to simulate variant not found
+      RETURN.
+    ENDIF.
+    ro_variant = mo_mock_variant.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_code_inspector~create_and_run_inspection.
+    " Return mock inspection
+    ro_inspection = mo_mock_inspection.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_code_inspector~get_results.
+    " Return configured mock results
+    rt_list = mt_mock_results.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_code_inspector~cleanup.
+    " Do nothing in mock
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS ltcl_cmd_inspect IMPLEMENTATION.
@@ -305,6 +361,125 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
     cl_abap_unit_assert=>assert_not_initial(
       act = lv_result
       msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_with_mock_success.
+    " Test with mock returning success (no errors/warnings)
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'N' line = 0 col = 0 text = 'No errors found' )
+    ).
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain success
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*success*X*'
+      msg = 'Result should indicate success' ).
+  ENDMETHOD.
+
+  METHOD test_with_mock_errors.
+    " Test with mock returning errors
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'E' line = '010' col = '012' text = 'Variable "LV_UNKNOWN" is not defined' code = 'LV_UNKNOWN' )
+    ).
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain error
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*errors*'
+      msg = 'Result should contain errors' ).
+
+    " Should indicate failure
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*success* *'
+      msg = 'Result should indicate failure' ).
+  ENDMETHOD.
+
+  METHOD test_with_mock_warnings.
+    " Test with mock returning warnings
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'W' line = '015' col = '001' text = 'Avoid using obsolete statement' )
+    ).
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain warnings
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*warnings*'
+      msg = 'Result should contain warnings' ).
+  ENDMETHOD.
+
+  METHOD test_with_mock_variant_not_found.
+    " Test with mock returning variant not found
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mv_variant_not_found = abap_true.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+            variant TYPE string,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+    ls_param-variant = 'INVALID_VARIANT'.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain variant error
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*VARIANT*'
+      msg = 'Result should contain VARIANT' ).
+
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*not found*'
+      msg = 'Result should indicate variant not found' ).
   ENDMETHOD.
 
 ENDCLASS.
