@@ -6,13 +6,6 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    " Local exception class for inspection errors
-    CLASS zcx_abgagt_inspect_error DEFINITION INHERITING FROM cx_static_check.
-      PUBLIC SECTION.
-        METHODS constructor IMPORTING iv_text TYPE string.
-        DATA mv_text TYPE string.
-    ENDCLASS.
-
     " Constructor - optionally inject code inspector for testing
     METHODS constructor
       IMPORTING io_inspector TYPE REF TO zif_abgagt_code_inspector OPTIONAL.
@@ -117,11 +110,10 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS create_inspection_name
       RETURNING VALUE(rv_name) TYPE sci_objs.
 
-    " Get check variant reference
+    " Get check variant reference (returns null if not found)
     METHODS get_check_variant
       IMPORTING iv_variant TYPE string
-      RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant
-      RAISING   zcx_abgagt_inspect_error.
+      RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant.
 
     " Create and run inspection
     METHODS create_and_run_inspection
@@ -168,15 +160,6 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_variant TYPE string
                 iv_subrc   TYPE sysubrc
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
-
-ENDCLASS.
-
-CLASS zcx_abgagt_inspect_error IMPLEMENTATION.
-
-  METHOD constructor.
-    super->constructor( ).
-    mv_text = iv_text.
-  ENDMETHOD.
 
 ENDCLASS.
 
@@ -442,15 +425,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       p_objects = it_objects ).
 
     " Get check variant
-    TRY.
-        lo_variant = get_check_variant( iv_variant ).
-      CATCH cx_static_check INTO DATA(lx_variant_error).
-        " Variant not found - return error
-        rt_results = build_variant_error(
-          iv_variant = iv_variant
-          iv_subrc = sy-subrc ).
-        RETURN.
-    ENDTRY.
+    lo_variant = get_check_variant( iv_variant ).
+
+    " Check if variant was found
+    IF lo_variant IS NOT BOUND.
+      rt_results = build_variant_error(
+        iv_variant = iv_variant
+        iv_subrc = 1 ).
+      RETURN.
+    ENDIF.
 
     " Create and run inspection
     lo_inspection = create_and_run_inspection(
@@ -502,8 +485,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         OTHERS = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE zcx_abgagt_inspect_error
-        EXPORTING iv_text = |Check variant "{ lv_variant }" not found|.
+      " Variant not found - return empty (caller will handle)
+      CLEAR ro_variant.
     ENDIF.
   ENDMETHOD.
 
