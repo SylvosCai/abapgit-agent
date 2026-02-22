@@ -11,11 +11,13 @@ INTERFACE zif_abgagt_util PUBLIC.
            type_text        TYPE string,
          END OF ty_include_info.
 
-  "! Structure for object type result
-  TYPES: BEGIN OF ty_object_type_info,
+  "! Structure for object info from TADIR
+  TYPES: BEGIN OF ty_object_info,
            obj_type  TYPE tadir-object,
+           obj_name  TYPE tadir-obj_name,
+           devclass  TYPE tadir-devclass,
            type_text TYPE string,
-         END OF ty_object_type_info.
+         END OF ty_object_info.
 
   "! Parse file name to extract object type and name
   "! @parameter iv_file | File name (e.g., 'zcl_my_class.clas.abap')
@@ -37,14 +39,14 @@ INTERFACE zif_abgagt_util PUBLIC.
     RETURNING
       VALUE(rs_info) TYPE ty_include_info.
 
-  "! Get object type and type text from TADIR by object name
+  "! Get object info from TADIR by object name
   "! @parameter iv_obj_name | Object name (e.g., 'ZCL_MY_CLASS')
-  "! @return rs_info | Object type info (obj_type, type_text)
-  METHODS get_object_type_from_tadir
+  "! @return rs_info | Object info (obj_type, obj_name, devclass, type_text)
+  METHODS get_object_info_from_tadir
     IMPORTING
       iv_obj_name       TYPE tadir-obj_name
     RETURNING
-      VALUE(rs_info)   TYPE ty_object_type_info.
+      VALUE(rs_info)   TYPE ty_object_info.
 
   "! Check activation log for errors
   "! @return rv_has_error | ABAP_TRUE if errors found

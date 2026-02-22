@@ -26,6 +26,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              type TYPE string,
              type_text TYPE string,
              description TYPE string,
+             devclass TYPE tadir-devclass,
              domain TYPE string,
              domain_type TYPE string,
              domain_length TYPE int4,
@@ -55,6 +56,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS detect_object_type
       IMPORTING iv_name TYPE string
       EXPORTING ev_type_text TYPE string
+                ev_devclass TYPE tadir-devclass
       RETURNING VALUE(rv_type) TYPE string.
 
     METHODS get_object_info
@@ -103,18 +105,21 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
 
       DATA(lv_type) = ls_params-type.
       DATA lv_type_text TYPE string.
+      DATA lv_devclass TYPE tadir-devclass.
       lv_type_text = ''.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type(
           EXPORTING
             iv_name = lv_object
           IMPORTING
-            ev_type_text = lv_type_text ).
+            ev_type_text = lv_type_text
+            ev_devclass = lv_devclass ).
       ENDIF.
 
       " Set type from detection result
       ls_info-type = lv_type.
       ls_info-type_text = lv_type_text.
+      ls_info-devclass = lv_devclass.
 
       " Get viewer and retrieve info
       TRY.
@@ -144,7 +149,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     " Use utility to detect source include info
     DATA: lo_util TYPE REF TO zif_abgagt_util,
           ls_include_info TYPE zif_abgagt_util=>ty_include_info,
-          ls_obj_type_info TYPE zif_abgagt_util=>ty_object_type_info,
+          ls_obj_info TYPE zif_abgagt_util=>ty_object_info,
           lv_obj_name TYPE tadir-obj_name.
 
     lo_util = zcl_abgagt_util=>get_instance( ).
@@ -154,72 +159,33 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     IF ls_include_info-is_source_include = abap_true AND ls_include_info-obj_type IS NOT INITIAL.
       rv_type = ls_include_info-obj_type.
       ev_type_text = ls_include_info-type_text.
+      " Get devclass from TADIR for source include
+      lv_obj_name = ls_include_info-obj_name.
+      ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
+      ev_devclass = ls_obj_info-devclass.
       RETURN.
     ENDIF.
 
     " Query TADIR to find actual object type using utility method
     lv_obj_name = iv_name.
-    ls_obj_type_info = lo_util->get_object_type_from_tadir( lv_obj_name ).
-    rv_type = ls_obj_type_info-obj_type.
-    ev_type_text = ls_obj_type_info-type_text.
+    ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
+    rv_type = ls_obj_info-obj_type.
+    ev_type_text = ls_obj_info-type_text.
+    ev_devclass = ls_obj_info-devclass.
   ENDMETHOD.
 
   METHOD get_object_info.
-    DATA lv_obj_name TYPE string.
-    DATA lv_devclass TYPE tadir-devclass.
-
+    " Note: type, type_text, and devclass are already set by detect_object_type
+    " Only need to build the description
     rs_object-name = iv_name.
     rs_object-type = iv_type.
 
-    CASE iv_type.
-      WHEN 'CLAS' OR 'INTF'.
-        IF iv_type = 'CLAS'.
-          rs_object-type_text = 'Class'.
-        ELSE.
-          rs_object-type_text = 'Interface'.
-        ENDIF.
-
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = iv_name
-            AND object = iv_type.
-        IF sy-subrc = 0.
-          rs_object-description = |{ rs_object-type_text } { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-      WHEN 'TABL'.
-        rs_object-type_text = 'Table'.
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = iv_name
-            AND object = 'TABL'.
-        IF sy-subrc = 0.
-          rs_object-description = |Table { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-      WHEN 'STRU'.
-        rs_object-type_text = 'Structure'.
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = iv_name
-            AND object = 'TABL'.
-        IF sy-subrc = 0.
-          rs_object-description = |Structure { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-      WHEN 'DTEL'.
-        rs_object-type_text = 'Data Element'.
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = iv_name
-            AND object = 'DTEL'.
-        IF sy-subrc = 0.
-          rs_object-description = |Data Element { iv_name } in { lv_devclass }|.
-        ENDIF.
-
-      WHEN OTHERS.
-        rs_object-type_text = iv_type.
-    ENDCASE.
+    " Build description using already-set type_text and devclass
+    IF rs_object-devclass IS NOT INITIAL.
+      rs_object-description = |{ rs_object-type_text } { iv_name } in { rs_object-devclass }|.
+    ELSE.
+      rs_object-description = |{ rs_object-type_text } { iv_name }|.
+    ENDIF.
   ENDMETHOD.
 
   METHOD build_summary.
