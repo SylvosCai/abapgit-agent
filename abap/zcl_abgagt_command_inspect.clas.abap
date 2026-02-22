@@ -560,7 +560,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Normalize multiple '=' to single '=' then split
     DATA lv_normalized TYPE string.
     lv_normalized = iv_sobjname.
-    REPLACE ALL OCCURRENCES OF REGEX '=+' IN lv_normalized WITH '='.
+    REPLACE ALL OCCURRENCES OF REGEX '=+' IN lv_normalized WITH '='
+      REGEX STANDARD EXTENDED.
 
     " Split by '=' to get class name and include name
     SPLIT lv_normalized AT '=' INTO DATA(lv_part_class) DATA(lv_include_name).
