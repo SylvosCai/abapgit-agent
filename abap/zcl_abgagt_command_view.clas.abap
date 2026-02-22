@@ -154,6 +154,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     " First check if name looks like a source include (>= 32 chars)
     " Source includes have pattern: CLASSNAME=============CM00X (35 chars)
     DATA: lv_name TYPE tadir-obj_name,
+          lv_prog TYPE program,
           lv_name_len TYPE i,
           lt_source_check TYPE STANDARD TABLE OF string.
 
@@ -161,7 +162,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     lv_name_len = strlen( lv_name ).
     IF lv_name_len >= 32.
       " Try to read as program/include
-      READ REPORT lv_name INTO lt_source_check.
+      lv_prog = lv_name.
+      READ REPORT lv_prog INTO lt_source_check.
       IF sy-subrc = 0.
         rv_type = 'PROG'.
         RETURN.
