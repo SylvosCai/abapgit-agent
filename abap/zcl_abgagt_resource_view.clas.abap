@@ -29,7 +29,6 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
     CREATE DATA rr_request_data TYPE zcl_abgagt_command_view=>ty_view_params.
   ENDMETHOD.
 
-
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
     ls_request = is_request.

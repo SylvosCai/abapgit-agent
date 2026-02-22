@@ -12,7 +12,6 @@ CLASS zcl_abgagt_resource_base DEFINITION PUBLIC ABSTRACT
   PROTECTED SECTION.
 
     METHODS get_command_constant ABSTRACT
-      IMPORTING iv_command TYPE string
       RETURNING VALUE(rv_constant) TYPE string.
 
     METHODS get_command_name ABSTRACT
@@ -65,7 +64,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
     " Get command from factory
     DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-    DATA(lv_constant) = get_command_constant( '' ).
+    DATA(lv_constant) = get_command_constant( ).
     DATA(lo_command) = lo_factory->get_command( lv_constant ).
 
     IF lo_command IS NOT BOUND.
