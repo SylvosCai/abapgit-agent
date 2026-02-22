@@ -117,9 +117,10 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       lv_obj_type = lv_type.
       DATA lv_obj_name TYPE sobj_name.
       lv_obj_name = lv_object.
+      DATA lv_exists TYPE tadir-object.
 
       SELECT SINGLE object FROM tadir
-        INTO DATA(lv_exists)
+        INTO lv_exists
         WHERE obj_name = lv_obj_name
           AND object = lv_obj_type.
 
