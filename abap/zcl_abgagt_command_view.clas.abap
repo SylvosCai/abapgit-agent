@@ -181,9 +181,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           " Test class or local types - belongs to a class
           rv_type = 'CLAS'.
           RETURN.
-        ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' OR lv_suffix = 'IU' ).
-          " Class/interface section - belongs to a class
+        ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' ).
+          " Class section - belongs to a class
           rv_type = 'CLAS'.
+          RETURN.
+        ELSEIF lv_name_len = 32 AND lv_suffix = 'IU'.
+          " Interface section - belongs to an interface
+          rv_type = 'INTF'.
           RETURN.
         ENDIF.
         " Other programs/includes

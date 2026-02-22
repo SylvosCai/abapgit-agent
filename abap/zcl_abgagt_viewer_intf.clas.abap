@@ -15,8 +15,51 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
           lv_devclass TYPE tadir-devclass,
           lv_prog TYPE program,
           lt_source TYPE TABLE OF string,
-          lv_line TYPE string.
+          lv_line TYPE string,
+          lv_name TYPE tadir-obj_name,
+          lv_name_len TYPE i,
+          lv_intfname TYPE seoclsname.
 
+    lv_name = iv_name.
+    lv_name_len = strlen( lv_name ).
+
+    " Check if this is a source include (interface section)
+    IF lv_name_len >= 32.
+      " Try to read as program/include directly first
+      lv_prog = lv_name.
+      READ REPORT lv_prog INTO lt_source.
+      IF sy-subrc = 0.
+        " This is a source include - get the interface name from it
+        lv_intfname = lv_name(30). " First 30 chars are the interface name
+
+        " Try to get interface info from TADIR
+        SELECT SINGLE obj_name devclass FROM tadir
+          INTO (lv_obj_name, lv_devclass)
+          WHERE obj_name = lv_intfname
+            AND object = 'INTF'.
+
+        rs_info-name = lv_name.
+        rs_info-type = 'INTF'.
+        rs_info-type_text = 'Interface'.
+        IF lv_devclass IS NOT INITIAL.
+          rs_info-description = |Interface { lv_intfname } in { lv_devclass } (Source Include)|.
+        ELSE.
+          rs_info-description = |Interface { lv_intfname } (Source Include)|.
+        ENDIF.
+
+        " Read source
+        LOOP AT lt_source INTO lv_line.
+          IF rs_info-source IS INITIAL.
+            rs_info-source = lv_line.
+          ELSE.
+            rs_info-source = rs_info-source && |\n| && lv_line.
+          ENDIF.
+        ENDLOOP.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    " Standard interface - get from TADIR
     SELECT SINGLE obj_name devclass FROM tadir
       INTO (lv_obj_name, lv_devclass)
       WHERE obj_name = iv_name
@@ -34,11 +77,10 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     ENDIF.
 
     " Get interface section program name using CL_OO_CLASSNAME_SERVICE
-    DATA lv_clsname TYPE seoclsname.
-    lv_clsname = iv_name.
+    lv_intfname = iv_name.
     CALL METHOD cl_oo_classname_service=>get_intfsec_name
       EXPORTING
-        clsname = lv_clsname
+        clsname = lv_intfname
       RECEIVING
         result  = lv_prog.
 
