@@ -88,6 +88,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS run_inspection
       IMPORTING it_objects TYPE ty_object_keys
                 iv_variant TYPE string DEFAULT 'SYNTAX_CHECK'
+                io_util    TYPE REF TO zif_abgagt_util
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
 
     " Validate DDLS (CDS views)
@@ -253,7 +254,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     IF lt_objects IS NOT INITIAL.
       DATA(lt_sci_results) = run_inspection(
         it_objects = lt_objects
-        iv_variant = ls_params-variant ).
+        iv_variant = ls_params-variant
+        io_util    = lo_util ).
       INSERT LINES OF lt_sci_results INTO TABLE lt_results.
     ENDIF.
 
