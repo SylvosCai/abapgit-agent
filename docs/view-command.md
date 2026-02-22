@@ -13,6 +13,8 @@ View ABAP object source code directly from the ABAP system. This command retriev
 - **Inspect data structures**: View table or structure field definitions
 - **Review interface definitions**: Check interface methods and constants
 - **Quick reference**: Look up definitions without opening SE80 or ADT
+- **View source includes**: View method implementations from where command references
+- **View program source**: View full program or include source code
 
 ## Command
 
@@ -34,6 +36,18 @@ abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
 
+# View source include (from where command output)
+abapgit-agent view --objects ZCL_ABGAGT_COMMAND_UNIT=======CM007
+
+# View method implementation
+abapgit-agent view --objects ZCL_ABGAGT_AGENT=============CM012
+
+# View unit test class
+abapgit-agent view --objects ZCL_MY_CLASS=============CCAU
+
+# View program source
+abapgit-agent view --objects ZMY_PROGRAM --type PROG
+
 # Lowercase names and types are supported
 abapgit-agent view --objects zcl_my_class --type clas
 
@@ -51,7 +65,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type for all objects (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, PROG). Auto-detected from TADIR if not specified |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -217,6 +231,18 @@ define view ZC_MY_CDS_VIEW as select from tdevc
 where devclass not like '$%'
 ```
 
+### Source Include / Program (PROG)
+
+```
+📖 ZCL_ABGAGT_COMMAND_UNIT=======CM007 (Program)
+   Program ZCL_ABGAGT_COMMAND_UNIT=======CM007
+
+METHOD constructor.
+  super->constructor( ).
+  mo_util = zcl_abgagt_util=>get_instance( ).
+ENDMETHOD.
+```
+
 ### Multiple Objects
 
 ```
@@ -272,7 +298,7 @@ where devclass not like '$%'
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|PROG",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL
@@ -329,6 +355,7 @@ where devclass not like '$%'
 | `ZTY_*` or `zty_*` | DTEL (Data Element) |
 | `ZS__*` or `zs__*` | DTEL (Data Element) |
 | Other `Z*` | CLAS (default fallback) |
+| Source include (len >= 32) | PROG (treat as program) |
 
 ### Supported Object Types
 
@@ -341,13 +368,14 @@ where devclass not like '$%'
 | `DTEL` | Data Element | Data element/domain type |
 | `TTYP` | Table Type | Table type definition |
 | `DDLS` | CDS View | CDS View/Entity definition |
+| `PROG` | Program | ABAP program/include source |
 
 ---
 
 ## Example
 
 ```bash
-# View a class definition
+# View a class definition (public section)
 abapgit-agent view --objects ZCL_ABGAGT_AGENT
 
 # View interface
@@ -361,6 +389,18 @@ abapgit-agent view --objects S_CARR_ID --type DTEL
 
 # View CDS view definition
 abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
+
+# View source include (from where command output)
+abapgit-agent view --objects ZCL_ABGAGT_COMMAND_UNIT=======CM007
+
+# View method implementation
+abapgit-agent view --objects ZCL_ABGAGT_AGENT=============CM012
+
+# View unit test class
+abapgit-agent view --objects ZCL_MY_CLASS=============CCAU
+
+# View program source
+abapgit-agent view --objects ZMY_PROGRAM --type PROG
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CONFIG,ZIF_LOGGER,ZCL_UTILS
@@ -499,3 +539,65 @@ ENDIF.
 
 " Source code is in ls_ddlsrcv-source
 ```
+
+### Source Include Detection (Auto-detect from Where Command)
+
+When the object name looks like a source code include (from `where` command output), the view command attempts to read it directly as a program:
+
+```abap
+" Auto-detect source include names (from where command output)
+" Examples: ZCL_CLASS=============CM007, ZCL_CLASS=============CCAU
+DATA lv_name_len TYPE i.
+lv_name_len = strlen( iv_name ).
+
+" If name looks like a source include (>= 32 chars), try to read directly
+IF lv_name_len >= 32.
+  READ REPORT iv_name INTO lt_source.
+  IF sy-subrc = 0.
+    " Success - this is a source include or program
+    " Return as PROG type
+    rs_info-name = iv_name.
+    rs_info-type = 'PROG'.
+    rs_info-type_text = 'Program'.
+    CONCATENATE LINES OF lt_source INTO rs_info-source
+      SEPARATED BY cl_abap_char_utilities=>newline.
+    RETURN.
+  ENDIF.
+ENDIF.
+```
+
+### Program Source Retrieval (PROG)
+
+For explicit PROG type requests or detected source includes:
+
+```abap
+" Program Source Retrieval (PROG)
+" Source includes from where command can be read directly
+
+READ REPORT iv_name INTO lt_source.
+IF sy-subrc = 0.
+  rs_info-name = iv_name.
+  rs_info-type = 'PROG'.
+  rs_info-type_text = 'Program'.
+  rs_info-description = |Program { iv_name }|.
+  CONCATENATE LINES OF lt_source INTO rs_info-source
+    SEPARATED BY cl_abap_char_utilities=>newline.
+ENDIF.
+```
+
+### Include Name Patterns
+
+Source includes are identified by their name pattern (returned by `where` command):
+
+| Include Type | Example | Description |
+|-------------|---------|-------------|
+| Method | `ZCL_CLASS=============CM007` | Method implementation (35 chars) |
+| Test Class | `ZCL_CLASS=============CCAU` | Unit test class (34 chars) |
+| Public Section | `ZCL_CLASS=============CU` | Public section (32 chars) |
+| Protected | `ZCL_CLASS=============CO` | Protected section (32 chars) |
+| Private | `ZCL_CLASS=============CP` | Private section (32 chars) |
+| Local Impl | `ZCL_CLASS=============CCIMP` | Local implementations (34 chars) |
+| Local Def | `ZCL_CLASS=============CCDEF` | Local definitions (34 chars) |
+| Interface | `ZIF_INTERFACE============IU` | Interface section (32 chars) |
+
+The class name portion is always padded to 30 characters with `=` signs.
