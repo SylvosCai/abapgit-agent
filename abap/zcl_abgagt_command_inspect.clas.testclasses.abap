@@ -29,6 +29,13 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_mock_multi_errors FOR TESTING.
     METHODS test_mock_var_not_found FOR TESTING.
     METHODS test_mock_exception FOR TESTING.
+    " Test double tests for DDL handler
+    METHODS test_validate_ddls_success FOR TESTING.
+    METHODS test_validate_ddls_not_found FOR TESTING.
+    METHODS test_validate_ddls_with_warnings FOR TESTING.
+    METHODS test_validate_ddls_with_errors FOR TESTING.
+    METHODS test_read_ddls_source FOR TESTING.
+    METHODS test_validate_ddls_check FOR TESTING.
 ENDCLASS.
 
 "**********************************************************************
@@ -102,6 +109,64 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
 
   METHOD zif_abgagt_code_inspector~cleanup.
     " Do nothing in mock
+  ENDMETHOD.
+
+ENDCLASS.
+
+"**********************************************************************
+" Local test double for DDL handler
+CLASS lcl_ddl_handler_mock DEFINITION.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_ddl_handler.
+
+    " Configuration for mock behavior
+    DATA mv_raise_not_found TYPE abap_bool.
+    DATA mv_raise_check_error TYPE abap_bool.
+    DATA mv_source_found TYPE abap_bool.
+
+    " Mock data to return
+    DATA ms_mock_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
+    DATA mt_mock_warnings TYPE zif_abgagt_ddl_handler=>ty_warnings.
+    DATA mt_mock_errors TYPE zif_abgagt_ddl_handler=>ty_errors.
+    DATA mx_check_exception TYPE REF TO cx_dd_ddl_check.
+
+    METHODS constructor.
+
+  PRIVATE SECTION.
+    DATA mv_call_count_read TYPE i.
+    DATA mv_call_count_check TYPE i.
+ENDCLASS.
+
+CLASS lcl_ddl_handler_mock IMPLEMENTATION.
+
+  METHOD constructor.
+    mv_raise_not_found = abap_false.
+    mv_raise_check_error = abap_false.
+    mv_source_found = abap_true.
+    mv_call_count_read = 0.
+    mv_call_count_check = 0.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_ddl_handler~read.
+    mv_call_count_read = mv_call_count_read + 1.
+
+    IF mv_raise_not_found = abap_true.
+      RAISE EXCEPTION TYPE cx_dd_ddl_check.
+    ENDIF.
+
+    IF mv_source_found = abap_true.
+      es_ddlsrcv = ms_mock_ddlsrcv.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_ddl_handler~check.
+    mv_call_count_check = mv_call_count_check + 1.
+
+    IF mv_raise_check_error = abap_true AND mx_check_exception IS BOUND.
+      RAISE EXCEPTION mx_check_exception.
+    ENDIF.
+
+    et_warnings = mt_mock_warnings.
   ENDMETHOD.
 
 ENDCLASS.
@@ -690,6 +755,182 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       act = lv_result
       exp = '*success* *'
       msg = 'Result should indicate failure' ).
+  ENDMETHOD.
+
+  METHOD test_validate_ddls_success.
+    " Test validate_ddls with success (no warnings)
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    lo_mock->mt_mock_warnings = VALUE #( ). " No warnings
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lt_results
+      msg = 'Results should not be initial' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( lt_results )
+      exp = 1
+      msg = 'Should have one result' ).
+
+    DATA(ls_result) = lt_results[ 1 ].
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_type
+      exp = 'DDLS'
+      msg = 'Object type should be DDLS' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_name
+      exp = 'ZC_TEST_VIEW'
+      msg = 'Object name should match' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_true
+      msg = 'Success should be true' ).
+  ENDMETHOD.
+
+  METHOD test_validate_ddls_not_found.
+    " Test validate_ddls when DDLS is not found
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->mv_raise_not_found = abap_true. " Simulate not found
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_NONEXISTENT' ) ).
+    DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lt_results
+      msg = 'Results should not be initial' ).
+
+    DATA(ls_result) = lt_results[ 1 ].
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Success should be false when not found' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( ls_result-errors )
+      exp = 1
+      msg = 'Should have one error' ).
+  ENDMETHOD.
+
+  METHOD test_validate_ddls_with_warnings.
+    " Test validate_ddls with warnings
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    lo_mock->mt_mock_warnings = VALUE #(
+      ( type = 'W' line = 10 column = 1 severity = 'W' arbgb = 'DD' msgnr = 001 var1 = 'Warning text' )
+    ).
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
+
+    DATA(ls_result) = lt_results[ 1 ].
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Success should be false when there are warnings' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( ls_result-warnings )
+      exp = 1
+      msg = 'Should have one warning' ).
+  ENDMETHOD.
+
+  METHOD test_validate_ddls_with_errors.
+    " Test validate_ddls when check throws exception with errors
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    lo_mock->mv_raise_check_error = abap_true.
+
+    " Create exception with errors
+    DATA(lo_error) = NEW cx_dd_ddl_check( ).
+    lo_mock->mx_check_exception = lo_error.
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    " This should catch the exception and return error result
+    DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lt_results
+      msg = 'Results should not be initial even with exception' ).
+
+    DATA(ls_result) = lt_results[ 1 ].
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Success should be false when exception occurs' ).
+  ENDMETHOD.
+
+  METHOD test_read_ddls_source.
+    " Test read_ddls_source method directly
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
+          lv_found TYPE abap_bool.
+
+    lv_found = mo_cut->read_ddls_source(
+      EXPORTING
+        iv_ddls_name = 'ZC_TEST_VIEW'
+      IMPORTING
+        es_ddlsrcv   = ls_ddlsrcv ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_found
+      exp = abap_true
+      msg = 'Should find the DDLS' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_ddlsrcv-ddlname
+      exp = 'ZC_TEST_VIEW'
+      msg = 'DDLS name should match' ).
+  ENDMETHOD.
+
+  METHOD test_validate_ddls_check.
+    " Test validate_ddls_check method directly
+    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
+    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    lo_mock->mt_mock_warnings = VALUE #(
+      ( type = 'W' line = 5 column = 1 severity = 'W' )
+    ).
+
+    CREATE OBJECT mo_cut EXPORTING io_ddl_handler = lo_mock.
+
+    DATA(ls_ddlsrcv) = VALUE zif_abgagt_ddl_handler=>ty_ddlsrcv(
+      ddlname = 'ZC_TEST_VIEW'
+      source  = 'SELECT * FROM tdevc' ).
+
+    DATA(ls_result) = mo_cut->validate_ddls_check(
+      iv_ddls_name = 'ZC_TEST_VIEW'
+      is_ddlsrcv   = ls_ddlsrcv ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_type
+      exp = 'DDLS'
+      msg = 'Object type should be DDLS' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_name
+      exp = 'ZC_TEST_VIEW'
+      msg = 'Object name should match' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( ls_result-warnings )
+      exp = 1
+      msg = 'Should have one warning from mock' ).
   ENDMETHOD.
 
 ENDCLASS.

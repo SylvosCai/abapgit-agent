@@ -6,9 +6,10 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
-    " Constructor - optionally inject code inspector for testing
+    " Constructor - optionally inject code inspector and DDL handler for testing
     METHODS constructor
-      IMPORTING io_inspector TYPE REF TO zif_abgagt_code_inspector OPTIONAL.
+      IMPORTING io_inspector TYPE REF TO zif_abgagt_code_inspector OPTIONAL
+                io_ddl_handler TYPE REF TO zif_abgagt_ddl_handler OPTIONAL.
 
     " Error structure for syntax check results
     TYPES: BEGIN OF ty_error,
@@ -93,7 +94,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS validate_ddls
       IMPORTING it_ddls_names TYPE ty_ddls_names
       RETURNING VALUE(rt_results) TYPE ty_inspect_results
-      RAISING cx_dd_ddl_read.
+      RAISING cx_dd_ddl_check.
 
     " Get method name from TMDIR based on class name and include number
     METHODS get_method_name
@@ -105,6 +106,9 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     " Code inspector - injected for testing
     DATA mo_inspector TYPE REF TO zif_abgagt_code_inspector.
+
+    " DDL handler - injected for testing
+    DATA mo_ddl_handler TYPE REF TO zif_abgagt_ddl_handler.
 
     " Create unique inspection name
     METHODS create_inspection_name
@@ -161,14 +165,79 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_subrc   TYPE sysubrc
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
 
+    " Read DDLS source (tries inactive first, then active)
+    METHODS read_ddls_source
+      IMPORTING iv_ddls_name   TYPE ddlname
+      EXPORTING es_ddlsrcv     TYPE any
+      RETURNING VALUE(rv_found) TYPE abap_bool
+      RAISING   cx_dd_ddl_check.
+
+    " Validate DDLS and build result
+    METHODS validate_ddls_check
+      IMPORTING iv_ddls_name   TYPE ddlname
+                is_ddlsrcv     TYPE any
+      RETURNING VALUE(rs_result) TYPE ty_inspect_result.
+
+    " Get default DDL handler if not injected
+    METHODS get_ddl_handler
+      RETURNING VALUE(ro_handler) TYPE REF TO zif_abgagt_ddl_handler.
+
+ENDCLASS.
+
+CLASS lcl_ddl_handler_default DEFINITION.
+  " Default DDL handler wrapper that uses real SAP DDL handler
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_ddl_handler.
+ENDCLASS.
+
+CLASS lcl_ddl_handler_default IMPLEMENTATION.
+
+  METHOD zif_abgagt_ddl_handler~read.
+    " Use real SAP DDL handler factory
+    DATA: lo_handler TYPE REF TO if_dd_ddl_handler,
+          ls_ddlsrcv_wa TYPE ddddlsrcv.
+
+    lo_handler = cl_dd_ddl_handler_factory=>create( ).
+    lo_handler->read(
+      EXPORTING
+        name       = iv_name
+        get_state  = iv_get_state
+      IMPORTING
+        ddddlsrcv_wa = ls_ddlsrcv_wa ).
+
+    es_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
+                          source  = ls_ddlsrcv_wa-source ).
+  ENDMETHOD.
+
+  METHOD zif_abgagt_ddl_handler~check.
+    " Use real SAP DDL handler
+    DATA: lo_handler TYPE REF TO if_dd_ddl_handler,
+          ls_ddlsrcv_wa TYPE ddddlsrcv.
+
+    ls_ddlsrcv_wa = VALUE #( ddlname = cs_ddlsrcv-ddlname
+                            source  = cs_ddlsrcv-source ).
+
+    lo_handler = cl_dd_ddl_handler_factory=>create( ).
+    lo_handler->check(
+      EXPORTING
+        name = iv_name
+      IMPORTING
+        warnings = et_warnings
+      CHANGING
+        ddlsrcv_wa = ls_ddlsrcv_wa ).
+
+    cs_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
+                         source  = ls_ddlsrcv_wa-source ).
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD constructor.
-    " If no inspector injected, create default (will use static methods)
-    " For now, we allow empty - actual implementation will check in methods
+    " If no inspector/ddl_handler injected, create default (will use static methods)
     mo_inspector = io_inspector.
+    mo_ddl_handler = io_ddl_handler.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~get_name.
@@ -238,7 +307,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       TRY.
           DATA(lt_ddls_results) = validate_ddls( lt_ddls_names ).
           INSERT LINES OF lt_ddls_results INTO TABLE lt_results.
-        CATCH cx_dd_ddl_read.
+        CATCH cx_dd_ddl_check.
           " Ignore - validation handled in method
       ENDTRY.
     ENDIF.
@@ -256,69 +325,36 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD validate_ddls.
-    " Validate DDLS (CDS views) using CL_DD_DDL_HANDLER_FACTORY
+    " Validate DDLS (CDS views) using DDL handler
     " First checks inactive version ('M'), falls back to active ('A')
     DATA: lv_ddls_name TYPE ddlname,
-          lo_handler TYPE REF TO if_dd_ddl_handler,
-          ls_ddlsrcv TYPE ddddlsrcv,
+          ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
           ls_error TYPE ty_error,
-          ls_warning TYPE ty_warning,
-          lt_warnings TYPE ddl2ddicwarnings,
-          lx_error TYPE REF TO cx_dd_ddl_check,
-          lv_found TYPE abap_bool,
           ls_result TYPE ty_inspect_result,
-          lv_err_msg TYPE string,
-          lv_warn_msg TYPE string.
+          lv_found TYPE abap_bool.
 
     rt_results = VALUE #( ).
 
-    " Create DDL handler
-    lo_handler = cl_dd_ddl_handler_factory=>create( ).
-
     " Check each DDLS object
     LOOP AT it_ddls_names INTO lv_ddls_name.
-      CLEAR: ls_ddlsrcv, lt_warnings, lv_found, ls_result.
+      CLEAR: ls_ddlsrcv, lv_found, ls_result.
 
       ls_result-object_type = 'DDLS'.
       ls_result-object_name = lv_ddls_name.
       ls_result-success = abap_true.
 
-      " First try to read inactive version (get_state = 'M')
+      " Try to read DDLS source (handles M/A fallback internally)
       TRY.
-          lo_handler->read(
+          lv_found = read_ddls_source(
             EXPORTING
-              name       = lv_ddls_name
-              get_state  = 'M'
+              iv_ddls_name = lv_ddls_name
             IMPORTING
-              ddddlsrcv_wa = ls_ddlsrcv ).
-
-          IF ls_ddlsrcv-source IS NOT INITIAL.
-            lv_found = abap_true.
-          ENDIF.
-
+              es_ddlsrcv   = ls_ddlsrcv ).
         CATCH cx_dd_ddl_check.
-          " Ignore - will try active version
+          " Will report not found below
       ENDTRY.
 
-      " If no inactive version, try active version
-      IF lv_found = abap_false.
-        TRY.
-            lo_handler->read(
-              EXPORTING
-                name       = lv_ddls_name
-                get_state  = 'A'
-              IMPORTING
-                ddddlsrcv_wa = ls_ddlsrcv ).
-
-            IF ls_ddlsrcv-source IS NOT INITIAL.
-              lv_found = abap_true.
-            ENDIF.
-          CATCH cx_dd_ddl_check.
-            " Ignore
-        ENDTRY.
-      ENDIF.
-
-      " If still not found, report error
+      " If not found, report error
       IF lv_found = abap_false.
         ls_error-line = '1'.
         ls_error-column = '1'.
@@ -330,80 +366,155 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " Run validation check
-      TRY.
-          " Get warnings from check method
-          lo_handler->check(
-            EXPORTING
-              name = lv_ddls_name
-            IMPORTING
-              warnings = lt_warnings
-            CHANGING
-              ddlsrcv_wa = ls_ddlsrcv ).
+      " Run validation check using modular method
+      ls_result = validate_ddls_check(
+        iv_ddls_name = lv_ddls_name
+        is_ddlsrcv   = ls_ddlsrcv ).
 
-          " Parse warnings from check method
-          LOOP AT lt_warnings INTO DATA(ls_warn_from_check).
-            CLEAR ls_warning.
-            ls_warning-type = ls_warn_from_check-type.
-            ls_warning-line = ls_warn_from_check-line.
-            ls_warning-column = ls_warn_from_check-column.
-            ls_warning-severity = ls_warn_from_check-severity.
-            ls_warning-object_type = 'DDLS'.
-            ls_warning-object_name = lv_ddls_name.
-            " Use MESSAGE statement to get real warning message
-            MESSAGE ID ls_warn_from_check-arbgb TYPE 'E' NUMBER ls_warn_from_check-msgnr
-              WITH ls_warn_from_check-var1 ls_warn_from_check-var2 ls_warn_from_check-var3 ls_warn_from_check-var4
-              INTO lv_warn_msg.
-            ls_warning-message = lv_warn_msg.
-            APPEND ls_warning TO ls_result-warnings.
-          ENDLOOP.
-
-          " If no errors and no warnings, validation passed
-          IF ls_result-warnings IS INITIAL.
-            ls_result-success = abap_true.
-          ELSE.
-            ls_result-success = abap_false.
-          ENDIF.
-
-        CATCH cx_dd_ddl_check INTO lx_error.
-          " Validation failed - get error details using get_errors method
-          DATA(lt_errors) = lx_error->get_errors( ).
-          LOOP AT lt_errors INTO DATA(ls_err).
-            CLEAR ls_error.
-            ls_error-line = ls_err-line.
-            ls_error-column = ls_err-column.
-            " Use MESSAGE statement to get real error message
-            MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
-              WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
-              INTO lv_err_msg.
-            ls_error-text = lv_err_msg.
-            APPEND ls_error TO ls_result-errors.
-          ENDLOOP.
-
-          " Also get warnings if any
-          DATA(lt_warn) = lx_error->get_warnings( ).
-          LOOP AT lt_warn INTO DATA(ls_warn2).
-            CLEAR ls_warning.
-            ls_warning-type = ls_warn2-type.
-            ls_warning-line = ls_warn2-line.
-            ls_warning-column = ls_warn2-column.
-            ls_warning-severity = ls_warn2-severity.
-            ls_warning-object_type = 'DDLS'.
-            ls_warning-object_name = lv_ddls_name.
-            " Use MESSAGE statement to get real warning message
-            MESSAGE ID ls_warn2-arbgb TYPE 'E' NUMBER ls_warn2-msgnr
-              WITH ls_warn2-var1 ls_warn2-var2 ls_warn2-var3 ls_warn2-var4
-              INTO lv_warn_msg.
-            ls_warning-message = lv_warn_msg.
-            APPEND ls_warning TO ls_result-warnings.
-          ENDLOOP.
-
-          ls_result-success = abap_false.
-      ENDTRY.
-
-      ls_result-error_count = lines( ls_result-errors ).
       APPEND ls_result TO rt_results.
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD read_ddls_source.
+    " Read DDLS source - first try inactive, then active
+    DATA: lo_handler TYPE REF TO zif_abgagt_ddl_handler,
+          ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
+
+    lo_handler = get_ddl_handler( ).
+
+    " First try to read inactive version (get_state = 'M')
+    TRY.
+        lo_handler->read(
+          EXPORTING
+            iv_name      = iv_ddls_name
+            iv_get_state = 'M'
+          IMPORTING
+            es_ddlsrcv   = ls_ddlsrcv ).
+
+        IF ls_ddlsrcv-source IS NOT INITIAL.
+          es_ddlsrcv = ls_ddlsrcv.
+          rv_found = abap_true.
+          RETURN.
+        ENDIF.
+      CATCH cx_dd_ddl_check.
+        " Ignore - will try active version
+    ENDTRY.
+
+    " If no inactive version, try active version
+    TRY.
+        lo_handler->read(
+          EXPORTING
+            iv_name      = iv_ddls_name
+            iv_get_state = 'A'
+          IMPORTING
+            es_ddlsrcv   = ls_ddlsrcv ).
+
+        IF ls_ddlsrcv-source IS NOT INITIAL.
+          es_ddlsrcv = ls_ddlsrcv.
+          rv_found = abap_true.
+        ENDIF.
+      CATCH cx_dd_ddl_check.
+        " Not found in either version
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD validate_ddls_check.
+    " Validate DDLS and build result
+    DATA: lo_handler TYPE REF TO zif_abgagt_ddl_handler,
+          ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
+          lt_warnings TYPE zif_abgagt_ddl_handler=>ty_warnings,
+          lx_error TYPE REF TO cx_dd_ddl_check,
+          ls_warning TYPE ty_warning,
+          lv_warn_msg TYPE string,
+          lv_err_msg TYPE string.
+
+    ls_ddlsrcv = is_ddlsrcv.
+    rs_result-object_type = 'DDLS'.
+    rs_result-object_name = iv_ddls_name.
+    rs_result-success = abap_true.
+
+    lo_handler = get_ddl_handler( ).
+
+    " Run validation check
+    TRY.
+        lo_handler->check(
+          EXPORTING
+            iv_name       = iv_ddls_name
+          CHANGING
+            cs_ddlsrcv    = ls_ddlsrcv
+          IMPORTING
+            et_warnings   = lt_warnings ).
+
+        " Parse warnings from check method
+        LOOP AT lt_warnings INTO DATA(ls_warn_from_check).
+          CLEAR ls_warning.
+          ls_warning-type = ls_warn_from_check-type.
+          ls_warning-line = ls_warn_from_check-line.
+          ls_warning-column = ls_warn_from_check-column.
+          ls_warning-severity = ls_warn_from_check-severity.
+          ls_warning-object_type = 'DDLS'.
+          ls_warning-object_name = iv_ddls_name.
+          " Use MESSAGE statement to get real warning message
+          MESSAGE ID ls_warn_from_check-arbgb TYPE 'E' NUMBER ls_warn_from_check-msgnr
+            WITH ls_warn_from_check-var1 ls_warn_from_check-var2 ls_warn_from_check-var3 ls_warn_from_check-var4
+            INTO lv_warn_msg.
+          ls_warning-message = lv_warn_msg.
+          APPEND ls_warning TO rs_result-warnings.
+        ENDLOOP.
+
+        " If no errors and no warnings, validation passed
+        IF rs_result-warnings IS INITIAL.
+          rs_result-success = abap_true.
+        ELSE.
+          rs_result-success = abap_false.
+        ENDIF.
+
+      CATCH cx_dd_ddl_check INTO lx_error.
+        " Validation failed - get error details using get_errors method
+        DATA(lt_errors) = lx_error->get_errors( ).
+        LOOP AT lt_errors INTO DATA(ls_err).
+          DATA(ls_error) = VALUE ty_error( ).
+          ls_error-line = ls_err-line.
+          ls_error-column = ls_err-column.
+          " Use MESSAGE statement to get real error message
+          MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
+            WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
+            INTO lv_err_msg.
+          ls_error-text = lv_err_msg.
+          APPEND ls_error TO rs_result-errors.
+        ENDLOOP.
+
+        " Also get warnings if any
+        DATA(lt_warn) = lx_error->get_warnings( ).
+        LOOP AT lt_warn INTO DATA(ls_warn2).
+          CLEAR ls_warning.
+          ls_warning-type = ls_warn2-type.
+          ls_warning-line = ls_warn2-line.
+          ls_warning-column = ls_warn2-column.
+          ls_warning-severity = ls_warn2-severity.
+          ls_warning-object_type = 'DDLS'.
+          ls_warning-object_name = iv_ddls_name.
+          MESSAGE ID ls_warn2-arbgb TYPE 'E' NUMBER ls_warn2-msgnr
+            WITH ls_warn2-var1 ls_warn2-var2 ls_warn2-var3 ls_warn2-var4
+            INTO lv_warn_msg.
+          ls_warning-message = lv_warn_msg.
+          APPEND ls_warning TO rs_result-warnings.
+        ENDLOOP.
+
+        rs_result-success = abap_false.
+    ENDTRY.
+
+    rs_result-error_count = lines( rs_result-errors ).
+  ENDMETHOD.
+
+  METHOD get_ddl_handler.
+    " Return injected handler or create default wrapper
+    IF mo_ddl_handler IS BOUND.
+      ro_handler = mo_ddl_handler.
+    ELSE.
+      " Create default wrapper that uses real DDL handler
+      ro_handler = NEW lcl_ddl_handler_default( ).
+    ENDIF.
   ENDMETHOD.
 
   METHOD run_inspection.
