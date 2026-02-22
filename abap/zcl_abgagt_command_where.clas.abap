@@ -55,6 +55,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS get_where_used_list
       IMPORTING iv_obj_type TYPE trobjtype
                 iv_obj_name TYPE sobj_name
+                iv_limit    TYPE i DEFAULT 0
       RETURNING VALUE(rt_references) TYPE ty_references.
 
   PRIVATE SECTION.
@@ -132,30 +133,15 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " Get where-used list
+      " Get where-used list with limit
       lt_references = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name
+        iv_limit    = ls_params-limit
       ).
 
-      " Apply limit
-      DATA lt_limited_refs TYPE ty_references.
-      DATA ls_ref TYPE ty_reference.
-      DATA lv_count TYPE i.
-      IF ls_params-limit > 0.
-        LOOP AT lt_references INTO ls_ref.
-          APPEND ls_ref TO lt_limited_refs.
-          lv_count = lv_count + 1.
-          IF lv_count >= ls_params-limit.
-            EXIT.
-          ENDIF.
-        ENDLOOP.
-      ELSE.
-        lt_limited_refs = lt_references.
-      ENDIF.
-
-      ls_where_obj-references = lt_limited_refs.
-      ls_where_obj-count = lines( lt_limited_refs ).
+      ls_where_obj-references = lt_references.
+      ls_where_obj-count = lines( lt_references ).
 
       APPEND ls_where_obj TO lt_objects.
       CLEAR ls_where_obj.
@@ -252,6 +238,11 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
       ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
+
+      " Apply limit if specified
+      IF iv_limit > 0 AND lines( rt_references ) >= iv_limit.
+        EXIT.
+      ENDIF.
     ENDLOOP.
 
     " Sort by object name
