@@ -466,35 +466,39 @@ CALL FUNCTION 'RS_EU_CROSSREF'
 ### Include Name Patterns
 
 The `SUB_NAME` field contains the source code include name. The format is:
-- **Total length always 30 characters**
-- Structure: `CLASSNAME` + `=` (dynamic padding) + `INCLUDETYPE` (2 chars)
-- Example: `ZCL_ABGAGT_AGENT=============CU` (15 + 13 + 2 = 30)
+- **Structure**: `CLASSNAME` + `INCLUDETYPE` (no padding, appended directly)
+- **Total length**: Varies (typically 30-40 characters depending on class name length)
+- **Include type length**: 2-4 characters
+
+Examples:
+- `ZCL_ABGAGT_AGENT=====CU` (15 + 5 + 2 = 22 chars)
+- `CL_GRCAUD_V_USER_AUTH_R_AGNMNTCCAU` (28 + 4 = 32 chars - extreme case with no padding)
 
 #### Class Include Types
 
-| Include Type | Description | Example |
-|-------------|-------------|---------|
-| `CU` | Public section | `ZCL_CLASS==============CU` |
-| `CO` | Protected section | `ZCL_CLASS==============CO` |
-| `CP` | Private section | `ZCL_CLASS==============CP` |
-| `CM001-CM099` | Method implementations (01-99) | `ZCL_CLASS==============CM001` |
-| `CM00A-CM99Z` | Extended method numbers (A-Z) | `ZCL_CLASS==============CM00A` |
-| `CCAU` | Test class (AUnit) | `ZCL_CLASS==============CCAU` |
-| `CCIMP` | Local class implementations | `ZCL_CLASS==============CCIMP` |
-| `CI` | Local interface/type definitions | `ZCL_CLASS===============CI` |
-| `CT` | Macros | `ZCL_CLASS===============CT` |
+| Include Type | Description | Length |
+|-------------|-------------|--------|
+| `CU` | Public section | 2 |
+| `CO` | Protected section | 2 |
+| `CP` | Private section | 2 |
+| `CM001-CM099` | Method implementations (01-99) | 4 |
+| `CM00A-CM99Z` | Extended method numbers (A-Z) | 4 |
+| `CCAU` | Test class (AUnit) | 4 |
+| `CCIMP` | Local class implementations | 4 |
+| `CI` | Local interface/type definitions | 2 |
+| `CT` | Macros | 2 |
 
 #### Interface Include Types
 
-| Include Type | Description | Example |
-|-------------|-------------|---------|
-| `IU` | Interface section | `ZIF_INTERFACE==============IU` |
+| Include Type | Description | Length |
+|-------------|-------------|--------|
+| `IU` | Interface section | 2 |
 
 #### Program Include Types
 
-| Include Type | Description | Example |
-|-------------|-------------|---------|
-| (none) | Main program | `SAPLZWABGAGT=============` |
+| Include Type | Description |
+|-------------|-------------|
+| (none) | Main program - include name is just the program name |
 
 ---
 
