@@ -17,7 +17,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
           lt_source TYPE TABLE OF string,
           lv_line TYPE string,
           lv_name TYPE tadir-obj_name,
-          lv_name_len TYPE i.
+          lv_name_len TYPE i,
+          lv_clsname TYPE seoclsname.
 
     lv_name = iv_name.
     lv_name_len = strlen( lv_name ).
@@ -29,7 +30,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         " This is a source include - get the class name from it
-        DATA lv_clsname TYPE seoclsname.
         lv_clsname = lv_name(30). " First 30 chars are the class name
 
         " Try to get class info from TADIR
@@ -77,7 +77,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
     ENDIF.
 
     " Get class public section program name using CL_OO_CLASSNAME_SERVICE
-    DATA lv_clsname TYPE seoclsname.
     lv_clsname = iv_name.
     CALL METHOD cl_oo_classname_service=>get_pubsec_name
       EXPORTING
