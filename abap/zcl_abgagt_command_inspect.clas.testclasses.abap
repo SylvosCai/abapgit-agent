@@ -32,10 +32,10 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     " Test double tests for DDL handler
     METHODS test_validate_ddls_success FOR TESTING.
     METHODS test_validate_ddls_not_found FOR TESTING.
-    METHODS test_validate_ddls_with_warnings FOR TESTING.
-    METHODS test_validate_ddls_with_errors FOR TESTING.
+    METHODS test_ddls_with_warnings FOR TESTING.
+    METHODS test_ddls_with_errors FOR TESTING.
     METHODS test_read_ddls_source FOR TESTING.
-    METHODS test_validate_ddls_check FOR TESTING.
+    METHODS test_validate_ddls_chk FOR TESTING.
 ENDCLASS.
 
 "**********************************************************************
@@ -822,7 +822,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Should have one error' ).
   ENDMETHOD.
 
-  METHOD test_validate_ddls_with_warnings.
+  METHOD test_ddls_with_warnings.
     " Test validate_ddls with warnings
     DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
     lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
@@ -847,7 +847,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Should have one warning' ).
   ENDMETHOD.
 
-  METHOD test_validate_ddls_with_errors.
+  METHOD test_ddls_with_errors.
     " Test validate_ddls when check throws exception with errors
     DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
     lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
@@ -901,7 +901,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'DDLS name should match' ).
   ENDMETHOD.
 
-  METHOD test_validate_ddls_check.
+  METHOD test_validate_ddls_chk.
     " Test validate_ddls_check method directly
     DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
     lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
