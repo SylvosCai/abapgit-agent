@@ -112,30 +112,11 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
             ev_type_text = lv_type_text ).
       ENDIF.
 
-      " Check if object was not found in TADIR
-      IF lv_type IS INITIAL.
-        ls_info-not_found = abap_true.
-        ls_info-type_text = 'Unknown'.
-      ELSE.
-        ls_info-type = lv_type.
-        ls_info-type_text = lv_type_text.
+      " Set type from detection result
+      ls_info-type = lv_type.
+      ls_info-type_text = lv_type_text.
 
-        " Set type text (fallback if not set by detect_object_type)
-        IF ls_info-type_text IS INITIAL.
-          CASE lv_type.
-            WHEN 'CLAS'. ls_info-type_text = 'Class'.
-            WHEN 'INTF'. ls_info-type_text = 'Interface'.
-            WHEN 'TABL'. ls_info-type_text = 'Table'.
-            WHEN 'STRU'. ls_info-type_text = 'Structure'.
-            WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
-            WHEN 'TTYP'. ls_info-type_text = 'Table Type'.
-            WHEN 'DDLS'. ls_info-type_text = 'CDS View'.
-            WHEN 'PROG'. ls_info-type_text = 'Program'.
-            WHEN OTHERS. ls_info-type_text = lv_type.
-          ENDCASE.
-        ENDIF.
-
-        " Get viewer and retrieve info only if object was found
+      " Get viewer and retrieve info
         TRY.
             lo_viewer = lo_factory->get_viewer( lv_type ).
             IF lo_viewer IS BOUND.
