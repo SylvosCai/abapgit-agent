@@ -419,30 +419,58 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Create inspection name
     lv_name = create_inspection_name( ).
 
-    " Create object set (using static method - could use inspector if injected)
-    lo_objset = cl_ci_objectset=>save_from_list(
-      p_name    = lv_name
-      p_objects = it_objects ).
+    " Use injected inspector or fall back to static SAP calls
+    IF mo_inspector IS BOUND.
+      " Use injected inspector (for testing)
+      lo_objset = mo_inspector->create_object_set(
+        iv_name    = lv_name
+        it_objects = it_objects ).
 
-    " Get check variant
-    lo_variant = get_check_variant( iv_variant ).
+      lo_variant = mo_inspector->get_check_variant( iv_variant ).
 
-    " Check if variant was found
-    IF lo_variant IS NOT BOUND.
-      rt_results = build_variant_error(
-        iv_variant = iv_variant
-        iv_subrc = 1 ).
-      RETURN.
+      IF lo_variant IS NOT BOUND.
+        rt_results = build_variant_error(
+          iv_variant = iv_variant
+          iv_subrc = 1 ).
+        RETURN.
+      ENDIF.
+
+      lo_inspection = mo_inspector->create_and_run_inspection(
+        iv_name     = lv_name
+        io_variant  = lo_variant
+        io_objset   = lo_objset ).
+
+      lt_list = mo_inspector->get_results( lo_inspection ).
+
+      mo_inspector->cleanup(
+        io_inspection = lo_inspection
+        io_objset    = lo_objset ).
+    ELSE.
+      " Use static SAP methods (production)
+      lo_objset = cl_ci_objectset=>save_from_list(
+        p_name    = lv_name
+        p_objects = it_objects ).
+
+      lo_variant = get_check_variant( iv_variant ).
+
+      IF lo_variant IS NOT BOUND.
+        rt_results = build_variant_error(
+          iv_variant = iv_variant
+          iv_subrc = 1 ).
+        RETURN.
+      ENDIF.
+
+      lo_inspection = create_and_run_inspection(
+        iv_name     = lv_name
+        io_variant  = lo_variant
+        io_objset   = lo_objset ).
+
+      lo_inspection->plain_list( IMPORTING p_list = lt_list ).
+
+      cleanup(
+        io_inspection = lo_inspection
+        io_objset     = lo_objset ).
     ENDIF.
-
-    " Create and run inspection
-    lo_inspection = create_and_run_inspection(
-      iv_name     = lv_name
-      io_variant  = lo_variant
-      io_objset   = lo_objset ).
-
-    " Get results
-    lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
     " Build result for each object
     LOOP AT it_objects INTO DATA(ls_obj).
@@ -451,11 +479,6 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         it_list   = lt_list ).
       APPEND ls_result TO rt_results.
     ENDLOOP.
-
-    " Cleanup
-    cleanup(
-      io_inspection = lo_inspection
-      io_objset     = lo_objset ).
 
   ENDMETHOD.
 
