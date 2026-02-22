@@ -79,7 +79,7 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     " Type for DDLS object names
     TYPES ty_ddls_names TYPE STANDARD TABLE OF tadir-obj_name WITH NON-UNIQUE DEFAULT KEY.
 
-    METHODS run_syntax_check
+    METHODS run_inspection
       IMPORTING it_objects TYPE ty_object_keys
                 iv_variant TYPE string DEFAULT 'SYNTAX_CHECK'
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
@@ -156,7 +156,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Run syntax check for non-DDLS objects
     IF lt_objects IS NOT INITIAL.
-      DATA(lt_sci_results) = run_syntax_check(
+      DATA(lt_sci_results) = run_inspection(
         it_objects = lt_objects
         iv_variant = ls_params-variant ).
       INSERT LINES OF lt_sci_results INTO TABLE lt_results.
@@ -335,7 +335,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD run_syntax_check.
+  METHOD run_inspection.
     DATA: lv_name TYPE sci_objs,
           lo_objset TYPE REF TO cl_ci_objectset,
           lo_variant TYPE REF TO cl_ci_checkvariant,
