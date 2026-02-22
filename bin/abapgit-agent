@@ -2515,10 +2515,14 @@ Examples:
               const refType = ref.OBJECT_TYPE || ref.object_type || '';
               const includeName = ref.INCLUDE_NAME || ref.include_name || '';
               const subType = ref.SUB_TYPE || ref.sub_type || '';
+              const methodName = ref.METHOD_NAME || ref.method_name || '';
               const package = ref.PACKAGE || ref.package || '';
 
               console.log(`     ${j + 1}. ${refObj} (${refType})`);
               console.log(`        Include: ${includeName}`);
+              if (methodName) {
+                console.log(`        Method: ${methodName}`);
+              }
               if (subType) {
                 console.log(`        Sub: ${subType}`);
               }

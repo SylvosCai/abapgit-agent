@@ -18,6 +18,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
              object_type TYPE string,
              include_name TYPE string,
              sub_type TYPE string,
+             method_name TYPE string,
              package TYPE string,
            END OF ty_reference.
 
@@ -197,12 +198,58 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_ref_out-object_type = <ls_ref>-obj_type.
       ls_ref_out-include_name = <ls_ref>-sub_name.
       ls_ref_out-sub_type = <ls_ref>-sub_type.
+      " Get method name for method includes
+      ls_ref_out-method_name = get_method_name(
+        iv_classname = <ls_ref>-obj_name
+        iv_include_name = <ls_ref>-sub_name ).
       ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
 
     " Sort by object name
     SORT rt_references BY object.
+  ENDMETHOD.
+
+  METHOD get_method_name.
+    " Extract method name from include name
+    rv_method_name = ''.
+
+    " Split include name by '=' to get class name and include type
+    DATA lt_parts TYPE TABLE OF string.
+    SPLIT iv_include_name AT '=' INTO TABLE lt_parts.
+
+    DATA lv_include TYPE string.
+    LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
+      lv_include = lv_part.
+    ENDLOOP.
+
+    " Check include type
+    CASE lv_include.
+      WHEN 'CCAU'.
+        rv_method_name = 'UNIT TEST'.
+      WHEN 'CCDEF'.
+        rv_method_name = 'LOCAL DEFINITIONS'.
+      WHEN 'CCIMP'.
+        rv_method_name = 'LOCAL IMPLEMENTATIONS'.
+      WHEN 'CI'.
+        rv_method_name = 'LOCAL INTERFACES'.
+      WHEN 'CT'.
+        rv_method_name = 'MACROS'.
+      WHEN OTHERS.
+        " Check if it's a method include (CM###)
+        IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
+          " Convert CM003 to 3 (remove CM prefix)
+          DATA(lv_num_str) = substring( val = lv_include off = 2 ).
+          DATA(lv_include_num) = CONV i( lv_num_str ).
+
+          " Get method name from TMDIR
+          SELECT SINGLE methodname
+            FROM tmdir
+            INTO rv_method_name
+            WHERE classname = iv_classname
+              AND methodindx = lv_include_num.
+        ENDIF.
+    ENDCASE.
   ENDMETHOD.
 
 ENDCLASS.
