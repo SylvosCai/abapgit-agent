@@ -266,15 +266,20 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         " Check if it's a method include (CM###)
         IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
           " Convert CM003 to 3 (remove CM prefix)
+          " Extended methods like CM00A, CM00B can't be converted to number
           DATA(lv_num_str) = substring( val = lv_include off = 2 ).
-          DATA(lv_include_num) = CONV i( lv_num_str ).
-
-          " Get method name from TMDIR
-          SELECT SINGLE methodname
-            FROM tmdir
-            INTO rv_method_name
-            WHERE classname = iv_classname
-              AND methodindx = lv_include_num.
+          TRY.
+              DATA(lv_include_num) = CONV i( lv_num_str ).
+              " Get method name from TMDIR
+              SELECT SINGLE methodname
+                FROM tmdir
+                INTO rv_method_name
+                WHERE classname = iv_classname
+                  AND methodindx = lv_include_num.
+            CATCH cx_sy_conversion_no_number.
+              " Extended method (CM00A-CM99Z) - can't convert to number
+              rv_method_name = |Extended method: { lv_include }|.
+          ENDTRY.
         ENDIF.
     ENDCASE.
   ENDMETHOD.
