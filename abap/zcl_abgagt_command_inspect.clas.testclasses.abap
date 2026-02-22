@@ -28,6 +28,7 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_mock_macros FOR TESTING.
     METHODS test_mock_multi_errors FOR TESTING.
     METHODS test_mock_var_not_found FOR TESTING.
+    METHODS test_mock_exception FOR TESTING.
 ENDCLASS.
 
 "**********************************************************************
@@ -45,6 +46,7 @@ CLASS lcl_code_inspector_mock DEFINITION.
     " Mock data to return
     DATA mt_mock_results TYPE scit_alvlist.
     DATA mv_objname TYPE sobj_name.
+    DATA mx_exception TYPE REF TO cx_root.
 
     METHODS constructor.
 
@@ -69,6 +71,9 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_object_set.
+    IF mv_raise_exception = abap_true AND mx_exception IS BOUND.
+      RAISE EXCEPTION mx_exception.
+    ENDIF.
     ro_objset = mo_mock_objset.
   ENDMETHOD.
 
@@ -80,6 +85,9 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_and_run_inspection.
+    IF mv_raise_exception = abap_true AND mx_exception IS BOUND.
+      RAISE EXCEPTION mx_exception.
+    ENDIF.
     ro_inspection = mo_mock_inspection.
   ENDMETHOD.
 
@@ -649,6 +657,45 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       act = lv_result
       exp = '*not found*'
       msg = 'Result should indicate variant not found' ).
+  ENDMETHOD.
+
+  METHOD test_mock_exception.
+    " Test exception handling - covers build_error_result
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mv_raise_exception = abap_true.
+    lo_mock->mx_exception = NEW cx_static_check( text = 'Test exception' ).
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    " Should not raise exception, should return error result
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain error info from exception
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*errors*'
+      msg = 'Result should contain errors' ).
+
+    " Should indicate failure
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*success* *'
+      msg = 'Result should indicate failure' ).
+
+    " Should contain exception text
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*Test exception*'
+      msg = 'Result should contain exception text' ).
   ENDMETHOD.
 
 ENDCLASS.

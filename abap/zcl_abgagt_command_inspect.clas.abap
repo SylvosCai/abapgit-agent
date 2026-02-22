@@ -422,54 +422,69 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Use injected inspector or fall back to static SAP calls
     IF mo_inspector IS BOUND.
       " Use injected inspector (for testing)
-      lo_objset = mo_inspector->create_object_set(
-        iv_name    = lv_name
-        it_objects = it_objects ).
+      TRY.
+          lo_objset = mo_inspector->create_object_set(
+            iv_name    = lv_name
+            it_objects = it_objects ).
 
-      lo_variant = mo_inspector->get_check_variant( iv_variant ).
+          lo_variant = mo_inspector->get_check_variant( iv_variant ).
 
-      IF lo_variant IS NOT BOUND.
-        rt_results = build_variant_error(
-          iv_variant = iv_variant
-          iv_subrc = 1 ).
-        RETURN.
-      ENDIF.
+          IF lo_variant IS NOT BOUND.
+            rt_results = build_variant_error(
+              iv_variant = iv_variant
+              iv_subrc = 1 ).
+            RETURN.
+          ENDIF.
 
-      lo_inspection = mo_inspector->create_and_run_inspection(
-        iv_name     = lv_name
-        io_variant  = lo_variant
-        io_objset   = lo_objset ).
+          lo_inspection = mo_inspector->create_and_run_inspection(
+            iv_name     = lv_name
+            io_variant  = lo_variant
+            io_objset   = lo_objset ).
 
-      lt_list = mo_inspector->get_results( lo_inspection ).
+          lt_list = mo_inspector->get_results( lo_inspection ).
 
-      mo_inspector->cleanup(
-        io_inspection = lo_inspection
-        io_objset    = lo_objset ).
+          mo_inspector->cleanup(
+            io_inspection = lo_inspection
+            io_objset    = lo_objset ).
+        CATCH cx_root INTO DATA(lx_inspector_error).
+          rt_results = build_error_result(
+            it_objects = it_objects
+            ix_error   = lx_inspector_error ).
+          RETURN.
+      ENDTRY.
     ELSE.
       " Use static SAP methods (production)
-      lo_objset = cl_ci_objectset=>save_from_list(
-        p_name    = lv_name
-        p_objects = it_objects ).
+      TRY.
+          lo_objset = cl_ci_objectset=>save_from_list(
+            p_name    = lv_name
+            p_objects = it_objects ).
 
-      lo_variant = get_check_variant( iv_variant ).
+          lo_variant = get_check_variant( iv_variant ).
 
-      IF lo_variant IS NOT BOUND.
-        rt_results = build_variant_error(
-          iv_variant = iv_variant
-          iv_subrc = 1 ).
-        RETURN.
-      ENDIF.
+          IF lo_variant IS NOT BOUND.
+            rt_results = build_variant_error(
+              iv_variant = iv_variant
+              iv_subrc = 1 ).
+            RETURN.
+          ENDIF.
 
-      lo_inspection = create_and_run_inspection(
-        iv_name     = lv_name
-        io_variant  = lo_variant
-        io_objset   = lo_objset ).
+          lo_inspection = create_and_run_inspection(
+            iv_name     = lv_name
+            io_variant  = lo_variant
+            io_objset   = lo_objset ).
 
-      lo_inspection->plain_list( IMPORTING p_list = lt_list ).
+          lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
-      cleanup(
-        io_inspection = lo_inspection
-        io_objset     = lo_objset ).
+          cleanup(
+            io_inspection = lo_inspection
+            io_objset     = lo_objset ).
+        CATCH cx_root INTO DATA(lx_error).
+          " Handle exception - build error result
+          rt_results = build_error_result(
+            it_objects = it_objects
+            ix_error   = lx_error ).
+          RETURN.
+      ENDTRY.
     ENDIF.
 
     " Build result for each object
