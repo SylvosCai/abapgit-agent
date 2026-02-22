@@ -103,18 +103,18 @@ Found 3 references:
 
 1️⃣  ZCL_ABGAGT_COMMAND_UNIT (Class)
     ├─ Include: ZCL_ABGAGT_COMMAND_UNIT=======CM007
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: CONSTRUCTOR
+    └─ Type: Class Method
 
 2️⃣  ZCL_ABGAGT_REST_HANDLER (Class)
     ├─ Include: ZCL_ABGAGT_REST_HANDLER======CM00E
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: RUN
+    └─ Type: Class Method
 
 3️⃣  ZCL_ABGAGT_AGENT (Class)
     ├─ Include: ZCL_ABGAGT_AGENT=============CM012
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: EXECUTE
+    └─ Type: Class Method
 ```
 
 ### Interface Where-Used List
@@ -126,18 +126,15 @@ Found 45 references:
 
 1️⃣  ZCL_ABGAGT_CMD_FACTORY (Class)
     ├─ Include: ZCL_ABGAGT_CMD_FACTORY=========IU
-    ├─ Type: CLAS
-    └─ Sub: METH
+    └─ Type: Interface Section
 
 2️⃣  ZCL_ABGAGT_COMMAND_PULL (Class)
     ├─ Include: ZCL_ABGAGT_COMMAND_PULL=======CU
-    ├─ Type: CLAS
-    └─ Sub: METH
+    └─ Type: Public Section
 
 3️⃣  ZCL_ABGAGT_COMMAND_INSPECT (Class)
     ├─ Include: ZCL_ABGAGT_COMMAND_INSPECT====CU
-    ├─ Type: CLAS
-    └─ Sub: METH
+    └─ Type: Public Section
 ...
 ```
 
@@ -150,13 +147,13 @@ Found 2 references:
 
 1️⃣  ZCL_ABGAGT_REST_HANDLER (Class)
     ├─ Include: ZCL_ABGAGT_REST_HANDLER======CM00D
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: PULL
+    └─ Type: Class Method
 
 2️⃣  ZCL_ABGAGT_REST_HANDLER (Class)
     ├─ Include: ZCL_ABGAGT_REST_HANDLER======CM00F
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: PUSH
+    └─ Type: Class Method
 ```
 
 ### Program Where-Used List
@@ -168,13 +165,13 @@ Found 4 references:
 
 1️⃣  ZCL_ABGAGT_REST_HANDLER (Class)
     ├─ Include: ZCL_ABGAGT_REST_HANDLER======CM001
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: CONSTRUCTOR
+    └─ Type: Class Method
 
 2️⃣  ZCL_ABGAGT_AGENT (Class)
     ├─ Include: ZCL_ABGAGT_AGENT=============CM005
-    ├─ Type: CLAS
-    └─ Sub: METH
+    ├─ Method: INITIALIZE
+    └─ Type: Class Method
 ```
 
 ### Multiple Objects
@@ -205,13 +202,15 @@ Found 4 references:
           "OBJECT": "ZCL_ABGAGT_COMMAND_UNIT",
           "OBJECT_TYPE": "CLAS",
           "INCLUDE_NAME": "ZCL_ABGAGT_COMMAND_UNIT=======CM007",
-          "SUB_TYPE": "METH"
+          "METHOD_NAME": "CONSTRUCTOR",
+          "INCLUDE_TYPE": "Class Method"
         },
         {
           "OBJECT": "ZCL_ABGAGT_REST_HANDLER",
           "OBJECT_TYPE": "CLAS",
           "INCLUDE_NAME": "ZCL_ABGAGT_REST_HANDLER======CM00E",
-          "SUB_TYPE": "METH"
+          "METHOD_NAME": "RUN",
+          "INCLUDE_TYPE": "Class Method"
         }
       ],
       "COUNT": 2
@@ -245,7 +244,8 @@ Found 4 references:
           "OBJECT": "string",
           "OBJECT_TYPE": "string",
           "INCLUDE_NAME": "string",
-          "SUB_TYPE": "string",
+          "METHOD_NAME": "string",
+          "INCLUDE_TYPE": "string",
           "PACKAGE": "string"
         }
       ],
@@ -265,10 +265,28 @@ Found 4 references:
 | JSON Field | AKH_WHERE_USED_LIST Field | Description |
 |------------|---------------------------|-------------|
 | `OBJECT` | `OBJ_NAME` | Object using the reference |
-| `OBJECT_TYPE` | `OBJ_` | Object type (CLAS, etc.) |
+| `OBJECT_TYPE` | `OBJ_` | Object type (CLAS, PROG) |
 | `INCLUDE_NAME` | `SUB_NAME` | Source code include name |
-| `SUB_TYPE` | `SUB_` | Sub object type (METH, etc.) |
+| `METHOD_NAME` | (derived from INCLUDE_NAME) | Method name if include is a method |
+| `INCLUDE_TYPE` | (derived from INCLUDE_NAME) | Human-readable include type |
 | `PACKAGE` | `APPL_PACKET` | Package where the using object resides |
+
+### Include Type Mapping
+
+The `INCLUDE_TYPE` field provides a human-readable description of the include type:
+
+| Include Type | Description |
+|-------------|-------------|
+| `CM001-CM099`, `CM00A-CM99Z` | Class Method |
+| `CCAU` | Unit Test |
+| `CCIMP` | Local Implementations |
+| `CCDEF` | Local Definitions |
+| `CU` | Public Section |
+| `CO` | Protected Section |
+| `CP` | Private Section |
+| `CI` | Local Interfaces |
+| `CT` | Macros |
+| `IU` | Interface Section |
 
 ---
 
@@ -289,12 +307,11 @@ Found 4 references:
    - Class test class: `ZCL_CLASS=============CCAU`
    - Interface: `ZIF_INTERFACE============IU`
 
-4. **Sub Type**: Returns the type of reference from `SUB_`:
-   - `METH` - Method reference
-   - `ATTR` - Attribute reference
-   - `TYPE` - Type reference
+4. **Method Name**: When the include is a method include (CM###), the method name is extracted from TMDIR table based on the method index.
 
-5. **Limit Results**: Use `--limit` to restrict the number of references returned (default: 100)
+5. **Include Type**: Returns a human-readable description of the include type (e.g., "Class Method", "Public Section", "Unit Test").
+
+6. **Limit Results**: Use `--limit` to restrict the number of references returned (default: 100)
 
 ---
 

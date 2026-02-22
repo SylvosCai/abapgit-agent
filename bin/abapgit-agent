@@ -2514,7 +2514,7 @@ Examples:
               const refObj = ref.OBJECT || ref.object || '';
               const refType = ref.OBJECT_TYPE || ref.object_type || '';
               const includeName = ref.INCLUDE_NAME || ref.include_name || '';
-              const subType = ref.SUB_TYPE || ref.sub_type || '';
+              const includeType = ref.INCLUDE_TYPE || ref.include_type || '';
               const methodName = ref.METHOD_NAME || ref.method_name || '';
               const package = ref.PACKAGE || ref.package || '';
 
@@ -2523,8 +2523,8 @@ Examples:
               if (methodName) {
                 console.log(`        Method: ${methodName}`);
               }
-              if (subType) {
-                console.log(`        Sub: ${subType}`);
+              if (includeType) {
+                console.log(`        Type: ${includeType}`);
               }
               if (package) {
                 console.log(`        Package: ${package}`);
