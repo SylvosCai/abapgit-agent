@@ -465,14 +465,30 @@ CALL FUNCTION 'RS_EU_CROSSREF'
 
 ### Include Name Patterns
 
-The `SUB_NAME` field contains the source code include name. The format is:
-- **Structure**: `CLASSNAME` + `INCLUDETYPE` (no padding, appended directly)
-- **Total length**: Varies (typically 30-40 characters depending on class name length)
-- **Include type length**: 2-4 characters
+The `SUB_NAME` field contains the source code include name.
+
+#### Padding Rule
+
+The class name portion (including padding) is **ALWAYS 30 characters**. The formula is:
+
+```
+SUB_NAME = PAD(classname, 30, '=') + include_type
+```
+
+| Class Name Length | Padding (= signs) | Include Type | Total |
+|-----------------|------------------|--------------|-------|
+| 15 | 15 `=` | CM001 (5) | 35 |
+| 20 | 10 `=` | CU (2) | 32 |
+| 22 | 8 `=` | CCAU (4) | 34 |
+| 29 | 1 `=` | CM001 (5) | 35 |
+| 30 | 0 `=` | CM001 (5) | 35 |
+
+**When class name is 30 characters**: No padding needed, include type appended directly.
 
 Examples:
-- `ZCL_ABGAGT_AGENT=====CU` (15 + 5 + 2 = 22 chars)
-- `CL_GRCAUD_V_USER_AUTH_R_AGNMNTCCAU` (28 + 4 = 32 chars - extreme case with no padding)
+- `ZCL_ABGAGT_AGENT=============CU` (15 + 13 + 2 = 30)
+- `CL_GRCAUD_ACTION_NOTIFIER=====CU` (22 + 8 + 2 = 32)
+- `CL_GRCAUD_V_USER_AUTH_R_AGNMNTCM001` (30 + 0 + 5 = 35, no padding)
 
 #### Class Include Types
 
