@@ -4,6 +4,9 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
   PRIVATE SECTION.
     DATA mo_cut TYPE REF TO zcl_abgagt_command_inspect.
 
+    " Local type for DDLS names
+    TYPES ty_ddls_names TYPE STANDARD TABLE OF tadir-obj_name WITH NON-UNIQUE DEFAULT KEY.
+
     METHODS setup.
     METHODS test_get_name FOR TESTING.
     METHODS test_interface FOR TESTING.
