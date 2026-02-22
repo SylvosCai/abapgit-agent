@@ -164,7 +164,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     " Use utility to detect source include info
     DATA: lo_util TYPE REF TO zif_abgagt_util,
           ls_include_info TYPE zif_abgagt_util=>ty_include_info,
-          ls_obj_type_info TYPE zif_abgagt_util=>ty_object_type_info.
+          ls_obj_type_info TYPE zif_abgagt_util=>ty_object_type_info,
+          lv_obj_name TYPE tadir-obj_name.
 
     lo_util = zcl_abgagt_util=>get_instance( ).
     ls_include_info = lo_util->detect_include_info( iv_name ).
@@ -177,7 +178,8 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     ENDIF.
 
     " Query TADIR to find actual object type using utility method
-    ls_obj_type_info = lo_util->get_object_type_from_tadir( iv_name ).
+    lv_obj_name = iv_name.
+    ls_obj_type_info = lo_util->get_object_type_from_tadir( lv_obj_name ).
     rv_type = ls_obj_type_info-obj_type.
     ev_type_text = ls_obj_type_info-type_text.
   ENDMETHOD.
