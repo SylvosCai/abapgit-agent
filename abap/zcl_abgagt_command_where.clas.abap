@@ -69,9 +69,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     " Initialize utility instance
-    DATA lo_util TYPE REF TO zcl_abgagt_util.
-    lo_util = zcl_abgagt_util=>get_instance( ).
-    mo_util = lo_util.
+    mo_util = zcl_abgagt_util=>get_instance( ).
 
     DATA: ls_params TYPE ty_where_params,
           ls_result TYPE ty_where_result,

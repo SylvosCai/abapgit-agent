@@ -3,7 +3,7 @@ CLASS zcl_abgagt_util DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_util.
     CLASS-METHODS get_instance
-      RETURNING VALUE(ro_util) TYPE REF TO zcl_abgagt_util.
+      RETURNING VALUE(ro_util) TYPE REF TO zif_abgagt_util.
   PRIVATE SECTION.
     DATA mv_log TYPE string.
     DATA mv_has_error TYPE abap_bool.
