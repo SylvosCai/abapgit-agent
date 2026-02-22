@@ -55,14 +55,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS detect_object_type
       IMPORTING iv_name TYPE string
-      EXPORTING ev_type_text TYPE string
-                ev_devclass TYPE tadir-devclass
       RETURNING VALUE(rv_type) TYPE string.
-
-    METHODS get_object_info
-      IMPORTING iv_name TYPE string
-                iv_type TYPE string
-      RETURNING VALUE(rs_object) TYPE ty_view_object.
 
     METHODS build_summary
       IMPORTING it_objects TYPE ty_view_objects
@@ -101,43 +94,20 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     lo_factory = zcl_abgagt_viewer_factory=>get_instance( ).
 
     LOOP AT ls_params-objects INTO lv_object.
-      ls_info-name = lv_object.
-
+      " Auto-detect type if not provided
       DATA(lv_type) = ls_params-type.
-      DATA lv_type_text TYPE string.
-      DATA lv_devclass TYPE tadir-devclass.
-      lv_type_text = ''.
       IF lv_type IS INITIAL.
-        lv_type = detect_object_type(
-          EXPORTING
-            iv_name = lv_object
-          IMPORTING
-            ev_type_text = lv_type_text
-            ev_devclass = lv_devclass ).
+        lv_type = detect_object_type( iv_name = lv_object ).
       ENDIF.
-
-      " Set type from detection result
-      ls_info-type = lv_type.
-      ls_info-type_text = lv_type_text.
-      ls_info-devclass = lv_devclass.
 
       " Get viewer and retrieve info
       TRY.
           lo_viewer = lo_factory->get_viewer( lv_type ).
-          IF lo_viewer IS BOUND.
-            ls_info = lo_viewer->get_info( lv_object ).
-          ELSE.
-            ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
-          ENDIF.
-        CATCH cx_sy_create_object_error cx_dd_ddl_read.
-          " Fallback for unknown types
-          ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
+          ls_info = lo_viewer->get_info( lv_object ).
+        CATCH cx_sy_create_object_error.
+          " Viewer not found - set not found flag
+          ls_info-not_found = abap_true.
       ENDTRY.
-
-      " Preserve devclass from detection (viewer may not have it for source includes)
-      IF ls_info-devclass IS INITIAL AND lv_devclass IS NOT INITIAL.
-        ls_info-devclass = lv_devclass.
-      ENDIF.
 
       APPEND ls_info TO lt_objects.
     ENDLOOP.
@@ -163,11 +133,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     " If it's a source include, use the detected info
     IF ls_include_info-is_source_include = abap_true AND ls_include_info-obj_type IS NOT INITIAL.
       rv_type = ls_include_info-obj_type.
-      ev_type_text = ls_include_info-type_text.
-      " Get devclass from TADIR for source include
-      lv_obj_name = ls_include_info-obj_name.
-      ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
-      ev_devclass = ls_obj_info-devclass.
       RETURN.
     ENDIF.
 
@@ -175,22 +140,6 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     lv_obj_name = iv_name.
     ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
     rv_type = ls_obj_info-obj_type.
-    ev_type_text = ls_obj_info-type_text.
-    ev_devclass = ls_obj_info-devclass.
-  ENDMETHOD.
-
-  METHOD get_object_info.
-    " Note: type, type_text, and devclass are already set by detect_object_type
-    " Only need to build the description
-    rs_object-name = iv_name.
-    rs_object-type = iv_type.
-
-    " Build description using already-set type_text and devclass
-    IF rs_object-devclass IS NOT INITIAL.
-      rs_object-description = |{ rs_object-type_text } { iv_name } in { rs_object-devclass }|.
-    ELSE.
-      rs_object-description = |{ rs_object-type_text } { iv_name }|.
-    ENDIF.
   ENDMETHOD.
 
   METHOD build_summary.

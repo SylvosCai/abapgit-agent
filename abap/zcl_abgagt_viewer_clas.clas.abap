@@ -11,75 +11,47 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
-    DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass,
+    DATA: lo_util TYPE REF TO zif_abgagt_util,
+          ls_include_info TYPE zif_abgagt_util=>ty_include_info,
+          ls_obj_info TYPE zif_abgagt_util=>ty_object_info,
           lv_prog TYPE program,
           lt_source TYPE TABLE OF string,
           lv_line TYPE string,
-          lv_name TYPE tadir-obj_name,
-          lv_name_len TYPE i,
           lv_clsname TYPE seoclsname.
 
-    lv_name = iv_name.
-    lv_name_len = strlen( lv_name ).
+    rs_info-name = iv_name.
+    rs_info-type = 'CLAS'.
+    rs_info-type_text = 'Class'.
 
-    " Check if this is a source include (method, test class, section)
-    IF lv_name_len >= 32.
-      " Try to read as program/include directly first
-      lv_prog = lv_name.
-      READ REPORT lv_prog INTO lt_source.
-      IF sy-subrc = 0.
-        " This is a source include - get the class name from it
-        lv_clsname = lv_name(30). " First 30 chars are the class name
+    " Use util to detect source include
+    lo_util = zcl_abgagt_util=>get_instance( ).
+    ls_include_info = lo_util->detect_include_info( iv_name ).
 
-        " Try to get class info from TADIR
-        SELECT SINGLE obj_name devclass FROM tadir
-          INTO (lv_obj_name, lv_devclass)
-          WHERE obj_name = lv_clsname
-            AND object = 'CLAS'.
-
-        rs_info-name = lv_name.
-        rs_info-type = 'CLAS'.
-        rs_info-type_text = 'Class'.
-        rs_info-devclass = lv_devclass.
-        IF lv_devclass IS NOT INITIAL.
-          rs_info-description = |Class { lv_clsname } in { lv_devclass } (Source Include)|.
-        ELSE.
-          rs_info-description = |Class { lv_clsname } (Source Include)|.
-        ENDIF.
-
-        " Read source
-        LOOP AT lt_source INTO lv_line.
-          IF rs_info-source IS INITIAL.
-            rs_info-source = lv_line.
-          ELSE.
-            rs_info-source = rs_info-source && |\n| && lv_line.
-          ENDIF.
-        ENDLOOP.
-        RETURN.
+    IF ls_include_info-is_source_include = abap_true.
+      " Source include detected - get devclass using unpadded obj_name
+      ls_obj_info = lo_util->get_object_info_from_tadir( ls_include_info-obj_name ).
+      rs_info-devclass = ls_obj_info-devclass.
+      IF rs_info-devclass IS NOT INITIAL.
+        rs_info-description = |Class { ls_include_info-obj_name } in { rs_info-devclass } (Source Include)|.
+      ELSE.
+        rs_info-description = |Class { ls_include_info-obj_name } (Source Include)|.
+      ENDIF.
+    ELSE.
+      " Standard class - get info from TADIR
+      ls_obj_info = lo_util->get_object_info_from_tadir( iv_name ).
+      rs_info-devclass = ls_obj_info-devclass.
+      IF rs_info-devclass IS NOT INITIAL.
+        rs_info-description = |Class { iv_name } in { rs_info-devclass }|.
+      ELSE.
+        rs_info-not_found = abap_true.
       ENDIF.
     ENDIF.
 
-    " Standard class - get from TADIR
-    SELECT SINGLE obj_name devclass FROM tadir
-      INTO (lv_obj_name, lv_devclass)
-      WHERE obj_name = iv_name
-        AND object = 'CLAS'.
-    IF sy-subrc = 0.
-      rs_info-name = iv_name.
-      rs_info-type = 'CLAS'.
-      rs_info-type_text = 'Class'.
-      rs_info-devclass = lv_devclass.
-      rs_info-description = |Class { iv_name } in { lv_devclass }|.
-    ELSE.
-      rs_info-name = iv_name.
-      rs_info-type = 'CLAS'.
-      rs_info-type_text = 'Class'.
-      rs_info-not_found = abap_true.
+    " Get class public section program name
+    lv_clsname = ls_include_info-obj_name.
+    IF lv_clsname IS INITIAL.
+      lv_clsname = iv_name.
     ENDIF.
-
-    " Get class public section program name using CL_OO_CLASSNAME_SERVICE
-    lv_clsname = iv_name.
     CALL METHOD cl_oo_classname_service=>get_pubsec_name
       EXPORTING
         clsname = lv_clsname
@@ -88,15 +60,13 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     " Read source from program
     READ REPORT lv_prog INTO lt_source.
-    IF sy-subrc = 0.
-      LOOP AT lt_source INTO lv_line.
-        IF rs_info-source IS INITIAL.
-          rs_info-source = lv_line.
-        ELSE.
-          rs_info-source = rs_info-source && |\n| && lv_line.
-        ENDIF.
-      ENDLOOP.
-    ENDIF.
+    LOOP AT lt_source INTO lv_line.
+      IF rs_info-source IS INITIAL.
+        rs_info-source = lv_line.
+      ELSE.
+        rs_info-source = rs_info-source && |\n| && lv_line.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
