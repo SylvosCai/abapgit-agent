@@ -258,7 +258,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           " Method implementation include - belongs to a class
           rs_info-obj_type = 'CLAS'.
           lv_obj_name = lv_name(30).
-          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          REPLACE ALL OCCURRENCES OF '=' IN lv_obj_name WITH ''.
           rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
@@ -266,7 +266,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           " Test class or local types - belongs to a class
           rs_info-obj_type = 'CLAS'.
           lv_obj_name = lv_name(30).
-          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          REPLACE ALL OCCURRENCES OF '=' IN lv_obj_name WITH ''.
           rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
@@ -274,7 +274,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           " Class section - belongs to a class
           rs_info-obj_type = 'CLAS'.
           lv_obj_name = lv_name(30).
-          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          REPLACE ALL OCCURRENCES OF '=' IN lv_obj_name WITH ''.
           rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Class'.
@@ -282,7 +282,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           " Interface section - belongs to an interface
           rs_info-obj_type = 'INTF'.
           lv_obj_name = lv_name(30).
-          SHIFT lv_obj_name RIGHT DELETING TRAILING '='.
+          REPLACE ALL OCCURRENCES OF '=' IN lv_obj_name WITH ''.
           rs_info-obj_name = lv_obj_name.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Interface'.
