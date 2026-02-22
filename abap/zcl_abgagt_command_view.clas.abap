@@ -160,6 +160,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     DATA: lv_name TYPE tadir-obj_name,
           lv_prog TYPE program,
           lv_name_len TYPE i,
+          lv_suffix TYPE string,
           lt_source_check TYPE STANDARD TABLE OF string.
 
     lv_name = iv_name.
@@ -169,17 +170,18 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       lv_prog = lv_name.
       READ REPORT lv_prog INTO lt_source_check.
       IF sy-subrc = 0.
-        " Check if this is a method include (CM00X) or test class (CCAU)
-        " These belong to a class
-        IF lv_name_len = 35 AND lv_name+30(5) CP 'CM###'.
+        " Get the suffix after first 30 chars (class name is padded to 30)
+        lv_suffix = lv_name+30.
+        " Check suffix patterns
+        IF lv_name_len = 35 AND lv_suffix(2) = 'CM'.
           " Method implementation include - belongs to a class
           rv_type = 'CLAS'.
           RETURN.
-        ELSEIF lv_name_len = 34 AND ( lv_name+30(4) = 'CCAU' OR lv_name+30(5) = 'CCDEF' OR lv_name+30(5) = 'CCIMP' ).
+        ELSEIF lv_name_len = 34 AND ( lv_suffix = 'CCAU' OR lv_suffix = 'CCDEF' OR lv_suffix = 'CCIMP' ).
           " Test class or local types - belongs to a class
           rv_type = 'CLAS'.
           RETURN.
-        ELSEIF lv_name_len = 32 AND ( lv_name+30(2) = 'CU' OR lv_name+30(2) = 'CO' OR lv_name+30(2) = 'CP' OR lv_name+30(2) = 'IU' ).
+        ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' OR lv_suffix = 'IU' ).
           " Class/interface section - belongs to a class
           rv_type = 'CLAS'.
           RETURN.
