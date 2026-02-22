@@ -6,6 +6,13 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
 
+    " Local exception class for inspection errors
+    CLASS zcx_abgagt_inspect_error DEFINITION INHERITING FROM cx_static_check.
+      PUBLIC SECTION.
+        METHODS constructor IMPORTING iv_text TYPE string.
+        DATA mv_text TYPE string.
+    ENDCLASS.
+
     " Constructor - optionally inject code inspector for testing
     METHODS constructor
       IMPORTING io_inspector TYPE REF TO zif_abgagt_code_inspector OPTIONAL.
@@ -114,13 +121,13 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS get_check_variant
       IMPORTING iv_variant TYPE string
       RETURNING VALUE(ro_variant) TYPE REF TO cl_ci_checkvariant
-      RAISING   cx_static_check.
+      RAISING   zcx_abgagt_inspect_error.
 
     " Create and run inspection
     METHODS create_and_run_inspection
       IMPORTING iv_name     TYPE sci_objs
                 io_variant  TYPE REF TO cl_ci_checkvariant
-                it_objects  TYPE ty_object_keys
+                io_objset   TYPE REF TO cl_ci_objectset
       RETURNING VALUE(ro_inspection) TYPE REF TO cl_ci_inspection.
 
     " Extract method/include name from SOBJNAME
@@ -161,6 +168,15 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_variant TYPE string
                 iv_subrc   TYPE sysubrc
       RETURNING VALUE(rt_results) TYPE ty_inspect_results.
+
+ENDCLASS.
+
+CLASS zcx_abgagt_inspect_error IMPLEMENTATION.
+
+  METHOD constructor.
+    super->constructor( ).
+    mv_text = iv_text.
+  ENDMETHOD.
 
 ENDCLASS.
 
@@ -440,17 +456,17 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     lo_inspection = create_and_run_inspection(
       iv_name     = lv_name
       io_variant  = lo_variant
-      it_objects  = it_objects ).
+      io_objset   = lo_objset ).
 
     " Get results
     lo_inspection->plain_list( IMPORTING p_list = lt_list ).
 
     " Build result for each object
     LOOP AT it_objects INTO DATA(ls_obj).
-      rs_result = build_object_result(
+      ls_result = build_object_result(
         is_object = ls_obj
         it_list   = lt_list ).
-      APPEND rs_result TO rt_results.
+      APPEND ls_result TO rt_results.
     ENDLOOP.
 
     " Cleanup
@@ -486,7 +502,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         OTHERS = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE cx_static_check.
+      RAISE EXCEPTION TYPE zcx_abgagt_inspect_error
+        EXPORTING iv_text = |Check variant "{ lv_variant }" not found|.
     ENDIF.
   ENDMETHOD.
 
@@ -503,7 +520,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ro_inspection->set(
       EXPORTING
         p_chkv = io_variant
-        p_objs = it_objects ).
+        p_objs = io_objset ).
 
     " Save inspection
     ro_inspection->save( ).
@@ -570,7 +587,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     LOOP AT it_list INTO ls_list WHERE objname = is_object-objname.
       " Extract method name from SOBJNAME
       DATA(lv_method_name) = extract_method_name(
-        iv_classname = is_object-objname
+        iv_classname = CONV #( is_object-objname )
         iv_sobjname  = ls_list-sobjname ).
 
       " Categorize message
