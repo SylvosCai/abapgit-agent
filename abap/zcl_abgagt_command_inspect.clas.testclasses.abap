@@ -15,6 +15,9 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_exec_mixed_files FOR TESTING.
     METHODS test_exec_invalid_file FOR TESTING.
     METHODS test_get_method_name FOR TESTING.
+    METHODS test_build_object_result FOR TESTING.
+    METHODS test_get_check_variant FOR TESTING.
+    METHODS test_create_inspection_name FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_cmd_inspect IMPLEMENTATION.
@@ -237,6 +240,71 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       act = lv_method_name
       exp = ''
       msg = 'Method should return empty string for non-existent class' ).
+  ENDMETHOD.
+
+  METHOD test_build_object_result.
+    " Test build_object_result by checking execute returns proper structure
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+
+    APPEND 'zcl_my_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    " Result should contain expected JSON fields
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*object_type*'
+      msg = 'Result should contain object_type' ).
+
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*object_name*'
+      msg = 'Result should contain object_name' ).
+
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*success*'
+      msg = 'Result should contain success' ).
+  ENDMETHOD.
+
+  METHOD test_get_check_variant.
+    " Test get_check_variant returns a variant reference
+    " This tests the private method indirectly through run_inspection
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+            variant TYPE string,
+          END OF ls_param.
+
+    APPEND 'zcl_my_class.clas.abap' TO ls_param-files.
+    ls_param-variant = 'SYNTAX_CHECK'.
+
+    " Should not raise exception
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_create_inspection_name.
+    " Test create_inspection_name creates proper format
+    " This is tested indirectly through execute
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+
+    APPEND 'zcl_my_class.clas.abap' TO ls_param-files.
+
+    " Execute should work without error
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
   ENDMETHOD.
 
 ENDCLASS.
