@@ -6,13 +6,16 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
           ls_ddlsrcv_wa TYPE ddddlsrcv.
 
     lo_handler = cl_dd_ddl_handler_factory=>create( ).
-    lo_handler->read(
-      EXPORTING
-        name       = iv_name
-        get_state  = iv_get_state
-      IMPORTING
-        ddddlsrcv_wa = ls_ddlsrcv_wa )
-      RAISING cx_dd_ddl_check cx_dd_ddl_read.
+    TRY.
+        lo_handler->read(
+          EXPORTING
+            name       = iv_name
+            get_state  = iv_get_state
+          IMPORTING
+            ddddlsrcv_wa = ls_ddlsrcv_wa ).
+      CATCH cx_dd_ddl_check cx_dd_ddl_read.
+        " Return empty on error
+    ENDTRY.
 
     es_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
                           source  = ls_ddlsrcv_wa-source ).
@@ -28,14 +31,17 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
                             source  = cs_ddlsrcv-source ).
 
     lo_handler = cl_dd_ddl_handler_factory=>create( ).
-    lo_handler->check(
-      EXPORTING
-        name = iv_name
-      IMPORTING
-        warnings = lt_warnings
-      CHANGING
-        ddlsrcv_wa = ls_ddlsrcv_wa )
-      RAISING cx_dd_ddl_check cx_dd_ddl_read.
+    TRY.
+        lo_handler->check(
+          EXPORTING
+            name = iv_name
+          IMPORTING
+            warnings = lt_warnings
+          CHANGING
+            ddlsrcv_wa = ls_ddlsrcv_wa ).
+      CATCH cx_dd_ddl_check cx_dd_ddl_read.
+        " Continue with empty warnings on error
+    ENDTRY.
 
     " Convert warnings to interface type
     mt_warnings = VALUE #( FOR wa IN lt_warnings

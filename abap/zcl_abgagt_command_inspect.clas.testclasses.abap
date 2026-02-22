@@ -33,11 +33,11 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_mock_var_not_found FOR TESTING.
     METHODS test_mock_exception FOR TESTING.
     " Test double tests for DDL handler
-    METHODS test_validate_ddls_success FOR TESTING RAISING cx_dd_ddl_check.
-    METHODS test_validate_ddls_not_found FOR TESTING RAISING cx_dd_ddl_check.
-    METHODS test_ddls_with_warnings FOR TESTING RAISING cx_dd_ddl_check.
-    METHODS test_ddls_with_errors FOR TESTING RAISING cx_dd_ddl_check.
-    METHODS test_read_ddls_source FOR TESTING RAISING cx_dd_ddl_check.
+    METHODS test_validate_ddls_success FOR TESTING.
+    METHODS test_validate_ddls_not_found FOR TESTING.
+    METHODS test_ddls_with_warnings FOR TESTING.
+    METHODS test_ddls_with_errors FOR TESTING.
+    METHODS test_read_ddls_source FOR TESTING.
     METHODS test_validate_ddls_chk FOR TESTING.
 ENDCLASS.
 
