@@ -164,8 +164,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     IF ls_include_info-is_source_include = abap_true AND ls_include_info-obj_type IS NOT INITIAL.
       rv_type = ls_include_info-obj_type.
       ev_type_text = ls_include_info-type_text.
-      " Get devclass from TADIR for source include
+      " Get devclass from TADIR for source include using unpadded name
+      " Remove trailing = from class/interface name
       lv_obj_name = ls_include_info-obj_name.
+      FIND REGEX '^([A-Z0-9_]+)=+' IN lv_obj_name MATCH OFFSET DATA(lv_offset).
+      IF lv_offset > 0.
+        lv_obj_name = lv_obj_name(lv_offset).
+      ENDIF.
       ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
       ev_devclass = ls_obj_info-devclass.
       RETURN.
