@@ -11,6 +11,8 @@ CLASS zcl_abgagt_resource_base DEFINITION ABSTRACT PUBLIC
 
   PROTECTED SECTION.
 
+    DATA ms_request TYPE any.
+
     METHODS get_command_constant ABSTRACT
       IMPORTING iv_command TYPE string
       RETURNING VALUE(rv_constant) TYPE string.
@@ -41,20 +43,18 @@ ENDCLASS.
 CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
-    " Get request body
+    " Get request body - pass to subclass to parse
     DATA lv_json TYPE string.
     lv_json = mo_request->get_entity( )->get_string_data( ).
 
-    " Parse request
-    DATA ls_request TYPE REF TO data.
-    CREATE DATA ls_request TYPE any.
+    " Let subclass handle parsing - get the parsed result type from subclass
     parse_request(
       EXPORTING iv_json = lv_json
-      CHANGING cs_request = ls_request->* ).
+      CHANGING cs_request = ms_request ).
 
     " Validate request
-    IF validate_request( ls_request->* ) = abap_false.
-      return_error( get_error_message( ls_request->* ) ).
+    IF validate_request( ms_request ) = abap_false.
+      return_error( get_error_message( ms_request ) ).
       RETURN.
     ENDIF.
 
@@ -70,7 +70,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
     " Execute command
     TRY.
-        DATA(lv_result) = lo_command->execute( is_param = ls_request->* ).
+        DATA(lv_result) = lo_command->execute( is_param = ms_request ).
         return_success( lv_result ).
       CATCH cx_root INTO DATA(lx_exception).
         return_error( lx_exception->get_text( ) ).
