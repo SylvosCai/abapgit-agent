@@ -134,6 +134,11 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
       ENDTRY.
 
+      " Preserve devclass from detection (viewer may not have it for source includes)
+      IF ls_info-devclass IS INITIAL AND lv_devclass IS NOT INITIAL.
+        ls_info-devclass = lv_devclass.
+      ENDIF.
+
       APPEND ls_info TO lt_objects.
     ENDLOOP.
 
