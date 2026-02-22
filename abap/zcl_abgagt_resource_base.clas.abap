@@ -52,30 +52,32 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
     ASSIGN lr_request->* TO FIELD-SYMBOL(<ls_request>).
 
-    parse_request(
-      EXPORTING iv_json = lv_json
-      IMPORTING es_request = <ls_request> ).
-
-    " Validate request
-    IF validate_request( <ls_request> ) = abap_false.
-      return_error( get_error_message( <ls_request> ) ).
-      RETURN.
-    ENDIF.
-
-    " Get command from factory
-    DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-    DATA(lv_constant) = get_command_constant( ).
-    DATA(lo_command) = lo_factory->get_command( lv_constant ).
-
-    IF lo_command IS NOT BOUND.
-      return_error( get_command_name( ) && ' command not found' ).
-      RETURN.
-    ENDIF.
-
-    " Execute command
     TRY.
+        " Parse request
+        parse_request(
+          EXPORTING iv_json = lv_json
+          IMPORTING es_request = <ls_request> ).
+
+        " Validate request
+        IF validate_request( <ls_request> ) = abap_false.
+          return_error( get_error_message( <ls_request> ) ).
+          RETURN.
+        ENDIF.
+
+        " Get command from factory
+        DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
+        DATA(lv_constant) = get_command_constant( ).
+        DATA(lo_command) = lo_factory->get_command( lv_constant ).
+
+        IF lo_command IS NOT BOUND.
+          return_error( get_command_name( ) && ' command not found' ).
+          RETURN.
+        ENDIF.
+
+        " Execute command
         DATA(lv_result) = lo_command->execute( is_param = <ls_request> ).
         return_success( lv_result ).
+
       CATCH cx_root INTO DATA(lx_exception).
         return_error( lx_exception->get_text( ) ).
     ENDTRY.
