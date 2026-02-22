@@ -231,10 +231,12 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       iv_classname   = 'ZCL_NONEXISTENT_TEST_CLASS'
       iv_include_num = 1 ).
 
-    " Method should return a string (empty if not found)
-    cl_abap_unit_assert=>assert_not_initial(
+    " Method should return a string (empty string is expected if not found)
+    " Just verify the method executed without raising an exception
+    cl_abap_unit_assert=>assert_equals(
       act = lv_method_name
-      msg = 'Method should return a string value' ).
+      exp = ''
+      msg = 'Method should return empty string for non-existent class' ).
   ENDMETHOD.
 
 ENDCLASS.
