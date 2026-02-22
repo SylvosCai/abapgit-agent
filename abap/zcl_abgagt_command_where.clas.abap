@@ -230,20 +230,6 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         ls_ref_out-method_name = mo_util->get_method_name(
           iv_classname = CONV string( <ls_ref>-obj_name )
           iv_method_index = lv_method_index ).
-      ELSE.
-        " For non-method includes, use special descriptions
-        CASE lv_include.
-          WHEN 'CCAU'.
-            ls_ref_out-method_name = 'UNIT TEST'.
-          WHEN 'CCDEF'.
-            ls_ref_out-method_name = 'LOCAL DEFINITIONS'.
-          WHEN 'CCIMP'.
-            ls_ref_out-method_name = 'LOCAL IMPLEMENTATIONS'.
-          WHEN 'CI'.
-            ls_ref_out-method_name = 'LOCAL INTERFACES'.
-          WHEN 'CT'.
-            ls_ref_out-method_name = 'MACROS'.
-        ENDCASE.
       ENDIF.
 
       ls_ref_out-package = <ls_ref>-appl_packet.
