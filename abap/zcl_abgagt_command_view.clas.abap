@@ -121,6 +121,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
           WHEN 'TTYP'. ls_info-type_text = 'Table Type'.
           WHEN 'DDLS'. ls_info-type_text = 'CDS View'.
+          WHEN 'PROG'. ls_info-type_text = 'Program'.
           WHEN OTHERS. ls_info-type_text = lv_type.
         ENDCASE.
 
@@ -150,11 +151,23 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
+    " First check if name looks like a source include (>= 32 chars)
+    " Source includes have pattern: CLASSNAME=============CM00X (35 chars)
+    DATA(lv_name_len) = strlen( iv_name ).
+    IF lv_name_len >= 32.
+      " Try to read as program/include
+      READ REPORT iv_name INTO DATA(lt_source_check).
+      IF sy-subrc = 0.
+        rv_type = 'PROG'.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     " Query TADIR to find actual object type
     SELECT SINGLE object FROM tadir
       INTO rv_type
       WHERE obj_name = iv_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS').
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG').
   ENDMETHOD.
 
   METHOD get_object_info.
