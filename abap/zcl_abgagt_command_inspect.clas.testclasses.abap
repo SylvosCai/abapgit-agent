@@ -18,10 +18,10 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_build_object_result FOR TESTING.
     METHODS test_get_check_variant FOR TESTING.
     METHODS test_create_inspection_name FOR TESTING.
-    METHODS test_with_mock_success FOR TESTING.
-    METHODS test_with_mock_errors FOR TESTING.
-    METHODS test_with_mock_warnings FOR TESTING.
-    METHODS test_with_mock_variant_not_found FOR TESTING.
+    METHODS test_mock_success FOR TESTING.
+    METHODS test_mock_errors FOR TESTING.
+    METHODS test_mock_warnings FOR TESTING.
+    METHODS test_mock_var_not_found FOR TESTING.
 ENDCLASS.
 
 "**********************************************************************
@@ -363,7 +363,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Result should not be initial' ).
   ENDMETHOD.
 
-  METHOD test_with_mock_success.
+  METHOD test_mock_success.
     " Test with mock returning success (no errors/warnings)
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mt_mock_results = VALUE #(
@@ -390,7 +390,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Result should indicate success' ).
   ENDMETHOD.
 
-  METHOD test_with_mock_errors.
+  METHOD test_mock_errors.
     " Test with mock returning errors
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mt_mock_results = VALUE #(
@@ -423,7 +423,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Result should indicate failure' ).
   ENDMETHOD.
 
-  METHOD test_with_mock_warnings.
+  METHOD test_mock_warnings.
     " Test with mock returning warnings
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mt_mock_results = VALUE #(
@@ -450,7 +450,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       msg = 'Result should contain warnings' ).
   ENDMETHOD.
 
-  METHOD test_with_mock_variant_not_found.
+  METHOD test_mock_var_not_found.
     " Test with mock returning variant not found
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mv_variant_not_found = abap_true.
