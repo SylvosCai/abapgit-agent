@@ -6,61 +6,50 @@ CLASS zcl_abgagt_resource_view DEFINITION PUBLIC FINAL
                              CREATE PUBLIC.
 
   PUBLIC SECTION.
-
-    METHODS get_command_constant
-      IMPORTING iv_command TYPE string
-      RETURNING VALUE(rv_constant) TYPE string REDEFINITION.
-
-    METHODS get_command_name REDEFINITION.
-
-    METHODS parse_request
-      IMPORTING iv_json TYPE string
-      CHANGING cs_request TYPE any REDEFINITION.
-
-    METHODS validate_request
-      IMPORTING is_request TYPE any
-      RETURNING VALUE(rv_valid) TYPE abap_bool REDEFINITION.
-
-    METHODS get_error_message
-      IMPORTING is_request TYPE any
-      RETURNING VALUE(rv_message) TYPE string REDEFINITION.
+    METHODS if_rest_resource~post REDEFINITION.
 
 ENDCLASS.
 
 CLASS zcl_abgagt_resource_view IMPLEMENTATION.
 
-  METHOD get_command_constant.
-    rv_constant = zif_abgagt_command=>gc_view.
-  ENDMETHOD.
+  METHOD if_rest_resource~post.
+    DATA lv_json TYPE string.
+    lv_json = mo_request->get_entity( )->get_string_data( ).
 
-  METHOD get_command_name.
-    rv_name = 'VIEW'.
-  ENDMETHOD.
-
-  METHOD parse_request.
-    DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
+    " Parse JSON using /ui2/cl_json
+    DATA: BEGIN OF ls_request,
+            objects TYPE string_table,
+            type TYPE string,
+          END OF ls_request.
 
     /ui2/cl_json=>deserialize(
       EXPORTING
-        json = iv_json
+        json = lv_json
       CHANGING
         data = ls_request ).
 
-    cs_request = ls_request.
-  ENDMETHOD.
-
-  METHOD validate_request.
-    DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
-    ls_request = is_request.
-    rv_valid = boolc( ls_request-objects IS NOT INITIAL ).
-  ENDMETHOD.
-
-  METHOD get_error_message.
-    DATA: ls_request TYPE zcl_abgagt_command_view=>ty_view_params.
-    ls_request = is_request.
     IF ls_request-objects IS INITIAL.
-      rv_message = 'Objects parameter is required'.
+      return_error( 'Objects parameter is required' ).
+      RETURN.
     ENDIF.
+
+    " Get command from factory
+    DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
+    DATA(lo_command) = lo_factory->get_command( zif_abgagt_command=>gc_view ).
+
+    IF lo_command IS NOT BOUND.
+      return_error( 'VIEW command not found' ).
+      RETURN.
+    ENDIF.
+
+    " Execute command with is_param
+    DATA ls_params TYPE zcl_abgagt_command_view=>ty_view_params.
+    ls_params-objects = ls_request-objects.
+    ls_params-type = ls_request-type.
+
+    DATA(lv_result) = lo_command->execute( is_param = ls_params ).
+
+    return_success( lv_result ).
   ENDMETHOD.
 
 ENDCLASS.
