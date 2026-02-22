@@ -111,12 +111,6 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rs_result) TYPE ty_inspect_result
       RAISING   cx_dd_ddl_check.
 
-    " Get method name from TMDIR based on class name and include number
-    METHODS get_method_name
-      IMPORTING iv_classname    TYPE string
-                iv_include_num  TYPE i
-      RETURNING VALUE(rv_method_name) TYPE string.
-
   PRIVATE SECTION.
 
     " Code inspector - injected for testing
