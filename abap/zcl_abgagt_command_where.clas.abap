@@ -205,8 +205,8 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_ref_out-sub_type = <ls_ref>-sub_type.
       " Get method name for method includes
       ls_ref_out-method_name = get_method_name(
-        iv_classname = <ls_ref>-obj_name
-        iv_include_name = <ls_ref>-sub_name ).
+        iv_classname = CONV #( <ls_ref>-obj_name )
+        iv_include_name = CONV #( <ls_ref>-sub_name ) ).
       ls_ref_out-package = <ls_ref>-appl_packet.
       APPEND ls_ref_out TO rt_references.
     ENDLOOP.
