@@ -663,7 +663,8 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
     " Test exception handling - covers build_error_result
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mv_raise_exception = abap_true.
-    lo_mock->mx_exception = NEW cx_static_check( text = 'Test exception' ).
+    " Use cx_demo_exception which is a simple instantiable exception
+    lo_mock->mx_exception = NEW cx_demo_exception( text = 'Test exception' ).
 
     CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
 
