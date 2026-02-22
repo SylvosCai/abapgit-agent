@@ -54,6 +54,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS detect_object_type
       IMPORTING iv_name TYPE string
+      EXPORTING ev_type_text TYPE string
       RETURNING VALUE(rv_type) TYPE string.
 
     METHODS get_object_info
@@ -101,8 +102,13 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       ls_info-name = lv_object.
 
       DATA(lv_type) = ls_params-type.
+      DATA(lv_type_text) = ''.
       IF lv_type IS INITIAL.
-        lv_type = detect_object_type( lv_object ).
+        lv_type = detect_object_type(
+          EXPORTING
+            iv_name = lv_object
+          IMPORTING
+            ev_type_text = lv_type_text ).
       ENDIF.
 
       " Check if object was not found in TADIR
@@ -111,19 +117,22 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
         ls_info-type_text = 'Unknown'.
       ELSE.
         ls_info-type = lv_type.
+        ls_info-type_text = lv_type_text.
 
-        " Set type text
-        CASE lv_type.
-          WHEN 'CLAS'. ls_info-type_text = 'Class'.
-          WHEN 'INTF'. ls_info-type_text = 'Interface'.
-          WHEN 'TABL'. ls_info-type_text = 'Table'.
-          WHEN 'STRU'. ls_info-type_text = 'Structure'.
-          WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
-          WHEN 'TTYP'. ls_info-type_text = 'Table Type'.
-          WHEN 'DDLS'. ls_info-type_text = 'CDS View'.
-          WHEN 'PROG'. ls_info-type_text = 'Program'.
-          WHEN OTHERS. ls_info-type_text = lv_type.
-        ENDCASE.
+        " Set type text (fallback if not set by detect_object_type)
+        IF ls_info-type_text IS INITIAL.
+          CASE lv_type.
+            WHEN 'CLAS'. ls_info-type_text = 'Class'.
+            WHEN 'INTF'. ls_info-type_text = 'Interface'.
+            WHEN 'TABL'. ls_info-type_text = 'Table'.
+            WHEN 'STRU'. ls_info-type_text = 'Structure'.
+            WHEN 'DTEL'. ls_info-type_text = 'Data Element'.
+            WHEN 'TTYP'. ls_info-type_text = 'Table Type'.
+            WHEN 'DDLS'. ls_info-type_text = 'CDS View'.
+            WHEN 'PROG'. ls_info-type_text = 'Program'.
+            WHEN OTHERS. ls_info-type_text = lv_type.
+          ENDCASE.
+        ENDIF.
 
         " Get viewer and retrieve info only if object was found
         TRY.
@@ -151,49 +160,18 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    " First check if name looks like a source include (>= 32 chars)
-    " Source includes have pattern: CLASSNAME=============CM00X (35 chars)
-    " Method includes: CLASS=============CM00X (35 chars) - belongs to a class
-    " Test class: CLASS=============CCAU (34 chars) - belongs to a class
-    " Local types: CLASS=============CCDEF or CCIMP (34 chars) - belongs to a class
-    " Section: CLASS=============CU/CO/CP (32 chars) - belongs to a class
-    DATA: lv_name TYPE tadir-obj_name,
-          lv_prog TYPE program,
-          lv_name_len TYPE i,
-          lv_suffix TYPE string,
-          lt_source_check TYPE STANDARD TABLE OF string.
+    " Use utility to detect source include info
+    DATA: lo_util TYPE REF TO zif_abgagt_util,
+          ls_include_info TYPE zif_abgagt_util=>ty_include_info.
 
-    lv_name = iv_name.
-    lv_name_len = strlen( lv_name ).
-    IF lv_name_len >= 32.
-      " Try to read as program/include
-      lv_prog = lv_name.
-      READ REPORT lv_prog INTO lt_source_check.
-      IF sy-subrc = 0.
-        " Get the suffix after first 30 chars (class name is padded to 30)
-        lv_suffix = lv_name+30.
-        " Check suffix patterns
-        IF lv_name_len = 35 AND lv_suffix(2) = 'CM'.
-          " Method implementation include - belongs to a class
-          rv_type = 'CLAS'.
-          RETURN.
-        ELSEIF lv_name_len = 34 AND ( lv_suffix = 'CCAU' OR lv_suffix = 'CCDEF' OR lv_suffix = 'CCIMP' ).
-          " Test class or local types - belongs to a class
-          rv_type = 'CLAS'.
-          RETURN.
-        ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' ).
-          " Class section - belongs to a class
-          rv_type = 'CLAS'.
-          RETURN.
-        ELSEIF lv_name_len = 32 AND lv_suffix = 'IU'.
-          " Interface section - belongs to an interface
-          rv_type = 'INTF'.
-          RETURN.
-        ENDIF.
-        " Other programs/includes
-        rv_type = 'PROG'.
-        RETURN.
-      ENDIF.
+    lo_util = zcl_abgagt_util=>get_instance( ).
+    ls_include_info = lo_util->detect_include_info( iv_name ).
+
+    " If it's a source include, use the detected info
+    IF ls_include_info-is_source_include = abap_true AND ls_include_info-obj_type IS NOT INITIAL.
+      rv_type = ls_include_info-obj_type.
+      ev_type_text = ls_include_info-type_text.
+      RETURN.
     ENDIF.
 
     " Query TADIR to find actual object type
@@ -201,6 +179,18 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       INTO rv_type
       WHERE obj_name = iv_name
         AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG').
+
+    " Set default type text based on object type
+    CASE rv_type.
+      WHEN 'CLAS'. ev_type_text = 'Class'.
+      WHEN 'INTF'. ev_type_text = 'Interface'.
+      WHEN 'TABL'. ev_type_text = 'Table'.
+      WHEN 'STRU'. ev_type_text = 'Structure'.
+      WHEN 'DTEL'. ev_type_text = 'Data Element'.
+      WHEN 'TTYP'. ev_type_text = 'Table Type'.
+      WHEN 'DDLS'. ev_type_text = 'CDS View'.
+      WHEN 'PROG'. ev_type_text = 'Program'.
+    ENDCASE.
   ENDMETHOD.
 
   METHOD get_object_info.

@@ -221,4 +221,75 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
         ENDIF.
     ENDCASE.
   ENDMETHOD.
+
+  METHOD zif_abgagt_util~detect_include_info.
+    " Detect object type, name, and include type from include name
+    " Example: ZCL_CLASS=============CM001 -> CLAS, ZCL_CLASS, CM001
+    " Example: ZIF_INTERFACE============IU -> INTF, ZIF_INTERFACE, IU
+
+    DATA: lv_name TYPE tadir-obj_name,
+          lv_name_len TYPE i,
+          lv_suffix TYPE string,
+          lt_source_check TYPE STANDARD TABLE OF string.
+
+    rs_info-is_source_include = abap_false.
+    rs_info-obj_type = ''.
+    rs_info-obj_name = ''.
+    rs_info-include_type = ''.
+    rs_info-type_text = ''.
+
+    lv_name = iv_name.
+    lv_name_len = strlen( lv_name ).
+
+    " Check if name looks like a source include (>= 32 chars)
+    IF lv_name_len >= 32.
+      " Try to read as program/include to verify it exists
+      DATA lv_prog TYPE program.
+      lv_prog = lv_name.
+      READ REPORT lv_prog INTO lt_source_check.
+      IF sy-subrc = 0.
+        " This is a source include - extract suffix
+        lv_suffix = lv_name+30.
+        rs_info-is_source_include = abap_true.
+
+        " Determine object type based on suffix
+        IF lv_name_len = 35 AND lv_suffix(2) = 'CM'.
+          " Method implementation include - belongs to a class
+          rs_info-obj_type = 'CLAS'.
+          rs_info-obj_name = lv_name(30).
+          rs_info-include_type = lv_suffix.
+          rs_info-type_text = 'Class'.
+        ELSEIF lv_name_len = 34 AND ( lv_suffix = 'CCAU' OR lv_suffix = 'CCDEF' OR lv_suffix = 'CCIMP' ).
+          " Test class or local types - belongs to a class
+          rs_info-obj_type = 'CLAS'.
+          rs_info-obj_name = lv_name(30).
+          rs_info-include_type = lv_suffix.
+          rs_info-type_text = 'Class'.
+        ELSEIF lv_name_len = 32 AND ( lv_suffix = 'CU' OR lv_suffix = 'CO' OR lv_suffix = 'CP' ).
+          " Class section - belongs to a class
+          rs_info-obj_type = 'CLAS'.
+          rs_info-obj_name = lv_name(30).
+          rs_info-include_type = lv_suffix.
+          rs_info-type_text = 'Class'.
+        ELSEIF lv_name_len = 32 AND lv_suffix = 'IU'.
+          " Interface section - belongs to an interface
+          rs_info-obj_type = 'INTF'.
+          rs_info-obj_name = lv_name(30).
+          rs_info-include_type = lv_suffix.
+          rs_info-type_text = 'Interface'.
+        ELSE.
+          " Other program/include - verify it exists in TADIR
+          SELECT SINGLE object FROM tadir
+            INTO rs_info-obj_type
+            WHERE obj_name = lv_name
+              AND object = 'PROG'.
+          IF sy-subrc = 0.
+            rs_info-obj_name = lv_name.
+            rs_info-include_type = lv_suffix.
+            rs_info-type_text = 'Program'.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.

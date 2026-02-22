@@ -2,6 +2,15 @@
 "! <p class="shorttext synchronized">Utility Interface for ABAP Git Agent</p>
 INTERFACE zif_abgagt_util PUBLIC.
 
+  "! Structure for include detection result
+  TYPES: BEGIN OF ty_include_info,
+           is_source_include TYPE abap_bool,
+           obj_type         TYPE tadir-object,
+           obj_name         TYPE tadir-obj_name,
+           include_type     TYPE string,
+           type_text        TYPE string,
+         END OF ty_include_info.
+
   "! Parse file name to extract object type and name
   "! @parameter iv_file | File name (e.g., 'zcl_my_class.clas.abap')
   "! @parameter ev_obj_type | Object type (e.g., 'CLAS')
@@ -12,6 +21,15 @@ INTERFACE zif_abgagt_util PUBLIC.
     EXPORTING
       ev_obj_type TYPE string
                 ev_obj_name TYPE string.
+
+  "! Detect object type, name, and include type from include name
+  "! @parameter iv_name | Full include name (e.g., 'ZCL_CLASS=============CM001')
+  "! @return rs_info | Include information (type, name, include_type)
+  METHODS detect_include_info
+    IMPORTING
+      iv_name        TYPE string
+    RETURNING
+      VALUE(rs_info) TYPE ty_include_info.
 
   "! Check activation log for errors
   "! @return rv_has_error | ABAP_TRUE if errors found
