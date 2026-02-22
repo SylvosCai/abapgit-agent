@@ -203,6 +203,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_ref_out-object = <ls_ref>-obj_name.
       ls_ref_out-object_type = <ls_ref>-obj_type.
       ls_ref_out-include_name = <ls_ref>-sub_name.
+      CLEAR ls_ref_out-method_name.
 
       " Get human-readable include type description
       ls_ref_out-include_type = mo_util->get_include_description(
