@@ -17,7 +17,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
           lv_prog TYPE program,
           lt_source TYPE TABLE OF string,
           lv_line TYPE string,
-          lv_clsname TYPE seoclsname.
+          lv_clsname TYPE seoclsname,
+          lv_obj_name TYPE tadir-obj_name.
 
     rs_info-name = iv_name.
     rs_info-type = 'CLAS'.
@@ -29,7 +30,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     IF ls_include_info-is_source_include = abap_true.
       " Source include detected - get devclass using unpadded obj_name
-      ls_obj_info = lo_util->get_object_info_from_tadir( ls_include_info-obj_name ).
+      lv_obj_name = ls_include_info-obj_name.
+      ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
       rs_info-devclass = ls_obj_info-devclass.
       IF rs_info-devclass IS NOT INITIAL.
         rs_info-description = |Class { ls_include_info-obj_name } in { rs_info-devclass } (Source Include)|.
@@ -38,7 +40,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ENDIF.
     ELSE.
       " Standard class - get info from TADIR
-      ls_obj_info = lo_util->get_object_info_from_tadir( iv_name ).
+      lv_obj_name = iv_name.
+      ls_obj_info = lo_util->get_object_info_from_tadir( lv_obj_name ).
       rs_info-devclass = ls_obj_info-devclass.
       IF rs_info-devclass IS NOT INITIAL.
         rs_info-description = |Class { iv_name } in { rs_info-devclass }|.
