@@ -117,18 +117,17 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       ls_info-type_text = lv_type_text.
 
       " Get viewer and retrieve info
-        TRY.
-            lo_viewer = lo_factory->get_viewer( lv_type ).
-            IF lo_viewer IS BOUND.
-              ls_info = lo_viewer->get_info( lv_object ).
-            ELSE.
-              ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
-            ENDIF.
-          CATCH cx_sy_create_object_error cx_dd_ddl_read.
-            " Fallback for unknown types
+      TRY.
+          lo_viewer = lo_factory->get_viewer( lv_type ).
+          IF lo_viewer IS BOUND.
+            ls_info = lo_viewer->get_info( lv_object ).
+          ELSE.
             ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
-        ENDTRY.
-      ENDIF.
+          ENDIF.
+        CATCH cx_sy_create_object_error cx_dd_ddl_read.
+          " Fallback for unknown types
+          ls_info = get_object_info( iv_name = lv_object iv_type = lv_type ).
+      ENDTRY.
 
       APPEND ls_info TO lt_objects.
     ENDLOOP.
