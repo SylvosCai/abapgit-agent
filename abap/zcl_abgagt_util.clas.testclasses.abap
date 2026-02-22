@@ -2,7 +2,7 @@
 *"* local test class
 CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
-    DATA mo_util TYPE REF TO zcl_abgagt_util.
+    DATA mo_util TYPE REF TO zif_abgagt_util.
 
     METHODS setup.
     METHODS test_parse_clas FOR TESTING.
@@ -22,7 +22,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    mo_util->zif_abgagt_util~parse_file_to_object(
+    mo_util->parse_file_to_object(
       EXPORTING iv_file = 'zcl_my_class.clas.abap'
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -38,7 +38,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    mo_util->zif_abgagt_util~parse_file_to_object(
+    mo_util->parse_file_to_object(
       EXPORTING iv_file = 'zif_my_intf.intf.abap'
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -54,7 +54,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    mo_util->zif_abgagt_util~parse_file_to_object(
+    mo_util->parse_file_to_object(
       EXPORTING iv_file = 'src/zcl_my_class.clas.abap'
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).
@@ -70,7 +70,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
     DATA lv_obj_type TYPE string.
     DATA lv_obj_name TYPE string.
 
-    mo_util->zif_abgagt_util~parse_file_to_object(
+    mo_util->parse_file_to_object(
       EXPORTING iv_file = 'invalid_file.txt'
       IMPORTING ev_obj_type = lv_obj_type
                 ev_obj_name = lv_obj_name ).

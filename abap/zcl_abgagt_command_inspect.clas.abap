@@ -202,7 +202,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
-          lo_util TYPE REF TO zcl_abgagt_util,
+          lo_util TYPE REF TO zif_abgagt_util,
           lt_results TYPE ty_inspect_results,
           lt_objects TYPE ty_object_keys,
           lt_ddls_names TYPE ty_ddls_names,
@@ -229,7 +229,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     LOOP AT ls_params-files INTO lv_file.
       CLEAR: lv_obj_type, lv_obj_name.
-      lo_util->zif_abgagt_util~parse_file_to_object(
+      lo_util->parse_file_to_object(
         EXPORTING iv_file = lv_file
         IMPORTING ev_obj_type = lv_obj_type
                   ev_obj_name = lv_obj_name ).

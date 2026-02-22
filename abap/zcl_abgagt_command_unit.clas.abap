@@ -114,7 +114,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
           lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
-          lo_util TYPE REF TO zcl_abgagt_util,
+          lo_util TYPE REF TO zif_abgagt_util,
           ls_result TYPE ty_unit_result,
           lt_keys TYPE ty_keys,
           ls_key TYPE ty_key.
@@ -134,7 +134,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       lo_util = zcl_abgagt_util=>get_instance( ).
       LOOP AT ls_params-files INTO lv_file.
         CLEAR: lv_obj_type, lv_obj_name.
-        lo_util->zif_abgagt_util~parse_file_to_object(
+        lo_util->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
