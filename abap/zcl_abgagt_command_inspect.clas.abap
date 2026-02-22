@@ -101,13 +101,14 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_ddls_name   TYPE ddlname
       EXPORTING es_ddlsrcv     TYPE any
       RETURNING VALUE(rv_found) TYPE abap_bool
-      RAISING   cx_dd_ddl_check.
+      RAISING   cx_dd_ddl_check cx_dd_ddl_read.
 
     " Validate DDLS and build result (for testing)
     METHODS validate_ddls_check
       IMPORTING iv_ddls_name   TYPE ddlname
                 is_ddlsrcv     TYPE any
-      RETURNING VALUE(rs_result) TYPE ty_inspect_result.
+      RETURNING VALUE(rs_result) TYPE ty_inspect_result
+      RAISING   cx_dd_ddl_check cx_dd_ddl_read.
 
     " Get method name from TMDIR based on class name and include number
     METHODS get_method_name

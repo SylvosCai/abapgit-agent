@@ -11,7 +11,8 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
         name       = iv_name
         get_state  = iv_get_state
       IMPORTING
-        ddddlsrcv_wa = ls_ddlsrcv_wa ).
+        ddddlsrcv_wa = ls_ddlsrcv_wa )
+      RAISING cx_dd_ddl_check cx_dd_ddl_read.
 
     es_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
                           source  = ls_ddlsrcv_wa-source ).
@@ -33,7 +34,8 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
       IMPORTING
         warnings = lt_warnings
       CHANGING
-        ddlsrcv_wa = ls_ddlsrcv_wa ).
+        ddlsrcv_wa = ls_ddlsrcv_wa )
+      RAISING cx_dd_ddl_check cx_dd_ddl_read.
 
     " Convert warnings to interface type
     mt_warnings = VALUE #( FOR wa IN lt_warnings

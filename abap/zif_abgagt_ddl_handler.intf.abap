@@ -46,13 +46,13 @@ INTERFACE zif_abgagt_ddl_handler PUBLIC.
     IMPORTING iv_name      TYPE ddlname
               iv_get_state TYPE char1 DEFAULT 'M'
     EXPORTING es_ddlsrcv   TYPE ty_ddlsrcv
-    RAISING   cx_dd_ddl_check.
+    RAISING   cx_dd_ddl_check cx_dd_ddl_read.
 
   " Validate DDLS source
   METHODS check
     IMPORTING iv_name         TYPE ddlname
     CHANGING  cs_ddlsrcv      TYPE ty_ddlsrcv
-    RAISING   cx_dd_ddl_check.
+    RAISING   cx_dd_ddl_check cx_dd_ddl_read.
 
   " Get warnings from last check
   METHODS get_warnings
