@@ -31,13 +31,15 @@ CLASS lcl_code_inspector_mock DEFINITION.
     INTERFACES zif_abgagt_code_inspector.
 
     " Configuration for mock behavior
-    DATA mv_return_errors TYPE abap_bool DEFAULT abap_false.
-    DATA mv_return_warnings TYPE abap_bool DEFAULT abap_false.
-    DATA mv_variant_not_found TYPE abap_bool DEFAULT abap_false.
-    DATA mv_raise_exception TYPE abap_bool DEFAULT abap_false.
+    DATA mv_return_errors TYPE abap_bool.
+    DATA mv_return_warnings TYPE abap_bool.
+    DATA mv_variant_not_found TYPE abap_bool.
+    DATA mv_raise_exception TYPE abap_bool.
 
     " Mock data to return
     DATA mt_mock_results TYPE scit_alvlist.
+
+    METHODS constructor.
 
   PRIVATE SECTION.
     DATA mo_mock_objset TYPE REF TO cl_ci_objectset.
@@ -46,6 +48,13 @@ CLASS lcl_code_inspector_mock DEFINITION.
 ENDCLASS.
 
 CLASS lcl_code_inspector_mock IMPLEMENTATION.
+
+  METHOD constructor.
+    mv_return_errors = abap_false.
+    mv_return_warnings = abap_false.
+    mv_variant_not_found = abap_false.
+    mv_raise_exception = abap_false.
+  ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_object_set.
     " Return mock object set (not really used in tests)
