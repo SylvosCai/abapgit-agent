@@ -21,6 +21,12 @@ CLASS ltcl_cmd_inspect DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS
     METHODS test_mock_success FOR TESTING.
     METHODS test_mock_errors FOR TESTING.
     METHODS test_mock_warnings FOR TESTING.
+    METHODS test_mock_info FOR TESTING.
+    METHODS test_mock_unittest_include FOR TESTING.
+    METHODS test_mock_local_defs FOR TESTING.
+    METHODS test_mock_local_impl FOR TESTING.
+    METHODS test_mock_macros FOR TESTING.
+    METHODS test_mock_multi_errors FOR TESTING.
     METHODS test_mock_var_not_found FOR TESTING.
 ENDCLASS.
 
@@ -38,6 +44,7 @@ CLASS lcl_code_inspector_mock DEFINITION.
 
     " Mock data to return
     DATA mt_mock_results TYPE scit_alvlist.
+    DATA mv_objname TYPE sobj_name.
 
     METHODS constructor.
 
@@ -54,29 +61,35 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
     mv_return_warnings = abap_false.
     mv_variant_not_found = abap_false.
     mv_raise_exception = abap_false.
+
+    " Create mock objects to avoid null reference issues
+    CREATE OBJECT mo_mock_objset.
+    CREATE OBJECT mo_mock_inspection.
+    CREATE OBJECT mo_mock_variant.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_object_set.
-    " Return mock object set (not really used in tests)
     ro_objset = mo_mock_objset.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~get_check_variant.
     IF mv_variant_not_found = abap_true.
-      " Return empty to simulate variant not found
       RETURN.
     ENDIF.
     ro_variant = mo_mock_variant.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_and_run_inspection.
-    " Return mock inspection
     ro_inspection = mo_mock_inspection.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~get_results.
-    " Return configured mock results
-    rt_list = mt_mock_results.
+    " Return mock results - filter by objname if set
+    IF mv_objname IS NOT INITIAL.
+      rt_list = VALUE #( FOR ls IN mt_mock_results WHERE ( objname = mv_objname ) ( ls ) ).
+    ELSE.
+      rt_list = mt_mock_results.
+    ENDIF.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~cleanup.
@@ -378,6 +391,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
     lo_mock->mt_mock_results = VALUE #(
       ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'N' line = 0 col = 0 text = 'No errors found' )
     ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
     CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
 
@@ -400,11 +414,12 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_mock_errors.
-    " Test with mock returning errors
+    " Test with mock returning errors - covers categorize_message for E
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mt_mock_results = VALUE #(
       ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'E' line = '010' col = '012' text = 'Variable "LV_UNKNOWN" is not defined' code = 'LV_UNKNOWN' )
     ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
     CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
 
@@ -433,11 +448,12 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_mock_warnings.
-    " Test with mock returning warnings
+    " Test with mock returning warnings - covers categorize_message for W
     DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
     lo_mock->mt_mock_results = VALUE #(
       ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'W' line = '015' col = '001' text = 'Avoid using obsolete statement' )
     ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
     CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
 
@@ -457,6 +473,151 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
       act = lv_result
       exp = '*warnings*'
       msg = 'Result should contain warnings' ).
+  ENDMETHOD.
+
+  METHOD test_mock_info.
+    " Test with mock returning info - covers categorize_message for I
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'I' line = '020' col = '001' text = 'Information message' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain infos
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*infos*'
+      msg = 'Result should contain infos' ).
+  ENDMETHOD.
+
+  METHOD test_mock_unittest_include.
+    " Test with CCAU (unit test include) - covers extract_method_name
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCAU' kind = 'N' line = 0 col = 0 text = 'OK' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_mock_local_defs.
+    " Test with CCDEF (local definitions) - covers extract_method_name
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCDEF' kind = 'N' line = 0 col = 0 text = 'OK' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_mock_local_impl.
+    " Test with CCIMP (local implementations) - covers extract_method_name
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCIMP' kind = 'N' line = 0 col = 0 text = 'OK' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_mock_macros.
+    " Test with CCINC (macros) - covers extract_method_name
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCINC' kind = 'N' line = 0 col = 0 text = 'OK' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+  ENDMETHOD.
+
+  METHOD test_mock_multi_errors.
+    " Test with multiple errors for same object - covers build_object_result sorting
+    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    lo_mock->mt_mock_results = VALUE #(
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'E' line = '010' col = '001' text = 'Error 1' )
+      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM002' kind = 'E' line = '020' col = '002' text = 'Error 2' )
+    ).
+    lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
+
+    CREATE OBJECT mo_cut EXPORTING io_inspector = lo_mock.
+
+    DATA: BEGIN OF ls_param,
+            files TYPE string_table,
+          END OF ls_param.
+    APPEND 'zcl_test_class.clas.abap' TO ls_param-files.
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Should contain errors
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*errors*'
+      msg = 'Result should contain errors' ).
   ENDMETHOD.
 
   METHOD test_mock_var_not_found.
