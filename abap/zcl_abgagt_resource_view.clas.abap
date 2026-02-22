@@ -22,7 +22,7 @@ CLASS zcl_abgagt_resource_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_command_name.
-    rv_name = 'VIEW'.
+    rv_name = 'View'.
   ENDMETHOD.
 
   METHOD create_request_data.
