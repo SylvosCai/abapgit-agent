@@ -113,6 +113,11 @@ abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
 abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE
 abapgit-agent preview --objects SFLIGHT --vertical
 abapgit-agent preview --objects SFLIGHT --compact
+
+# Find where-used (objects using a specific object)
+abapgit-agent where --objects ZCL_MY_CLASS
+abapgit-agent where --objects ZIF_MY_INTERFACE
+abapgit-agent where --objects ZCL_MY_CLASS --type CLAS
 ```
 
 ### Utility Commands
@@ -154,6 +159,7 @@ npm run pull -- --url <git-url> --branch main
 | tree Command | [docs/tree-command.md](docs/tree-command.md) |
 | view Command | [docs/view-command.md](docs/view-command.md) |
 | preview Command | [docs/preview-command.md](docs/preview-command.md) |
+| where Command | [docs/where-command.md](docs/where-command.md) |
 | ref Command | [docs/ref-command.md](docs/ref-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
