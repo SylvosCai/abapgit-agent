@@ -14,13 +14,12 @@ CLASS zcl_abgagt_resource_status IMPLEMENTATION.
 
   METHOD if_rest_resource~post.
     DATA lv_json TYPE string.
-    DATA ls_request TYPE zcl_abgagt_agent=>ty_result.
 
     " Parse request body
     DATA(lo_entity) = mo_request->get_entity( ).
     DATA(lv_body) = lo_entity->get_string_data( ).
 
-    " Parse JSON to check if url is provided
+    " Parse JSON to get URL
     DATA lv_url TYPE string.
     IF lv_body IS NOT INITIAL.
       /ui2/cl_json=>deserialize(
@@ -55,16 +54,13 @@ CLASS zcl_abgagt_resource_status IMPLEMENTATION.
           DATA(lv_repo_key) = li_repo->get_key( ).
           DATA(lv_package) = li_repo->get_package( ).
 
-          lv_json = |{{"success":true,"url":"{ lv_url }","status":"Found",|.
-          lv_json = lv_json |"repo_key":"{ lv_repo_key }","package":"{ lv_package }"|.
-          lv_json = lv_json |}|.
+          lv_json = '{"success":true,"url":"' && lv_url && '","status":"Found",'.
+          lv_json = lv_json && '"repo_key":"' && lv_repo_key && '","package":"' && lv_package && '"}'.
         CATCH zcx_abapgit_exception.
-          lv_json = |{"success":true,"url":"{ lv_url }","status":"Found"|.
-          lv_json = lv_json |}|.
+          lv_json = '{"success":true,"url":"' && lv_url && '","status":"Found"}'.
       ENDTRY.
     ELSE.
-      lv_json = |{"success":true,"url":"{ lv_url }","status":"Not found"|.
-      lv_json = lv_json |}|.
+      lv_json = '{"success":true,"url":"' && lv_url && '","status":"Not found"}'.
     ENDIF.
 
     " Set response
