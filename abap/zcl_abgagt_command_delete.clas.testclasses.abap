@@ -48,20 +48,24 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
-    " Step 3: Configure get_repo_from_url to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git'
-      IMPORTING ei_repo = lo_mock_repo ).
+    " Step 3: Configure get_repo_from_url to return mock repo via set_parameter
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
+      EXPORTING
+        name  = 'EI_REPO'
+        value = lo_mock_repo ).
 
-    " Step 4: Configure get_key method
+    " Step 4: Register the method call with matching parameters
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 5: Configure get_key method
     cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( 'TEST_KEY' ).
     lo_mock_repo->get_key( ).
 
-    " Step 5: Create CUT with test double
+    " Step 6: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 6: Execute
+    " Step 7: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/repo.git',
           END OF ls_param.
@@ -87,20 +91,27 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
     " Step 3: Configure get_repo_from_url to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git'
-      IMPORTING ei_repo = lo_mock_repo ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
+      EXPORTING
+        name  = 'EI_REPO'
+        value = lo_mock_repo ).
 
-    " Step 4: Configure delete on repo service to raise exception
-    DATA(lx_error) = NEW zcx_abapgit_exception( ).
+    " Step 4: Register the method call with matching parameters
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
+
+    " Step 5: Configure delete on repo service to raise exception
+    DATA lx_error TYPE REF TO zcx_abapgit_exception.
+    CREATE OBJECT lx_error.
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
+
+    " Step 6: Register delete call
     lo_repo_srv_double->delete( ii_repo = lo_mock_repo ).
 
-    " Step 5: Create CUT with test double
+    " Step 7: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 6: Execute
+    " Step 8: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/repo.git',
           END OF ls_param.
@@ -121,16 +132,14 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Create mock repo for the IMPORTING parameter
-    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
-    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
-
-    " Step 3: Configure get_repo_from_url to raise exception (repo not found)
-    DATA(lx_error) = NEW zcx_abapgit_exception( ).
+    " Step 2: Configure to raise exception
+    DATA lx_error TYPE REF TO zcx_abapgit_exception.
+    CREATE OBJECT lx_error.
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
+
+    " Step 3: Register the method call with matching parameters
     lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/nonexistent.git'
-      IMPORTING ei_repo = lo_mock_repo ).
+      EXPORTING iv_url = 'https://github.com/test/nonexistent.git' ).
 
     " Step 4: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
