@@ -624,6 +624,8 @@ function runFullLifecycleTests() {
     const interfacePath = path.join(testDir, 'src', 'zif_abgagt_test.intf.abap');
     if (fs.existsSync(interfacePath)) {
       let interfaceContent = fs.readFileSync(interfacePath, 'utf8');
+      // Remove any existing test comment lines first (lines starting with " Test comment)
+      interfaceContent = interfaceContent.replace(/^" Test comment.*\n?/gm, '');
       // Generate random comment with timestamp for repeatability test
       const randomComment = `" Test comment ${Date.now()}\n`;
       interfaceContent = randomComment + interfaceContent;
