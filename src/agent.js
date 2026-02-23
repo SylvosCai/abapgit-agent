@@ -264,6 +264,54 @@ class ABAPGitAgent {
       throw new Error(`List command failed: ${error.message}`);
     }
   }
+
+  /**
+   * View ABAP object definitions
+   * @param {Array} objects - Array of object names to view
+   * @param {string} type - Object type (optional, e.g., 'CLAS', 'TABL')
+   * @returns {object} View result with object definitions
+   */
+  async view(objects, type = null) {
+    logger.info('Viewing objects', { objects, type });
+
+    try {
+      const result = await this.abap.view(objects, type);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        command: result.COMMAND || result.command || 'VIEW',
+        objects: result.OBJECTS || result.objects || [],
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('View command failed', { error: error.message });
+      throw new Error(`View command failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Find where-used list for ABAP objects
+   * @param {Array} objects - Array of object names to search
+   * @param {string} type - Object type (optional)
+   * @param {number} limit - Maximum results (default: 100, max: 500)
+   * @returns {object} Where-used result with found objects
+   */
+  async where(objects, type = null, limit = 100) {
+    logger.info('Finding where-used', { objects, type, limit });
+
+    try {
+      const result = await this.abap.where(objects, type, limit);
+      return {
+        success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
+        command: result.COMMAND || result.command || 'WHERE',
+        objects: result.OBJECTS || result.objects || [],
+        message: result.MESSAGE || result.message || '',
+        error: result.ERROR || result.error || null
+      };
+    } catch (error) {
+      logger.error('Where command failed', { error: error.message });
+      throw new Error(`Where command failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = {

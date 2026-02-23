@@ -471,6 +471,112 @@ describe('ABAPClient', () => {
       callArgs = client.request.mock.calls[1];
       expect(callArgs[2].limit).toBe(1);
     });
+
+    test('convertDatesInWhereClause converts ISO dates to ABAP format', () => {
+      // Test ISO date conversion: '2024-10-24' -> '20241024'
+      const result = client.convertDatesInWhereClause("FLDATE = '2024-10-24'");
+      expect(result).toBe("FLDATE = '20241024'");
+    });
+
+    test('convertDatesInWhereClause handles multiple dates', () => {
+      const result = client.convertDatesInWhereClause(
+        "FLDATE >= '2024-01-01' AND FLDATE <= '2024-12-31'"
+      );
+      expect(result).toBe("FLDATE >= '20240101' AND FLDATE <= '20241231'");
+    });
+
+    test('convertDatesInWhereClause handles empty or null', () => {
+      expect(client.convertDatesInWhereClause(null)).toBeNull();
+      expect(client.convertDatesInWhereClause('')).toBe('');
+      expect(client.convertDatesInWhereClause('CARRID = \'AA\'')).toBe('CARRID = \'AA\'');
+    });
+
+    test('convertDatesInWhereClause handles non-date strings', () => {
+      const result = client.convertDatesInWhereClause("CARRID = 'AA' AND CONNID = '0017'");
+      expect(result).toBe("CARRID = 'AA' AND CONNID = '0017'");
+    });
+  });
+
+  describe('view method', () => {
+    test('view method exists and is callable', () => {
+      expect(typeof client.view).toBe('function');
+    });
+
+    test('view sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.view(['ZCL_TEST']);
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/view');
+      expect(callArgs[2].objects).toEqual(['ZCL_TEST']);
+    });
+
+    test('view includes type when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.view(['SFLIGHT'], 'TABL');
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].type).toBe('TABL');
+    });
+
+  });
+
+  describe('where method', () => {
+    test('where method exists and is callable', () => {
+      expect(typeof client.where).toBe('function');
+    });
+
+    test('where sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.where(['ZCL_TEST']);
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/where');
+      expect(callArgs[2].objects).toEqual(['ZCL_TEST']);
+      expect(callArgs[2].limit).toBe(100);
+    });
+
+    test('where includes type when specified', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.where(['ZCL_TEST'], 'CLAS');
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].type).toBe('CLAS');
+    });
+
+    test('where clamps limit to valid range', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.where(['ZCL_TEST'], null, 1000);
+      await client.where(['ZCL_TEST'], null, 0);
+
+      // First call should clamp to 500
+      let callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].limit).toBe(500);
+
+      // Second call should clamp to 1
+      callArgs = client.request.mock.calls[1];
+      expect(callArgs[2].limit).toBe(1);
+    });
   });
 
   describe('getClient singleton', () => {

@@ -11,6 +11,9 @@ const mockCreate = jest.fn();
 const mockImport = jest.fn();
 const mockTree = jest.fn();
 const mockPreview = jest.fn();
+const mockList = jest.fn();
+const mockView = jest.fn();
+const mockWhere = jest.fn();
 
 // Mock abap-client before requiring agent
 jest.mock('../src/abap-client', () => ({
@@ -22,7 +25,10 @@ jest.mock('../src/abap-client', () => ({
     create: mockCreate,
     import: mockImport,
     tree: mockTree,
-    preview: mockPreview
+    preview: mockPreview,
+    list: mockList,
+    view: mockView,
+    where: mockWhere
   }))
 }));
 
@@ -47,7 +53,10 @@ describe('ABAPGitAgent', () => {
         create: mockCreate,
         import: mockImport,
         tree: mockTree,
-        preview: mockPreview
+        preview: mockPreview,
+        list: mockList,
+        view: mockView,
+        where: mockWhere
       }))
     }));
 
@@ -593,6 +602,123 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(false);
       expect(result.objects).toEqual([]);
       expect(result.summary).toBeNull();
+    });
+  });
+
+  describe('view', () => {
+    test('returns success=true for view command', async () => {
+      mockView.mockResolvedValue({
+        success: 'X',
+        command: 'VIEW',
+        objects: [
+          { name: 'ZCL_TEST', type: 'CLAS', source: 'CLASS zcl_test DEFINITION...' }
+        ]
+      });
+
+      const result = await agent.view(['ZCL_TEST']);
+
+      expect(result.success).toBe(true);
+      expect(result.command).toBe('VIEW');
+      expect(result.objects).toHaveLength(1);
+      expect(result.objects[0].name).toBe('ZCL_TEST');
+    });
+
+    test('passes type parameter when specified', async () => {
+      mockView.mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+
+      await agent.view(['SFLIGHT'], 'TABL');
+
+      expect(mockView).toHaveBeenCalledWith(['SFLIGHT'], 'TABL');
+    });
+
+    test('throws error on exception', async () => {
+      mockView.mockRejectedValue(new Error('Object not found'));
+
+      await expect(agent.view(['ZCL_INVALID']))
+        .rejects.toThrow('View command failed: Object not found');
+    });
+
+    test('handles uppercase response keys', async () => {
+      mockView.mockResolvedValue({
+        SUCCESS: 'X',
+        COMMAND: 'VIEW',
+        OBJECTS: [{ NAME: 'ZCL_TEST', TYPE: 'CLAS' }]
+      });
+
+      const result = await agent.view(['ZCL_TEST']);
+
+      expect(result.success).toBe(true);
+      expect(result.objects).toHaveLength(1);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockView.mockResolvedValue({});
+
+      const result = await agent.view(['ZCL_TEST']);
+
+      expect(result.success).toBe(false);
+      expect(result.objects).toEqual([]);
+    });
+  });
+
+  describe('where', () => {
+    test('returns success=true for where command', async () => {
+      mockWhere.mockResolvedValue({
+        success: 'X',
+        command: 'WHERE',
+        objects: [
+          { object_name: 'ZCL_USAGE', object_type: 'CLAS', program: 'ZCL_TEST' }
+        ]
+      });
+
+      const result = await agent.where(['ZCL_TEST']);
+
+      expect(result.success).toBe(true);
+      expect(result.command).toBe('WHERE');
+      expect(result.objects).toHaveLength(1);
+    });
+
+    test('passes type and limit parameters', async () => {
+      mockWhere.mockResolvedValue({
+        success: 'X',
+        objects: []
+      });
+
+      await agent.where(['ZCL_TEST'], 'CLAS', 50);
+
+      expect(mockWhere).toHaveBeenCalledWith(['ZCL_TEST'], 'CLAS', 50);
+    });
+
+    test('throws error on exception', async () => {
+      mockWhere.mockRejectedValue(new Error('Package not found'));
+
+      await expect(agent.where(['ZCL_INVALID']))
+        .rejects.toThrow('Where command failed: Package not found');
+    });
+
+    test('handles uppercase response keys', async () => {
+      mockWhere.mockResolvedValue({
+        SUCCESS: 'X',
+        COMMAND: 'WHERE',
+        OBJECTS: [{ OBJECT_NAME: 'ZCL_USAGE', OBJECT_TYPE: 'CLAS' }]
+      });
+
+      const result = await agent.where(['ZCL_TEST']);
+
+      expect(result.success).toBe(true);
+      expect(result.objects).toHaveLength(1);
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockWhere.mockResolvedValue({});
+
+      const result = await agent.where(['ZCL_TEST']);
+
+      expect(result.success).toBe(false);
+      expect(result.objects).toEqual([]);
     });
   });
 });

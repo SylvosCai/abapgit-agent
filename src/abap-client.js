@@ -459,6 +459,52 @@ class ABAPClient {
 
     return await this.request('POST', '/list', data, { csrfToken: this.csrfToken });
   }
+
+  /**
+   * View ABAP object definitions
+   * @param {Array} objects - Array of object names to view
+   * @param {string} type - Object type (optional, e.g., 'CLAS', 'TABL')
+   * @returns {object} View result with object definitions
+   */
+  async view(objects, type = null) {
+    await this.fetchCsrfToken();
+
+    const data = {
+      objects: objects
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
+    logger.info('Viewing objects', { objects, type, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/view', data, { csrfToken: this.csrfToken });
+  }
+
+  /**
+   * Find where-used list for ABAP objects
+   * @param {Array} objects - Array of object names to search
+   * @param {string} type - Object type (optional)
+   * @param {number} limit - Maximum results (default: 100, max: 500)
+   * @returns {object} Where-used result with found objects
+   */
+  async where(objects, type = null, limit = 100) {
+    await this.fetchCsrfToken();
+
+    const data = {
+      objects: objects,
+      limit: Math.min(Math.max(1, limit), 500)
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
+    logger.info('Finding where-used', { objects, type, limit: data.limit, service: 'abapgit-agent' });
+
+    return await this.request('POST', '/where', data, { csrfToken: this.csrfToken });
+  }
 }
 
 // Singleton instance
