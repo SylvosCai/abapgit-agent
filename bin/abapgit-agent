@@ -1808,7 +1808,8 @@ Examples:
 
           if (repoUrl) {
             try {
-              const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl });
+              const csrfToken = await fetchCsrfToken(config);
+              const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl }, { csrfToken });
 
               if (result.STATUS === 'Found') {
                 console.log('   Repository: ✅ Created');
@@ -1822,6 +1823,7 @@ Examples:
               }
             } catch (err) {
               console.log('   Repository: ⚠️ Unable to check status');
+              console.log('   Error:', err.message);
             }
           } else {
             console.log('   No git remote configured');
