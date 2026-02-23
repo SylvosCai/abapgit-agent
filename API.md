@@ -10,6 +10,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/pull` | Pull and activate repository |
 | POST | `/create` | Create abapGit online repository |
 | POST | `/delete` | Delete abapGit repository from ABAP |
+| POST | `/status` | Check if repo exists in ABAP system |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
@@ -209,6 +210,44 @@ Delete an abapGit online repository from the ABAP system.
 {
   "success": "",
   "error": "No suitable repository found"
+}
+```
+
+## POST /status
+
+Check if an abapGit online repository exists in the ABAP system for a given URL.
+
+### Request Body
+
+```json
+{
+  "url": "https://github.com/user/repo.git"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | String | Git repository URL (required) |
+
+### Response (found)
+
+```json
+{
+  "success": true,
+  "url": "https://github.com/user/repo.git",
+  "status": "Found",
+  "repo_key": "abc123",
+  "package": "$MY_PACKAGE"
+}
+```
+
+### Response (not found)
+
+```json
+{
+  "success": true,
+  "url": "https://github.com/user/repo.git",
+  "status": "Not found"
 }
 ```
 

@@ -45,7 +45,7 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 - `where` - Find where-used list for ABAP objects (classes, interfaces, programs)
 - `ref` - Search ABAP reference repositories (topics, patterns, export)
 - `health` - Health check
-- `status` - Status check
+- `status` - Status check (includes repo existence in ABAP)
 
 ### Backend (ABAP)
 - Command factory pattern for extensibility
