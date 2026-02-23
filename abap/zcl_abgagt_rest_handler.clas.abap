@@ -13,22 +13,14 @@ ENDCLASS.
 CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
 
   METHOD if_rest_application~get_root_handler.
+    " Dynamic routing: single catch-all handler that dynamically routes
+    " to the appropriate resource class based on URL path
+    " e.g., /pull -> ZCL_ABGAGT_RESOURCE_PULL
+    "       /health -> ZCL_ABGAGT_RESOURCE_HEALTH
     DATA lo_router TYPE REF TO cl_rest_router.
     CREATE OBJECT lo_router.
 
-    lo_router->attach( iv_template = '/pull' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_PULL' ).
-    lo_router->attach( iv_template = '/health' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_HEALTH' ).
-    lo_router->attach( iv_template = '/status' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_STATUS' ).
-    lo_router->attach( iv_template = '/inspect' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_INSPECT' ).
-    lo_router->attach( iv_template = '/unit' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_UNIT' ).
-    lo_router->attach( iv_template = '/create' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_CREATE' ).
-    lo_router->attach( iv_template = '/delete' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_DELETE' ).
-    lo_router->attach( iv_template = '/import' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_IMPORT' ).
-    lo_router->attach( iv_template = '/tree' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_TREE' ).
-    lo_router->attach( iv_template = '/view' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_VIEW' ).
-    lo_router->attach( iv_template = '/where' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_WHERE' ).
-    lo_router->attach( iv_template = '/preview' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_PREVIEW' ).
-    lo_router->attach( iv_template = '/list' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_LIST' ).
+    lo_router->attach( iv_template = '/{command}' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_DYNAMIC' ).
 
     ro_root_handler = lo_router.
   ENDMETHOD.
