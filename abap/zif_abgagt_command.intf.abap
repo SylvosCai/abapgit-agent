@@ -8,6 +8,7 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_unit TYPE string VALUE 'UNIT',
     gc_create TYPE string VALUE 'CREATE',
     gc_delete TYPE string VALUE 'DELETE',
+    gc_status TYPE string VALUE 'STATUS',
     gc_import TYPE string VALUE 'IMPORT',
     gc_tree TYPE string VALUE 'TREE',
     gc_view TYPE string VALUE 'VIEW',

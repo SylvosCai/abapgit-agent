@@ -2,58 +2,46 @@
 *"*"Local Interface:
 *"**********************************************************************
 CLASS zcl_abgagt_resource_status DEFINITION PUBLIC FINAL
-                             INHERITING FROM cl_rest_resource
+                             INHERITING FROM zcl_abgagt_resource_base
                              CREATE PUBLIC.
 
-  PUBLIC SECTION.
-    METHODS if_rest_resource~get REDEFINITION.
+  PROTECTED SECTION.
+
+    METHODS get_command_constant REDEFINITION.
+    METHODS get_command_name REDEFINITION.
+    METHODS create_request_data REDEFINITION.
+    METHODS validate_request REDEFINITION.
+    METHODS get_error_message REDEFINITION.
 
 ENDCLASS.
 
 CLASS zcl_abgagt_resource_status IMPLEMENTATION.
 
-  METHOD if_rest_resource~get.
-    DATA lv_json TYPE string.
+  METHOD get_command_constant.
+    rv_constant = 'STATUS'.
+  ENDMETHOD.
 
-    " Get URL from query parameter
-    DATA lv_url TYPE string.
-    lv_url = mo_request->get_uri_parameter( 'url' ).
+  METHOD get_command_name.
+    rv_name = 'Status'.
+  ENDMETHOD.
 
-    IF lv_url IS INITIAL.
-      lv_json = '{"success":false,"error":"URL parameter is required"}'.
-    ELSE.
-      " Check repo status
-      DATA lo_agent TYPE REF TO zcl_abgagt_agent.
-      CREATE OBJECT lo_agent.
+  METHOD create_request_data.
+    " Use same params as delete for URL
+    CREATE DATA rr_request_data TYPE zcl_abgagt_command_delete=>ty_delete_params.
+  ENDMETHOD.
 
-      DATA(lv_status) = lo_agent->get_repo_status( lv_url ).
+  METHOD validate_request.
+    DATA: ls_request TYPE zcl_abgagt_command_delete=>ty_delete_params.
+    ls_request = is_request.
+    rv_valid = boolc( ls_request-url IS NOT INITIAL ).
+  ENDMETHOD.
 
-      IF lv_status = 'Found'.
-        " Get repo details
-        DATA li_repo TYPE REF TO zif_abapgit_repo.
-        TRY.
-            zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-              EXPORTING iv_url = lv_url
-              IMPORTING ei_repo = li_repo ).
-
-            DATA(lv_repo_key) = li_repo->get_key( ).
-            DATA(lv_package) = li_repo->get_package( ).
-
-            lv_json = '{"success":true,"url":"' && lv_url && '","status":"Found",'.
-            lv_json = lv_json && '"repo_key":"' && lv_repo_key && '","package":"' && lv_package && '"}'.
-          CATCH zcx_abapgit_exception.
-            lv_json = '{"success":true,"url":"' && lv_url && '","status":"Found"}'.
-        ENDTRY.
-      ELSE.
-        lv_json = '{"success":true,"url":"' && lv_url && '","status":"Not found"}'.
-      ENDIF.
+  METHOD get_error_message.
+    DATA: ls_request TYPE zcl_abgagt_command_delete=>ty_delete_params.
+    ls_request = is_request.
+    IF ls_request-url IS INITIAL.
+      rv_message = 'URL is required'.
     ENDIF.
-
-    " Set response
-    DATA(lo_response_entity) = mo_response->create_entity( ).
-    lo_response_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-    lo_response_entity->set_string_data( lv_json ).
-    mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
   ENDMETHOD.
 
 ENDCLASS.
