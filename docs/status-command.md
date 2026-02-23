@@ -2,7 +2,7 @@
 
 ## Overview
 
-Check if ABAP integration is configured for the current repository.
+Check if ABAP integration is configured for the current repository and whether the repo exists in ABAP system.
 
 ## Command
 
@@ -20,22 +20,41 @@ Check if `.abapGitAgent` exists in current directory:
 test -f .abapGitAgent
 ```
 
-### 2. Display Status
+### 2. Check Repo Existence
+
+Query the ABAP system to check if the current git remote URL has an abapGit repository.
+
+### 3. Display Status
 
 | Status | Output |
 |--------|--------|
-| Configured | `✅ ABAP Git Agent is ENABLED` with config location |
+| Configured + Repo Exists | `✅ ABAP Git Agent is ENABLED` with config location and repo details |
+| Configured + No Repo | `✅ ABAP Git Agent is ENABLED` with "Not created in ABAP system" |
 | Not configured | `❌ ABAP Git Agent is NOT configured` |
 
 ---
 
 ## Output Examples
 
-### Configured
+### Configured - Repo Exists
 
 ```
 ✅ ABAP Git Agent is ENABLED
    Config location: /path/to/repo/.abapGitAgent
+   Repository: ✅ Created
+      Package: $MY_PACKAGE
+      URL: https://github.com/user/repo.git
+      Key: abc123
+```
+
+### Configured - No Repo
+
+```
+✅ ABAP Git Agent is ENABLED
+   Config location: /path/to/repo/.abapGitAgent
+   Repository: ❌ Not created in ABAP system
+      URL: https://github.com/user/repo.git
+   Run "abapgit-agent create" to create repository
 ```
 
 ### Not Configured
@@ -49,6 +68,7 @@ test -f .abapGitAgent
 ## Used By
 
 - `create` command - validates configuration exists before creating repo
+- `delete` command - validates repository exists before deleting
 
 ## Related Files
 
@@ -65,4 +85,8 @@ test -f .abapGitAgent
 $ abapgit-agent status
 ✅ ABAP Git Agent is ENABLED
    Config location: /Users/user/project/.abapGitAgent
+   Repository: ✅ Created
+      Package: $MY_PACKAGE
+      URL: https://github.com/user/repo.git
+      Key: abc123
 ```
