@@ -3,6 +3,42 @@
 
 
 
+
+## v1.7.0
+
+### New Features
+
+- Add where command for where-used list functionality
+- Add method name output to where command
+- Add source include support to view command
+- Add PROG type support to view command
+- Add base resource class for common REST handling
+
+### Bug Fixes
+
+- Fix syntax errors in where command implementation
+- Fix extended method name handling in include detection
+- Fix include name padding and format issues
+- Fix type conversion issues in inspect command
+
+### Improvements
+
+- Refactor all REST resources to inherit from base class
+- Simplify view command and CLAS viewer implementation
+- Refactor inspect command with dependency injection
+- Add comprehensive unit test coverage
+
+### Documentation
+
+- Add view and where command usage guide
+- Add abstract methods, FINAL class, and TYPE any guidelines
+- Add interface type reference guidelines
+- Document source include support for view command
+
+---
+
+---
+
 ## v1.6.1
 
 ### New Features
