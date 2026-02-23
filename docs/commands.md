@@ -15,7 +15,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
-| [init](init-command.md) | ✅ | Initialize local configuration |
+| [init](init-command.md) | ✅ | Initialize local configuration (supports --update) |
 | [create](create-command.md) | ✅ | Create online repository in ABAP |
 | [import](import-command.md) | ✅ | Import objects from ABAP package to git |
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
@@ -24,7 +24,7 @@ All available CLI commands for abapGit Agent.
 | [list](list-command.md) | ✅ | List ABAP objects in package |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
 | [view](view-command.md) | ✅ | View ABAP object source code from system |
-| [where](where-command.md) | 🆕 | Where-used list - find object references |
+| [where](where-command.md) | ✅ | Where-used list - find object references |
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [health](health-command.md) | ✅ | Health check |
 
@@ -32,7 +32,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
-| [ref](ref-command.md) | ✅ | Search ABAP cheat sheets offline |
+| [ref](ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
 | [status](status-command.md) | ✅ | Status check |
 
 ---
@@ -64,6 +64,13 @@ git pull origin main
 abapgit-agent pull
 ```
 
+### Update Existing Project
+
+```bash
+# Update files (CLAUDE.md, copilot-instructions.md, guidelines) to latest version
+abapgit-agent init --update
+```
+
 ---
 
 ## Daily Development
@@ -84,14 +91,19 @@ abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
 # Display package hierarchy
 abapgit-agent tree --package $MY_PACKAGE
 
+# List objects in package with filtering
+abapgit-agent list --package $MY_PACKAGE
+abapgit-agent list --package $MY_PACKAGE --type CLAS,INTF
+abapgit-agent list --package $MY_PACKAGE --name ZCL_*
+
 # View object definitions (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects SFLIGHT --type TABL
 
 # Find where an object is used (where-used list)
-abapgit-agent where --objects CL_SUT_AUNIT_RUNNER
+abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER
 abapgit-agent where --objects ZIF_ABGAGT_COMMAND
-abapgit-agent where --objects ZCL_AGENT=>PULL --type CLAS
+abapgit-agent where --objects ZCL_AGENT --type CLAS
 
 # Preview table/CDS view data
 abapgit-agent preview --objects SFLIGHT
@@ -116,9 +128,16 @@ abapgit-agent ref "CX_SY_"
 abapgit-agent ref --topic exceptions
 abapgit-agent ref --topic sql
 abapgit-agent ref --topic unit-tests
+abapgit-agent ref --topic internal-tables
 
 # List all available topics
 abapgit-agent ref --list-topics
+
+# List all reference repositories
+abapgit-agent ref --list-repos
+
+# Export custom guidelines to reference folder
+abapgit-agent ref --export
 
 # Get JSON output for scripting
 abapgit-agent ref "VALUE #(" --json
@@ -182,3 +201,6 @@ All commands read configuration from:
 | `zcl_my_class.clas.abap` | ABAP class source |
 | `zif_my_intf.intf.abap` | ABAP interface source |
 | `zcl_my_test.clas.testclasses.abap` | ABAP test class |
+| `zc_my_view.ddls.asddls` | CDS View/Entity |
+| `zmy_table.tabl.abap` | Table definition |
+| `zmy_prog.prog.abap` | ABAP program |

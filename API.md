@@ -8,11 +8,13 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
-| POST | `/inspect` | Inspect source file for issues |
+| POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
+| POST | `/list` | List ABAP objects in a package with filtering |
 | POST | `/view` | View ABAP object definitions |
 | POST | `/preview` | Preview table/CDS view data |
+| POST | `/where` | Find where-used list for ABAP objects |
 
 ## GET /health
 
@@ -123,19 +125,30 @@ The optional `transport_request` field specifies a transport request number to u
 
 ## POST /inspect
 
-Inspect source file for issues (currently runs syntax check via Code Inspector).
+Inspect source files for issues (runs syntax check via Code Inspector, validates CDS views).
 
 ### Request Body
 
 ```json
 {
-  "source_name": "ZCL_MY_CLASS.CLASS.ABAP"
+  "files": ["zcl_my_class.clas.abap", "zc_my_view.ddls.asddls"]
 }
 ```
 
-The endpoint parses the file name to extract `obj_type` and `obj_name`:
+The endpoint parses file names to extract `obj_type` and `obj_name`:
 - `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
 - `src/zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
+- `zc_my_view.ddls.asddls` → DDLS, ZC_MY_VIEW
+
+### Supported Object Types
+
+| Type | Description | Validation Method |
+|------|-------------|------------------|
+| CLAS | Class | Code Inspector (SCI) |
+| INTF | Interface | Code Inspector (SCI) |
+| PROG | Program | Code Inspector (SCI) |
+| FUGR | Function Group | Code Inspector (SCI) |
+| DDLS | CDS View/Entity | DDL Handler (CL_DD_DDL_HANDLER_FACTORY) |
 
 ### Response (success)
 
@@ -292,6 +305,72 @@ Display package hierarchy tree from ABAP system.
 }
 ```
 
+## POST /list
+
+List ABAP objects in a package with filtering and pagination.
+
+### Request Body
+
+```json
+{
+  "package": "$MY_PACKAGE",
+  "type": ["CLAS", "INTF"],
+  "name_pattern": "ZCL_*",
+  "limit": 50,
+  "offset": 0
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `package` | String | Package name (required) |
+| `type` | Array | Object types to filter (e.g., ["CLAS", "INTF"]). Optional |
+| `name_pattern` | String | Name pattern with wildcards (e.g., "ZCL_*"). Optional |
+| `limit` | Integer | Maximum results (default: 100, max: 1000) |
+| `offset` | Integer | Offset for pagination (default: 0) |
+
+### Supported Object Types
+
+CLAS, INTF, PROG, FUGR, TABL, STRU, DTEL, TTYP, DDLS, DDLX, XSLT, REPO, SUSH
+
+### Response (success)
+
+```json
+{
+  "success": true,
+  "command": "LIST",
+  "package": "$MY_PACKAGE",
+  "message": "Objects retrieved successfully",
+  "objects": [
+    {
+      "object": "CLAS",
+      "obj_name": "ZCL_MY_CLASS",
+      "description": "My Class"
+    },
+    {
+      "object": "INTF",
+      "obj_name": "ZIF_MY_INTERFACE",
+      "description": "My Interface"
+    }
+  ],
+  "total": 25,
+  "limit": 50,
+  "offset": 0,
+  "error": ""
+}
+```
+
+### Response (error)
+
+```json
+{
+  "success": false,
+  "command": "LIST",
+  "package": "$NONEXISTENT",
+  "error": "Package $NONEXISTENT does not exist"
+}
+```
+
 ## POST /view
 
 View ABAP object definitions directly from ABAP system.
@@ -308,7 +387,7 @@ View ABAP object definitions directly from ABAP system.
 | Field | Type | Description |
 |-------|------|-------------|
 | `objects` | Array | List of object names (required) |
-| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL). Auto-detected if not specified |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected if not specified |
 
 ### Supported Object Types
 
@@ -319,6 +398,8 @@ View ABAP object definitions directly from ABAP system.
 | TABL | Database table |
 | STRU | Structure type |
 | DTEL | Data element |
+| TTYP | Table type |
+| DDLS | CDS View/Entity |
 
 ### Response (success - class/interface)
 
@@ -593,6 +674,111 @@ If `type` is not specified, the system detects the type from TADIR:
 }
 ```
 
+## POST /where
+
+Find where-used list for ABAP objects (classes, interfaces, programs).
+
+### Request Body
+
+```json
+{
+  "objects": ["ZCL_SUT_AUNIT_RUNNER", "ZIF_MY_INTERFACE"],
+  "type": "CLAS",
+  "limit": 50
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `objects` | Array | List of object names (required) |
+| `type` | String | Object type (CLAS, INTF, PROG). Auto-detected if not specified |
+| `limit` | Integer | Maximum results per object (default: 50, max: 200) |
+
+### Supported Object Types
+
+| Type | Description |
+|------|-------------|
+| CLAS | Global ABAP class |
+| INTF | Global interface |
+| PROG | ABAP program |
+
+### Response (success)
+
+```json
+{
+  "success": true,
+  "command": "WHERE",
+  "message": "Retrieved where-used list",
+  "objects": [
+    {
+      "name": "ZCL_SUT_AUNIT_RUNNER",
+      "type": "CLAS",
+      "type_text": "Class",
+      "references": [
+        {
+          "object": "PROG",
+          "obj_name": "RS_AUNIT_DISPLAY",
+          "include": "RS_AUNIT_DISPLAY",
+          "line": 10,
+          "program": "RS_AUNIT_DISPLAY"
+        }
+      ],
+      "count": 5,
+      "not_found": false,
+      "error": ""
+    },
+    {
+      "name": "ZIF_MY_INTERFACE",
+      "type": "INTF",
+      "type_text": "Interface",
+      "references": [
+        {
+          "object": "CLAS",
+          "obj_name": "ZCL_MY_CLASS",
+          "include": "ZCL_MY_CLASS========CM001",
+          "line": 5,
+          "program": "ZCL_MY_CLASS"
+        }
+      ],
+      "count": 3,
+      "not_found": false,
+      "error": ""
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "total_references": 8
+  },
+  "error": ""
+}
+```
+
+### Response (object not found)
+
+```json
+{
+  "success": true,
+  "command": "WHERE",
+  "message": "Retrieved where-used list",
+  "objects": [
+    {
+      "name": "ZIF_NONEXISTENT",
+      "type": "",
+      "type_text": "Unknown",
+      "references": [],
+      "count": 0,
+      "not_found": true,
+      "error": ""
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "total_references": 0
+  },
+  "error": ""
+}
+```
+
 ### Response Structure
 
 ### Pull Response Fields
@@ -689,16 +875,63 @@ If `type` is not specified, the system detects the type from TADIR:
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | String | Object name |
-| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL) |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS) |
 | `type_text` | String | Human-readable type |
 | `description` | String | Object description |
-| `source` | String | Source code (CLAS/INTF) |
+| `source` | String | Source code (CLAS/INTF/DDLS) |
 | `domain` | String | Domain name (DTEL) |
 | `domain_type` | String | Domain data type (DTEL) |
 | `domain_length` | Integer | Domain length (DTEL) |
 | `domain_decimals` | Integer | Domain decimals (DTEL) |
 | `not_found` | Boolean | true if object does not exist |
-| `components` | Array | Fields/components (TABL/STRU) |
+| `components` | Array | Fields/components (TABL/STRU/TTYP) |
+
+### List Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the request succeeded |
+| `command` | String | Command name ("LIST") |
+| `package` | String | Package name |
+| `message` | String | Status message |
+| `objects` | Array | List of ABAP objects |
+| `total` | Integer | Total number of objects matching criteria |
+| `limit` | Integer | Limit used |
+| `offset` | Integer | Offset used |
+| `error` | String | Error message (empty if success) |
+
+### Where Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | |
+| `command Whether the request succeeded` | String | Command name ("WHERE") |
+| `message` | String | Status message |
+| `objects` | Array | List of objects with where-used references |
+| `summary` | Object | Summary with total and total_references |
+| `error` | String | Error message (empty if success) |
+
+### Where Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | Object name |
+| `type` | String | Object type (CLAS, INTF, PROG) |
+| `type_text` | String | Human-readable type |
+| `references` | Array | List of where-used references |
+| `count` | Integer | Number of references found |
+| `not_found` | Boolean | true if object does not exist |
+| `error` | String | Error message (empty if success) |
+
+### Reference Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `object` | String | Object type of reference |
+| `obj_name` | String | Object name of reference |
+| `include` | String | Include name |
+| `line` | Integer | Line number |
+| `program` | String | Program name |
 
 ### Error Item Fields
 
