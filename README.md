@@ -52,6 +52,9 @@ abapgit-agent init --folder /abap/ --package ZMY_PACKAGE
 # Create online repository in ABAP
 abapgit-agent create
 
+# Delete online repository from ABAP (keeps local files)
+abapgit-agent delete
+
 # Import objects from ABAP package to git
 abapgit-agent import
 ```
@@ -152,6 +155,7 @@ npm run pull -- --url <git-url> --branch main
 | Installation & Setup | [INSTALL.md](INSTALL.md) |
 | init Command | [docs/init-command.md](docs/init-command.md) |
 | create Command | [docs/create-command.md](docs/create-command.md) |
+| delete Command | [docs/delete-command.md](docs/delete-command.md) |
 | import Command | [docs/import-command.md](docs/import-command.md) |
 | pull Command | [docs/pull-command.md](docs/pull-command.md) |
 | inspect Command | [docs/inspect-command.md](docs/inspect-command.md) |
