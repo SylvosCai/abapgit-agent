@@ -1801,6 +1801,31 @@ Examples:
         if (isAbapIntegrationEnabled()) {
           console.log('✅ ABAP Git Agent is ENABLED');
           console.log('   Config location:', pathModule.join(process.cwd(), '.abapGitAgent'));
+
+          // Check if repo exists in ABAP
+          const config = loadConfig();
+          const repoUrl = getGitRemoteUrl();
+
+          if (repoUrl) {
+            try {
+              const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl });
+
+              if (result.STATUS === 'Found') {
+                console.log('   Repository: ✅ Created');
+                console.log(`      Package: ${result.PACKAGE || result.package}`);
+                console.log(`      URL: ${repoUrl}`);
+                console.log(`      Key: ${result.REPO_KEY || result.repo_key}`);
+              } else {
+                console.log('   Repository: ❌ Not created in ABAP system');
+                console.log(`      URL: ${repoUrl}`);
+                console.log('   Run "abapgit-agent create" to create repository');
+              }
+            } catch (err) {
+              console.log('   Repository: ⚠️ Unable to check status');
+            }
+          } else {
+            console.log('   No git remote configured');
+          }
         } else {
           console.log('❌ ABAP Git Agent is NOT configured');
         }

@@ -18,6 +18,7 @@ CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
 
     lo_router->attach( iv_template = '/pull' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_PULL' ).
     lo_router->attach( iv_template = '/health' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_HEALTH' ).
+    lo_router->attach( iv_template = '/status' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_STATUS' ).
     lo_router->attach( iv_template = '/inspect' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_INSPECT' ).
     lo_router->attach( iv_template = '/unit' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_UNIT' ).
     lo_router->attach( iv_template = '/create' iv_handler_class = 'ZCL_ABGAGT_RESOURCE_CREATE' ).
