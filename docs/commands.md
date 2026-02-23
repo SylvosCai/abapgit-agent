@@ -83,9 +83,6 @@ abapgit-agent pull
 # Pull specific files only (faster for small changes)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
 
-# Delete repository from ABAP (uses current git remote)
-abapgit-agent delete
-
 # Syntax check before commit
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap
 
@@ -186,6 +183,16 @@ abapgit-agent ref "VALUE #(" --json
 │  pull                                          │
 │  └── Activates objects in ABAP                  │
 └─────────────────────────────────────────────────┘
+```
+
+### Repository Lifecycle
+
+```bash
+# Create online repository in ABAP
+abapgit-agent create
+
+# Delete repository from ABAP (uses current git remote)
+abapgit-agent delete
 ```
 
 ---
