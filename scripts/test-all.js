@@ -624,8 +624,9 @@ function runFullLifecycleTests() {
     const interfacePath = path.join(testDir, 'src', 'zif_abgagt_test.intf.abap');
     if (fs.existsSync(interfacePath)) {
       let interfaceContent = fs.readFileSync(interfacePath, 'utf8');
-      // Add a comment line for repeatability at the beginning
-      interfaceContent = '" Test comment for repeatability\n' + interfaceContent;
+      // Generate random comment with timestamp for repeatability test
+      const randomComment = `" Test comment ${Date.now()}\n`;
+      interfaceContent = randomComment + interfaceContent;
       fs.writeFileSync(interfacePath, interfaceContent);
 
       // Commit and push
