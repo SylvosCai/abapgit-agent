@@ -1811,7 +1811,10 @@ Examples:
               const csrfToken = await fetchCsrfToken(config);
               const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl }, { csrfToken });
 
-              if (result.STATUS === 'Found') {
+              console.log('   DEBUG: result =', JSON.stringify(result));
+
+              const status = result.STATUS || result.status || result.SUCCESS;
+              if (status === 'Found' || status === 'X' || status === true) {
                 console.log('   Repository: ✅ Created');
                 console.log(`      Package: ${result.PACKAGE || result.package}`);
                 console.log(`      URL: ${repoUrl}`);
