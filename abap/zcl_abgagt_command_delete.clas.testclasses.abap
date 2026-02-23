@@ -92,10 +92,10 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
       EXPORTING iv_url = 'https://github.com/test/repo.git'
       IMPORTING ei_repo = lo_mock_repo ).
 
-    " Step 4: Configure delete to raise exception
+    " Step 4: Configure delete on repo service to raise exception
     DATA(lx_error) = NEW zcx_abapgit_exception( ).
-    cl_abap_testdouble=>configure_call( lo_mock_repo )->raise_exception( lx_error ).
-    lo_mock_repo->delete( ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
+    lo_repo_srv_double->delete( ii_repo = lo_mock_repo ).
 
     " Step 5: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
@@ -121,17 +121,21 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Configure get_repo_from_url to raise exception (repo not found)
+    " Step 2: Create mock repo for the IMPORTING parameter
+    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
+    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
+
+    " Step 3: Configure get_repo_from_url to raise exception (repo not found)
     DATA(lx_error) = NEW zcx_abapgit_exception( ).
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
     lo_repo_srv_double->get_repo_from_url(
       EXPORTING iv_url = 'https://github.com/test/nonexistent.git'
-      IMPORTING ei_repo = lo_repo_srv_double ). " Dummy param
+      IMPORTING ei_repo = lo_mock_repo ).
 
-    " Step CUT with test double 3: Create
+    " Step 4: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 4: Execute
+    " Step 5: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/nonexistent.git',
           END OF ls_param.

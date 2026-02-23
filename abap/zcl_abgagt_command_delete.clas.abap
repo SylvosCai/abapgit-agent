@@ -53,9 +53,7 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
         EXPORTING iv_url = is_params-url
         IMPORTING ei_repo = ri_repo ).
     ELSE.
-      RAISE EXCEPTION TYPE zcx_abapgit_exception
-        EXPORTING
-          textid = zcx_abapgit_exception=>no_text.
+      RAISE EXCEPTION TYPE zcx_abapgit_exception.
     ENDIF.
   ENDMETHOD.
 
@@ -83,7 +81,7 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
 
     " Delete the repository
     TRY.
-        li_repo->delete( ).
+        get_repo_srv( )->delete( ii_repo = li_repo ).
         COMMIT WORK AND WAIT.
       CATCH zcx_abapgit_exception INTO DATA(lx_error).
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
