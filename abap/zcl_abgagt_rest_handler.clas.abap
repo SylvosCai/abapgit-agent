@@ -13,7 +13,7 @@ ENDCLASS.
 CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
 
   METHOD if_rest_application~get_root_handler.
-    " Dynamic routing: extract command from URL path (mo_server->m_path_translated)
+    " Dynamic routing: extract command from URL path
     " e.g., /sap/bc/z_abapgit_agent/health -> health
     " Then register the specific resource class dynamically
     DATA lo_router TYPE REF TO cl_rest_router.
@@ -21,14 +21,14 @@ CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
 
     " Get the current request path from the server
     DATA lv_path TYPE string.
-    lv_path = mo_server->m_path_translated.
+    lv_path = mo_server->request->get_header_field( name = '~path' ).
 
     " Extract command from path (last segment)
     SPLIT lv_path AT '/' INTO TABLE DATA(lt_parts).
     READ TABLE lt_parts INDEX lines( lt_parts ) INTO DATA(lv_command).
 
     " Build resource class name: ZCL_ABGAGT_RESOURCE_{COMMAND}
-    DATA lv_class_name TYPE string.
+    DATA lv_class_name TYPE seoclsname.
     lv_class_name = |ZCL_ABGAGT_RESOURCE_{ to_upper( lv_command ) }|.
 
     " Register the specific resource class
