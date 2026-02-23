@@ -491,6 +491,9 @@ function runFullLifecycleTests() {
     const firstCommit = execSync('git log --reverse --format=%H', { cwd: testDir, encoding: 'utf8' }).trim().split('\n')[0];
     if (firstCommit) {
       execSync(`git reset --hard ${firstCommit}`, { cwd: testDir });
+      // Force push to reset remote to first commit as well
+      printInfo('Force pushing to reset remote to first commit...');
+      execSync('git push --force origin main', { cwd: testDir });
     }
     // Clean up any .abapGitAgent file that might exist from previous runs
     const testConfigPath = path.join(testDir, '.abapGitAgent');
@@ -539,7 +542,7 @@ function runFullLifecycleTests() {
     const config = readAbapConfig();
     if (config) {
       config.package = '$ABGAGT_TEST';
-      config.folder = 'src/';
+      config.folder = '/src/';
       // Keep referenceFolder as-is for the test environment
       fs.writeFileSync(path.join(testDir, '.abapGitAgent'), JSON.stringify(config, null, 2));
     }

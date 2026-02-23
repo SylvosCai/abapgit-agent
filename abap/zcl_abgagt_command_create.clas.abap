@@ -82,6 +82,14 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " Validate folder format: must start and end with /
+    IF ls_params-folder IS NOT INITIAL.
+      IF NOT ( ls_params-folder CP '/*/' ).
+        rv_result = '{"success":"","error":"Folder must be in format /<folder>/ (e.g., /src/, /abap/)"}'.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     lv_package = ls_params-package.
 
     " Use injected dependencies for credentials
