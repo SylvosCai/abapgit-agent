@@ -4,6 +4,36 @@
 
 
 
+
+## v1.7.1
+
+### New Features
+
+- Added delete command to remove abapGit repositories
+- Added status command to check if repo exists in ABAP system
+
+### Bug Fixes
+
+- Fixed path resolution using request header instead of m_path_translated
+- Fixed status resource to use GET request instead of POST
+- Fixed delete command to use correct repo service method
+- Fixed folder format normalization in config with ABAP validation
+- Fixed status check to handle lowercase response values
+
+### Improvements
+
+- Implemented dynamic routing in REST handler
+- Refactored command extraction from URL for cleaner resource registration
+
+### Documentation
+
+- Added documentation for delete command
+- Updated status command documentation with repo existence check
+
+---
+
+---
+
 ## v1.7.0
 
 ### New Features
