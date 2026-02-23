@@ -41,7 +41,7 @@ describe('Init Command Integration', () => {
     // Verify contents
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     expect(config.package).toBe('ZTEST_PACKAGE');
-    expect(config.folder).toBe('/myabap');
+    expect(config.folder).toBe('/myabap/');
   });
 
   test('init uses default /src/ folder', () => {
