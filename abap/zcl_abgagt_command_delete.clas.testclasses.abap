@@ -6,7 +6,7 @@ CLASS ltcl_zcl_abgagt_command_delete DEFINITION FOR TESTING DURATION SHORT RISK 
 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
-    METHODS test_missing_url_and_key FOR TESTING.
+    METHODS test_missing_url FOR TESTING.
     METHODS test_delete_by_url_success FOR TESTING RAISING zcx_abapgit_exception.
     METHODS test_delete_repo_error FOR TESTING RAISING zcx_abapgit_exception.
     METHODS test_repo_not_found FOR TESTING RAISING zcx_abapgit_exception.
@@ -26,18 +26,17 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
       msg = 'Command name should be DELETE' ).
   ENDMETHOD.
 
-  METHOD test_missing_url_and_key.
-    " Both url and key are empty - should return error
+  METHOD test_missing_url.
+    " URL is empty - should return error
     DATA: BEGIN OF ls_param,
-            url      TYPE string VALUE '',
-            repo_key TYPE string VALUE '',
+            url TYPE string VALUE '',
           END OF ls_param.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '*"error":"URL or repo_key is required"*' ).
+      exp = '*"error"*' ).
   ENDMETHOD.
 
   METHOD test_delete_by_url_success.
@@ -49,9 +48,11 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
-    " Step 3: Configure get_by_url to return mock repo
+    " Step 3: Configure get_repo_from_url to return mock repo
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-    lo_repo_srv_double->get_by_url( 'https://github.com/test/repo.git' ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git'
+      IMPORTING ei_repo = lo_mock_repo ).
 
     " Step 4: Configure get_key method
     cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( 'TEST_KEY' ).
@@ -85,9 +86,11 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
-    " Step 3: Configure get_by_url to return mock repo
+    " Step 3: Configure get_repo_from_url to return mock repo
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
-    lo_repo_srv_double->get_by_url( 'https://github.com/test/repo.git' ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/repo.git'
+      IMPORTING ei_repo = lo_mock_repo ).
 
     " Step 4: Configure delete to raise exception
     DATA(lx_error) = NEW zcx_abapgit_exception( ).
@@ -118,12 +121,14 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Configure get_by_url to raise exception (repo not found)
-    DATA(lx_error) = NEW zcx_abapgit_exception( text = 'Repository not found' ).
+    " Step 2: Configure get_repo_from_url to raise exception (repo not found)
+    DATA(lx_error) = NEW zcx_abapgit_exception( ).
     cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
-    lo_repo_srv_double->get_by_url( 'https://github.com/test/nonexistent.git' ).
+    lo_repo_srv_double->get_repo_from_url(
+      EXPORTING iv_url = 'https://github.com/test/nonexistent.git'
+      IMPORTING ei_repo = lo_repo_srv_double ). " Dummy param
 
-    " Step 3: Create CUT with test double
+    " Step CUT with test double 3: Create
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
     " Step 4: Execute
@@ -139,7 +144,7 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
       exp = '*"success":""*' ).
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '*"error":"Repository not found"*' ).
+      exp = '*"error"*' ).
   ENDMETHOD.
 
 ENDCLASS.

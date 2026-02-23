@@ -47,15 +47,15 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD find_repo.
-    " Find repository by URL or key
+    " Find repository by URL
     IF is_params-url IS NOT INITIAL.
-      ri_repo = get_repo_srv( )->get_by_url( is_params-url ).
-    ELSEIF is_params-repo_key IS NOT INITIAL.
-      ri_repo = get_repo_srv( )->get( is_params-repo_key ).
+      get_repo_srv( )->get_repo_from_url(
+        EXPORTING iv_url = is_params-url
+        IMPORTING ei_repo = ri_repo ).
     ELSE.
       RAISE EXCEPTION TYPE zcx_abapgit_exception
         EXPORTING
-          text = 'URL or repo_key is required'.
+          textid = zcx_abapgit_exception=>no_text.
     ENDIF.
   ENDMETHOD.
 
@@ -67,9 +67,9 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
       ls_params = CORRESPONDING #( is_param ).
     ENDIF.
 
-    " Validate that either url or repo_key is provided
-    IF ls_params-url IS INITIAL AND ls_params-repo_key IS INITIAL.
-      rv_result = '{"success":"","error":"URL or repo_key is required"}'.
+    " Validate that URL is provided
+    IF ls_params-url IS INITIAL.
+      rv_result = '{"success":"","error":"URL is required"}'.
       RETURN.
     ENDIF.
 
