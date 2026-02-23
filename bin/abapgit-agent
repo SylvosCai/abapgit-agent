@@ -1229,9 +1229,18 @@ async function runInit(args) {
   const updateMode = args.includes('--update');
 
   // Get parameters
-  const folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
+  let folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
     ? args[folderArgIndex + 1]
     : '/src/';
+
+  // Normalize folder path: ensure it starts with / and ends with /
+  folder = folder.trim();
+  if (!folder.startsWith('/')) {
+    folder = '/' + folder;
+  }
+  if (!folder.endsWith('/')) {
+    folder = folder + '/';
+  }
 
   const packageName = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
     ? args[packageArgIndex + 1]

@@ -5,6 +5,7 @@ logs/
 .DS_Store
 dist/
 coverage/
+output/
 .abapGitAgent
 .abapgit_agent_cookies.txt
 cookies.txt
