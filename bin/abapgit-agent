@@ -6,6 +6,7 @@
  *   abapgit-agent init --folder <folder> --package <package>  # Initialize: copies config, CLAUDE.md, guidelines
  *   abapgit-agent init --update                               # Update existing files to latest version
  *   abapgit-agent create
+ *   abapgit-agent delete
  *   abapgit-agent import [--message <message>]
  *   abapgit-agent pull [--branch <branch>]
  *   abapgit-agent pull --url <git-url> [--branch <branch>]
@@ -1503,7 +1504,7 @@ To enable integration:
   }
 
   // Version compatibility check for commands that interact with ABAP
-  const abapCommands = ['create', 'import', 'pull', 'inspect', 'unit', 'tree', 'view', 'preview', 'list'];
+  const abapCommands = ['create', 'delete', 'import', 'pull', 'inspect', 'unit', 'tree', 'view', 'preview', 'list'];
   if (command && abapCommands.includes(command)) {
     await checkVersionCompatibility();
   }
@@ -1599,6 +1600,67 @@ Examples:
           console.log(`   Name: ${createdRepoName || repoName}`);
         } else {
           console.log(`❌ Failed to create repository`);
+          console.log(`   Error: ${error || message || 'Unknown error'}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'delete': {
+        const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
+
+        // Show help if requested
+        if (helpIndex !== -1) {
+          console.log(`
+Usage:
+  abapgit-agent delete
+
+Description:
+  Delete abapGit online repository from ABAP system.
+  Auto-detects URL from git remote of current directory.
+
+Prerequisites:
+  - Run "abapgit-agent create" first
+
+Examples:
+  abapgit-agent delete   # Delete repo for current git remote
+`);
+          return;
+        }
+
+        // Get URL from current git remote
+        const config = loadConfig();
+        const repoUrl = getGitRemoteUrl();
+
+        if (!repoUrl) {
+          console.error('Error: No git remote configured. Please configure a remote origin.');
+          process.exit(1);
+        }
+
+        console.log(`\n🗑️  Deleting online repository`);
+        console.log(`   URL: ${repoUrl}`);
+
+        const csrfToken = await fetchCsrfToken(config);
+
+        const data = {
+          url: repoUrl
+        };
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/delete', data, { csrfToken });
+
+        console.log('\n');
+
+        // Handle uppercase keys from ABAP
+        const success = result.SUCCESS || result.success;
+        const repoKey = result.REPO_KEY || result.repo_key;
+        const message = result.MESSAGE || result.message;
+        const error = result.ERROR || result.error;
+
+        if (success === 'X' || success === true) {
+          console.log(`✅ Repository deleted successfully!`);
+          console.log(`   Key: ${repoKey}`);
+        } else {
+          console.log(`❌ Failed to delete repository`);
           console.log(`   Error: ${error || message || 'Unknown error'}`);
           process.exit(1);
         }
@@ -2691,6 +2753,7 @@ Examples:
   abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
   abapgit-agent init --update                                # Update files to latest
   abapgit-agent create                                       # Create repo
+  abapgit-agent delete                                       # Delete repo
   abapgit-agent import                                       # Import objects to git
   abapgit-agent import --message "Initial import"            # Import with message
   abapgit-agent pull                                         # Auto-detect from git
