@@ -33,6 +33,7 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 ### CLI Commands
 - `init` - Initialize local configuration (supports `--update` to update files to latest)
 - `create` - Create online repository in ABAP
+- `delete` - Delete abapGit repository from ABAP system
 - `import` - Import objects from ABAP package to git
 - `pull` - Pull and activate repository
 - `inspect` - Syntax check via Code Inspector
@@ -48,7 +49,7 @@ Create an automated workflow where Claude generates ABAP code, pushes to git, an
 
 ### Backend (ABAP)
 - Command factory pattern for extensibility
-- REST resource handlers (/pull, /inspect, /unit, /tree, /list, /view, /preview, /where, /create, /import)
+- REST resource handlers (/pull, /inspect, /unit, /tree, /list, /view, /preview, /where, /create, /delete, /import)
 - abapGit integration for repository operations
 
 ### CI/CD

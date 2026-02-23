@@ -17,6 +17,7 @@ All available CLI commands for abapGit Agent.
 |---------|--------|-------------|
 | [init](init-command.md) | ✅ | Initialize local configuration (supports --update) |
 | [create](create-command.md) | ✅ | Create online repository in ABAP |
+| [delete](delete-command.md) | ✅ | Delete abapGit repository from ABAP |
 | [import](import-command.md) | ✅ | Import objects from ABAP package to git |
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
 | [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
@@ -81,6 +82,9 @@ abapgit-agent pull
 
 # Pull specific files only (faster for small changes)
 abapgit-agent pull --files abap/zcl_my_class.clas.abap
+
+# Delete repository from ABAP (uses current git remote)
+abapgit-agent delete
 
 # Syntax check before commit
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap

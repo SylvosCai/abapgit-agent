@@ -8,6 +8,8 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 |--------|----------|-------------|
 | GET | `/health` | Health check (also fetches CSRF token) |
 | POST | `/pull` | Pull and activate repository |
+| POST | `/create` | Create abapGit online repository |
+| POST | `/delete` | Delete abapGit repository from ABAP |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
@@ -120,6 +122,93 @@ The optional `transport_request` field specifies a transport request number to u
       "exception": "The statement METHOD is unexpected"
     }
   ]
+}
+```
+
+## POST /create
+
+Create an abapGit online repository in the ABAP system.
+
+### Request Body
+
+```json
+{
+  "url": "https://github.com/user/repo.git",
+  "branch": "main",
+  "package": "$MY_PACKAGE",
+  "name": "my-repo",
+  "display_name": "My Repository",
+  "folder_logic": "PREFIX",
+  "folder": "/src/",
+  "username": "git-username",
+  "password": "git-token"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | String | Git repository URL (required) |
+| `branch` | String | Branch name (default: main) |
+| `package` | String | ABAP package (required) |
+| `name` | String | Repository name (optional) |
+| `display_name` | String | Display name (optional) |
+| `folder_logic` | String | Folder logic: PREFIX or FULL (default: PREFIX) |
+| `folder` | String | Starting folder (optional) |
+| `username` | String | Git username/token (optional) |
+| `password` | String | Git password/token (optional) |
+
+### Response (success)
+
+```json
+{
+  "success": "X",
+  "repo_key": "abc123",
+  "repo_name": "my-repo",
+  "message": "Repository created successfully"
+}
+```
+
+### Response (error)
+
+```json
+{
+  "success": "",
+  "error": "Repository already exists"
+}
+```
+
+## POST /delete
+
+Delete an abapGit online repository from the ABAP system.
+
+### Request Body
+
+```json
+{
+  "url": "https://github.com/user/repo.git"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | String | Git repository URL (required) |
+
+### Response (success)
+
+```json
+{
+  "success": "X",
+  "repo_key": "abc123",
+  "message": "Repository deleted successfully"
+}
+```
+
+### Response (not found)
+
+```json
+{
+  "success": "",
+  "error": "No suitable repository found"
 }
 ```
 
