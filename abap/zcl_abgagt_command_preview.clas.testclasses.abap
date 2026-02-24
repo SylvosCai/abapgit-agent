@@ -199,8 +199,8 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
 
     cl_abap_unit_assert=>assert_equals(
       act = ls_result-total_rows
-      exp = 3
-      msg = 'Total rows should equal row count when using limit' ).
+      exp = 5
+      msg = 'Total rows should equal actual table row count (5)' ).
   ENDMETHOD.
 
 ENDCLASS.
