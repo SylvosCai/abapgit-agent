@@ -20,6 +20,7 @@
     "test:jest": "jest",
     "test:aunit": "node scripts/test-all.js --aunit",
     "test:cmd": "node scripts/test-all.js --cmd",
+    "test:cmd:demo": "node scripts/test-all.js --cmd --demo",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"

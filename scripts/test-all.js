@@ -11,6 +11,7 @@
  *   npm run test:jest      # Jest only
  *   npm run test:aunit     # AUnit only
  *   npm run test:cmd       # Command tests only
+ *   npm run test:cmd --demo # Command tests in demo mode (shows command and output)
  */
 
 const { execSync, spawn } = require('child_process');
@@ -704,10 +705,100 @@ function runLifecycleTests() {
 }
 
 /**
- * Run command tests against real ABAP system
+ * Run command in demo mode - shows command and streams output in real-time
+ * @param {string} command - The command to run
+ * @param {string} testName - Display name for the test
+ * @param {Function} verify - Verification function
+ * @returns {Promise<{passed: boolean, output: string}>}
  */
-function runCommandTests() {
-  printSubHeader('Running Command Tests (Real ABAP System)');
+function runDemoCommand(command, testName, verify) {
+  return new Promise((resolve) => {
+    // Print command banner
+    console.log('\n' + '='.repeat(70));
+    console.log(colorize('cyan', `  ▶ abapgit-agent ${command}`));
+    console.log('='.repeat(70));
+    console.log('');
+
+    const child = spawn('node', ['bin/abapgit-agent', ...command.split(' ')], {
+      cwd: repoRoot,
+      shell: true,
+      timeout: 120000
+    });
+
+    let output = '';
+
+    child.stdout.on('data', (data) => {
+      const text = data.toString();
+      process.stdout.write(text);
+      output += text;
+    });
+
+    child.stderr.on('data', (data) => {
+      const text = data.toString();
+      process.stderr.write(text);
+      output += text;
+    });
+
+    child.on('close', (code) => {
+      console.log(''); // Add newline after output
+
+      // Verify result
+      let commandPassed = false;
+      if (verify) {
+        commandPassed = verify(output);
+      } else {
+        commandPassed = code === 0;
+      }
+
+      // Print result
+      if (commandPassed) {
+        console.log(colorize('green', '  ✅ PASSED'));
+      } else {
+        console.log(colorize('red', '  ❌ FAILED'));
+      }
+
+      resolve({ passed: commandPassed, output });
+    });
+
+    child.on('error', (error) => {
+      console.error(colorize('red', `  ❌ ERROR: ${error.message}`));
+      resolve({ passed: false, output: error.message });
+    });
+  });
+}
+
+/**
+ * Run demo mode command tests (async)
+ */
+async function runDemoCommandTests(testCases, startTime) {
+  const results = [];
+
+  for (const testCase of testCases) {
+    const command = [testCase.command, ...testCase.args].join(' ');
+
+    const result = await runDemoCommand(command, testCase.name, testCase.verify);
+    results.push({ ...testCase, passed: result.passed, output: result.output.substring(0, 200) });
+  }
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const passedCount = results.filter(r => r.passed).length;
+  const totalCount = results.length;
+
+  if (passedCount === totalCount) {
+    printSuccess(`Command tests: ${passedCount}/${totalCount} passed (${duration}s)`);
+    return { success: true, results, duration, passedCount, totalCount };
+  } else {
+    printError(`Command tests: ${passedCount}/${totalCount} passed (${duration}s)`);
+    return { success: false, results, duration, passedCount, totalCount };
+  }
+}
+
+/**
+ * Run command tests against real ABAP system
+ * @param {boolean} demoMode - If true, show command and output for each test
+ */
+function runCommandTests(demoMode = false) {
+  printSubHeader('Running Command Tests (Real ABAP System)' + (demoMode ? ' [DEMO MODE]' : ''));
 
   const startTime = Date.now();
   const results = [];
@@ -731,6 +822,12 @@ function runCommandTests() {
     }
   }
 
+  // Use synchronous execution for non-demo mode, async for demo mode
+  if (demoMode) {
+    return runDemoCommandTests(commandTestCases, startTime);
+  }
+
+  // Original synchronous implementation
   for (const testCase of commandTestCases) {
     process.stdout.write(`  Testing: ${testCase.command} ${testCase.name}... `);
 
@@ -885,6 +982,9 @@ async function main() {
   // Otherwise run all tests
   const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd'].includes(arg));
 
+  // Demo mode shows command and output for each test
+  const demoMode = args.includes('--demo');
+
   let runJest, runAunit, runCmd;
 
   if (args.includes('--jest')) {
@@ -892,7 +992,7 @@ async function main() {
     runAunit = false;
     runCmd = false;
   } else if (args.includes('--aunit')) {
-    runJest = false;
+    false;
     runAunit = true;
     runCmd = false;
   } else if (args.includes('--cmd')) {
@@ -922,7 +1022,7 @@ async function main() {
 
   // Run Command tests
   if (runCmd) {
-    results.cmd = runCommandTests();
+    results.cmd = await runCommandTests(demoMode);
   }
 
   // Print summary and exit with appropriate code
