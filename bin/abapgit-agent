@@ -2667,17 +2667,21 @@ Examples:
       case 'ref': {
         const refSearch = require('../src/ref-search');
         const topicIndex = args.indexOf('--topic');
+        const cloneIndex = args.indexOf('--clone');
+        const nameIndex = args.indexOf('--name');
         const listTopics = args.includes('--list-topics') || args.includes('-l');
         const listRepos = args.includes('--list-repos') || args.includes('-r');
-        const exportGuidelines = args.includes('--export') || args.includes('-e');
         const jsonOutput = args.includes('--json');
 
-        if (exportGuidelines) {
-          const result = await refSearch.exportGuidelines();
+        // Handle --clone option
+        if (cloneIndex !== -1 && cloneIndex + 1 < args.length) {
+          const repoUrl = args[cloneIndex + 1];
+          const name = nameIndex !== -1 && nameIndex + 1 < args.length ? args[nameIndex + 1] : null;
+          const result = refSearch.cloneRepository(repoUrl, name);
           if (jsonOutput) {
             console.log(JSON.stringify(result, null, 2));
           } else {
-            refSearch.displayExportResult(result);
+            refSearch.displayCloneResult(result);
           }
           break;
         }
@@ -2722,15 +2726,16 @@ Examples:
           console.error('  abapgit-agent ref <pattern>           Search for pattern');
           console.error('  abapgit-agent ref --topic <name>      View specific topic');
           console.error('  abapgit-agent ref --list-topics       List available topics');
-          console.error('  abapgit-agent ref --list-repos        List reference repositories');
-          console.error('  abapgit-agent ref --export            Export local guidelines to reference folder');
+          console.error('  abapgit-agent ref --list-repos       List reference repositories');
+          console.error('  abapgit-agent ref --clone <repo>     Clone a repository');
           console.error('');
           console.error('Examples:');
           console.error('  abapgit-agent ref "CORRESPONDING"');
           console.error('  abapgit-agent ref --topic exceptions');
           console.error('  abapgit-agent ref --list-topics');
           console.error('  abapgit-agent ref --list-repos');
-          console.error('  abapgit-agent ref --export');
+          console.error('  abapgit-agent ref --clone SAP-samples/abap-cheat-sheets');
+          console.error('  abapgit-agent ref --clone https://github.com/abapGit/abapGit.git');
           process.exit(1);
         }
 
@@ -2804,8 +2809,10 @@ Commands:
   ref --list-repos
     List all reference repositories in the reference folder
 
-  ref --export
-    Export custom guidelines (abap/guidelines/) to reference folder
+  ref --clone <repo> [--name <folder>]
+    Clone a GitHub repository to the reference folder
+    - Use full URL: https://github.com/user/repo.git
+    - Or short name: user/repo or user/repo (assumes github.com)
 
   health
     Check if ABAP REST API is healthy
@@ -2850,7 +2857,8 @@ Examples:
   abapgit-agent ref --topic unit-tests                       # View unit test topic
   abapgit-agent ref --list-topics                            # List all topics
   abapgit-agent ref --list-repos                             # List reference repositories
-  abapgit-agent ref --export                                  # Export custom guidelines
+  abapgit-agent ref --clone SAP-samples/abap-cheat-sheets    # Clone repo to reference folder
+  abapgit-agent ref --clone https://github.com/user/repo.git # Clone from URL
   abapgit-agent health
   abapgit-agent status
 `);

@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
+const { execSync } = require('child_process');
 const readdir = promisify(fs.readdir);
 const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
@@ -62,6 +63,120 @@ const TOPIC_MAP = {
   'rap': '36_RAP_Behavior_Definition_Language.md',
   'tables': '01_Internal_Tables.md'
 };
+
+/**
+ * Ensure reference folder exists, create if necessary
+ * @returns {string|null} Path to reference folder or null if cannot create
+ */
+function ensureReferenceFolder() {
+  let refFolder = detectReferenceFolder();
+
+  if (refFolder && fs.existsSync(refFolder)) {
+    return refFolder;
+  }
+
+  // Try to create the reference folder at default location
+  const homeDir = require('os').homedir();
+  const defaultPath = path.join(homeDir, 'abap-reference');
+
+  try {
+    if (!fs.existsSync(defaultPath)) {
+      fs.mkdirSync(defaultPath, { recursive: true });
+    }
+    return defaultPath;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Clone a repository to the reference folder
+ * @param {string} repoUrl - Git repository URL or short name (e.g., "SAP-samples/abap-cheat-sheets")
+ * @param {string|null} name - Optional folder name for the cloned repo
+ * @returns {Object} Clone result
+ */
+function cloneRepository(repoUrl, name = null) {
+  const refFolder = ensureReferenceFolder();
+
+  if (!refFolder) {
+    return {
+      success: false,
+      error: 'Could not create reference folder',
+      hint: 'Set referenceFolder in .abapGitAgent or ensure ~/abap-reference is writable'
+    };
+  }
+
+  // Parse the repo URL
+  let targetName = name;
+  let cloneUrl = repoUrl;
+
+  // Handle short names (e.g., "SAP-samples/abap-cheat-sheets")
+  if (!repoUrl.startsWith('http://') && !repoUrl.startsWith('https://') && !repoUrl.startsWith('git@')) {
+    cloneUrl = `https://github.com/${repoUrl}.git`;
+  }
+
+  // If no name provided, extract from URL
+  if (!targetName) {
+    // Extract repo name from URL
+    const urlParts = cloneUrl.split('/');
+    const repoWithGit = urlParts[urlParts.length - 1];
+    targetName = repoWithGit.replace(/\.git$/, '');
+  }
+
+  const targetPath = path.join(refFolder, targetName);
+
+  // Check if already exists
+  if (fs.existsSync(targetPath)) {
+    return {
+      success: false,
+      error: `Repository already exists: ${targetName}`,
+      hint: `Delete '${targetPath}' to re-clone, or use --name to specify a different folder name`,
+      existingPath: targetPath
+    };
+  }
+
+  try {
+    // Run git clone
+    execSync(`git clone "${cloneUrl}" "${targetPath}"`, {
+      stdio: 'pipe',
+      encoding: 'utf8'
+    });
+
+    return {
+      success: true,
+      message: `Successfully cloned ${repoUrl}`,
+      repository: targetName,
+      folder: targetPath,
+      referenceFolder: refFolder
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to clone: ${error.message}`,
+      hint: 'Check the repository URL and your network connection'
+    };
+  }
+}
+
+/**
+ * Display clone result in console format
+ * @param {Object} result - Clone result
+ */
+function displayCloneResult(result) {
+  if (result.success) {
+    console.log(`\n  ✅ ${result.message}`);
+    console.log(`\n  📁 Repository: ${result.repository}`);
+    console.log(`  📁 Location: ${result.folder}`);
+    console.log(`  📁 Reference folder: ${result.referenceFolder}`);
+    console.log(`\n  💡 You can now search this repository with:`);
+    console.log(`     abapgit-agent ref --list-repos`);
+  } else {
+    console.error(`\n  ❌ ${result.error}`);
+    if (result.hint) {
+      console.error(`\n  💡 ${result.hint}`);
+    }
+  }
+}
 
 /**
  * Detect reference folder from config or common locations
@@ -1005,7 +1120,7 @@ function displayInitResult(result) {
     console.log(`\n  💡 Next steps:`);
     console.log(`    1. Review the guidelines in abap/guidelines/`);
     console.log(`    2. Customize as needed for your project`);
-    console.log(`    3. Run 'abapgit-agent ref --export' to make them searchable`);
+    console.log(`    3. Guidelines are automatically searchable with 'ref' command`);
   } else {
     console.error(`\n  ❌ ${result.error}`);
     if (result.hint) {
@@ -1016,6 +1131,7 @@ function displayInitResult(result) {
 
 module.exports = {
   detectReferenceFolder,
+  ensureReferenceFolder,
   detectGuidelinesFolder,
   getBuiltInGuidelinesPath,
   initGuidelines,
@@ -1027,11 +1143,13 @@ module.exports = {
   listTopics,
   listRepositories,
   exportGuidelines,
+  cloneRepository,
   displaySearchResults,
   displayTopic,
   displayTopics,
   displayRepositories,
   displayExportResult,
   displayInitResult,
+  displayCloneResult,
   TOPIC_MAP
 };
