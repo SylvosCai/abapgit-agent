@@ -250,10 +250,18 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
     " Map to output structure - convert to string fields for JSON serialization
     " Filter: only include CLAS and PROG types
+    DATA lv_filtered_count TYPE i.
     LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref>).
       IF <ls_ref>-obj_type <> 'CLAS' AND <ls_ref>-obj_type <> 'PROG'.
         CONTINUE.
       ENDIF.
+      lv_filtered_count = lv_filtered_count + 1.
+
+      " Apply offset - skip first iv_offset items
+      IF iv_offset > 0 AND lv_filtered_count <= iv_offset.
+        CONTINUE.
+      ENDIF.
+
       ls_ref_out-object = <ls_ref>-obj_name.
       ls_ref_out-object_type = <ls_ref>-obj_type.
       ls_ref_out-include_name = <ls_ref>-sub_name.
@@ -288,21 +296,6 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ENDIF.
 
       ls_ref_out-package = <ls_ref>-appl_packet.
-
-      " Apply offset - skip first iv_offset items
-      IF iv_offset > 0.
-        " Count filtered items up to this point to determine if we should include
-        DATA(lv_filtered_before) = 0.
-        LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref_check>) FROM 1 TO sy-tabix.
-          IF <ls_ref_check>-obj_type = 'CLAS' OR <ls_ref_check>-obj_type = 'PROG'.
-            lv_filtered_before = lv_filtered_before + 1.
-          ENDIF.
-        ENDLOOP.
-        IF lv_filtered_before <= iv_offset.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-
       APPEND ls_ref_out TO rt_references.
 
       " Apply limit if specified
