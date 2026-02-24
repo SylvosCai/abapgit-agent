@@ -5,6 +5,35 @@
 
 
 
+
+## v1.7.2
+
+### New Features
+
+- Add offset paging support to preview command
+- Add --clone option to ref command for cloning repositories
+- Add demo mode to test:cmd for showing command output
+
+### Bug Fixes
+
+- Fix ORDER BY dynamic clause syntax issues
+- Handle invalid offset/limit values (negative numbers, NaN)
+- Handle offset exceeding total in pagination display
+- Fix pagination display in where command
+- Include required files in npm package for init command
+
+### Improvements
+
+- Add offset paging support to where command
+
+### Documentation
+
+- Update preview-command.md with paging support
+- Update abg-agent.md with offset and limit options for where command
+- Update ref-command.md with --clone option
+
+---
+
 ## v1.7.1
 
 ### New Features
