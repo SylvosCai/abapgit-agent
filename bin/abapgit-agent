@@ -2555,10 +2555,12 @@ Examples:
         const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
         const limitArg = args.indexOf('--limit');
         const limitRaw = limitArg !== -1 ? args[limitArg + 1] : null;
-        const limit = limitRaw && !limitRaw.startsWith('--') ? Math.max(1, parseInt(limitRaw, 10)) : 100;
+        const limitParsed = parseInt(limitRaw, 10);
+        const limit = limitRaw && !limitRaw.startsWith('--') && !isNaN(limitParsed) ? Math.max(1, limitParsed) : 100;
         const offsetArg = args.indexOf('--offset');
         const offsetRaw = offsetArg !== -1 ? args[offsetArg + 1] : null;
-        const offset = offsetRaw && !offsetRaw.startsWith('--') ? Math.max(0, parseInt(offsetRaw, 10)) : 0;
+        const offsetParsed = parseInt(offsetRaw, 10);
+        const offset = offsetRaw && !offsetRaw.startsWith('--') && !isNaN(offsetParsed) ? Math.max(0, offsetParsed) : 0;
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Where-used list for ${objects.length} object(s)`);
