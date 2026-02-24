@@ -30,6 +30,9 @@ abapgit-agent preview --objects SFLIGHT --type TABL
 # Preview with row limit
 abapgit-agent preview --objects SFLIGHT --limit 20
 
+# Preview with offset for paging
+abapgit-agent preview --objects SFLIGHT --offset 10 --limit 20
+
 # Preview with WHERE clause filter
 abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
 
@@ -57,7 +60,8 @@ abapgit-agent preview --objects SFLIGHT --json
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of table/view names |
 | `--type` | No | Object type (TABL, DDLS). Auto-detected from TADIR if not specified |
-| `--limit` | No | Maximum rows to return (default: 10, max: 100) |
+| `--limit` | No | Maximum rows to return (default: 100, max: 500) |
+| `--offset` | No | Number of rows to skip (for paging, default: 0) |
 | `--where` | No | WHERE clause filter (e.g., `CARRID = 'AA'`) |
 | `--columns` | No | Comma-separated column names to display (e.g., `CARRID,CONNID,PRICE`) |
 | `--vertical` | No | Show data in vertical format (one field per line) |
@@ -72,7 +76,8 @@ abapgit-agent preview --objects SFLIGHT --json
 
 - `--objects` must be specified
 - Object names are converted to uppercase automatically
-- `--limit` must be between 1 and 100 (default: 10)
+- `--limit` must be between 1 and 500 (default: 100)
+- `--offset` must be >= 0 (default: 0)
 - `--type` accepts TABL or DDLS (case-insensitive)
 
 ### 2. Load Configuration
@@ -94,7 +99,8 @@ GET /health (with X-CSRF-Token: fetch)
 {
   "objects": ["SFLIGHT", "ZC_CDS_VIEW"],
   "type": "TABL",
-  "limit": 10,
+  "limit": 100,
+  "offset": 0,
   "where": "CARRID = 'AA'",
   "columns": ["CARRID", "CONNID", "PRICE"]
 }
@@ -174,6 +180,17 @@ Showing 2 of 10 rows
 
 WHERE: CARRID = 'AA'
 Showing 2 of 2 rows
+```
+
+### With Pagination
+
+```
+  Previewing 1 object(s)
+
+  Retrieved data (Showing 11-20 of 354) — Use --offset 20 to see more
+
+  📊 Preview: SFLIGHT (Table)
+  ...
 ```
 
 ### Column Selection
@@ -334,6 +351,13 @@ abapgit-agent preview --objects SFLIGHT --compact
     "TOTAL_OBJECTS": 1,
     "TOTAL_ROWS": 4
   },
+  "PAGINATION": {
+    "LIMIT": 10,
+    "OFFSET": 0,
+    "TOTAL": 354,
+    "HAS_MORE": true,
+    "NEXT_OFFSET": 10
+  },
   "ERROR": ""
 }
 ```
@@ -375,6 +399,13 @@ abapgit-agent preview --objects SFLIGHT --compact
   "SUMMARY": {
     "TOTAL_OBJECTS": number,
     "TOTAL_ROWS": number
+  },
+  "PAGINATION": {
+    "LIMIT": number,
+    "OFFSET": number,
+    "TOTAL": number,
+    "HAS_MORE": boolean,
+    "NEXT_OFFSET": number
   },
   "ERROR": "string"
 }
@@ -494,6 +525,9 @@ abapgit-agent preview --objects SFLIGHT
 # Preview with more rows
 abapgit-agent preview --objects SFLIGHT --limit 50
 
+# Preview with paging (offset)
+abapgit-agent preview --objects SFLIGHT --offset 100 --limit 50
+
 # Preview with filter
 abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA' AND CONNID = '0017'"
 
@@ -525,4 +559,4 @@ abapgit-agent preview --objects SFLIGHT,ZSCUSTOMER,ZCF_MY_VIEW
   - Allow only: `=`, `<>`, `>`, `<`, `>=`, `<=`, `LIKE`, `IN`, `AND`, `OR`, `(`, `)`
   - Block: `DELETE`, `UPDATE`, `INSERT`, `DROP`, `TABLE`
 - **Column name validation**: Validate column names against DD03L
-- **Row limit**: Enforce maximum of 100 rows to prevent large result sets
+- **Row limit**: Enforce maximum of 500 rows to prevent large result sets
