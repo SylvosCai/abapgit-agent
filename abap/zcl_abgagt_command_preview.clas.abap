@@ -378,14 +378,14 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
           IF iv_where IS INITIAL.
             SELECT * FROM (iv_tabname)
-              ORDER BY (@lv_first_field)
+              ORDER BY (lv_first_field)
               INTO TABLE @<lt_data>
               UP TO @lv_limit ROWS
               OFFSET @lv_offset.
           ELSE.
             SELECT * FROM (iv_tabname)
               WHERE (iv_where)
-              ORDER BY (@lv_first_field)
+              ORDER BY (lv_first_field)
               INTO TABLE @<lt_data>
               UP TO @lv_limit ROWS
               OFFSET @lv_offset.
