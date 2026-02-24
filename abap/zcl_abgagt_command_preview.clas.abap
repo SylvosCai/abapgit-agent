@@ -367,26 +367,40 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
-        " Add OFFSET for pagination (requires ORDER BY)
-        " Get first field name for ORDER BY
-        DATA(lv_first_field) = VALUE string( lt_components[ 1 ]-name ).
-        IF lv_first_field IS INITIAL.
-          lv_first_field = 'MANDT'.
-        ENDIF.
+        " Add OFFSET for pagination (requires ORDER BY in ABAP SQL)
+        IF lv_offset > 0.
+          " Get first field name for ORDER BY
+          DATA(lv_first_field) = VALUE string( lt_components[ 1 ]-name ).
+          IF lv_first_field IS INITIAL.
+            lv_first_field = 'MANDT'.
+          ENDIF.
 
-        IF iv_where IS INITIAL.
-          SELECT * FROM (iv_tabname)
-            ORDER BY @(lv_first_field)
-            INTO TABLE @<lt_data>
-            UP TO @lv_limit ROWS
-            OFFSET @lv_offset.
+          IF iv_where IS INITIAL.
+            SELECT * FROM (iv_tabname)
+              ORDER BY @(lv_first_field)
+              INTO TABLE @<lt_data>
+              UP TO @lv_limit ROWS
+              OFFSET @lv_offset.
+          ELSE.
+            SELECT * FROM (iv_tabname)
+              WHERE (iv_where)
+              ORDER BY @(lv_first_field)
+              INTO TABLE @<lt_data>
+              UP TO @lv_limit ROWS
+              OFFSET @lv_offset.
+          ENDIF.
         ELSE.
-          SELECT * FROM (iv_tabname)
-            WHERE (iv_where)
-            ORDER BY @(lv_first_field)
-            INTO TABLE @<lt_data>
-            UP TO @lv_limit ROWS
-            OFFSET @lv_offset.
+          " No offset - no ORDER BY needed
+          IF iv_where IS INITIAL.
+            SELECT * FROM (iv_tabname)
+              INTO TABLE @<lt_data>
+              UP TO @lv_limit ROWS.
+          ELSE.
+            SELECT * FROM (iv_tabname)
+              WHERE (iv_where)
+              INTO TABLE @<lt_data>
+              UP TO @lv_limit ROWS.
+          ENDIF.
         ENDIF.
 
         " Get row count
