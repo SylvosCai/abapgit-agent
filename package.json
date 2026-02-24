@@ -6,7 +6,10 @@
   "files": [
     "bin/",
     "src/",
-    "abap/guidelines/"
+    "abap/guidelines/",
+    "abap/CLAUDE.md",
+    "abap/.github/copilot-instructions.md",
+    ".abapGitAgent.example"
   ],
   "bin": {
     "abapgit-agent": "bin/abapgit-agent",
