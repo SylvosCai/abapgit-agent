@@ -17,6 +17,7 @@
 const { execSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const readline = require('readline');
 
 const repoRoot = path.join(__dirname, '..');
 
@@ -705,14 +706,33 @@ function runLifecycleTests() {
 }
 
 /**
+ * Pause and wait for user input
+ * @param {string} message - Message to display
+ * @returns {Promise<void>}
+ */
+function pause(message = '  Press any key to continue...') {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question(colorize('yellow', message), () => {
+      rl.close();
+      resolve();
+    });
+  });
+}
+
+/**
  * Run command in demo mode - shows command and streams output in real-time
  * @param {string} command - The command to run
  * @param {string} testName - Display name for the test
  * @param {Function} verify - Verification function
  * @returns {Promise<{passed: boolean, output: string}>}
  */
-function runDemoCommand(command, testName, verify) {
-  return new Promise((resolve) => {
+function runDemoCommand(command, testName, verify, shouldPause = true) {
+  return new Promise(async (resolve) => {
     // Print command banner
     console.log('\n' + '='.repeat(70));
     console.log(colorize('cyan', `  ▶ abapgit-agent ${command}`));
@@ -739,7 +759,7 @@ function runDemoCommand(command, testName, verify) {
       output += text;
     });
 
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       console.log(''); // Add newline after output
 
       // Verify result
@@ -757,11 +777,19 @@ function runDemoCommand(command, testName, verify) {
         console.log(colorize('red', '  ❌ FAILED'));
       }
 
+      // Pause for user to review output
+      if (shouldPause) {
+        await pause();
+      }
+
       resolve({ passed: commandPassed, output });
     });
 
-    child.on('error', (error) => {
+    child.on('error', async (error) => {
       console.error(colorize('red', `  ❌ ERROR: ${error.message}`));
+      if (shouldPause) {
+        await pause();
+      }
       resolve({ passed: false, output: error.message });
     });
   });
