@@ -23,6 +23,10 @@ abapgit-agent ref --list-topics
 # List all reference repositories
 abapgit-agent ref --list-repos
 
+# Clone a repository to reference folder
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets
+abapgit-agent ref --clone https://github.com/abapGit/abapGit.git
+
 # JSON output for scripting
 abapgit-agent ref "VALUE #(" --json
 abapgit-agent ref --topic sql --json
@@ -35,18 +39,17 @@ abapgit-agent ref --topic sql --json
 
 ### Setup
 
-Clone the ABAP cheat sheets and any other ABAP repositories to a common location:
+Use the built-in `--clone` command to add repositories to your reference folder:
 
 ```bash
-mkdir -p ~/abap-reference
-cd ~/abap-reference
+# Clone cheat sheets (creates ~/abap-reference if needed)
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets
 
-# Clone cheat sheets
-git clone https://github.com/SAP-samples/abap-cheat-sheets.git
+# Clone from full URL
+abapgit-agent ref --clone https://github.com/abapGit/abapGit.git
 
-# Clone other ABAP repositories for code search
-git clone https://github.com/abapGit/abapGit.git
-git clone <your-other-abap-repo>.git
+# Clone with custom folder name
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets --name my-cheat-sheets
 ```
 
 Or configure in `.abapGitAgent`:
@@ -81,9 +84,11 @@ All subdirectories in the reference folder that contain ABAP code (`.abap` files
 | `--topic` | No* | View specific topic by name (from cheat sheets) |
 | `--list-topics` | No | List all available topics from cheat sheets |
 | `--list-repos` | No | List all discovered reference repositories |
+| `--clone` | No* | Clone a GitHub repository to reference folder |
+| `--name` | No | Custom folder name for cloned repository |
 | `--json` | No | Output results as JSON |
 
-*Either `pattern`, `--topic`, `--list-topics`, or `--list-repos` must be specified.
+*Either `pattern`, `--topic`, `--list-topics`, `--list-repos`, or `--clone` must be specified.
 
 ---
 
@@ -133,6 +138,15 @@ Display all available topics with their file mappings (from cheat sheets).
 ### 6. List Repositories Mode (`--list-repos`)
 
 Display all discovered reference repositories with their types.
+
+### 7. Clone Mode (`--clone`)
+
+Clone a GitHub repository to the reference folder:
+
+1. Auto-creates `~/abap-reference` if it doesn't exist
+2. Supports short names (`user/repo`) or full URLs
+3. Validates repository doesn't already exist
+4. Provides helpful error messages for failures
 
 ---
 
@@ -278,6 +292,30 @@ abapgit-agent ref --list-repos
   abapGit                       Git Repo
 ```
 
+### Clone
+
+```bash
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets
+```
+
+```
+  ✅ Successfully cloned https://github.com/SAP-samples/abap-cheat-sheets.git
+
+  📁 Repository: abap-cheat-sheets
+  📁 Location: /Users/me/abap-reference/abap-cheat-sheets
+  📁 Reference folder: /Users/me/abap-reference
+
+  💡 You can now search this repository with:
+     abapgit-agent ref --list-repos
+```
+
+**Error cases:**
+```
+  ❌ Repository already exists: abap-cheat-sheets
+
+  💡 Delete '/Users/me/abap-reference/abap-cheat-sheets' to re-clone, or use --name to specify a different folder name
+```
+
 ---
 
 ## Error Handling
@@ -289,6 +327,8 @@ abapgit-agent ref --list-repos
 | Unknown topic | `❌ Unknown topic: <name>` with available topics |
 | File not found | `❌ File not found: <file>` |
 | No pattern specified | Usage instructions |
+| Repository already exists | `❌ Repository already exists: <name>` with hint to delete or use --name |
+| Clone failed | `❌ Failed to clone: <error>` with network/URL troubleshooting |
 
 ---
 
@@ -322,6 +362,30 @@ abapgit-agent ref --list-repos
 ---
 
 ## Examples
+
+### Clone ABAP Cheat Sheets
+
+```bash
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets
+```
+
+Clones the SAP ABAP cheat sheets repository to the reference folder.
+
+### Clone from URL
+
+```bash
+abapgit-agent ref --clone https://github.com/abapGit/abapGit.git
+```
+
+Clones using a full GitHub URL.
+
+### Clone with Custom Folder Name
+
+```bash
+abapgit-agent ref --clone SAP-samples/abap-cheat-sheets --name my-cheat-sheets
+```
+
+Clones to a custom folder name to avoid conflicts.
 
 ### Search for Constructor Expression
 
@@ -376,6 +440,7 @@ Use `ref` when:
 - You want to learn about unfamiliar ABAP topics
 - You need structured JSON output for tooling integration
 - You want to search for code patterns in your own ABAP repositories
+- You want to clone new GitHub repositories to your reference folder
 
 Unlike other commands, `ref` does **not** require:
 - ABAP system connection
