@@ -11,9 +11,19 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              objects TYPE string_table,
              type TYPE string,
              limit TYPE i,
+             offset TYPE i,
              where TYPE string,
              columns TYPE string_table,
            END OF ty_preview_params.
+
+    " Pagination info
+    TYPES: BEGIN OF ty_pagination,
+             limit TYPE i,
+             offset TYPE i,
+             total TYPE i,
+             has_more TYPE abap_bool,
+             next_offset TYPE i,
+           END OF ty_pagination.
 
     " Field metadata
     TYPES: BEGIN OF ty_field,
@@ -58,6 +68,7 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
              message TYPE string,
              objects TYPE ty_preview_objects,
              summary TYPE ty_summary,
+             pagination TYPE ty_pagination,
              error TYPE string,
            END OF ty_preview_result.
 
@@ -67,6 +78,7 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
         iv_name TYPE string
         iv_type TYPE string
         iv_limit TYPE i
+        iv_offset TYPE i
         iv_where TYPE string
         it_columns TYPE string_table
       RETURNING
@@ -82,6 +94,7 @@ CLASS zcl_abgagt_command_preview DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         iv_tabname TYPE string
         iv_limit TYPE i
+        iv_offset TYPE i
         iv_where TYPE string
         it_columns TYPE string_table
       CHANGING
@@ -130,17 +143,20 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     DATA lt_objects TYPE ty_preview_objects.
     DATA lv_object TYPE string.
     DATA lv_total_rows TYPE i.
+    DATA lv_total_count TYPE i.
 
     LOOP AT ls_params-objects INTO lv_object.
       DATA(ls_obj) = get_table_data(
         iv_name    = lv_object
         iv_type    = ls_params-type
         iv_limit   = ls_params-limit
+        iv_offset  = ls_params-offset
         iv_where   = ls_params-where
         it_columns = ls_params-columns ).
 
       APPEND ls_obj TO lt_objects.
       lv_total_rows = lv_total_rows + ls_obj-row_count.
+      lv_total_count = lv_total_count + ls_obj-total_rows.
     ENDLOOP.
 
     " Build result
@@ -157,6 +173,19 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ls_result-message = COND #( WHEN lv_has_error = abap_true THEN 'Some objects could not be retrieved' ELSE 'Retrieved data' ).
     ls_result-objects = lt_objects.
 
+    " Build pagination info
+    DATA ls_pagination TYPE ty_pagination.
+    ls_pagination-limit = ls_params-limit.
+    ls_pagination-offset = ls_params-offset.
+    ls_pagination-total = lv_total_count.
+    " Check if there are more rows
+    IF ls_params-limit > 0 AND lv_total_count > ls_params-offset + ls_params-limit.
+      ls_pagination-has_more = abap_true.
+      ls_pagination-next_offset = ls_params-offset + ls_params-limit.
+    ELSE.
+      ls_pagination-has_more = abap_false.
+    ENDIF.
+
     " Build summary
     DATA ls_summary TYPE ty_summary.
     ls_summary-total_objects = lines( lt_objects ).
@@ -169,11 +198,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
             message TYPE string,
             objects TYPE ty_preview_objects,
             summary TYPE ty_summary,
+            pagination TYPE ty_pagination,
             error TYPE string,
           END OF ls_final.
 
     ls_final = CORRESPONDING #( ls_result ).
     ls_final-summary = ls_summary.
+    ls_final-pagination = ls_pagination.
 
     rv_result = /ui2/cl_json=>serialize( data = ls_final ).
   ENDMETHOD.
@@ -210,6 +241,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           EXPORTING
             iv_tabname = lv_tabname
             iv_limit   = iv_limit
+            iv_offset  = iv_offset
             iv_where   = iv_where
             it_columns = it_columns
           CHANGING
@@ -250,13 +282,20 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           lo_strucdescr TYPE REF TO cl_abap_structdescr,
           lt_components TYPE abap_component_tab,
           lv_field_list TYPE string,
-          lv_limit TYPE i.
+          lv_limit TYPE i,
+          lv_offset TYPE i,
+          lv_total_count TYPE i.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
 
     lv_limit = iv_limit.
     IF lv_limit <= 0.
       lv_limit = 10.
+    ENDIF.
+
+    lv_offset = iv_offset.
+    IF lv_offset < 0.
+      lv_offset = 0.
     ENDIF.
 
     " Check if object exists using RTTI (works for tables, DDIC views, and CDS entities)
@@ -315,22 +354,35 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         CREATE DATA lr_data TYPE HANDLE lo_tabdescr.
         ASSIGN lr_data->* TO <lt_data>.
 
+        " Get total count for pagination
+        IF iv_where IS INITIAL.
+          SELECT COUNT( * ) FROM (iv_tabname)
+            INTO @lv_total_count.
+        ELSE.
+          SELECT COUNT( * ) FROM (iv_tabname)
+            WHERE (iv_where)
+            INTO @lv_total_count.
+        ENDIF.
+        cs_result-total_rows = lv_total_count.
+
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
+        " Add OFFSET for pagination
         IF iv_where IS INITIAL.
           SELECT * FROM (iv_tabname)
             INTO TABLE @<lt_data>
-            UP TO @lv_limit ROWS.
+            UP TO @lv_limit ROWS
+            OFFSET @lv_offset.
         ELSE.
           SELECT * FROM (iv_tabname)
             WHERE (iv_where)
             INTO TABLE @<lt_data>
-            UP TO @lv_limit ROWS.
+            UP TO @lv_limit ROWS
+            OFFSET @lv_offset.
         ENDIF.
 
         " Get row count
         cs_result-row_count = lines( <lt_data> ).
-        cs_result-total_rows = cs_result-row_count.
 
         " Get field metadata for selected columns only
         cs_result-fields = get_field_metadata_for_columns(

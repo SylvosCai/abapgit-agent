@@ -379,13 +379,14 @@ class ABAPClient {
     return await this.request('POST', '/tree', data, { csrfToken: this.csrfToken });
   }
 
-  async preview(objects, type = null, limit = 10, where = null, columns = null) {
+  async preview(objects, type = null, limit = 100, offset = 0, where = null, columns = null) {
     // Fetch CSRF token first
     await this.fetchCsrfToken();
 
     const data = {
       objects: objects,
-      limit: Math.min(Math.max(1, limit), 100)
+      limit: Math.min(Math.max(1, limit), 500),
+      offset: Math.max(0, offset)
     };
 
     if (type) {
@@ -402,7 +403,7 @@ class ABAPClient {
       data.columns = columns;
     }
 
-    logger.info('Previewing data', { objects, type, limit: data.limit, where: data.where, service: 'abapgit-agent' });
+    logger.info('Previewing data', { objects, type, limit: data.limit, offset: data.offset, where: data.where, service: 'abapgit-agent' });
 
     return await this.request('POST', '/preview', data, { csrfToken: this.csrfToken });
   }

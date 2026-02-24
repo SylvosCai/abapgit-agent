@@ -197,21 +197,23 @@ class ABAPGitAgent {
    * @param {Array} objects - Array of table/view names
    * @param {string} type - Object type (TABL, DDLS, etc.)
    * @param {number} limit - Maximum rows to return
+   * @param {number} offset - Number of rows to skip
    * @param {string} where - WHERE clause filter
    * @param {Array} columns - Array of column names to display
    * @returns {object} Preview result with rows, fields, and metadata
    */
-  async preview(objects, type = null, limit = 10, where = null, columns = null) {
-    logger.info('Previewing data', { objects, type, limit, where, columns });
+  async preview(objects, type = null, limit = 100, offset = 0, where = null, columns = null) {
+    logger.info('Previewing data', { objects, type, limit, offset, where, columns });
 
     try {
-      const result = await this.abap.preview(objects, type, limit, where, columns);
+      const result = await this.abap.preview(objects, type, limit, offset, where, columns);
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'PREVIEW',
         message: result.MESSAGE || result.message || '',
         objects: result.OBJECTS || result.objects || [],
         summary: result.SUMMARY || result.summary || null,
+        pagination: result.PAGINATION || result.pagination || null,
         error: result.ERROR || result.error || null
       };
     } catch (error) {

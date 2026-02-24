@@ -460,16 +460,36 @@ describe('ABAPClient', () => {
       client.request = jest.fn().mockResolvedValue({ success: 'X' });
       client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
 
-      await client.preview(['SFLIGHT'], null, 200);
+      await client.preview(['SFLIGHT'], null, 600);
       await client.preview(['SFLIGHT'], null, 0);
 
-      // First call should clamp to 100
+      // First call should clamp to 500
       let callArgs = client.request.mock.calls[0];
-      expect(callArgs[2].limit).toBe(100);
+      expect(callArgs[2].limit).toBe(500);
 
       // Second call should clamp to 1
       callArgs = client.request.mock.calls[1];
       expect(callArgs[2].limit).toBe(1);
+    });
+
+    test('preview includes offset in request', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.preview(['SFLIGHT'], null, 10, 50);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].offset).toBe(50);
+    });
+
+    test('preview defaults offset to 0', async () => {
+      client.request = jest.fn().mockResolvedValue({ success: 'X' });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.preview(['SFLIGHT']);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].offset).toBe(0);
     });
 
     test('convertDatesInWhereClause converts ISO dates to ABAP format', () => {
