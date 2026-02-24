@@ -11,6 +11,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
              objects TYPE string_table,
              type TYPE string,
              limit TYPE i,
+             offset TYPE i,
            END OF ty_where_params.
 
     TYPES: BEGIN OF ty_reference,
@@ -39,12 +40,21 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
              total_references TYPE i,
            END OF ty_summary.
 
+    TYPES: BEGIN OF ty_pagination,
+             limit TYPE i,
+             offset TYPE i,
+             total TYPE i,
+             has_more TYPE abap_bool,
+             next_offset TYPE i,
+           END OF ty_pagination.
+
     TYPES: BEGIN OF ty_where_result,
              success TYPE abap_bool,
              command TYPE string,
              message TYPE string,
              objects TYPE ty_where_objects,
              summary TYPE ty_summary,
+             pagination TYPE ty_pagination,
              error TYPE string,
            END OF ty_where_result.
 
@@ -56,6 +66,7 @@ CLASS zcl_abgagt_command_where DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_obj_type TYPE trobjtype
                 iv_obj_name TYPE sobj_name
                 iv_limit    TYPE i DEFAULT 0
+                iv_offset   TYPE i DEFAULT 0
       RETURNING VALUE(rt_references) TYPE ty_references.
 
   PRIVATE SECTION.
@@ -98,6 +109,14 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_params-limit = 100.
     ENDIF.
 
+    " Default offset
+    IF ls_params-offset IS INITIAL.
+      ls_params-offset = 0.
+    ENDIF.
+
+    " Track total references before pagination (for pagination info)
+    DATA lv_total_references TYPE i.
+
     LOOP AT ls_params-objects INTO lv_object.
       ls_where_obj-name = lv_object.
 
@@ -133,11 +152,21 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " Get where-used list with limit
+      " First get total count (without limit) for pagination info
+      DATA(lt_all_references) = get_where_used_list(
+        iv_obj_type = lv_obj_type
+        iv_obj_name = lv_obj_name
+        iv_limit    = 0
+        iv_offset   = 0
+      ).
+      DATA(lv_total) = lines( lt_all_references ).
+
+      " Then get paginated results
       lt_references = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name
         iv_limit    = ls_params-limit
+        iv_offset   = ls_params-offset
       ).
 
       ls_where_obj-references = lt_references.
@@ -145,6 +174,11 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
       APPEND ls_where_obj TO lt_objects.
       CLEAR ls_where_obj.
+
+      " Accumulate total references for first object only (all objects are the same in where command)
+      IF lv_total_references = 0.
+        lv_total_references = lv_total.
+      ENDIF.
     ENDLOOP.
 
     " Build summary
@@ -152,6 +186,23 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     LOOP AT lt_objects INTO ls_where_obj.
       ls_result-summary-total_references = ls_result-summary-total_references + ls_where_obj-count.
     ENDLOOP.
+
+    " Use accumulated total if available, otherwise use sum of counts
+    IF lv_total_references > 0.
+      ls_result-summary-total_references = lv_total_references.
+    ENDIF.
+
+    " Build pagination info
+    ls_result-pagination-limit = ls_params-limit.
+    ls_result-pagination-offset = ls_params-offset.
+    ls_result-pagination-total = ls_result-summary-total_references.
+    ls_result-pagination-has_more = abap_false.
+    ls_result-pagination-next_offset = 0.
+
+    IF ls_params-limit > 0 AND ls_params-offset + ls_params-limit < ls_result-summary-total_references.
+      ls_result-pagination-has_more = abap_true.
+      ls_result-pagination-next_offset = ls_params-offset + ls_params-limit.
+    ENDIF.
 
     ls_result-success = abap_true.
     IF ls_result-summary-total_references = 1.
@@ -240,7 +291,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       APPEND ls_ref_out TO rt_references.
 
       " Apply limit if specified
-      IF iv_limit > 0 AND lines( rt_references ) >= iv_limit.
+      IF iv_limit > 0 AND lines( rt_references ) >= iv_limit + iv_offset.
         EXIT.
       ENDIF.
     ENDLOOP.

@@ -293,18 +293,20 @@ class ABAPGitAgent {
    * @param {Array} objects - Array of object names to search
    * @param {string} type - Object type (optional)
    * @param {number} limit - Maximum results (default: 100, max: 500)
+   * @param {number} offset - Number of results to skip (default: 0)
    * @returns {object} Where-used result with found objects
    */
-  async where(objects, type = null, limit = 100) {
-    logger.info('Finding where-used', { objects, type, limit });
+  async where(objects, type = null, limit = 100, offset = 0) {
+    logger.info('Finding where-used', { objects, type, limit, offset });
 
     try {
-      const result = await this.abap.where(objects, type, limit);
+      const result = await this.abap.where(objects, type, limit, offset);
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'WHERE',
         objects: result.OBJECTS || result.objects || [],
         message: result.MESSAGE || result.message || '',
+        pagination: result.PAGINATION || result.pagination || null,
         error: result.ERROR || result.error || null
       };
     } catch (error) {

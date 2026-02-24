@@ -487,21 +487,23 @@ class ABAPClient {
    * @param {Array} objects - Array of object names to search
    * @param {string} type - Object type (optional)
    * @param {number} limit - Maximum results (default: 100, max: 500)
+   * @param {number} offset - Number of results to skip (default: 0)
    * @returns {object} Where-used result with found objects
    */
-  async where(objects, type = null, limit = 100) {
+  async where(objects, type = null, limit = 100, offset = 0) {
     await this.fetchCsrfToken();
 
     const data = {
       objects: objects,
-      limit: Math.min(Math.max(1, limit), 500)
+      limit: Math.min(Math.max(1, limit), 500),
+      offset: Math.max(0, offset)
     };
 
     if (type) {
       data.type = type;
     }
 
-    logger.info('Finding where-used', { objects, type, limit: data.limit, service: 'abapgit-agent' });
+    logger.info('Finding where-used', { objects, type, limit: data.limit, offset: data.offset, service: 'abapgit-agent' });
 
     return await this.request('POST', '/where', data, { csrfToken: this.csrfToken });
   }

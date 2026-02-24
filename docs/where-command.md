@@ -34,6 +34,10 @@ abapgit-agent where --objects ZCL_CLASS1,ZIF_INTERFACE1
 # Limit results
 abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --limit 50
 
+# Paginate through large result sets
+abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --offset 100
+abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --limit 50 --offset 150
+
 # JSON output
 abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --json
 ```
@@ -50,6 +54,7 @@ abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --json
 | `--objects` | Yes | Comma-separated list of object names to search |
 | `--type` | No | Object type (CLAS, INTF, PROG). Auto-detected if not specified |
 | `--limit` | No | Maximum number of results to return (default: 100, max: 500) |
+| `--offset` | No | Number of results to skip for pagination (default: 0) |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -116,7 +121,7 @@ abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --json
 {
   "SUCCESS": true,
   "COMMAND": "WHERE",
-  "MESSAGE": "Found 3 references",
+  "MESSAGE": "Found 347 references",
   "OBJECTS": [
     {
       "NAME": "ZCL_SUT_AUNIT_RUNNER",
@@ -128,21 +133,21 @@ abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --json
           "INCLUDE_NAME": "ZCL_ABGAGT_COMMAND_UNIT=======CM007",
           "METHOD_NAME": "CONSTRUCTOR",
           "INCLUDE_TYPE": "Class Method"
-        },
-        {
-          "OBJECT": "ZCL_ABGAGT_REST_HANDLER",
-          "OBJECT_TYPE": "CLAS",
-          "INCLUDE_NAME": "ZCL_ABGAGT_REST_HANDLER======CM00E",
-          "METHOD_NAME": "RUN",
-          "INCLUDE_TYPE": "Class Method"
         }
       ],
-      "COUNT": 3
+      "COUNT": 100
     }
   ],
   "SUMMARY": {
     "TOTAL_OBJECTS": 1,
-    "TOTAL_REFERENCES": 3
+    "TOTAL_REFERENCES": 347
+  },
+  "PAGINATION": {
+    "LIMIT": 100,
+    "OFFSET": 0,
+    "TOTAL": 347,
+    "HAS_MORE": true,
+    "NEXT_OFFSET": 100
   },
   "ERROR": ""
 }
@@ -179,6 +184,13 @@ abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --json
   "SUMMARY": {
     "TOTAL_OBJECTS": number,
     "TOTAL_REFERENCES": number
+  },
+  "PAGINATION": {
+    "LIMIT": number,
+    "OFFSET": number,
+    "TOTAL": number,
+    "HAS_MORE": boolean,
+    "NEXT_OFFSET": number
   },
   "ERROR": "string"
 }
@@ -227,6 +239,19 @@ The `INCLUDE_TYPE` field provides a human-readable description:
 3. **Include Type**: Returns a human-readable description (e.g., "Class Method", "Public Section", "Unit Test").
 
 4. **Limit Results**: Use `--limit` to restrict the number of references returned (default: 100, max: 500)
+
+5. **Pagination**: Use `--offset` to skip results and paginate through large result sets. The response includes pagination metadata (`HAS_MORE`, `NEXT_OFFSET`) to help navigate through results.
+
+   ```bash
+   # First page
+   abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --limit 100
+
+   # Second page
+   abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --offset 100
+
+   # Third page
+   abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER --offset 200
+   ```
 
 ---
 

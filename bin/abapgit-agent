@@ -2542,10 +2542,11 @@ Examples:
         const objectsArgIndex = args.indexOf('--objects');
         if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
           console.error('Error: --objects parameter required');
-          console.error('Usage: abapgit-agent where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]');
+          console.error('Usage: abapgit-agent where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--offset <n>] [--json]');
           console.error('Example: abapgit-agent where --objects ZCL_MY_CLASS');
           console.error('Example: abapgit-agent where --objects ZIF_MY_INTERFACE');
           console.error('Example: abapgit-agent where --objects CL_SUT_AUNIT_RUNNER --limit 20');
+          console.error('Example: abapgit-agent where --objects CL_SUT_AUNIT_RUNNER --offset 100');
           process.exit(1);
         }
 
@@ -2554,6 +2555,8 @@ Examples:
         const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
         const limitArg = args.indexOf('--limit');
         const limit = limitArg !== -1 ? parseInt(args[limitArg + 1], 10) : 100;
+        const offsetArg = args.indexOf('--offset');
+        const offset = offsetArg !== -1 ? parseInt(args[offsetArg + 1], 10) : 0;
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Where-used list for ${objects.length} object(s)`);
@@ -2563,7 +2566,8 @@ Examples:
 
         const data = {
           objects: objects,
-          limit: Math.min(Math.max(1, limit), 500)
+          limit: Math.min(Math.max(1, limit), 500),
+          offset: Math.max(0, offset)
         };
 
         if (type) {
@@ -2577,6 +2581,7 @@ Examples:
         const whereObjects = result.OBJECTS || result.objects || [];
         const message = result.MESSAGE || result.message || '';
         const error = result.ERROR || result.error;
+        const pagination = result.PAGINATION || result.pagination || null;
 
         if (!success || error) {
           console.error(`\n  Error: ${error || 'Failed to get where-used list'}`);
@@ -2586,7 +2591,18 @@ Examples:
         if (jsonOutput) {
           console.log(JSON.stringify(result, null, 2));
         } else {
-          console.log(`\n  ${message}`);
+          // Build pagination message
+          let paginationMsg = '';
+          if (pagination && pagination.total > 0) {
+            const start = offset + 1;
+            const end = Math.min(offset + limit, pagination.total);
+            paginationMsg = ` (Showing ${start}-${end} of ${pagination.total})`;
+            if (pagination.has_more) {
+              paginationMsg += ` — Use --offset ${offset + limit} to see more`;
+            }
+          }
+
+          console.log(`\n  ${message}${paginationMsg}`);
           console.log('');
 
           for (let i = 0; i < whereObjects.length; i++) {
