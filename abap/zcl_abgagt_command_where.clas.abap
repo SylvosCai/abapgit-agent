@@ -288,10 +288,25 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ENDIF.
 
       ls_ref_out-package = <ls_ref>-appl_packet.
+
+      " Apply offset - skip first iv_offset items
+      IF iv_offset > 0.
+        " Count filtered items up to this point to determine if we should include
+        DATA(lv_filtered_before) = 0.
+        LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref_check>) FROM 1 TO sy-tabix.
+          IF <ls_ref_check>-obj_type = 'CLAS' OR <ls_ref_check>-obj_type = 'PROG'.
+            lv_filtered_before = lv_filtered_before + 1.
+          ENDIF.
+        ENDLOOP.
+        IF lv_filtered_before <= iv_offset.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
       APPEND ls_ref_out TO rt_references.
 
       " Apply limit if specified
-      IF iv_limit > 0 AND lines( rt_references ) >= iv_limit + iv_offset.
+      IF iv_limit > 0 AND lines( rt_references ) >= iv_limit.
         EXIT.
       ENDIF.
     ENDLOOP.
