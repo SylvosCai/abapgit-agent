@@ -2554,9 +2554,11 @@ Examples:
         const typeArg = args.indexOf('--type');
         const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
         const limitArg = args.indexOf('--limit');
-        const limit = limitArg !== -1 ? Math.max(1, parseInt(args[limitArg + 1], 10)) : 100;
+        const limitRaw = limitArg !== -1 ? args[limitArg + 1] : null;
+        const limit = limitRaw && !limitRaw.startsWith('--') ? Math.max(1, parseInt(limitRaw, 10)) : 100;
         const offsetArg = args.indexOf('--offset');
-        const offset = offsetArg !== -1 ? Math.max(0, parseInt(args[offsetArg + 1], 10)) : 0;
+        const offsetRaw = offsetArg !== -1 ? args[offsetArg + 1] : null;
+        const offset = offsetRaw && !offsetRaw.startsWith('--') ? Math.max(0, parseInt(offsetRaw, 10)) : 0;
         const jsonOutput = args.includes('--json');
 
         console.log(`\n  Where-used list for ${objects.length} object(s)`);
