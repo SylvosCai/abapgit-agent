@@ -2593,11 +2593,13 @@ Examples:
         } else {
           // Build pagination message
           let paginationMsg = '';
-          if (pagination && pagination.total > 0) {
+          const paginationTotal = pagination.TOTAL || pagination.total || 0;
+          const paginationHasMore = pagination.HAS_MORE || pagination.has_more || false;
+          if (pagination && paginationTotal > 0) {
             const start = offset + 1;
-            const end = Math.min(offset + limit, pagination.total);
-            paginationMsg = ` (Showing ${start}-${end} of ${pagination.total})`;
-            if (pagination.has_more) {
+            const end = Math.min(offset + limit, paginationTotal);
+            paginationMsg = ` (Showing ${start}-${end} of ${paginationTotal})`;
+            if (paginationHasMore) {
               paginationMsg += ` — Use --offset ${offset + limit} to see more`;
             }
           }
