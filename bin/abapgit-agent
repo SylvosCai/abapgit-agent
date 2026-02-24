@@ -2596,11 +2596,16 @@ Examples:
           const paginationTotal = pagination.TOTAL || pagination.total || 0;
           const paginationHasMore = pagination.HAS_MORE || pagination.has_more || false;
           if (pagination && paginationTotal > 0) {
-            const start = offset + 1;
-            const end = Math.min(offset + limit, paginationTotal);
-            paginationMsg = ` (Showing ${start}-${end} of ${paginationTotal})`;
-            if (paginationHasMore) {
-              paginationMsg += ` — Use --offset ${offset + limit} to see more`;
+            // Handle case where offset exceeds total
+            if (offset >= paginationTotal) {
+              paginationMsg = ` (Offset ${offset} exceeds total ${paginationTotal})`;
+            } else {
+              const start = offset + 1;
+              const end = Math.min(offset + limit, paginationTotal);
+              paginationMsg = ` (Showing ${start}-${end} of ${paginationTotal})`;
+              if (paginationHasMore) {
+                paginationMsg += ` — Use --offset ${offset + limit} to see more`;
+              }
             }
           }
 
