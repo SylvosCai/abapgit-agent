@@ -116,6 +116,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_name = 'SCARR'
       iv_type = 'TABL'
       iv_limit = 10
+      iv_offset = 0
       iv_where = ''
       it_columns = VALUE #( ) ).
 
@@ -153,6 +154,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_name = 'SFLIGHT'
       iv_type = 'TABL'
       iv_limit = 10
+      iv_offset = 0
       iv_where = 'CARRID = ''AA'''
       it_columns = VALUE #( ) ).
 
@@ -182,6 +184,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
       iv_name = 'SCARR'
       iv_type = 'TABL'
       iv_limit = 3
+      iv_offset = 0
       iv_where = ''
       it_columns = VALUE #( ) ).
 
