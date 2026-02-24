@@ -142,6 +142,10 @@ abapgit-agent ref --topic classes
 # Find where a class/interface is USED (where command)
 abapgit-agent where --objects ZIF_UNKNOWN_INTERFACE
 
+# With pagination (default limit: 50, offset: 0)
+abapgit-agent where --objects ZIF_UNKNOWN_INTERFACE --limit 20
+abapgit-agent where --objects ZIF_UNKNOWN_INTERFACE --offset 50 --limit 20
+
 # View CLASS DEFINITION (view command)
 abapgit-agent view --objects ZCL_UNKNOWN_CLASS
 
