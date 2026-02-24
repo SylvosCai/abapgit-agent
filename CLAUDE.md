@@ -708,6 +708,9 @@ abapgit-agent preview --objects SFLIGHT --type TABL
 # Preview with row limit
 abapgit-agent preview --objects SFLIGHT --limit 20
 
+# Preview with offset for paging
+abapgit-agent preview --objects SFLIGHT --offset 10 --limit 20
+
 # Preview with WHERE clause filter
 abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
 
@@ -727,7 +730,8 @@ abapgit-agent preview --objects SFLIGHT --json
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of table/view names |
 | `--type` | No | Object type (TABL, DDLS). Auto-detected from TADIR if not specified |
-| `--limit` | No | Maximum rows to return (default: 10, max: 100) |
+| `--limit` | No | Maximum rows to return (default: 100, max: 500) |
+| `--offset` | No | Number of rows to skip (for paging, default: 0) |
 | `--where` | No | WHERE clause filter (e.g., `CARRID = 'AA'`) |
 | `--columns` | No | Comma-separated column names to display |
 | `--vertical` | No | Show data in vertical format (one field per line) |
@@ -765,6 +769,15 @@ Showing 2 of 10 rows
 └──────────┴────────┴──────────┴─────────┘
 
 WHERE: CARRID = 'AA'
+```
+
+**With Pagination:**
+```
+📊 Preview: SFLIGHT (Table)
+
+...
+
+Retrieved data (Showing 11-20 of 354) — Use --offset 20 to see more
 ```
 
 **Vertical Format (for wide tables):**
@@ -809,6 +822,7 @@ Row 1:
     }
   ],
   "SUMMARY": { "TOTAL_OBJECTS": 1, "TOTAL_ROWS": 2 },
+  "PAGINATION": { "LIMIT": 10, "OFFSET": 0, "TOTAL": 354, "HAS_MORE": true, "NEXT_OFFSET": 10 },
   "ERROR": ""
 }
 ```
