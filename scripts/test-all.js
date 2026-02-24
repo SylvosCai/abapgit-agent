@@ -238,11 +238,11 @@ const commandTestCases = [
   {
     command: 'list',
     name: 'list package',
-    args: ['--package', 'S_NWDEMO_BASIS'],
+    args: ['--package', 'SAPBC_DATAMODEL'],
     expectSuccess: true,
     verify: (output) => {
       // Should contain package name and object list
-      const hasPackage = output.includes('S_NWDEMO_BASIS');
+      const hasPackage = output.includes('SAPBC_DATAMODEL');
       const hasObjects = output.includes('Objects in') || output.includes('AVAS') || output.includes('DEVC');
       return hasPackage && hasObjects;
     }
@@ -250,23 +250,59 @@ const commandTestCases = [
   {
     command: 'list',
     name: 'list with type filter',
-    args: ['--package', 'S_NWDEMO_BASIS', '--type', 'CLAS,INTF'],
+    args: ['--package', 'SAPBC_IBF_SCUSTOMER', '--type', 'CLAS,INT'],
     expectSuccess: true,
     verify: (output) => {
       // Should show filtered types
-      const hasFilter = output.includes('CLAS') || output.includes('INTF') || output.includes('CLAS,INTF');
+      const hasFilter = output.includes('CLAS') || output.includes('INT') || output.includes('CLAS,INT');
       return hasFilter;
     }
   },
   {
     command: 'list',
     name: 'list with name filter',
-    args: ['--package', 'S_NWDEMO_BASIS', '--name', 'CL_*'],
+    args: ['--package', 'SAPBC_IBF_SCUSTOMER', '--name', "'CL_*'"],
     expectSuccess: true,
     verify: (output) => {
       // Should contain filtered results (or empty if no matches)
       const hasResult = output.includes('Objects in') || output.includes('CL_');
       return hasResult;
+    }
+  },
+  {
+    command: 'preview',
+    name: 'preview table',
+    args: ['--objects', 'SFLIGHT'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain table name and data
+      const hasTable = output.includes('SFLIGHT');
+      const hasData = output.includes('CARRID') || output.includes('FLDATE') || output.includes('Row');
+      return hasTable && hasData;
+    }
+  },
+  {
+    command: 'preview',
+    name: 'preview with limit',
+    args: ['--objects', 'SFLIGHT', '--limit', '5'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain table name and limit info
+      const hasTable = output.includes('SFLIGHT');
+      const hasLimit = output.includes('5') || output.includes('rows');
+      return hasTable && hasLimit;
+    }
+  },
+  {
+    command: 'preview',
+    name: 'preview with columns',
+    args: ['--objects', 'SFLIGHT', '--columns', 'CARRID,CONNID,PRICE'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain table name and specific columns
+      const hasTable = output.includes('SFLIGHT');
+      const hasColumns = output.includes('CARRID') && output.includes('CONNID') && output.includes('PRICE');
+      return hasTable && hasColumns;
     }
   },
   {
@@ -707,20 +743,49 @@ function runLifecycleTests() {
 
 /**
  * Pause and wait for user input
+ * Press 'a' to skip all remaining pauses
  * @param {string} message - Message to display
  * @returns {Promise<void>}
  */
-function pause(message = '  Press any key to continue...') {
+let skipRemainingPauses = false;
+
+function pause(message = '  Press any key to continue (or "a" to skip all)...') {
+  // If already set to skip, resolve immediately
+  if (skipRemainingPauses) {
+    return Promise.resolve();
+  }
+
   return new Promise((resolve) => {
+    // Print the message first
+    process.stdout.write(colorize('yellow', message));
+
+    // Set raw mode to capture individual keypresses
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout
     });
 
-    rl.question(colorize('yellow', message), () => {
+    // Use a one-time keypress listener for the 'a' key
+    const onKeyPress = (char) => {
+      if (char === 'a' || char === 'A') {
+        skipRemainingPauses = true;
+        console.log(colorize('cyan', '  → Skipping all remaining pauses'));
+      }
+      // Remove listener after any key press
+      process.stdin.removeListener('data', onKeyPress);
+      // Restore normal mode and close
+      process.stdin.setRawMode(false);
       rl.close();
       resolve();
-    });
+    };
+
+    // Enable raw mode to capture keypress
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+
+    // Listen for keypress
+    process.stdin.on('data', onKeyPress);
   });
 }
 
