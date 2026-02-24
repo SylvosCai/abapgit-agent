@@ -60,15 +60,6 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 - If `folder` is `/src/` → files go in `src/` (e.g., `src/zcl_my_class.clas.abap`)
 - If `folder` is `/abap/` → files go in `abap/` (e.g., `abap/zcl_my_class.clas.abap`)
 
-### 0. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
-
-```
-❌ WRONG: Make changes → Run inspect → Check errors → Repeat
-✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
-```
-
-**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
-
 ---
 
 ### 3. Create XML Metadata for Each ABAP Object
@@ -85,7 +76,20 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 **Use `ref --topic abapgit` for complete XML templates.**
 
-### 4. Local Classes (Test Doubles, Helpers)
+---
+
+### 4. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
+
+```
+❌ WRONG: Make changes → Run inspect → Check errors → Repeat
+✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
+```
+
+**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
+
+---
+
+### 5. Local Classes (Test Doubles, Helpers)
 
 When a class needs local helper classes or test doubles, use separate files:
 
@@ -104,40 +108,7 @@ When a class needs local helper classes or test doubles, use separate files:
 </VSEOCLASS>
 ```
 
-### 5. Use `unit` Command for Unit Tests
-
-**Use `abapgit-agent unit` to run ABAP unit tests (AUnit).**
-
-```
-❌ WRONG: Try to use SE24, SE37, or other transaction codes
-✅ CORRECT: Use abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
-```
-
-```bash
-# Run unit tests (after pulling to ABAP)
-abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
-
-# Multiple test classes
-abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
-```
-
-### 6. Use CDS Test Double Framework for CDS View Tests
-
-**When creating unit tests for CDS views, use the CDS Test Double Framework (`CL_CDS_TEST_ENVIRONMENT`).**
-
-```
-❌ WRONG: Use regular AUnit test class without test doubles
-✅ CORRECT: Use CL_CDS_TEST_ENVIRONMENT to create test doubles for CDS views
-```
-
-**Why**: CDS views read from database tables. Using test doubles allows:
-- Injecting test data without affecting production data
-- Testing specific scenarios that may not exist in production
-- Fast, isolated tests that don't depend on database state
-
-See `guidelines/03_testing.md` for code examples.
-
-### 7. Use `view` and `where` Commands to Learn About Unknown Classes/Methods
+### 6. Use `ref`, `view` and `where` Commands to Learn About Unknown Classes/Methods
 
 **When working with unfamiliar ABAP classes or methods, follow this priority:**
 
@@ -192,6 +163,43 @@ AI thought process:
 **Key differences:**
 - `where`: Shows WHERE an object is USED (references)
 - `view`: Shows what an object DEFINES (structure, methods, source)
+
+---
+
+### 7. Use CDS Test Double Framework for CDS View Tests
+
+**When creating unit tests for CDS views, use the CDS Test Double Framework (`CL_CDS_TEST_ENVIRONMENT`).**
+
+```
+❌ WRONG: Use regular AUnit test class without test doubles
+✅ CORRECT: Use CL_CDS_TEST_ENVIRONMENT to create test doubles for CDS views
+```
+
+**Why**: CDS views read from database tables. Using test doubles allows:
+- Injecting test data without affecting production data
+- Testing specific scenarios that may not exist in production
+- Fast, isolated tests that don't depend on database state
+
+See `guidelines/03_testing.md` for code examples.
+
+---
+
+### 8. Use `unit` Command for Unit Tests
+
+**Use `abapgit-agent unit` to run ABAP unit tests (AUnit).**
+
+```
+❌ WRONG: Try to use SE24, SE37, or other transaction codes
+✅ CORRECT: Use abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
+```
+
+```bash
+# Run unit tests (after pulling to ABAP)
+abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
+
+# Multiple test classes
+abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
+```
 
 ---
 

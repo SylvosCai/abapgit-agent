@@ -689,7 +689,7 @@ describe('ABAPGitAgent', () => {
 
       await agent.where(['ZCL_TEST'], 'CLAS', 50);
 
-      expect(mockWhere).toHaveBeenCalledWith(['ZCL_TEST'], 'CLAS', 50);
+      expect(mockWhere).toHaveBeenCalledWith(['ZCL_TEST'], 'CLAS', 50, 0);
     });
 
     test('throws error on exception', async () => {

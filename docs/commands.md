@@ -27,6 +27,7 @@ All available CLI commands for abapGit Agent.
 | [view](view-command.md) | ✅ | View ABAP object source code from system |
 | [where](where-command.md) | ✅ | Where-used list - find object references |
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
+| [status](status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](health-command.md) | ✅ | Health check |
 
 ### Offline Commands (No ABAP Connection Required)
@@ -34,7 +35,6 @@ All available CLI commands for abapGit Agent.
 | Command | Status | Description |
 |---------|--------|-------------|
 | [ref](ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
-| [status](status-command.md) | ✅ | Status check |
 
 ---
 
@@ -136,9 +136,6 @@ abapgit-agent ref --list-topics
 
 # List all reference repositories
 abapgit-agent ref --list-repos
-
-# Export custom guidelines to reference folder
-abapgit-agent ref --export
 
 # Get JSON output for scripting
 abapgit-agent ref "VALUE #(" --json

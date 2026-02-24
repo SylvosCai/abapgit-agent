@@ -2,6 +2,8 @@
 
 ## Overview
 
+> **Requires ABAP Connection**: This command queries the ABAP system to verify repository existence.
+
 Check if ABAP integration is configured for the current repository and whether the repo exists in ABAP system.
 
 ## Command
