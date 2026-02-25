@@ -1,3 +1,11 @@
+---
+layout: default
+title: Naming Conventions
+nav_order: 7
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # ABAP Object Naming Conventions
 
 **Searchable keywords**: naming convention, Z prefix, namespace, object type, CLAS, INTF, PROG, TABL, DDLS

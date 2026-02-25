@@ -1,3 +1,10 @@
+---
+layout: default
+title: REST API Reference
+nav_order: 2
+parent: Reference
+---
+
 # REST API Reference
 
 The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agent`

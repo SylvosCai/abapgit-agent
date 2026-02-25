@@ -1,3 +1,10 @@
+---
+layout: default
+title: where - Where-Used List
+nav_order: 4
+parent: Explore Commands
+---
+
 # where Command
 
 ## Overview

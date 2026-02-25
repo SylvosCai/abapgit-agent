@@ -1,0 +1,149 @@
+# Jekyll configuration for abapGit Agent documentation
+# Theme: Just the Docs - https://just-the-docs.github.io/just-the-docs/
+
+# Site settings
+title: abapGit Agent
+description: A local agent that enables AI coding tools to automatically pull and activate ABAP code from git repositories
+baseurl: "/abapgit-agent" # the subpath of your site, e.g. /blog
+url: "https://sylvoscai.github.io" # the base hostname & protocol for your site
+
+# Google Site Verification
+google_site_verification: "9zJpWbY9RM7vtBAgBMkBdaWfhTlKIRkHpxnkLTvw0bk"
+
+# Repository
+repository: SylvosCai/abapgit-agent
+
+# Theme
+theme: just-the-docs
+
+# Color scheme
+color_scheme: light
+
+# Logo (optional - uncomment and add logo file if needed)
+# logo: "/assets/images/logo.png"
+
+# Aux links for the upper right navigation
+aux_links:
+  "GitHub":
+    - "//github.com/SylvosCai/abapgit-agent"
+  "npm":
+    - "//www.npmjs.com/package/abapgit-agent"
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer content
+footer_content: "Copyright &copy; 2024-2026 abapGit Agent. Distributed under MIT License."
+
+# Search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: false
+
+# Heading anchors
+heading_anchors: true
+
+# Callouts
+callouts:
+  warning:
+    title: Warning
+    color: red
+  note:
+    title: Note
+    color: blue
+  tip:
+    title: Tip
+    color: green
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+  - jekyll-sitemap
+  - jekyll-feed
+
+# Plugin: jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: false
+
+# Plugin: jekyll-optional-front-matter
+optional_front_matter:
+  remove_originals: false
+
+# Plugin: jekyll-readme-index
+readme_index:
+  enabled: true
+  remove_originals: false
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
+
+# Collections
+collections:
+  docs:
+    permalink: "/:collection/:path/"
+    output: true
+
+# Exclude from processing
+exclude:
+  - node_modules/
+  - package.json
+  - package-lock.json
+  - Gemfile
+  - Gemfile.lock
+  - bin/
+  - src/
+  - tests/
+  - output/
+  - .git/
+  - .github/
+  - .gitignore
+  - .abapGitAgent
+  - .env
+  - "*.js"
+  - "*.json"
+  - coverage/
+  - dist/
+  - logs/
+  - vendor/
+
+# Include files
+include:
+  - docs/
+  - abap/
+  - pages/
+
+# Defaults for front matter
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "docs"
+    values:
+      layout: default
+  - scope:
+      path: "abap"
+    values:
+      layout: default
+  - scope:
+      path: "pages"
+    values:
+      layout: default

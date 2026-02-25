@@ -1,3 +1,10 @@
+---
+layout: default
+title: ABAP Project Guidelines
+nav_order: 1
+parent: ABAP Development
+---
+
 # ABAP Project Guidelines - Template
 
 This file provides guidelines for **generating ABAP code** in abapGit repositories.

@@ -1,3 +1,10 @@
+---
+layout: default
+title: Error Handling
+nav_order: 3
+parent: Reference
+---
+
 # Error Handling
 
 ## Error Types

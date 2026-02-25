@@ -1,3 +1,10 @@
+---
+layout: default
+title: health - Health Check
+nav_order: 2
+parent: Utility Commands
+---
+
 # health Command
 
 Check if the ABAP REST API is healthy and accessible.

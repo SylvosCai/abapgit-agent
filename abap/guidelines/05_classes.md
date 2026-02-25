@@ -1,3 +1,11 @@
+---
+layout: default
+title: Classes & Objects
+nav_order: 6
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # ABAP Classes and Objects
 
 **Searchable keywords**: CLASS, DEFINITION, PUBLIC, CREATE OBJECT, NEW, METHOD, INTERFACES, inheritance, FINAL, ABSTRACT

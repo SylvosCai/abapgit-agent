@@ -1,3 +1,11 @@
+---
+layout: default
+title: abapGit XML Metadata
+nav_order: 9
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # abapGit Object XML Metadata
 
 Each ABAP object requires an XML metadata file for abapGit to understand how to serialize/deserialize it. This guide provides templates for common object types.

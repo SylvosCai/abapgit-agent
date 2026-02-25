@@ -1,3 +1,10 @@
+---
+layout: default
+title: view - View Definitions
+nav_order: 2
+parent: Explore Commands
+---
+
 # view Command Requirements
 
 ## Overview

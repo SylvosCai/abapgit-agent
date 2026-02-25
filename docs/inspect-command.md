@@ -1,3 +1,10 @@
+---
+layout: default
+title: inspect - Syntax Check
+nav_order: 2
+parent: Development Commands
+---
+
 # inspect Command Requirements
 
 ## Overview

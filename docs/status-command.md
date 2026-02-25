@@ -1,3 +1,10 @@
+---
+layout: default
+title: status - Check Status
+nav_order: 3
+parent: Utility Commands
+---
+
 # status Command Requirements
 
 ## Overview

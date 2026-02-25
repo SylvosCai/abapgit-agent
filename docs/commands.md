@@ -1,3 +1,10 @@
+---
+layout: default
+title: All Commands Overview
+nav_order: 1
+parent: Reference
+---
+
 # Commands Overview
 
 All available CLI commands for abapGit Agent.

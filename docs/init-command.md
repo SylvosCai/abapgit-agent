@@ -1,3 +1,10 @@
+---
+layout: default
+title: init - Initialize Configuration
+nav_order: 1
+parent: Setup Commands
+---
+
 # init Command
 
 Initialize local configuration for an existing git repository.

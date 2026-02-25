@@ -1,3 +1,10 @@
+---
+layout: default
+title: delete - Delete Repository
+nav_order: 3
+parent: Setup Commands
+---
+
 # delete Command
 
 Delete an abapGit online repository from the ABAP system.

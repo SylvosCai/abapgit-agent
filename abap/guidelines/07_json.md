@@ -1,3 +1,11 @@
+---
+layout: default
+title: JSON Handling
+nav_order: 8
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # JSON Handling
 
 **Searchable keywords**: JSON, serialize, deserialize, /ui2/cl_json, REST API, API response

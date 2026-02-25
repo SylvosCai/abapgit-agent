@@ -1,3 +1,10 @@
+---
+layout: default
+title: tree - Package Hierarchy
+nav_order: 1
+parent: Explore Commands
+---
+
 # tree Command Requirements
 
 ## Overview

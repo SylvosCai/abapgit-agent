@@ -1,3 +1,10 @@
+---
+layout: default
+title: list - List Repositories
+nav_order: 5
+parent: Explore Commands
+---
+
 # list Command Requirements
 
 ## Overview

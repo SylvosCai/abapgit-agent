@@ -1,3 +1,10 @@
+---
+layout: default
+title: preview - Preview Data
+nav_order: 3
+parent: Explore Commands
+---
+
 # preview Command Requirements
 
 ## Overview

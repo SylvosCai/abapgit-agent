@@ -1,3 +1,11 @@
+---
+layout: default
+title: CDS Views
+nav_order: 5
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # Creating CDS Views
 
 **Searchable keywords**: CDS, DDL, DDLS, CDS view, @AbapCatalog, @AccessControl, association, projection, consumption

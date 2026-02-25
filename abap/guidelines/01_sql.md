@@ -1,3 +1,11 @@
+---
+layout: default
+title: SQL Best Practices
+nav_order: 2
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # ABAP SQL Best Practices
 
 **Searchable keywords**: SELECT, FROM, WHERE, ABAP SQL, Open SQL, host variable, @ prefix, range table, INTO, UP TO, OFFSET, GROUP BY, JOIN

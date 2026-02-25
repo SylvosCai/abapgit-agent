@@ -1,3 +1,10 @@
+---
+layout: default
+title: Installation & Setup
+nav_order: 1
+parent: Getting Started
+---
+
 # Installation & Setup
 
 This guide covers how to set up abapgit-agent to enable AI assistants (like Claude Code) to work with ABAP repositories.

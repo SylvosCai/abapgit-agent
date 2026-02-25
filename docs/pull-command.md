@@ -1,3 +1,10 @@
+---
+layout: default
+title: pull - Pull & Activate
+nav_order: 1
+parent: Development Commands
+---
+
 # pull Command Requirements
 
 ## Overview

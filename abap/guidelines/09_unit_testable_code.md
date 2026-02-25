@@ -1,3 +1,11 @@
+---
+layout: default
+title: Unit Testable Code
+nav_order: 10
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # ABAP Unit Testable Code Guidelines
 
 This document provides guidelines for creating ABAP OO classes/interfaces that can be easily unit tested with test doubles. These guidelines help AI coding tools understand how to design classes that are testable without requiring real dependencies.

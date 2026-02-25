@@ -13,4 +13,7 @@ cookies.txt
 cl_grcaud*.clas.abap
 _site/
 .ruby-version
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
 Gemfile.lock

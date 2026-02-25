@@ -1,3 +1,11 @@
+---
+layout: default
+title: Exception Handling
+nav_order: 3
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
 # Exception Handling - Classical vs Class-Based
 
 **Searchable keywords**: exception, RAISING, TRY, CATCH, cx_static_check, cx_dynamic_check, EXCEPTIONS, sy-subrc, class-based exception, classical exception

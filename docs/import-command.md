@@ -1,3 +1,10 @@
+---
+layout: default
+title: import - Import Objects
+nav_order: 4
+parent: Setup Commands
+---
+
 # import Command
 
 Import existing ABAP objects from a package into an existing abapGit online repository.
