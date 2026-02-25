@@ -13,8 +13,8 @@ google_site_verification: "9zJpWbY9RM7vtBAgBMkBdaWfhTlKIRkHpxnkLTvw0bk"
 # Repository
 repository: SylvosCai/abapgit-agent
 
-# Theme
-theme: just-the-docs
+# Theme - Use remote_theme for GitHub Pages compatibility
+remote_theme: just-the-docs/just-the-docs
 
 # Color scheme
 color_scheme: light

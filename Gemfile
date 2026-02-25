@@ -2,20 +2,14 @@
 
 source "https://rubygems.org"
 
-# Jekyll
-gem "jekyll", "~> 4.3"
+# GitHub Pages gem includes Jekyll and supported plugins
+gem "github-pages", group: :jekyll_plugins
 
-# Theme
-gem "just-the-docs", "~> 0.10"
-
-# Plugins
+# Additional plugins for GitHub Pages
 group :jekyll_plugins do
-  gem "jekyll-seo-tag", "~> 2.8"
-  gem "jekyll-relative-links", "~> 0.7"
-  gem "jekyll-optional-front-matter", "~> 0.3"
-  gem "jekyll-readme-index", "~> 0.3"
-  gem "jekyll-sitemap", "~> 1.4"
-  gem "jekyll-feed", "~> 0.17"
+  gem "jekyll-relative-links"
+  gem "jekyll-optional-front-matter"
+  gem "jekyll-readme-index"
 end
 
 # Windows and JRuby does not include zoneinfo files, so bundle the tzinfo-data gem
