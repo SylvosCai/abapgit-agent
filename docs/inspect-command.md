@@ -8,19 +8,19 @@ Inspect ABAP source file(s) for syntax errors and issues.
 
 ```bash
 # Inspect single file
-abapgit-agent inspect --files zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Inspect multiple files
-abapgit-agent inspect --files zcl_my_class.clas.abap,zcl_other.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
 # With path
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # With Code Inspector variant
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
+abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
 
 # With no variant (uses default SAP standard checks)
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant EMPTY
+abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
 ```
 
 ## Prerequisite
@@ -186,13 +186,13 @@ Same as pull command - files are parsed to extract object type and name:
 
 ```bash
 # Syntax check
-abapgit-agent inspect --files zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Multiple files
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap,abap/zcl_other.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
 # With Code Inspector variant
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
+abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
 ```
 
 ## Use Case
@@ -206,7 +206,7 @@ Use `inspect` when:
 abapgit-agent pull
    ❌ CLAS ZCL_MY_CLASS: Error updating where-used list
 
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
    ❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
       Method: MY_METHOD
       Line 000021, Column 12:

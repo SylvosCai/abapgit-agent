@@ -8,13 +8,13 @@ Run AUnit tests for ABAP test classes and display detailed results.
 
 ```bash
 # Single test class file
-abapgit-agent unit --files zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Multiple test class files
-abapgit-agent unit --files zcl_test1.clas.testclasses.abap,zcl_test2.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 
 # With path
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 ```
 
 ## Prerequisite
@@ -37,7 +37,7 @@ When `--coverage` is specified, the command runs AUnit tests with code coverage 
 
 ```bash
 # Run tests with coverage
-abapgit-agent unit --files zcl_my_test.clas.testclasses.abap --coverage
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
 ```
 
 ## Tasks
@@ -180,13 +180,13 @@ When a test fails, output includes:
 
 ```bash
 # Run tests
-abapgit-agent unit --files zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Multiple
-abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 
 # With coverage
-abapgit-agent unit --files zcl_my_test.clas.testclasses.abap --coverage
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
 ```
 
 ## Implementation

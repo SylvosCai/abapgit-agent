@@ -8,22 +8,22 @@ List ABAP objects in a package with filtering and pagination capabilities. This 
 
 ```bash
 # List all objects in a package
-abapgit-agent list --package $ZMY_PACKAGE
+abapgit-agent list --package '$ZMY_PACKAGE'
 
 # Filter by object type
-abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF
+abapgit-agent list --package '$ZMY_PACKAGE' --type CLAS,INTF
 
 # Filter by name pattern
-abapgit-agent list --package $ZMY_PACKAGE --name ZCL_*
+abapgit-agent list --package '$ZMY_PACKAGE' --name 'ZCL_*'
 
 # Limit results
-abapgit-agent list --package $ZMY_PACKAGE --limit 50
+abapgit-agent list --package '$ZMY_PACKAGE' --limit 50
 
 # Paginate results
-abapgit-agent list --package $ZMY_PACKAGE --offset 100 --limit 50
+abapgit-agent list --package '$ZMY_PACKAGE' --offset 100 --limit 50
 
 # JSON output for scripting
-abapgit-agent list --package $ZMY_PACKAGE --json
+abapgit-agent list --package '$ZMY_PACKAGE' --json
 ```
 
 ## Prerequisite
@@ -201,19 +201,19 @@ Error: Package $ZNONEXISTENT does not exist in the system.
 
 ```bash
 # List all objects
-abapgit-agent list --package $ZMY_PACKAGE
+abapgit-agent list --package '$ZMY_PACKAGE'
 
 # Filter by type
-abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF
+abapgit-agent list --package '$ZMY_PACKAGE' --type CLAS,INTF
 
 # Filter by name pattern
-abapgit-agent list --package $ZMY_PACKAGE --name ZCL_*
+abapgit-agent list --package '$ZMY_PACKAGE' --name 'ZCL_*'
 
 # Paginate
-abapgit-agent list --package $ZMY_PACKAGE --limit 50 --offset 50
+abapgit-agent list --package '$ZMY_PACKAGE' --limit 50 --offset 50
 
 # JSON for scripting
-abapgit-agent list --package $ZMY_PACKAGE --json > objects.json
+abapgit-agent list --package '$ZMY_PACKAGE' --json > objects.json
 
 # CI/CD: Count classes
 CLASS_COUNT=$(abapgit-agent list --package $ZMY_PACKAGE --type CLAS --json | jq '.TOTAL')

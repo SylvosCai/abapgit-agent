@@ -81,21 +81,21 @@ abapgit-agent init --update
 abapgit-agent pull
 
 # Pull specific files only (faster for small changes)
-abapgit-agent pull --files abap/zcl_my_class.clas.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap
 
 # Syntax check before commit
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Run unit tests
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Display package hierarchy
-abapgit-agent tree --package $MY_PACKAGE
+abapgit-agent tree --package '$MY_PACKAGE'
 
 # List objects in package with filtering
-abapgit-agent list --package $MY_PACKAGE
-abapgit-agent list --package $MY_PACKAGE --type CLAS,INTF
-abapgit-agent list --package $MY_PACKAGE --name ZCL_*
+abapgit-agent list --package '$MY_PACKAGE'
+abapgit-agent list --package '$MY_PACKAGE' --type CLAS,INTF
+abapgit-agent list --package '$MY_PACKAGE' --name 'ZCL_*'
 
 # View object definitions (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS

@@ -25,7 +25,7 @@ git clone https://github.com/user/abap-project.git
 cd abap-project
 
 # 3. Initialize configuration
-abapgit-agent init --folder /abap/ --package ZMY_PACKAGE
+abapgit-agent init --folder /src/ --package ZMY_PACKAGE
 
 # 4. Edit .abapGitAgent with credentials
 
@@ -47,7 +47,7 @@ See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set u
 
 ```bash
 # Initialize local configuration for existing git repo
-abapgit-agent init --folder /abap/ --package ZMY_PACKAGE
+abapgit-agent init --folder /src/ --package ZMY_PACKAGE
 
 # Create online repository in ABAP
 abapgit-agent create
@@ -69,7 +69,7 @@ abapgit-agent pull
 abapgit-agent pull --branch develop
 
 # Pull specific files only (fast iteration)
-abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
 
 # Override git URL if needed
 abapgit-agent pull --url https://github.com/user/repo --branch main
@@ -88,20 +88,20 @@ abapgit-agent import --message "feat: add new feature"
 
 ```bash
 # Inspect source file for issues
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Run AUnit tests for test classes
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Run tests for multiple test classes
-abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 ```
 
 ### Explore Commands
 
 ```bash
 # Display package hierarchy tree
-abapgit-agent tree --package $MY_PACKAGE
+abapgit-agent tree --package '$MY_PACKAGE'
 
 # View object definitions from ABAP system (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS

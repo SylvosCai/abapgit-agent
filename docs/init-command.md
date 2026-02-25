@@ -164,7 +164,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 ```bash
 # Initialize
-abapgit-agent init --folder /abap/ --package ZMYPROJECT
+abapgit-agent init --folder /src/ --package ZMYPROJECT
 
 # Edit config
 vim .abapGitAgent

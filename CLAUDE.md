@@ -7,12 +7,12 @@ This is the **abapgit-agent** CLI tool project - a Node.js application for pulli
 ```bash
 # Quick commands
 abapgit-agent pull                              # Pull and activate all
-abapgit-agent pull --files file.clas.abap      # Pull specific file(s)
-abapgit-agent inspect --files file.clas.abap    # Syntax check
-abapgit-agent unit --files test.clas.testclasses.abap  # Run tests
+abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull specific file(s)
+abapgit-agent inspect --files src/zcl_my_class.clas.abap    # Syntax check
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run tests
 abapgit-agent preview --objects TABLE           # Preview table data
 abapgit-agent view --objects OBJ               # View object definition
-abapgit-agent tree --package $PACKAGE          # Show package hierarchy
+abapgit-agent tree --package '$PACKAGE'          # Show package hierarchy
 abapgit-agent ref "PATTERN"                    # Search ABAP reference (cheat sheets + guidelines)
 ```
 
@@ -43,7 +43,7 @@ This ensures you use correct ABAP syntax rather than guessing.
 ```bash
 1. Edit ABAP file(s)
 2. git add && git commit && git push
-3. abapgit-agent pull --files file.clas.abap
+3. abapgit-agent pull --files src/zcl_my_class.clas.abap
 4. Check for errors in output
 5. If "Error updating where-used list" → use inspect for details
 ```
@@ -123,7 +123,7 @@ Resource: ZCL_ABGAGT_RESOURCE_TREE → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COM
 abapgit-agent pull
 
 # Pull specific files only (fast - recommended for iterative development)
-abapgit-agent pull --files <file1>,<file2>,...
+abapgit-agent pull --files src/<file1>,src/<file2>,...
 
 # Pull from specific branch
 abapgit-agent pull --branch <branch>
@@ -132,13 +132,13 @@ abapgit-agent pull --branch <branch>
 abapgit-agent pull --url <git-url>
 
 # Syntax check an ABAP file (IMPORTANT for debugging activation errors)
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Run unit tests for ABAP test classes
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Display package hierarchy tree
-abapgit-agent tree --package $MY_PACKAGE
+abapgit-agent tree --package '$MY_PACKAGE'
 
 # View ABAP object definitions from ABAP system
 abapgit-agent view --objects ZCL_MY_CLASS
@@ -172,12 +172,12 @@ Pull and activate ABAP objects from git repository.
 
 ```bash
 # WRONG - Pull files one by one (may cause activation issues)
-abapgit-agent pull --files zcl_class1.clas.abap
-abapgit-agent pull --files zcl_class2.clas.abap
-abapgit-agent pull --files zif_interface1.intf.abap
+abapgit-agent pull --files src/zcl_class1.clas.abap
+abapgit-agent pull --files src/zcl_class2.clas.abap
+abapgit-agent pull --files src/zif_interface1.intf.abap
 
 # CORRECT - Pull all changed files together
-abapgit-agent pull --files zcl_class1.clas.abap,zcl_class2.clas.abap,zif_interface1.intf.abap
+abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap,src/zif_interface1.intf.abap
 ```
 
 **Why?** ABAP objects often have dependencies on each other. Pulling separately can cause activation errors if dependent objects haven't been activated yet. Pulling together ensures the ABAP system processes all changes atomically.
@@ -188,7 +188,7 @@ abapgit-agent pull --files zcl_class1.clas.abap,zcl_class2.clas.abap,zif_interfa
 abapgit-agent pull
 
 # Pull specific files only
-abapgit-agent pull --files zcl_my_class.clas.abap,zif_my_intf.intf.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
 
 # Pull from specific branch
 abapgit-agent pull --branch develop
@@ -260,22 +260,22 @@ Run syntax check for ABAP objects. Supports both regular ABAP objects (classes, 
 ### Usage
 ```bash
 # Inspect single file
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Inspect multiple files
-abapgit-agent inspect --files abap/zcl_class1.clas.abap,abap/zcl_class2.clas.abap
+abapgit-agent inspect --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 
 # Inspect CDS view
-abapgit-agent inspect --files abap/zc_my_view.ddls.asddls
+abapgit-agent inspect --files src/zc_my_view.ddls.asddls
 
 # Inspect mixed file types (DDLS + CLAS)
-abapgit-agent inspect --files abap/zc_my_view.ddls.asddls,abap/zcl_my_class.clas.abap
+abapgit-agent inspect --files src/zc_my_view.ddls.asddls,src/zcl_my_class.clas.abap
 
 # Inspect with specific Code Inspector variant
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant ALL_CHECKS
+abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
 
 # Inspect with no variant (uses default SAP standard checks)
-abapgit-agent inspect --files abap/zcl_my_class.clas.abap --variant EMPTY
+abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
 ```
 
 ### Parameters
@@ -366,13 +366,13 @@ Run AUnit tests for ABAP test classes and display detailed results including fai
 ### Usage
 ```bash
 # Run unit tests for a single test class file
-abapgit-agent unit --files abap/zcl_my_test.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 # Run unit tests for multiple test class files
-abapgit-agent unit --files abap/zcl_test1.clas.testclasses.abap,abap/zcl_test2.clas.testclasses.abap
+abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 
 # Run unit tests for a specific package
-abapgit-agent unit --package $MY_PACKAGE
+abapgit-agent unit --package '$MY_PACKAGE'
 ```
 
 ### File Format
@@ -441,16 +441,16 @@ Display the package hierarchy tree from an ABAP system, showing parent packages,
 ### Usage
 ```bash
 # Basic usage
-abapgit-agent tree --package $MY_PACKAGE
+abapgit-agent tree --package '$MY_PACKAGE'
 
 # With object type breakdown
-abapgit-agent tree --package $MY_PACKAGE --include-types
+abapgit-agent tree --package '$MY_PACKAGE' --include-types
 
 # Limit depth (default: 3, max: 10)
-abapgit-agent tree --package $MY_PACKAGE --depth 2
+abapgit-agent tree --package '$MY_PACKAGE' --depth 2
 
 # JSON output for scripting
-abapgit-agent tree --package $MY_PACKAGE --json
+abapgit-agent tree --package '$MY_PACKAGE' --json
 ```
 
 ### Parameters
@@ -947,7 +947,7 @@ When running `pull` command, the transport request is determined in this order:
 
 **Check package structure:**
 ```bash
-abapgit-agent tree --package $MY_PACKAGE
+abapgit-agent tree --package '$MY_PACKAGE'
 ```
 
 **Before working with an unfamiliar table, structure, class, or interface:**

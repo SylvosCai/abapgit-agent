@@ -11,3 +11,6 @@ output/
 cookies.txt
 .claude/
 cl_grcaud*.clas.abap
+_site/
+.ruby-version
+Gemfile.lock

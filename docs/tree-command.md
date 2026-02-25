@@ -8,16 +8,16 @@ Display the package hierarchy tree from an ABAP system, showing parent packages,
 
 ```bash
 # Basic usage
-abapgit-agent tree --package $ZMY_PACKAGE
+abapgit-agent tree --package '$ZMY_PACKAGE'
 
 # With object type breakdown
-abapgit-agent tree --package $ZMY_PACKAGE --include-types
+abapgit-agent tree --package '$ZMY_PACKAGE' --include-types
 
 # Limit depth
-abapgit-agent tree --package $ZMY_PACKAGE --depth 3
+abapgit-agent tree --package '$ZMY_PACKAGE' --depth 3
 
 # JSON output for scripting (pure machine-readable)
-abapgit-agent tree --package $ZMY_PACKAGE --json
+abapgit-agent tree --package '$ZMY_PACKAGE' --json
 ```
 
 ## Prerequisite
@@ -248,16 +248,16 @@ Error: Package $ZNONEXISTENT does not exist in the system.
 
 ```bash
 # Basic usage
-abapgit-agent tree --package $ZMY_PACKAGE
+abapgit-agent tree --package '$ZMY_PACKAGE'
 
 # With object type breakdown
-abapgit-agent tree --package $ZMY_PACKAGE --include-types
+abapgit-agent tree --package '$ZMY_PACKAGE' --include-types
 
 # Shallow tree (depth 1)
-abapgit-agent tree --package $ZMY_PACKAGE --depth 1
+abapgit-agent tree --package '$ZMY_PACKAGE' --depth 1
 
 # JSON for scripting
-abapgit-agent tree --package $ZMY_PACKAGE --json > tree.json
+abapgit-agent tree --package '$ZMY_PACKAGE' --json > tree.json
 
 # CI/CD usage with jq
 COUNT=$(abapgit-agent tree --package $ZMY_PACKAGE --json | jq '.TOTAL_OBJECTS')

@@ -11,7 +11,7 @@ Pull and activate ABAP objects from git repository.
 abapgit-agent pull
 
 # Pull specific files only (fast)
-abapgit-agent pull --files zcl_my_class.clas.abap,zcl_other.clas.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
 # Pull from specific branch
 abapgit-agent pull --branch develop
@@ -195,8 +195,8 @@ Files are parsed to extract `(obj_type, obj_name)`:
 abapgit-agent pull
 
 # Fast pull - specific files
-abapgit-agent pull --files abap/zcl_my_class.clas.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap
 
 # With transport
-abapgit-agent pull --files abap/zcl_my_class.clas.abap --transport DEVK900001
+abapgit-agent pull --files src/zcl_my_class.clas.abap --transport DEVK900001
 ```

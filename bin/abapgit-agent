@@ -1848,8 +1848,8 @@ Examples:
         if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
           console.error('Error: --files parameter required');
           console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>]');
-          console.error('Example: abapgit-agent inspect --files zcl_my_class.clas.abap');
-          console.error('Example: abapgit-agent inspect --files zcl_my_class.clas.abap --variant ALL_CHECKS');
+          console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap');
+          console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS');
           process.exit(1);
         }
 
@@ -1883,8 +1883,8 @@ Examples:
         if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
           console.error('Error: --files parameter required');
           console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage]');
-          console.error('Example: abapgit-agent unit --files zcl_my_test.clas.abap');
-          console.error('Example: abapgit-agent unit --files zcl_my_test.clas.abap --coverage');
+          console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap');
+          console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap --coverage');
           process.exit(1);
         }
 
@@ -1919,7 +1919,7 @@ Examples:
           console.error('Error: --package parameter value is missing');
           console.error('');
           console.error('Tip: If you are using a shell variable, make sure to quote it:');
-          console.error('  abapgit-agent tree --package "$ZMY_PACKAGE"');
+          console.error('  abapgit-agent tree --package \'$ZMY_PACKAGE\'');
           console.error('  or escape the $ character:');
           console.error('  abapgit-agent tree --package \\$ZMY_PACKAGE');
           console.error('');
@@ -1971,8 +1971,8 @@ Examples:
         if (packageArgIndex === -1) {
           console.error('Error: --package parameter required');
           console.error('Usage: abapgit-agent list --package <package> [--type <types>] [--name <pattern>] [--limit <n>] [--offset <n>] [--json]');
-          console.error('Example: abapgit-agent list --package $ZMY_PACKAGE');
-          console.error('Example: abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF');
+          console.error('Example: abapgit-agent list --package \'$ZMY_PACKAGE\'');
+          console.error('Example: abapgit-agent list --package \'$ZMY_PACKAGE\' --type CLAS,INTF');
           process.exit(1);
         }
 
@@ -2857,19 +2857,19 @@ Examples:
   abapgit-agent import --message "Initial import"            # Import with message
   abapgit-agent pull                                         # Auto-detect from git
   abapgit-agent pull --branch develop                        # Specific branch
-  abapgit-agent pull --files zcl_my_class.clas.abap          # Specific file
+  abapgit-agent pull --files src/zcl_my_class.clas.abap          # Specific file
   abapgit-agent pull --transport DEVK900001                  # With transport
-  abapgit-agent inspect --files zcl_my_class.clas.abap       # Syntax check
-  abapgit-agent unit --files zcl_my_test.clas.testclasses.abap  # Run tests
-  abapgit-agent tree --package \$ZMY_PACKAGE                      # Show package tree
-  abapgit-agent tree --package \$ZMY_PACKAGE --depth 2             # Shallow tree
-  abapgit-agent tree --package \$ZMY_PACKAGE --include-types      # With type counts
-  abapgit-agent tree --package \$ZMY_PACKAGE --json                # JSON output
-  abapgit-agent list --package $ZMY_PACKAGE                      # List all objects
-  abapgit-agent list --package $ZMY_PACKAGE --type CLAS,INTF      # Filter by type
-  abapgit-agent list --package $ZMY_PACKAGE --name ZCL_*         # Filter by name
-  abapgit-agent list --package $ZMY_PACKAGE --limit 50            # Limit results
-  abapgit-agent list --package $ZMY_PACKAGE --json               # JSON output
+  abapgit-agent inspect --files src/zcl_my_class.clas.abap       # Syntax check
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run tests
+  abapgit-agent tree --package '$ZMY_PACKAGE'                    # Show package tree
+  abapgit-agent tree --package '$ZMY_PACKAGE' --depth 2          # Shallow tree
+  abapgit-agent tree --package '$ZMY_PACKAGE' --include-types    # With type counts
+  abapgit-agent tree --package '$ZMY_PACKAGE' --json             # JSON output
+  abapgit-agent list --package '$ZMY_PACKAGE'                    # List all objects
+  abapgit-agent list --package '$ZMY_PACKAGE' --type CLAS,INTF   # Filter by type
+  abapgit-agent list --package '$ZMY_PACKAGE' --name 'ZCL_*'     # Filter by name
+  abapgit-agent list --package '$ZMY_PACKAGE' --limit 50         # Limit results
+  abapgit-agent list --package '$ZMY_PACKAGE' --json             # JSON output
   abapgit-agent view --objects ZCL_MY_CLASS                       # View class definition
   abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
   abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
