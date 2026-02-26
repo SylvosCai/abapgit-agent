@@ -14,23 +14,15 @@ Current workflow requires:
 
 This is slow and pollutes the ABAP system with potentially broken inactive objects.
 
-## Solution: Working Area Approach
+## Solution: SYNTAX-CHECK Statement Approach
 
-The working area approach writes source code to **inactive includes** temporarily, runs syntax check, and then **cleans up without activation**.
-
-### How ADT Does It
-
-ADT (ABAP Development Tools) uses this approach:
-1. Write source to inactive version using `INSERT REPORT ... STATE 'I'`
-2. Check syntax using `SEO_CLASS_CHECK_CLASSPOOL` (for classes)
-3. Return errors/warnings
-4. Delete inactive version (cleanup)
+The implementation uses the `SYNTAX-CHECK` ABAP statement to check source code in-memory without writing to the database. Source is wrapped with appropriate pool statements (CLASS-POOL, INTERFACE-POOL) and checked directly.
 
 ### Sequence Diagram
 
 ```
 ┌─────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────────┐
-│  CLI    │     │ REST Handler │     │ SYNTAX Cmd  │     │ ABAP System  │
+│  CLI    │     │ REST Handler │     │ SYNTAX Cmd  │     │ Checker      │
 └────┬────┘     └──────┬───────┘     └──────┬──────┘     └──────┬───────┘
      │                 │                    │                   │
      │ POST /syntax    │                    │                   │
@@ -39,18 +31,15 @@ ADT (ABAP Development Tools) uses this approach:
      │                 │ execute(params)    │                   │
      │                 │───────────────────>│                   │
      │                 │                    │                   │
-     │                 │                    │ INSERT REPORT     │
-     │                 │                    │ (STATE='I')       │
-     │                 │                    │──────────────────>│
-     │                 │                    │                   │
-     │                 │                    │ SEO_CLASS_CHECK   │
+     │                 │                    │ Factory.create()  │
      │                 │                    │──────────────────>│
      │                 │                    │<──────────────────│
-     │                 │                    │ (errors/warnings) │
      │                 │                    │                   │
-     │                 │                    │ DELETE REPORT     │
-     │                 │                    │ (STATE='I')       │
+     │                 │                    │ checker.check()   │
      │                 │                    │──────────────────>│
+     │                 │                    │  SYNTAX-CHECK     │
+     │                 │                    │<──────────────────│
+     │                 │                    │ (errors/warnings) │
      │                 │                    │                   │
      │                 │<───────────────────│                   │
      │                 │  {results}         │                   │
@@ -69,8 +58,8 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap
 # Check multiple files
 abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 
-# Check with source from stdin (for AI integration)
-cat src/zcl_my_class.clas.abap | abapgit-agent syntax --type CLAS --name ZCL_MY_CLASS
+# Check with ABAP Cloud syntax (stricter)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
 ```
 
 ### REST Endpoint
@@ -84,7 +73,9 @@ Content-Type: application/json
     {
       "type": "CLAS",
       "name": "ZCL_MY_CLASS",
-      "source": "CLASS zcl_my_class DEFINITION PUBLIC...\nENDCLASS.\nCLASS zcl_my_class IMPLEMENTATION...\nENDCLASS."
+      "source": "CLASS zcl_my_class DEFINITION PUBLIC...\nENDCLASS.\nCLASS zcl_my_class IMPLEMENTATION...\nENDCLASS.",
+      "locals_def": "CLASS lcl_helper DEFINITION...",
+      "locals_imp": "CLASS lcl_helper IMPLEMENTATION..."
     }
   ]
 }
@@ -123,11 +114,9 @@ Content-Type: application/json
       "error_count": 1,
       "errors": [
         {
-          "line": "15",
-          "column": "10",
-          "text": "Unknown type \"ZNONEXISTENT\"",
-          "include": "ZCL_MY_CLASS==========CM001",
-          "method_name": "CONSTRUCTOR"
+          "line": 15,
+          "text": "Field \"LV_UNDEFINED\" is unknown.",
+          "word": "LV_UNDEFINED"
         }
       ],
       "warnings": []
@@ -136,227 +125,172 @@ Content-Type: application/json
 }
 ```
 
-## Implementation Details
+## Architecture: Object-Type Based Checkers
 
-### Supported Object Types
-
-| Type | Implementation Approach |
-|------|------------------------|
-| CLAS | Write to class includes (CP, CU, CO, CI, CM*), use `SEO_CLASS_CHECK_CLASSPOOL` |
-| INTF | Write to interface pool, use `SEO_INTERFACE_CHECK_INTFPOOL` |
-| PROG | Use `SYNTAX-CHECK` statement directly |
-| DDLS | Use `CL_DD_DDL_HANDLER_FACTORY` (existing approach) |
-
-### Class Syntax Check Flow
-
-For classes, the implementation must handle multiple includes:
-
-| Include | Suffix | Content |
-|---------|--------|---------|
-| Class Pool | CP | Main program container |
-| Public Section | CU | PUBLIC SECTION definitions |
-| Protected Section | CO | PROTECTED SECTION definitions |
-| Private Section | CI | PRIVATE SECTION definitions |
-| Local Definitions | CCDEF | Local class definitions |
-| Local Implementations | CCIMP | Local class implementations |
-| Local Macros | CCMAC | Local macros |
-| Test Classes | CCAU | Test class definitions |
-| Method Includes | CM001-CMnnn | Individual method implementations |
-
-### Algorithm for Class Check
-
-```abap
-METHOD check_class_source.
-  DATA: lv_clskey TYPE seoclskey,
-        lv_program TYPE program,
-        lt_source TYPE string_table.
-
-  lv_clskey-clsname = iv_class_name.
-
-  " 1. Parse source into sections using CL_OO_SOURCE_SCANNER_CLASS
-  DATA(lo_scanner) = cl_oo_source_scanner_class=>create_class_scanner(
-    clif_name = iv_class_name
-    source    = it_source ).
-  lo_scanner->scan( ).
-
-  " 2. Write each section to inactive includes
-  " Public section
-  lv_program = cl_oo_classname_service=>get_pubsec_name( iv_class_name ).
-  lt_source = lo_scanner->get_public_section_source( ).
-  INSERT REPORT lv_program FROM lt_source STATE 'I'.
-
-  " Protected section
-  lv_program = cl_oo_classname_service=>get_prosec_name( iv_class_name ).
-  lt_source = lo_scanner->get_protected_section_source( ).
-  INSERT REPORT lv_program FROM lt_source STATE 'I'.
-
-  " Private section
-  lv_program = cl_oo_classname_service=>get_prisec_name( iv_class_name ).
-  lt_source = lo_scanner->get_private_section_source( ).
-  INSERT REPORT lv_program FROM lt_source STATE 'I'.
-
-  " Method implementations
-  DATA(lt_methods) = lo_scanner->get_method_implementations( ).
-  LOOP AT lt_methods INTO DATA(lv_method).
-    lt_source = lo_scanner->get_method_impl_source( lv_method ).
-    lv_program = cl_oo_classname_service=>get_method_include(
-      mtdkey = VALUE #( clsname = iv_class_name cpdname = lv_method ) ).
-    INSERT REPORT lv_program FROM lt_source STATE 'I'.
-  ENDLOOP.
-
-  " 3. Run syntax check (does NOT activate)
-  CALL FUNCTION 'SEO_CLASS_CHECK_CLASSPOOL'
-    EXPORTING
-      clskey               = lv_clskey
-      suppress_error_popup = abap_true
-    IMPORTING
-      syntaxerror          = rv_has_error
-    EXCEPTIONS
-      OTHERS               = 1.
-
-  " 4. Collect detailed errors using SLIN or exception messages
-  " ...
-
-  " 5. Cleanup - delete inactive versions
-  DELETE REPORT cl_oo_classname_service=>get_pubsec_name( iv_class_name ) STATE 'I'.
-  DELETE REPORT cl_oo_classname_service=>get_prosec_name( iv_class_name ) STATE 'I'.
-  DELETE REPORT cl_oo_classname_service=>get_prisec_name( iv_class_name ) STATE 'I'.
-  " ... delete method includes
-ENDMETHOD.
-```
-
-### Alternative: SYNTAX-CHECK Statement
-
-For simpler cases or when class doesn't exist yet, use `SYNTAX-CHECK` statement:
-
-```abap
-METHOD check_with_syntax_statement.
-  DATA: lv_msg  TYPE string,
-        lv_line TYPE i,
-        lv_word TYPE string,
-        ls_dir  TYPE trdir.
-
-  " Get TRDIR entry from existing class (for context) or build manually
-  ls_dir-uccheck = 'X'.  " Standard ABAP
-  " ls_dir-uccheck = '5'.  " ABAP for Cloud
-
-  " Build class skeleton with source
-  DATA(lt_program) = build_class_skeleton(
-    iv_class_name = iv_class_name
-    it_source     = it_source ).
-
-  " Run syntax check
-  SYNTAX-CHECK FOR lt_program
-    MESSAGE lv_msg
-    LINE lv_line
-    WORD lv_word
-    DIRECTORY ENTRY ls_dir.
-
-  IF sy-subrc <> 0.
-    " Error found
-    rs_result-success = abap_false.
-    rs_result-errors = VALUE #( (
-      line = lv_line
-      text = lv_msg
-      word = lv_word ) ).
-  ENDIF.
-ENDMETHOD.
-```
-
-## ABAP Classes
-
-### New Classes
-
-| Class | Purpose |
-|-------|---------|
-| `ZCL_ABGAGT_COMMAND_SYNTAX` | Main command implementation |
-| `ZCL_ABGAGT_SYNTAX_CHECKER` | Core syntax check logic (working area approach) |
-| `ZCL_ABGAGT_RESOURCE_SYNTAX` | REST resource handler |
+The syntax checker uses **object-type based implementations** with dynamic instantiation via naming convention.
 
 ### Class Diagram
 
 ```
-┌─────────────────────────────────┐
-│  ZCL_ABGAGT_COMMAND_SYNTAX      │
-│  (implements ZIF_ABGAGT_COMMAND)│
-├─────────────────────────────────┤
-│ + execute()                     │
-│ - parse_source()                │
-│ - build_result()                │
-└───────────────┬─────────────────┘
-                │ uses
-                ▼
-┌─────────────────────────────────┐
-│  ZCL_ABGAGT_SYNTAX_CHECKER      │
-├─────────────────────────────────┤
-│ + check_class()                 │
-│ + check_interface()             │
-│ + check_program()               │
-│ - write_inactive_source()       │
-│ - run_syntax_check()            │
-│ - collect_errors()              │
-│ - cleanup_inactive()            │
-└─────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ zif_abgagt_syntax_checker (interface)                       │
+├─────────────────────────────────────────────────────────────┤
+│ + get_object_type() -> string                               │
+│ + set_object_name(iv_name)                                  │
+│ + check(it_source) -> ty_result                             │
+└─────────────────────────────────────────────────────────────┘
+                           ▲
+           ┌───────────────┼───────────────┐
+           │               │               │
+┌──────────┴───────┐ ┌─────┴─────┐ ┌───────┴──────┐
+│zcl_abgagt_syntax │ │zcl_abgagt │ │zcl_abgagt_   │
+│_chk_clas         │ │_syntax_   │ │syntax_chk_   │
+│                  │ │chk_intf   │ │prog          │
+├──────────────────┤ ├───────────┤ ├──────────────┤
+│+set_locals_def() │ │           │ │+set_uccheck()│
+│+set_locals_imp() │ │           │ │              │
+│+clear_locals()   │ │           │ │              │
+└──────────────────┘ └───────────┘ └──────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ zcl_abgagt_syntax_chk_factory                               │
+├─────────────────────────────────────────────────────────────┤
+│ gc_checker_prefix = 'ZCL_ABGAGT_SYNTAX_CHK_'                │
+│ + create(iv_object_type) -> zif_abgagt_syntax_checker       │
+│ + is_supported(iv_object_type) -> abap_bool                 │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### Naming Convention
+
+Checkers are named using TADIR object type as suffix:
+
+| Object Type | Checker Class |
+|-------------|---------------|
+| CLAS | `ZCL_ABGAGT_SYNTAX_CHK_CLAS` |
+| INTF | `ZCL_ABGAGT_SYNTAX_CHK_INTF` |
+| PROG | `ZCL_ABGAGT_SYNTAX_CHK_PROG` |
+
+### Dynamic Instantiation
+
+The factory creates checkers dynamically by constructing the class name:
+
+```abap
+METHOD create.
+  DATA lv_class_name TYPE string.
+
+  " Build class name from naming convention
+  lv_class_name = gc_checker_prefix && to_upper( iv_object_type ).
+
+  " Try to create instance dynamically
+  TRY.
+      CREATE OBJECT ro_checker TYPE (lv_class_name).
+    CATCH cx_sy_create_object_error.
+      " Checker class doesn't exist for this object type
+      CLEAR ro_checker.
+  ENDTRY.
+ENDMETHOD.
+```
+
+### Adding New Object Types
+
+To add support for a new object type (e.g., FUGR):
+
+1. Create class `ZCL_ABGAGT_SYNTAX_CHK_FUGR` implementing `ZIF_ABGAGT_SYNTAX_CHECKER`
+2. Implement `check()` method with appropriate syntax check logic
+3. No changes needed in factory or command class
+
+## Implementation Details
+
+### Class Checker (ZCL_ABGAGT_SYNTAX_CHK_CLAS)
+
+For classes, the implementation:
+1. Wraps source with `CLASS-POOL.` statement
+2. Optionally includes local class definitions (CCDEF) and implementations (CCIMP)
+3. Runs `SYNTAX-CHECK` statement with TRDIR context
+
+```abap
+METHOD check.
+  DATA lt_skeleton TYPE string_table.
+
+  " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp
+  APPEND 'CLASS-POOL.' TO lt_skeleton.
+
+  IF mt_locals_def IS NOT INITIAL.
+    APPEND LINES OF mt_locals_def TO lt_skeleton.
+  ENDIF.
+
+  APPEND LINES OF it_source TO lt_skeleton.
+
+  IF mt_locals_imp IS NOT INITIAL.
+    APPEND LINES OF mt_locals_imp TO lt_skeleton.
+  ENDIF.
+
+  " Run syntax check
+  SYNTAX-CHECK FOR lt_skeleton
+    MESSAGE lv_msg
+    LINE lv_line
+    WORD lv_word
+    DIRECTORY ENTRY ls_dir.
+ENDMETHOD.
+```
+
+### Interface Checker (ZCL_ABGAGT_SYNTAX_CHK_INTF)
+
+For interfaces:
+1. Wraps source with `INTERFACE-POOL.` statement
+2. Runs `SYNTAX-CHECK` statement
+
+### Program Checker (ZCL_ABGAGT_SYNTAX_CHK_PROG)
+
+For programs:
+1. Runs `SYNTAX-CHECK` directly on source
+2. Supports `uccheck` parameter for ABAP Cloud compatibility
+
+## ABAP Classes
+
+| Class | Purpose |
+|-------|---------|
+| `ZIF_ABGAGT_SYNTAX_CHECKER` | Interface for syntax checkers |
+| `ZCL_ABGAGT_SYNTAX_CHK_CLAS` | Class syntax checker (supports local classes) |
+| `ZCL_ABGAGT_SYNTAX_CHK_INTF` | Interface syntax checker |
+| `ZCL_ABGAGT_SYNTAX_CHK_PROG` | Program syntax checker |
+| `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` | Factory for creating checkers by object type |
+| `ZCL_ABGAGT_COMMAND_SYNTAX` | Command implementation |
+| `ZCL_ABGAGT_RESOURCE_SYNTAX` | REST resource handler |
+
+## Supported Object Types
+
+| Type | Checker | Features |
+|------|---------|----------|
+| CLAS | `ZCL_ABGAGT_SYNTAX_CHK_CLAS` | Supports local classes (CCDEF, CCIMP) |
+| INTF | `ZCL_ABGAGT_SYNTAX_CHK_INTF` | Basic interface checking |
+| PROG | `ZCL_ABGAGT_SYNTAX_CHK_PROG` | Supports uccheck (Standard/Cloud) |
 
 ## Error Handling
 
-### Scenarios
-
 | Scenario | Behavior |
 |----------|----------|
-| Class doesn't exist | Create temporary skeleton, check, cleanup |
-| Class exists (active) | Write to inactive version, check against active |
-| Class exists (inactive) | Overwrite inactive, check, cleanup |
-| Syntax error found | Return error details with line/column |
-| System error | Return error message, ensure cleanup |
+| Unsupported object type | Factory returns empty, command returns error |
+| Syntax error found | Returns error details with line number and message |
+| Empty source | Returns error "No source provided" |
 
-### Cleanup Guarantee
-
-**Critical**: Cleanup must happen even if errors occur. Use `TRY...FINALLY`:
-
-```abap
-TRY.
-    " Write inactive source
-    write_inactive_source( ... ).
-
-    " Run check
-    run_syntax_check( ... ).
-
-  CATCH cx_root INTO DATA(lx_error).
-    " Handle error
-    rs_result-errors = VALUE #( ( text = lx_error->get_text( ) ) ).
-
-  CLEANUP.
-    " ALWAYS cleanup
-    cleanup_inactive( ... ).
-ENDTRY.
-```
-
-## Limitations
-
-1. **Class must be parseable** - Source must be valid enough to scan into sections
-2. **Dependencies must exist** - Referenced types/classes must exist in system
-3. **No cross-object check** - Each object checked independently
-4. **Temporary DB writes** - Inactive versions are written (and deleted) during check
-
-## Comparison with Existing Commands
+## Comparison with Other Commands
 
 | Command | Purpose | Requires Pull? | Writes to DB? |
 |---------|---------|----------------|---------------|
 | `pull` | Activate from git | N/A | Yes (active) |
-| `inspect` | Check existing objects | Yes | No |
-| `syntax` (NEW) | Check source directly | No | Yes (inactive, temp) |
+| `inspect` | Check existing objects (SCI) | Yes | No |
+| `syntax` | Check source directly | No | No |
 
 ## Future Enhancements
 
-1. **Batch checking** - Check multiple objects in single request
-2. **Diff-based checking** - Only check changed methods
-3. **Cloud-ready check** - Use `uccheck = '5'` for ABAP Cloud syntax
-4. **Warning levels** - Configure which warnings to report
+1. **DDLS checker** - Add `ZCL_ABGAGT_SYNTAX_CHK_DDLS` for CDS view checking
+2. **FUGR checker** - Add `ZCL_ABGAGT_SYNTAX_CHK_FUGR` for function groups
+3. **Warning levels** - Configure which warnings to report
+4. **Cross-object check** - Check dependencies between objects
 
 ## References
 
-- [ABAP Cheat Sheets - Dynamic Programming](https://github.com/SAP-samples/abap-cheat-sheets/blob/main/06_Dynamic_Programming.md)
-- [abapGit - OO Class Handling](https://github.com/abapGit/abapGit/blob/main/src/objects/oo/zcl_abapgit_oo_class.clas.abap)
 - [SAP Help - SYNTAX-CHECK](https://help.sap.com/doc/abapdocu_latest_index_htm/latest/en-US/index.htm?file=abapsyntax-check_for_itab.htm)
+- [ABAP Keyword Documentation](https://help.sap.com/doc/abapdocu_cp_index_htm/CLOUD/en-US/index.htm)

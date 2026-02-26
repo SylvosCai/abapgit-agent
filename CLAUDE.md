@@ -111,10 +111,25 @@ Resource: ZCL_ABGAGT_RESOURCE_TREE → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COM
 | `ZCL_ABGAGT_CMD_FACTORY` | Command factory - creates command instances dynamically |
 | `ZCL_ABGAGT_COMMAND_PULL` | Pull command - implements ZIF_ABGAGT_COMMAND |
 | `ZCL_ABGAGT_COMMAND_INSPECT` | Inspect command - implements ZIF_ABGAGT_COMMAND |
+| `ZCL_ABGAGT_COMMAND_SYNTAX` | Syntax command - check source without activation |
 | `ZCL_ABGAGT_COMMAND_UNIT` | Unit command - implements ZIF_ABGAGT_COMMAND |
 | `ZCL_ABGAGT_COMMAND_TREE` | Tree command - displays package hierarchy |
 | `ZIF_ABGAGT_COMMAND` | Command interface with constants |
 | `ZIF_ABGAGT_CMD_FACTORY` | Factory interface |
+
+### Syntax Checker Architecture
+
+The syntax checker uses object-type based implementations with dynamic instantiation:
+
+| Object | Description |
+|--------|-------------|
+| `ZIF_ABGAGT_SYNTAX_CHECKER` | Interface for syntax checkers |
+| `ZCL_ABGAGT_SYNTAX_CHK_CLAS` | Class checker (supports local classes) |
+| `ZCL_ABGAGT_SYNTAX_CHK_INTF` | Interface checker |
+| `ZCL_ABGAGT_SYNTAX_CHK_PROG` | Program checker |
+| `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` | Factory - creates checkers by TADIR type |
+
+**Naming convention:** `ZCL_ABGAGT_SYNTAX_CHK_{TADIR_TYPE}` enables dynamic instantiation.
 
 ## CLI Commands
 
