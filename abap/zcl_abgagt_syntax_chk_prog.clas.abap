@@ -11,7 +11,6 @@ CLASS zcl_abgagt_syntax_chk_prog DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_uccheck TYPE trdir-uccheck.
 
   PRIVATE SECTION.
-    DATA mv_program_name TYPE syrepid.
     DATA mv_uccheck TYPE trdir-uccheck VALUE 'X'.
 
 ENDCLASS.
@@ -24,24 +23,22 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_abgagt_syntax_checker~set_object_name.
-    mv_program_name = to_upper( iv_name ).
-  ENDMETHOD.
-
-
   METHOD set_uccheck.
     mv_uccheck = iv_uccheck.
   ENDMETHOD.
 
 
   METHOD zif_abgagt_syntax_checker~check.
-    DATA: ls_dir  TYPE trdir,
-          lv_msg  TYPE string,
-          lv_line TYPE i,
-          lv_word TYPE string.
+    DATA: ls_dir      TYPE trdir,
+          lv_msg      TYPE string,
+          lv_line     TYPE i,
+          lv_word     TYPE string,
+          lv_progname TYPE syrepid.
+
+    lv_progname = to_upper( iv_name ).
 
     rs_result-object_type = 'PROG'.
-    rs_result-object_name = mv_program_name.
+    rs_result-object_name = lv_progname.
 
     IF it_source IS INITIAL.
       rs_result-success = abap_false.
@@ -54,7 +51,7 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
     ENDIF.
 
     " Set TRDIR entry for syntax check context
-    ls_dir-name = mv_program_name.
+    ls_dir-name = lv_progname.
     ls_dir-uccheck = mv_uccheck.
 
     " Run syntax check

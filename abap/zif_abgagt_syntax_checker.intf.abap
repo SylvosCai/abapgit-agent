@@ -42,16 +42,13 @@ INTERFACE zif_abgagt_syntax_checker PUBLIC.
   METHODS get_object_type
     RETURNING VALUE(rv_type) TYPE string.
 
-  "! Set the object name to check
-  "! @parameter iv_name | Object name
-  METHODS set_object_name
-    IMPORTING iv_name TYPE clike.
-
   "! Run syntax check on provided source
+  "! @parameter iv_name | Object name (e.g., ZCL_MY_CLASS)
   "! @parameter it_source | Source code as string table
   "! @parameter rs_result | Syntax check result
   METHODS check
-    IMPORTING it_source        TYPE string_table
+    IMPORTING iv_name          TYPE clike
+              it_source        TYPE string_table
     RETURNING VALUE(rs_result) TYPE ty_result.
 
 ENDINTERFACE.

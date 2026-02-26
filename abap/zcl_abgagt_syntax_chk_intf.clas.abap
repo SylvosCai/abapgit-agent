@@ -5,9 +5,6 @@ CLASS zcl_abgagt_syntax_chk_intf DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_syntax_checker.
 
-  PRIVATE SECTION.
-    DATA mv_intf_name TYPE seoclsname.
-
 ENDCLASS.
 
 
@@ -18,21 +15,19 @@ CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_abgagt_syntax_checker~set_object_name.
-    mv_intf_name = to_upper( iv_name ).
-  ENDMETHOD.
-
-
   METHOD zif_abgagt_syntax_checker~check.
     DATA: ls_dir       TYPE trdir,
           lv_msg       TYPE string,
           lv_line      TYPE i,
           lv_word      TYPE string,
           lv_intfpool  TYPE syrepid,
-          lt_skeleton  TYPE string_table.
+          lt_skeleton  TYPE string_table,
+          lv_intfname  TYPE seoclsname.
+
+    lv_intfname = to_upper( iv_name ).
 
     rs_result-object_type = 'INTF'.
-    rs_result-object_name = mv_intf_name.
+    rs_result-object_name = lv_intfname.
 
     " Build interface skeleton: INTERFACE-POOL + source
     APPEND 'INTERFACE-POOL.' TO lt_skeleton.
@@ -49,7 +44,7 @@ CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
     ENDIF.
 
     " Get TRDIR entry for interface pool (for context)
-    lv_intfpool = cl_oo_classname_service=>get_interfacepool_name( mv_intf_name ).
+    lv_intfpool = cl_oo_classname_service=>get_interfacepool_name( lv_intfname ).
     SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_intfpool.
     IF sy-subrc <> 0.
       ls_dir-name = lv_intfpool.

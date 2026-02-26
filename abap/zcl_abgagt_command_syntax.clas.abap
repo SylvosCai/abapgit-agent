@@ -143,10 +143,12 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   METHOD check_object.
     DATA: lt_source     TYPE string_table,
           lo_checker    TYPE REF TO zif_abgagt_syntax_checker,
-          lv_type       TYPE string.
+          lv_type       TYPE string,
+          lv_name       TYPE string.
 
-    " Normalize type
+    " Normalize type and name
     lv_type = to_upper( is_object-type ).
+    lv_name = to_upper( is_object-name ).
 
     " Get checker for this object type
     lo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
@@ -163,9 +165,6 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       rs_result-message = |Unsupported object type: { is_object-type }|.
       RETURN.
     ENDIF.
-
-    " Set object name
-    lo_checker->set_object_name( is_object-name ).
 
     " Parse source
     lt_source = parse_source( is_object-source ).
@@ -191,8 +190,10 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
         lo_prog_checker->set_uccheck( iv_uccheck ).
     ENDCASE.
 
-    " Run check
-    rs_result = lo_checker->check( lt_source ).
+    " Run check with object name
+    rs_result = lo_checker->check(
+      iv_name   = lv_name
+      it_source = lt_source ).
   ENDMETHOD.
 
 ENDCLASS.

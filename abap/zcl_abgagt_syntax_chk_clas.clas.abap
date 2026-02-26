@@ -20,18 +20,13 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS clear_locals.
 
   PRIVATE SECTION.
-    DATA mv_class_name TYPE seoclsname.
     DATA mt_locals_def TYPE string_table.
     DATA mt_locals_imp TYPE string_table.
 
-    "! Build source skeleton with CLASS-POOL wrapper
-    METHODS build_skeleton
-      IMPORTING it_source          TYPE string_table
-      RETURNING VALUE(rt_skeleton) TYPE string_table.
-
     "! Run syntax check on skeleton
     METHODS run_check
-      IMPORTING it_skeleton      TYPE string_table
+      IMPORTING iv_class_name    TYPE seoclsname
+                it_skeleton      TYPE string_table
       RETURNING VALUE(rs_result) TYPE zif_abgagt_syntax_checker=>ty_result.
 
 ENDCLASS.
@@ -44,13 +39,11 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_abgagt_syntax_checker~set_object_name.
-    mv_class_name = to_upper( iv_name ).
-  ENDMETHOD.
-
-
   METHOD zif_abgagt_syntax_checker~check.
-    DATA lt_skeleton TYPE string_table.
+    DATA: lt_skeleton  TYPE string_table,
+          lv_classname TYPE seoclsname.
+
+    lv_classname = to_upper( iv_name ).
 
     " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp
     APPEND 'CLASS-POOL.' TO lt_skeleton.
@@ -69,7 +62,9 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check
-    rs_result = run_check( lt_skeleton ).
+    rs_result = run_check(
+      iv_class_name = lv_classname
+      it_skeleton   = lt_skeleton ).
   ENDMETHOD.
 
 
@@ -88,12 +83,6 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD build_skeleton.
-    APPEND 'CLASS-POOL.' TO rt_skeleton.
-    APPEND LINES OF it_source TO rt_skeleton.
-  ENDMETHOD.
-
-
   METHOD run_check.
     DATA: ls_dir       TYPE trdir,
           lv_msg       TYPE string,
@@ -102,7 +91,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
           lv_classpool TYPE syrepid.
 
     rs_result-object_type = 'CLAS'.
-    rs_result-object_name = mv_class_name.
+    rs_result-object_name = iv_class_name.
 
     IF it_skeleton IS INITIAL OR lines( it_skeleton ) <= 1.
       rs_result-success = abap_false.
@@ -115,7 +104,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     ENDIF.
 
     " Get TRDIR entry for class pool (for context)
-    lv_classpool = cl_oo_classname_service=>get_classpool_name( mv_class_name ).
+    lv_classpool = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
     SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_classpool.
     IF sy-subrc <> 0.
       " Class doesn't exist - use default
