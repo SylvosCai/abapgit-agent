@@ -2726,16 +2726,29 @@ Examples:
         const csrfToken = await fetchCsrfToken(config);
 
         // Build objects array from files
+        // Group class files together (main + locals)
+        const classFilesMap = new Map(); // className -> { main, locals_def, locals_imp }
         const objects = [];
+
         for (const file of syntaxFiles) {
           const baseName = pathModule.basename(file);
           let objType = 'PROG';
           let objName = baseName.toUpperCase();
+          let fileKind = 'main'; // main, locals_def, locals_imp
 
           // Parse file type from extension
-          if (baseName.includes('.clas.')) {
+          if (baseName.includes('.clas.locals_def.')) {
             objType = 'CLAS';
             objName = baseName.split('.')[0].toUpperCase();
+            fileKind = 'locals_def';
+          } else if (baseName.includes('.clas.locals_imp.')) {
+            objType = 'CLAS';
+            objName = baseName.split('.')[0].toUpperCase();
+            fileKind = 'locals_imp';
+          } else if (baseName.includes('.clas.')) {
+            objType = 'CLAS';
+            objName = baseName.split('.')[0].toUpperCase();
+            fileKind = 'main';
           } else if (baseName.includes('.intf.')) {
             objType = 'INTF';
             objName = baseName.split('.')[0].toUpperCase();
@@ -2752,11 +2765,59 @@ Examples:
           }
 
           const source = fs.readFileSync(filePath, 'utf8');
-          objects.push({
-            type: objType,
-            name: objName,
-            source: source
-          });
+
+          // For class files, group them together
+          if (objType === 'CLAS') {
+            if (!classFilesMap.has(objName)) {
+              classFilesMap.set(objName, { main: null, locals_def: null, locals_imp: null });
+            }
+            const classFiles = classFilesMap.get(objName);
+            classFiles[fileKind] = source;
+          } else {
+            objects.push({
+              type: objType,
+              name: objName,
+              source: source
+            });
+          }
+        }
+
+        // Add class objects with their local files
+        for (const [className, files] of classFilesMap) {
+          // Try to auto-detect local files if only main file provided
+          if (files.main && !files.locals_def && !files.locals_imp) {
+            // Look for companion local files in the same directory
+            const mainFile = syntaxFiles.find(f => {
+              const bn = pathModule.basename(f).toUpperCase();
+              return bn.startsWith(className) && bn.includes('.CLAS.ABAP');
+            });
+            if (mainFile) {
+              const dir = pathModule.dirname(mainFile);
+              const defFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_def.abap`);
+              const impFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_imp.abap`);
+              if (fs.existsSync(defFile)) {
+                files.locals_def = fs.readFileSync(defFile, 'utf8');
+                if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(defFile)}`);
+              }
+              if (fs.existsSync(impFile)) {
+                files.locals_imp = fs.readFileSync(impFile, 'utf8');
+                if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(impFile)}`);
+              }
+            }
+          }
+
+          if (files.main) {
+            const obj = {
+              type: 'CLAS',
+              name: className,
+              source: files.main
+            };
+            if (files.locals_def) obj.locals_def = files.locals_def;
+            if (files.locals_imp) obj.locals_imp = files.locals_imp;
+            objects.push(obj);
+          } else {
+            console.error(`  Warning: No main class file for ${className}, skipping local files`);
+          }
         }
 
         if (objects.length === 0) {

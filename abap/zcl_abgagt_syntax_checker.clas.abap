@@ -89,6 +89,19 @@ CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_uccheck      TYPE trdir-uccheck DEFAULT 'X'
       RETURNING VALUE(rs_result) TYPE ty_result.
 
+    "! Check class source with local classes using working area approach
+    "! @parameter iv_class_name | Class name (e.g., ZCL_MY_CLASS)
+    "! @parameter it_source | Main class source code
+    "! @parameter it_locals_def | Local class definitions (CCDEF)
+    "! @parameter it_locals_imp | Local class implementations (CCIMP)
+    "! @parameter rs_result | Syntax check result
+    METHODS check_class_with_locals
+      IMPORTING iv_class_name   TYPE seoclsname
+                it_source       TYPE string_table
+                it_locals_def   TYPE string_table OPTIONAL
+                it_locals_imp   TYPE string_table OPTIONAL
+      RETURNING VALUE(rs_result) TYPE ty_result.
+
   PRIVATE SECTION.
 
     " Include suffixes for class
@@ -217,6 +230,114 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           ENDTRY.
 
           " Get or create method include
+          ls_mtdkey-clsname = iv_class_name.
+          ls_mtdkey-cpdname = lv_method.
+
+          cl_oo_classname_service=>get_method_include(
+            EXPORTING
+              mtdkey              = ls_mtdkey
+            RECEIVING
+              result              = lv_program
+            EXCEPTIONS
+              method_not_existing = 1
+              OTHERS              = 2 ).
+
+          IF sy-subrc = 0 AND lv_program IS NOT INITIAL.
+            write_inactive_include( iv_include = lv_program it_source = lt_source ).
+          ENDIF.
+        ENDLOOP.
+
+        " 3. Run syntax check
+        rs_result = run_class_check( iv_class_name ).
+
+      CATCH cx_root INTO DATA(lx_error).
+        rs_result-success = abap_false.
+        rs_result-error_count = 1.
+        rs_result-errors = VALUE #( (
+          line = 1
+          text = lx_error->get_text( ) ) ).
+        rs_result-message = lx_error->get_text( ).
+    ENDTRY.
+
+    " 4. Cleanup - ALWAYS executed
+    cleanup_all_includes( ).
+  ENDMETHOD.
+
+
+  METHOD check_class_with_locals.
+    DATA: lo_scanner    TYPE REF TO cl_oo_source_scanner_class,
+          lv_program    TYPE syrepid,
+          lt_source     TYPE string_table,
+          lt_methods    TYPE cl_oo_source_scanner_class=>type_method_implementations,
+          lv_method     TYPE seocpdname,
+          ls_mtdkey     TYPE seocpdkey,
+          lx_scan_error TYPE REF TO cx_root.
+
+    rs_result-object_type = 'CLAS'.
+    rs_result-object_name = iv_class_name.
+
+    CLEAR mt_written_includes.
+
+    TRY.
+        " 1. Parse main class source using class scanner
+        TRY.
+            lo_scanner = cl_oo_source_scanner_class=>create_class_scanner(
+              clif_name = iv_class_name
+              source    = it_source ).
+            lo_scanner->scan( ).
+          CATCH cx_root INTO lx_scan_error.
+            rs_result-success = abap_false.
+            rs_result-error_count = 1.
+            rs_result-errors = VALUE #( (
+              line = 1
+              text = |Source parse error: { lx_scan_error->get_text( ) }| ) ).
+            rs_result-message = lx_scan_error->get_text( ).
+            RETURN.
+        ENDTRY.
+
+        " 2. Write sections to inactive includes
+        " Public section
+        lt_source = lo_scanner->get_public_section_source( ).
+        IF lt_source IS NOT INITIAL.
+          lv_program = cl_oo_classname_service=>get_pubsec_name( iv_class_name ).
+          write_inactive_include( iv_include = lv_program it_source = lt_source ).
+        ENDIF.
+
+        " Protected section
+        lt_source = lo_scanner->get_protected_section_source( ).
+        IF lt_source IS NOT INITIAL.
+          lv_program = cl_oo_classname_service=>get_prosec_name( iv_class_name ).
+          write_inactive_include( iv_include = lv_program it_source = lt_source ).
+        ENDIF.
+
+        " Private section
+        lt_source = lo_scanner->get_private_section_source( ).
+        IF lt_source IS NOT INITIAL.
+          lv_program = cl_oo_classname_service=>get_prisec_name( iv_class_name ).
+          write_inactive_include( iv_include = lv_program it_source = lt_source ).
+        ENDIF.
+
+        " Local class definitions (CCDEF) - if provided
+        IF it_locals_def IS NOT INITIAL.
+          lv_program = cl_oo_classname_service=>get_ccdef_name( iv_class_name ).
+          write_inactive_include( iv_include = lv_program it_source = it_locals_def ).
+        ENDIF.
+
+        " Local class implementations (CCIMP) - if provided
+        IF it_locals_imp IS NOT INITIAL.
+          lv_program = cl_oo_classname_service=>get_ccimp_name( iv_class_name ).
+          write_inactive_include( iv_include = lv_program it_source = it_locals_imp ).
+        ENDIF.
+
+        " Method implementations
+        lt_methods = lo_scanner->get_method_implementations( ).
+        LOOP AT lt_methods INTO lv_method.
+          TRY.
+              lt_source = lo_scanner->get_method_impl_source( lv_method ).
+            CATCH cx_oo_clif_component.
+              CONTINUE.
+          ENDTRY.
+
           ls_mtdkey-clsname = iv_class_name.
           ls_mtdkey-cpdname = lv_method.
 

@@ -9,9 +9,11 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     " Request parameters
     TYPES: BEGIN OF ty_source_object,
-             type   TYPE string,      " CLAS, INTF, PROG
-             name   TYPE string,      " Object name
-             source TYPE string,      " Source code (newline separated)
+             type        TYPE string,      " CLAS, INTF, PROG
+             name        TYPE string,      " Object name
+             source      TYPE string,      " Source code (newline separated)
+             locals_def  TYPE string,      " Local class definitions (optional, for CLAS)
+             locals_imp  TYPE string,      " Local class implementations (optional, for CLAS)
            END OF ty_source_object.
 
     TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
@@ -153,11 +155,21 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
 
   METHOD check_object.
-    DATA: lt_source TYPE string_table,
-          lv_name   TYPE seoclsname.
+    DATA: lt_source     TYPE string_table,
+          lt_locals_def TYPE string_table,
+          lt_locals_imp TYPE string_table,
+          lv_name       TYPE seoclsname.
 
     " Parse source string to lines
     lt_source = parse_source( is_object-source ).
+
+    " Parse local class sources if provided
+    IF is_object-locals_def IS NOT INITIAL.
+      lt_locals_def = parse_source( is_object-locals_def ).
+    ENDIF.
+    IF is_object-locals_imp IS NOT INITIAL.
+      lt_locals_imp = parse_source( is_object-locals_imp ).
+    ENDIF.
 
     " Convert name to uppercase
     lv_name = to_upper( is_object-name ).
@@ -168,15 +180,25 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       WHEN 'CLAS'.
         IF iv_mode = 'syntax_statement'.
           " Use SYNTAX-CHECK statement (simpler, no DB writes)
+          " Note: This mode doesn't support local classes
           rs_result = mo_checker->check_class_syntax_statement(
             iv_class_name = lv_name
             it_source     = lt_source
             iv_uccheck    = iv_uccheck ).
         ELSE.
           " Use working area approach (writes to inactive includes)
-          rs_result = mo_checker->check_class(
-            iv_class_name = lv_name
-            it_source     = lt_source ).
+          " Check if local classes are provided
+          IF lt_locals_def IS NOT INITIAL OR lt_locals_imp IS NOT INITIAL.
+            rs_result = mo_checker->check_class_with_locals(
+              iv_class_name = lv_name
+              it_source     = lt_source
+              it_locals_def = lt_locals_def
+              it_locals_imp = lt_locals_imp ).
+          ELSE.
+            rs_result = mo_checker->check_class(
+              iv_class_name = lv_name
+              it_source     = lt_source ).
+          ENDIF.
         ENDIF.
 
       WHEN 'INTF'.
