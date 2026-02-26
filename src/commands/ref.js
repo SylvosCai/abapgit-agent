@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
-    const refSearch = require('../src/ref-search');
+    const refSearch = require('../utils/abap-reference');
 
     const topicIndex = args.indexOf('--topic');
     const cloneIndex = args.indexOf('--clone');

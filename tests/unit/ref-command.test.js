@@ -1,12 +1,12 @@
 /**
- * Unit tests for ref-search.js
+ * Unit tests for abap-reference.js
  */
 
-describe('RefSearch', () => {
+describe('ABAP Reference', () => {
   describe('listTopics', () => {
     test('returns object with topics array when reference folder exists', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.listTopics();
       // If reference folder is found, should have topics
@@ -22,7 +22,7 @@ describe('RefSearch', () => {
 
     test('topics array is not empty when reference folder exists', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.listTopics();
       // If reference folder is found, topics should have entries
@@ -33,7 +33,7 @@ describe('RefSearch', () => {
 
     test('each topic has topic and file properties', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.listTopics();
       if (!result.error && result.topics.length > 0) {
@@ -48,7 +48,7 @@ describe('RefSearch', () => {
   describe('getTopic', () => {
     test('returns content for valid topic when reference folder exists', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.getTopic('internal-tables');
       // Should return either content or error (if reference folder not found)
@@ -63,7 +63,7 @@ describe('RefSearch', () => {
 
     test('handles unknown topic gracefully', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.getTopic('unknown-topic-xyz-123');
       // Should either return error or try to find it
@@ -74,14 +74,14 @@ describe('RefSearch', () => {
   describe('TOPIC_MAP', () => {
     test('TOPIC_MAP is exported', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       expect(refSearch.TOPIC_MAP).toBeDefined();
     });
 
     test('TOPIC_MAP contains expected topics', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       expect(refSearch.TOPIC_MAP['internal-tables']).toBeDefined();
       expect(refSearch.TOPIC_MAP['sql']).toBeDefined();
@@ -91,7 +91,7 @@ describe('RefSearch', () => {
 
     test('TOPIC_MAP contains exceptions', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       expect(refSearch.TOPIC_MAP['exceptions']).toBeDefined();
     });
@@ -100,7 +100,7 @@ describe('RefSearch', () => {
   describe('getBuiltInGuidelinesPath', () => {
     test('returns path to built-in guidelines', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = refSearch.getBuiltInGuidelinesPath();
       expect(typeof result).toBe('string');
@@ -111,7 +111,7 @@ describe('RefSearch', () => {
   describe('searchPattern', () => {
     test('returns result object with pattern', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.searchPattern('VALUE');
       // Just verify it returns something
@@ -123,7 +123,7 @@ describe('RefSearch', () => {
   describe('detectGuidelinesFolder', () => {
     test('detects guidelines folder', async () => {
       jest.resetModules();
-      const refSearch = require('../../src/ref-search');
+      const refSearch = require('../../src/utils/abap-reference');
 
       const result = await refSearch.detectGuidelinesFolder();
       // Should return either path or null
