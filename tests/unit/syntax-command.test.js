@@ -3,6 +3,8 @@
  * Tests the CLI parsing, file handling, and response formatting
  */
 
+const verifiers = require('../integration/verify-output-spec');
+
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -26,7 +28,12 @@ jest.mock('../../src/config', () => ({
   })
 }));
 
-describe('Syntax Command', () => {
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('Syntax Command - Logic Tests', () => {
   let mockRequest;
   let mockReq;
   let mockRes;
@@ -529,5 +536,152 @@ describe('Syntax Command', () => {
 
       expect(uccheck).toBe('5');
     });
+  });
+});
+
+describe('Syntax Command - CLI Output Format', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+
+    // Reset mocks
+    jest.clearAllMocks();
+    // Main file exists, companion files don't
+    fs.existsSync = jest.fn((path) => {
+      return !path.includes('locals_def') && !path.includes('locals_imp');
+    });
+    fs.readFileSync = jest.fn().mockReturnValue('CLASS zcl_test DEFINITION. ENDCLASS.');
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('output matches spec format for passed syntax check', async () => {
+    const syntaxCommand = require('../../src/commands/syntax');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          COMMAND: 'SYNTAX',
+          MESSAGE: 'All 1 object(s) passed syntax check',
+          RESULTS: [
+            {
+              OBJECT_TYPE: 'CLAS',
+              OBJECT_NAME: 'ZCL_MY_CLASS',
+              SUCCESS: true,
+              ERROR_COUNT: 0,
+              ERRORS: [],
+              MESSAGE: 'Syntax check passed'
+            }
+          ]
+        })
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format using verifier
+    const verified = verifiers.verifySyntaxOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Additional specific checks
+    expect(output).toMatch(/Syntax check for 1 file\(s\)/);
+    expect(output).toMatch(/✅/);
+    expect(output).toMatch(/CLAS/);
+    expect(output).toMatch(/ZCL_MY_CLASS/);
+    expect(output).toMatch(/All 1 object\(s\) passed/);
+  });
+
+  test('output matches spec format for failed syntax check', async () => {
+    const syntaxCommand = require('../../src/commands/syntax');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: false,
+          COMMAND: 'SYNTAX',
+          MESSAGE: '1 of 1 object(s) have syntax errors',
+          RESULTS: [
+            {
+              OBJECT_TYPE: 'CLAS',
+              OBJECT_NAME: 'ZCL_MY_CLASS',
+              SUCCESS: false,
+              ERROR_COUNT: 1,
+              ERRORS: [
+                {
+                  LINE: 9,
+                  TEXT: 'The statement "UNKNOWN_STATEMENT" is invalid.'
+                }
+              ],
+              MESSAGE: 'Syntax check failed'
+            }
+          ]
+        })
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format
+    const verified = verifiers.verifySyntaxOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Additional specific checks
+    expect(output).toMatch(/❌/);
+    expect(output).toMatch(/Syntax check failed/);
+    expect(output).toMatch(/Errors:/);
+    expect(output).toMatch(/─{20,}/); // Separator line
+    expect(output).toMatch(/Line 9:/);
+    expect(output).toMatch(/1 of 1 object\(s\) have syntax errors/);
+  });
+
+  test('output includes cloud mode when --cloud specified', async () => {
+    const syntaxCommand = require('../../src/commands/syntax');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          COMMAND: 'SYNTAX',
+          MESSAGE: 'All 1 object(s) passed syntax check',
+          RESULTS: [
+            {
+              OBJECT_TYPE: 'CLAS',
+              OBJECT_NAME: 'ZCL_MY_CLASS',
+              SUCCESS: true,
+              ERROR_COUNT: 0,
+              ERRORS: []
+            }
+          ]
+        })
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zcl_my_class.clas.abap', '--cloud'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/Mode: ABAP Cloud/);
+    expect(output).toMatch(/✅/);
   });
 });

@@ -141,7 +141,8 @@ function verifySyntaxOutput(output, objectName) {
     hasObjectName: output.includes(objectName),
     hasStatusText: output.includes('Syntax check passed') ||
       output.includes('Syntax check failed'),
-    hasSummary: output.includes('All') && output.includes('object(s)')
+    hasSummary: output.includes('object(s)') &&
+                (output.includes('All') || output.includes('of')) // "All X passed" or "X of Y failed"
   };
 
   // If failed, should have error section with line numbers
