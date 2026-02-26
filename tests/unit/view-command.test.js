@@ -3,7 +3,7 @@
  * Tests object parsing and request building
  */
 
-const verifiers = require('../helpers/verify-output-spec');
+const verifiers = require('../helpers/output-verifiers');
 
 // Mock fs module
 jest.mock('fs', () => ({

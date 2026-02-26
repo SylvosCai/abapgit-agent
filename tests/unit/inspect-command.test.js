@@ -3,7 +3,7 @@
  * Tests the CLI parsing, file handling, and request building
  */
 
-const verifiers = require('../helpers/verify-output-spec');
+const verifiers = require('../helpers/output-verifiers');
 
 // Mock fs module to fake file existence
 jest.mock('fs', () => ({

@@ -3,7 +3,7 @@
  * Tests the CLI parsing, file handling, and response formatting
  */
 
-const verifiers = require('../helpers/verify-output-spec');
+const verifiers = require('../helpers/output-verifiers');
 
 const fs = require('fs');
 const path = require('path');

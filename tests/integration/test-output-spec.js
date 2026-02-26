@@ -14,7 +14,7 @@
 
 const { execSync } = require('child_process');
 const path = require('path');
-const verifiers = require('../helpers/verify-output-spec');
+const verifiers = require('../helpers/output-verifiers');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
