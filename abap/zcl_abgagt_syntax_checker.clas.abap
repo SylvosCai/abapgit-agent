@@ -560,169 +560,138 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
 
   METHOD run_class_check.
-    DATA: ls_clskey      TYPE seoclskey,
-          lv_syntaxerror TYPE abap_bool,
-          lv_method_idx  TYPE i,
-          lv_method_name TYPE seocmpname.
-
-    ls_clskey-clsname = iv_class_name.
+    DATA: ls_dir        TYPE trdir,
+          lv_msg        TYPE string,
+          lv_line       TYPE i,
+          lv_word       TYPE string,
+          lv_classpool  TYPE syrepid,
+          lt_full_source TYPE string_table,
+          lv_include    TYPE syrepid,
+          lt_inc_source TYPE string_table.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
 
-    " First, regenerate the class pool to pick up our inactive includes
-    " This ensures SEO_CLASS_CHECK_CLASSPOOL sees the modified source
-    CALL FUNCTION 'SEO_CLASS_GENERATE_CLASSPOOL'
-      EXPORTING
-        clskey                        = ls_clskey
-        suppress_corr                 = abap_true
-      EXCEPTIONS
-        not_existing                  = 1
-        model_only                    = 2
-        class_pool_not_generated      = 3
-        class_stment_not_generated    = 4
-        locals_not_generated          = 5
-        macros_not_generated          = 6
-        public_sec_not_generated      = 7
-        protected_sec_not_generated   = 8
-        private_sec_not_generated     = 9
-        typeref_not_generated         = 10
-        class_pool_not_initialised    = 11
-        class_stment_not_initialised  = 12
-        locals_not_initialised        = 13
-        macros_not_initialised        = 14
-        public_sec_not_initialised    = 15
-        protected_sec_not_initialised = 16
-        private_sec_not_initialised   = 17
-        typeref_not_initialised       = 18
-        _internal_class_overflow      = 19
-        OTHERS                        = 20.
+    " Build complete class source from all inactive includes we wrote
+    " Start with CLASS-POOL statement
+    APPEND 'CLASS-POOL.' TO lt_full_source.
 
-    IF sy-subrc <> 0.
-      " If generation fails, class may not exist yet - return error
+    " Read and concatenate all inactive includes in order:
+    " 1. Class definition sections (CU=public, CO=protected, CP=private)
+    " 2. Method implementations
+    LOOP AT mt_written_includes INTO lv_include.
+      READ REPORT lv_include INTO lt_inc_source STATE 'I'.
+      IF sy-subrc = 0.
+        APPEND LINES OF lt_inc_source TO lt_full_source.
+      ENDIF.
+    ENDLOOP.
+
+    IF lt_full_source IS INITIAL OR lines( lt_full_source ) <= 1.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
         line = 1
-        text = |SEO_CLASS_GENERATE_CLASSPOOL failed (rc={ sy-subrc }). Class may not exist in system.| ) ).
-      rs_result-message = |Class pool generation failed (rc={ sy-subrc })|.
+        text = 'No source includes found for syntax check' ) ).
+      rs_result-message = 'No source includes found'.
       RETURN.
     ENDIF.
 
-    " Now run syntax check on the regenerated class pool
-    CALL FUNCTION 'SEO_CLASS_CHECK_CLASSPOOL'
-      EXPORTING
-        clskey                       = ls_clskey
-        suppress_error_popup         = abap_true
-      IMPORTING
-        syntaxerror                  = lv_syntaxerror
-      EXCEPTIONS
-        _internal_class_not_existing = 1
-        error_message                = 2
-        OTHERS                       = 3.
-
+    " Get TRDIR entry for class pool (for context)
+    lv_classpool = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_classpool.
     IF sy-subrc <> 0.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |SEO_CLASS_CHECK_CLASSPOOL failed with rc={ sy-subrc }| ) ).
-      rs_result-message = |Syntax check failed (rc={ sy-subrc })|.
-      RETURN.
+      " Class doesn't exist - use default
+      ls_dir-name = lv_classpool.
+      ls_dir-subc = 'K'.  " Class pool
+      ls_dir-uccheck = 'X'.
     ENDIF.
 
-    IF lv_syntaxerror = abap_true.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      " Note: SEO_CLASS_CHECK_CLASSPOOL doesn't return detailed error info
-      " For detailed errors, use the inspect command which uses Code Inspector
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |Class { iv_class_name } has syntax errors. Use inspect command for details.| ) ).
-      rs_result-message = |Class { iv_class_name } has syntax errors|.
-    ELSE.
+    " Run syntax check on the complete source
+    SYNTAX-CHECK FOR lt_full_source
+      MESSAGE lv_msg
+      LINE lv_line
+      WORD lv_word
+      DIRECTORY ENTRY ls_dir.
+
+    IF sy-subrc = 0.
       rs_result-success = abap_true.
       rs_result-error_count = 0.
       rs_result-message = 'Syntax check passed'.
+    ELSE.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-errors = VALUE #( (
+        line   = lv_line
+        text   = lv_msg
+        word   = lv_word ) ).
+      rs_result-message = lv_msg.
     ENDIF.
   ENDMETHOD.
 
 
   METHOD run_interface_check.
-    DATA: ls_intfkey     TYPE seoclskey,
-          lv_syntaxerror TYPE abap_bool.
-
-    ls_intfkey-clsname = iv_intf_name.
+    DATA: ls_dir        TYPE trdir,
+          lv_msg        TYPE string,
+          lv_line       TYPE i,
+          lv_word       TYPE string,
+          lv_intfpool   TYPE syrepid,
+          lt_full_source TYPE string_table,
+          lv_include    TYPE syrepid,
+          lt_inc_source TYPE string_table.
 
     rs_result-object_type = 'INTF'.
     rs_result-object_name = iv_intf_name.
 
-    " First, regenerate the interface pool to pick up our inactive includes
-    CALL FUNCTION 'SEO_INTERFACE_GENERATE_POOL'
-      EXPORTING
-        intkey                         = ls_intfkey
-        suppress_corr                  = abap_true
-      EXCEPTIONS
-        not_existing                   = 1
-        model_only                     = 2
-        interface_pool_not_generated   = 3
-        interface_stment_not_generated = 4
-        locals_not_generated           = 5
-        macros_not_generated           = 6
-        interface_sec_not_generated    = 7
-        typeref_not_generated          = 8
-        interface_pool_not_initialised = 9
-        interface_stment_not_initialis = 10
-        locals_not_initialised         = 11
-        macros_not_initialised         = 12
-        interface_sec_not_initialised  = 13
-        typeref_not_initialised        = 14
-        _internal_intrf_overflow       = 15
-        OTHERS                         = 16.
+    " Build complete interface source from inactive includes
+    " Start with INTERFACE-POOL statement
+    APPEND 'INTERFACE-POOL.' TO lt_full_source.
 
-    IF sy-subrc <> 0.
+    " Read and concatenate inactive includes
+    LOOP AT mt_written_includes INTO lv_include.
+      READ REPORT lv_include INTO lt_inc_source STATE 'I'.
+      IF sy-subrc = 0.
+        APPEND LINES OF lt_inc_source TO lt_full_source.
+      ENDIF.
+    ENDLOOP.
+
+    IF lt_full_source IS INITIAL OR lines( lt_full_source ) <= 1.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
         line = 1
-        text = |SEO_INTERFACE_GENERATE_POOL failed (rc={ sy-subrc }). Interface may not exist.| ) ).
-      rs_result-message = |Interface pool generation failed (rc={ sy-subrc })|.
+        text = 'No source includes found for syntax check' ) ).
+      rs_result-message = 'No source includes found'.
       RETURN.
     ENDIF.
 
-    " Run syntax check for interface
-    CALL FUNCTION 'SEO_INTERFACE_CHECK_INTFPOOL'
-      EXPORTING
-        intkey                       = ls_intfkey
-        suppress_error_popup         = abap_true
-      IMPORTING
-        syntaxerror                  = lv_syntaxerror
-      EXCEPTIONS
-        _internal_intrf_not_existing = 1
-        error_message                = 2
-        OTHERS                       = 3.
-
+    " Get TRDIR entry for interface pool (for context)
+    lv_intfpool = cl_oo_classname_service=>get_interfacepool_name( iv_intf_name ).
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_intfpool.
     IF sy-subrc <> 0.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |SEO_INTERFACE_CHECK_INTFPOOL failed with rc={ sy-subrc }| ) ).
-      rs_result-message = |Syntax check failed (rc={ sy-subrc })|.
-      RETURN.
+      ls_dir-name = lv_intfpool.
+      ls_dir-subc = 'J'.  " Interface pool
+      ls_dir-uccheck = 'X'.
     ENDIF.
 
-    IF lv_syntaxerror = abap_true.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |Interface { iv_intf_name } has syntax errors. Use inspect command for details.| ) ).
-      rs_result-message = |Interface { iv_intf_name } has syntax errors|.
-    ELSE.
+    " Run syntax check on the complete source
+    SYNTAX-CHECK FOR lt_full_source
+      MESSAGE lv_msg
+      LINE lv_line
+      WORD lv_word
+      DIRECTORY ENTRY ls_dir.
+
+    IF sy-subrc = 0.
       rs_result-success = abap_true.
       rs_result-error_count = 0.
       rs_result-message = 'Syntax check passed'.
+    ELSE.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-errors = VALUE #( (
+        line   = lv_line
+        text   = lv_msg
+        word   = lv_word ) ).
+      rs_result-message = lv_msg.
     ENDIF.
   ENDMETHOD.
 
