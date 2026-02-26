@@ -26,6 +26,7 @@
     "test:aunit": "node tests/run-all.js --aunit",
     "test:cmd": "node tests/run-all.js --cmd",
     "test:cmd:demo": "node tests/run-all.js --cmd --demo",
+    "test:lifecycle": "node tests/run-all.js --lifecycle",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"

@@ -5,13 +5,15 @@
  * 1. npm test (Jest) - JavaScript unit tests
  * 2. AUnit tests - ABAP test classes
  * 3. Command tests - CLI commands against real ABAP system
+ * 4. Lifecycle tests - init, create, import, delete commands
  *
  * Usage:
  *   npm run test:all        # Run all tests
- *   npm run test:jest      # Jest only
- *   npm run test:aunit     # AUnit only
- *   npm run test:cmd       # Command tests only
+ *   npm run test:jest       # Jest only
+ *   npm run test:aunit      # AUnit only
+ *   npm run test:cmd        # Command tests only
  *   npm run test:cmd --demo # Command tests in demo mode (shows command and output)
+ *   npm run test:lifecycle  # Lifecycle tests only
  */
 
 const { execSync, spawn } = require('child_process');
@@ -434,6 +436,17 @@ function printSummary(results) {
     }
   }
 
+  // Lifecycle tests
+  if (results.lifecycle) {
+    totalDuration += parseFloat(results.lifecycle.duration);
+    if (results.lifecycle.success) {
+      printSuccess(`Lifecycle Tests: ${results.lifecycle.passedCount}/${results.lifecycle.totalCount} PASSED (${results.lifecycle.duration}s)`);
+    } else {
+      printError(`Lifecycle Tests: ${results.lifecycle.passedCount}/${results.lifecycle.totalCount} FAILED (${results.lifecycle.duration}s)`);
+      allPassed = false;
+    }
+  }
+
   console.log('\n' + '='.repeat(70));
   if (allPassed) {
     console.log(colorize('bright', colorize('green', `  ✅ ALL TESTS PASSED (Total: ${totalDuration.toFixed(1)}s)`)));
@@ -453,30 +466,39 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
 
-  let runJest, runAunit, runCmd;
+  let runJest, runAunit, runCmd, runLifecycle;
 
   if (args.includes('--jest')) {
     runJest = true;
     runAunit = false;
     runCmd = false;
+    runLifecycle = false;
   } else if (args.includes('--aunit')) {
-    false;
+    runJest = false;
     runAunit = true;
     runCmd = false;
+    runLifecycle = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
     runCmd = true;
+    runLifecycle = false;
+  } else if (args.includes('--lifecycle')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = true;
   } else {
     // Run all tests
     runJest = true;
     runAunit = true;
     runCmd = true;
+    runLifecycle = false;  // Lifecycle tests run as part of cmd tests
   }
 
   printHeader('UNIFIED TEST SUITE');
@@ -496,6 +518,13 @@ async function main() {
   // Run Command tests
   if (runCmd) {
     results.cmd = await runCommandTests(demoMode);
+  }
+
+  // Run Lifecycle tests only
+  if (runLifecycle) {
+    printSubHeader('Running Lifecycle Tests Only');
+    const lifecycleResults = runLifecycleTestsWrapper();
+    results.lifecycle = lifecycleResults;
   }
 
   // Print summary and exit with appropriate code
