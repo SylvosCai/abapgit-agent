@@ -326,6 +326,99 @@ describe('ABAPClient', () => {
     });
   });
 
+  describe('syntaxCheckSource method', () => {
+    test('syntaxCheckSource method exists and is callable', () => {
+      expect(typeof client.syntaxCheckSource).toBe('function');
+    });
+
+    test('syntaxCheckSource sends correct request data', async () => {
+      client.request = jest.fn().mockResolvedValue({
+        SUCCESS: 'X',
+        RESULTS: [{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_TEST',
+          SUCCESS: 'X',
+          ERROR_COUNT: 0,
+          ERRORS: []
+        }]
+      });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const objects = [{
+        type: 'CLAS',
+        name: 'ZCL_TEST',
+        source: 'CLASS zcl_test DEFINITION PUBLIC.\nENDCLASS.'
+      }];
+
+      const result = await client.syntaxCheckSource(objects);
+
+      expect(client.request).toHaveBeenCalled();
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[0]).toBe('POST');
+      expect(callArgs[1]).toBe('/syntax');
+      expect(callArgs[2].objects).toEqual(objects);
+      expect(callArgs[2].uccheck).toBe('X');
+      expect(result.SUCCESS).toBe('X');
+    });
+
+    test('syntaxCheckSource sends uccheck parameter', async () => {
+      client.request = jest.fn().mockResolvedValue({ SUCCESS: 'X', RESULTS: [] });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const objects = [{ type: 'PROG', name: 'ZPROG', source: 'REPORT zprog.' }];
+
+      await client.syntaxCheckSource(objects, '5');
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].uccheck).toBe('5');
+    });
+
+    test('syntaxCheckSource handles multiple objects', async () => {
+      client.request = jest.fn().mockResolvedValue({ SUCCESS: 'X', RESULTS: [] });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const objects = [
+        { type: 'CLAS', name: 'ZCL_CLASS1', source: 'CLASS...' },
+        { type: 'INTF', name: 'ZIF_INTF1', source: 'INTERFACE...' },
+        { type: 'PROG', name: 'ZPROG1', source: 'REPORT...' }
+      ];
+
+      await client.syntaxCheckSource(objects);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].objects).toHaveLength(3);
+    });
+
+    test('syntaxCheckSource handles class with local files', async () => {
+      client.request = jest.fn().mockResolvedValue({ SUCCESS: 'X', RESULTS: [] });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      const objects = [{
+        type: 'CLAS',
+        name: 'ZCL_TEST',
+        source: 'CLASS zcl_test...',
+        locals_def: 'CLASS lcl_helper DEFINITION...',
+        locals_imp: 'CLASS lcl_helper IMPLEMENTATION...'
+      }];
+
+      await client.syntaxCheckSource(objects);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].objects[0].locals_def).toBe('CLASS lcl_helper DEFINITION...');
+      expect(callArgs[2].objects[0].locals_imp).toBe('CLASS lcl_helper IMPLEMENTATION...');
+    });
+
+    test('syntaxCheckSource defaults uccheck to X', async () => {
+      client.request = jest.fn().mockResolvedValue({ SUCCESS: 'X', RESULTS: [] });
+      client.fetchCsrfToken = jest.fn().mockResolvedValue('test-csrf-token');
+
+      await client.syntaxCheckSource([{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }]);
+
+      const callArgs = client.request.mock.calls[0];
+      expect(callArgs[2].uccheck).toBe('X');
+    });
+  });
+
   describe('unitTest method', () => {
     test('unitTest method exists and is callable', () => {
       expect(typeof client.unitTest).toBe('function');

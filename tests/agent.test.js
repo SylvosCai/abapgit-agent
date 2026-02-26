@@ -6,6 +6,7 @@
 const mockPull = jest.fn();
 const mockHealthCheck = jest.fn();
 const mockSyntaxCheck = jest.fn();
+const mockSyntaxCheckSource = jest.fn();
 const mockUnitTest = jest.fn();
 const mockCreate = jest.fn();
 const mockImport = jest.fn();
@@ -21,6 +22,7 @@ jest.mock('../src/abap-client', () => ({
     pull: mockPull,
     healthCheck: mockHealthCheck,
     syntaxCheck: mockSyntaxCheck,
+    syntaxCheckSource: mockSyntaxCheckSource,
     unitTest: mockUnitTest,
     create: mockCreate,
     import: mockImport,
@@ -49,6 +51,7 @@ describe('ABAPGitAgent', () => {
         pull: mockPull,
         healthCheck: mockHealthCheck,
         syntaxCheck: mockSyntaxCheck,
+        syntaxCheckSource: mockSyntaxCheckSource,
         unitTest: mockUnitTest,
         create: mockCreate,
         import: mockImport,
@@ -266,6 +269,201 @@ describe('ABAPGitAgent', () => {
       expect(result.success).toBe(false);
       expect(result.error_count).toBe(0);
       expect(result.errors).toEqual([]);
+    });
+  });
+
+  describe('syntaxCheckSource', () => {
+    test('returns success=true for clean syntax check', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: 'X',
+        MESSAGE: 'All 1 object(s) passed syntax check',
+        RESULTS: [{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_TEST',
+          SUCCESS: 'X',
+          ERROR_COUNT: 0,
+          ERRORS: [],
+          WARNINGS: [],
+          MESSAGE: 'Syntax check passed'
+        }]
+      });
+
+      const objects = [{
+        type: 'CLAS',
+        name: 'ZCL_TEST',
+        source: 'CLASS zcl_test DEFINITION PUBLIC.\nENDCLASS.\nCLASS zcl_test IMPLEMENTATION.\nENDCLASS.'
+      }];
+
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(true);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].object_type).toBe('CLAS');
+      expect(result.results[0].object_name).toBe('ZCL_TEST');
+      expect(result.results[0].success).toBe(true);
+      expect(result.results[0].error_count).toBe(0);
+    });
+
+    test('returns errors when syntax issues found', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: false,
+        MESSAGE: '1 of 1 object(s) have syntax errors',
+        RESULTS: [{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_TEST',
+          SUCCESS: false,
+          ERROR_COUNT: 1,
+          ERRORS: [{
+            LINE: 5,
+            TEXT: 'Variable "LV_UNDEFINED" is unknown.',
+            WORD: 'LV_UNDEFINED'
+          }],
+          WARNINGS: [],
+          MESSAGE: 'Variable "LV_UNDEFINED" is unknown.'
+        }]
+      });
+
+      const objects = [{
+        type: 'CLAS',
+        name: 'ZCL_TEST',
+        source: 'CLASS zcl_test DEFINITION PUBLIC.\nENDCLASS.\nCLASS zcl_test IMPLEMENTATION.\nMETHOD test. lv_undefined = 1. ENDMETHOD.\nENDCLASS.'
+      }];
+
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(false);
+      expect(result.results[0].success).toBe(false);
+      expect(result.results[0].error_count).toBe(1);
+      expect(result.results[0].errors).toHaveLength(1);
+      expect(result.results[0].errors[0].LINE).toBe(5);
+    });
+
+    test('handles multiple objects', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: 'X',
+        MESSAGE: 'All 3 object(s) passed syntax check',
+        RESULTS: [
+          { OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_CLASS1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] },
+          { OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_INTF1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] },
+          { OBJECT_TYPE: 'PROG', OBJECT_NAME: 'ZPROG1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] }
+        ]
+      });
+
+      const objects = [
+        { type: 'CLAS', name: 'ZCL_CLASS1', source: 'CLASS...' },
+        { type: 'INTF', name: 'ZIF_INTF1', source: 'INTERFACE...' },
+        { type: 'PROG', name: 'ZPROG1', source: 'REPORT...' }
+      ];
+
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(true);
+      expect(result.results).toHaveLength(3);
+      expect(result.results[0].object_type).toBe('CLAS');
+      expect(result.results[1].object_type).toBe('INTF');
+      expect(result.results[2].object_type).toBe('PROG');
+    });
+
+    test('handles class with local classes', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: 'X',
+        RESULTS: [{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_TEST',
+          SUCCESS: 'X',
+          ERROR_COUNT: 0,
+          ERRORS: []
+        }]
+      });
+
+      const objects = [{
+        type: 'CLAS',
+        name: 'ZCL_TEST',
+        source: 'CLASS zcl_test...',
+        locals_def: 'CLASS lcl_helper DEFINITION...',
+        locals_imp: 'CLASS lcl_helper IMPLEMENTATION...'
+      }];
+
+      await agent.syntaxCheckSource(objects);
+
+      expect(mockSyntaxCheckSource).toHaveBeenCalledWith(objects, 'X');
+    });
+
+    test('passes uccheck parameter for Cloud mode', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: 'X',
+        RESULTS: []
+      });
+
+      const objects = [{ type: 'PROG', name: 'ZPROG', source: 'REPORT zprog.' }];
+
+      await agent.syntaxCheckSource(objects, '5');
+
+      expect(mockSyntaxCheckSource).toHaveBeenCalledWith(objects, '5');
+    });
+
+    test('throws error on exception', async () => {
+      mockSyntaxCheckSource.mockRejectedValue(new Error('ABAP system error'));
+
+      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
+
+      await expect(agent.syntaxCheckSource(objects))
+        .rejects.toThrow('Source syntax check failed: ABAP system error');
+    });
+
+    test('handles lowercase response keys', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        success: true,
+        message: 'All passed',
+        results: [{
+          object_type: 'CLAS',
+          object_name: 'ZCL_TEST',
+          success: true,
+          error_count: 0,
+          errors: [],
+          warnings: []
+        }]
+      });
+
+      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(true);
+      expect(result.results[0].object_type).toBe('CLAS');
+    });
+
+    test('handles missing response fields gracefully', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({});
+
+      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(false);
+      expect(result.results).toEqual([]);
+      expect(result.message).toBe('');
+    });
+
+    test('handles unsupported object type in response', async () => {
+      mockSyntaxCheckSource.mockResolvedValue({
+        SUCCESS: false,
+        MESSAGE: '1 of 1 object(s) have syntax errors',
+        RESULTS: [{
+          OBJECT_TYPE: 'FUGR',
+          OBJECT_NAME: 'ZTEST_FUGR',
+          SUCCESS: false,
+          ERROR_COUNT: 1,
+          ERRORS: [{
+            LINE: 1,
+            TEXT: 'Unsupported object type: FUGR. Use pull command instead.'
+          }]
+        }]
+      });
+
+      const objects = [{ type: 'FUGR', name: 'ZTEST_FUGR', source: 'FUNCTION...' }];
+      const result = await agent.syntaxCheckSource(objects);
+
+      expect(result.success).toBe(false);
+      expect(result.results[0].errors[0].TEXT).toContain('Unsupported');
     });
   });
 

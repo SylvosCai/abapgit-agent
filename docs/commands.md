@@ -27,7 +27,8 @@ All available CLI commands for abapGit Agent.
 | [delete](delete-command.md) | ✅ | Delete abapGit repository from ABAP |
 | [import](import-command.md) | ✅ | Import objects from ABAP package to git |
 | [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
-| [inspect](inspect-command.md) | ✅ | Syntax check ABAP source files |
+| [syntax](syntax-command.md) | ✅ | Check syntax of local source files (BEFORE commit) |
+| [inspect](inspect-command.md) | ✅ | Syntax check activated ABAP objects (AFTER pull) |
 | [tree](tree-command.md) | ✅ | Display package hierarchy tree |
 | [list](list-command.md) | ✅ | List ABAP objects in package |
 | [unit](unit-command.md) | ✅ | Run AUnit tests |
@@ -90,7 +91,10 @@ abapgit-agent pull
 # Pull specific files only (faster for small changes)
 abapgit-agent pull --files src/zcl_my_class.clas.abap
 
-# Syntax check before commit
+# Syntax check LOCAL source BEFORE commit (fast, no pull needed)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Syntax check ACTIVATED code AFTER pull (uses Code Inspector)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Run unit tests

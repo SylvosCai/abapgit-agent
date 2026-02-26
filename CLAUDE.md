@@ -373,6 +373,124 @@ Files are parsed to extract `(obj_type, obj_name)`:
 - `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
 - `zc_my_view.ddls.asddls` → DDLS, ZC_MY_VIEW
 
+## Syntax Command
+
+### Description
+Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source from local files and checks in ABAP system memory. This is faster than `inspect` and catches errors before committing to git.
+
+**Key difference from `inspect`:**
+- `syntax` - Checks LOCAL source code BEFORE commit (no pull needed)
+- `inspect` - Checks ACTIVATED code AFTER pull (uses Code Inspector)
+
+### Usage
+```bash
+# Check syntax of a class file
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Check syntax of multiple files
+abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
+
+# Check with ABAP Cloud (BTP) stricter rules
+abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
+
+# Output as JSON
+abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--files` | Yes | Comma-separated list of ABAP files to check |
+| `--cloud` | No | Use ABAP Cloud syntax check (stricter, for BTP) |
+| `--json` | No | Output raw JSON |
+
+### Supported Object Types
+
+| Type | Description | File Extension |
+|------|-------------|----------------|
+| CLAS | Class | `.clas.abap` |
+| INTF | Interface | `.intf.abap` |
+| PROG | Program | `.prog.abap` |
+
+**Note:** For other types (DDLS, FUGR, TABL, etc.), use `pull` then `inspect`.
+
+### Output
+
+**Passed:**
+```
+  Syntax check for 1 file(s)
+
+✅ CLAS ZCL_MY_CLASS - Syntax check passed
+
+✅ All 1 object(s) passed syntax check
+```
+
+**Failed:**
+```
+  Syntax check for 1 file(s)
+
+❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s))
+
+Errors:
+────────────────────────────────────────────────────────────
+  Line 9:
+    The statement "UNKNOWN_STATEMENT" is invalid. Check the spelling.
+
+❌ 1 of 1 object(s) have syntax errors
+```
+
+**With ABAP Cloud mode:**
+```
+  Syntax check for 1 file(s)
+  Mode: ABAP Cloud
+
+✅ CLAS ZCL_MY_CLASS - Syntax check passed
+```
+
+### File Format
+Files are parsed to extract `(obj_type, obj_name)`:
+- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
+- `zif_my_interface.intf.abap` → INTF, ZIF_MY_INTERFACE
+- `zmy_program.prog.abap` → PROG, ZMY_PROGRAM
+- `zcl_my_class.clas.locals_def.abap` → Local class definitions (auto-detected)
+- `zcl_my_class.clas.locals_imp.abap` → Local class implementations (auto-detected)
+
+### Key Behaviors
+
+1. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
+2. **Local classes auto-detected** - When checking a class, companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
+3. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
+4. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+
+### Response JSON Structure
+```json
+{
+  "SUCCESS": true,
+  "COMMAND": "SYNTAX",
+  "MESSAGE": "All 1 object(s) passed syntax check",
+  "RESULTS": [
+    {
+      "OBJECT_TYPE": "CLAS",
+      "OBJECT_NAME": "ZCL_MY_CLASS",
+      "SUCCESS": true,
+      "ERROR_COUNT": 0,
+      "ERRORS": [],
+      "WARNINGS": [],
+      "MESSAGE": "Syntax check passed"
+    }
+  ]
+}
+```
+
+### Implementation
+The syntax command uses ABAP's `SYNTAX-CHECK` statement:
+- `ZCL_ABGAGT_COMMAND_SYNTAX` - Main command class
+- `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` - Creates type-specific checkers
+- `ZCL_ABGAGT_SYNTAX_CHK_CLAS` - Class checker (prepends CLASS-POOL., adjusts line numbers)
+- `ZCL_ABGAGT_SYNTAX_CHK_INTF` - Interface checker
+- `ZCL_ABGAGT_SYNTAX_CHK_PROG` - Program checker
+
 ## Unit Command
 
 ### Description

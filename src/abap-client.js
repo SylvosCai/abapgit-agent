@@ -273,6 +273,30 @@ class ABAPClient {
   }
 
   /**
+   * Check syntax of ABAP source code directly (without pull/activation)
+   * @param {Array} objects - Array of {type, name, source, locals_def?, locals_imp?}
+   * @param {string} uccheck - Unicode check mode ('X' for Standard, '5' for Cloud)
+   * @returns {object} Syntax check results
+   */
+  async syntaxCheckSource(objects, uccheck = 'X') {
+    // Fetch CSRF token first
+    await this.fetchCsrfToken();
+
+    const data = {
+      objects: objects,
+      uccheck: uccheck
+    };
+
+    logger.info('Starting source syntax check', {
+      objectCount: objects.length,
+      uccheck,
+      service: 'abapgit-agent'
+    });
+
+    return await this.request('POST', '/syntax', data, { csrfToken: this.csrfToken });
+  }
+
+  /**
    * Run unit tests for package or objects
    * @param {string} packageName - Package name to run tests for (optional)
    * @param {Array} objects - Array of {object_type, object_name} objects (optional)

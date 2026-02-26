@@ -89,6 +89,45 @@ class ABAPGitAgent {
   }
 
   /**
+   * Check syntax of ABAP source code directly (without pull/activation)
+   * Supported types: CLAS, INTF, PROG
+   * @param {Array} objects - Array of {type, name, source, locals_def?, locals_imp?}
+   * @param {string} uccheck - Unicode check mode ('X' for Standard, '5' for Cloud)
+   * @returns {object} Syntax check results with success, results array
+   */
+  async syntaxCheckSource(objects, uccheck = 'X') {
+    logger.info('Starting source syntax check', { objectCount: objects.length, uccheck });
+
+    try {
+      const result = await this.abap.syntaxCheckSource(objects, uccheck);
+      const success = result.SUCCESS === 'X' || result.SUCCESS === true ||
+                      result.success === 'X' || result.success === true;
+      const results = result.RESULTS || result.results || [];
+      const message = result.MESSAGE || result.message || '';
+
+      // Normalize results
+      const normalizedResults = results.map(r => ({
+        object_type: r.OBJECT_TYPE || r.object_type,
+        object_name: r.OBJECT_NAME || r.object_name,
+        success: r.SUCCESS === 'X' || r.SUCCESS === true || r.success === 'X' || r.success === true,
+        error_count: r.ERROR_COUNT || r.error_count || 0,
+        errors: r.ERRORS || r.errors || [],
+        warnings: r.WARNINGS || r.warnings || [],
+        message: r.MESSAGE || r.message || ''
+      }));
+
+      return {
+        success,
+        message,
+        results: normalizedResults
+      };
+    } catch (error) {
+      logger.error('Source syntax check failed', { error: error.message });
+      throw new Error(`Source syntax check failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Run unit tests for package or objects
    * @param {string} packageName - Package name to run tests for (optional)
    * @param {Array} objects - Array of {object_type, object_name} objects (optional)

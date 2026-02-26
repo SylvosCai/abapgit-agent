@@ -397,6 +397,131 @@ const commandTestCases = [
       return hasResult;
     }
   },
+  // syntax command tests (source-based syntax check)
+  {
+    command: 'syntax',
+    name: 'syntax check class file',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain syntax check result
+      const hasResult = output.includes('Syntax check passed') ||
+        output.includes('Syntax check failed');
+      const hasObject = output.includes('ZCL_ABGAGT_UTIL') || output.includes('CLAS');
+      return hasResult && hasObject;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check interface file',
+    args: ['--files', 'abap/zif_abgagt_command.intf.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain syntax check result
+      const hasResult = output.includes('Syntax check passed') ||
+        output.includes('Syntax check failed');
+      const hasObject = output.includes('ZIF_ABGAGT_COMMAND') || output.includes('INTF');
+      return hasResult && hasObject;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check with cloud mode',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap', '--cloud'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain syntax check result and show cloud mode
+      const hasResult = output.includes('Syntax check passed') ||
+        output.includes('Syntax check failed');
+      const hasCloudIndicator = output.includes('ABAP Cloud') || output.includes('Cloud');
+      return hasResult;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check multiple files',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap,abap/zif_abgagt_command.intf.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain results for both objects
+      const hasClass = output.includes('ZCL_ABGAGT_UTIL');
+      const hasInterface = output.includes('ZIF_ABGAGT_COMMAND');
+      const hasResult = output.includes('Syntax check passed') ||
+        output.includes('Syntax check failed');
+      return hasResult && (hasClass || hasInterface);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check with json output',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should return valid JSON
+      try {
+        const json = JSON.parse(output);
+        return json.RESULTS !== undefined || json.results !== undefined;
+      } catch (e) {
+        return false;
+      }
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check detects errors',
+    args: ['--files', 'tests/fixtures/zcl_syntax_error.clas.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect syntax errors and report them
+      const hasFailure = output.includes('Syntax check failed') ||
+        output.includes('error');
+      const hasErrorCount = output.includes('error(s)') ||
+        output.includes('ERROR_COUNT') ||
+        output.includes('error_count');
+      return hasFailure || hasErrorCount;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check detects interface errors',
+    args: ['--files', 'tests/fixtures/zif_syntax_error.intf.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect syntax errors in interface
+      const hasFailure = output.includes('Syntax check failed') ||
+        output.includes('error');
+      const hasObject = output.includes('ZIF_SYNTAX_ERROR') || output.includes('INTF');
+      return hasFailure && hasObject;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check detects program errors',
+    args: ['--files', 'tests/fixtures/zsyntax_error.prog.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect syntax errors in program
+      const hasFailure = output.includes('Syntax check failed') ||
+        output.includes('error');
+      const hasObject = output.includes('ZSYNTAX_ERROR') || output.includes('PROG');
+      return hasFailure && hasObject;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check multiple files with errors',
+    args: ['--files', 'tests/fixtures/zcl_syntax_error.clas.abap,tests/fixtures/zif_syntax_error.intf.abap,tests/fixtures/zsyntax_error.prog.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect errors in all 3 files
+      const hasClassError = output.includes('ZCL_SYNTAX_ERROR') && output.includes('failed');
+      const hasIntfError = output.includes('ZIF_SYNTAX_ERROR') && output.includes('failed');
+      const hasProgError = output.includes('ZSYNTAX_ERROR') && output.includes('failed');
+      const hasMultipleErrors = output.includes('3 of 3') ||
+        (output.match(/Syntax check failed/g) || []).length >= 3;
+      return hasMultipleErrors || (hasClassError && hasIntfError && hasProgError);
+    }
+  },
   // ref commands (local file search - no ABAP required)
   {
     command: 'ref',

@@ -2696,29 +2696,27 @@ Examples:
         const filesArgIndex = args.indexOf('--files');
         if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
           console.error('Error: --files parameter required');
-          console.error('Usage: abapgit-agent syntax --files <file1>,<file2>,... [--mode <mode>] [--cloud] [--json]');
+          console.error('Usage: abapgit-agent syntax --files <file1>,<file2>,... [--cloud] [--json]');
           console.error('');
           console.error('Options:');
-          console.error('  --mode <mode>   Check mode: "working_area" (default) or "syntax_statement"');
           console.error('  --cloud         Use ABAP Cloud syntax check (stricter)');
           console.error('  --json          Output raw JSON');
           console.error('');
           console.error('Examples:');
           console.error('  abapgit-agent syntax --files src/zcl_my_class.clas.abap');
-          console.error('  abapgit-agent syntax --files src/zmy_program.prog.abap --mode syntax_statement');
           console.error('  abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud');
           process.exit(1);
         }
 
         const syntaxFiles = args[filesArgIndex + 1].split(',').map(f => f.trim());
-        const modeArgIndex = args.indexOf('--mode');
-        const mode = modeArgIndex !== -1 ? args[modeArgIndex + 1] : 'working_area';
         const cloudMode = args.includes('--cloud');
         const jsonOutput = args.includes('--json');
 
         if (!jsonOutput) {
           console.log(`\n  Syntax check for ${syntaxFiles.length} file(s)`);
-          console.log(`  Mode: ${mode}${cloudMode ? ' (ABAP Cloud)' : ''}`);
+          if (cloudMode) {
+            console.log('  Mode: ABAP Cloud');
+          }
           console.log('');
         }
 
@@ -2828,7 +2826,6 @@ Examples:
         // Send request
         const data = {
           objects: objects,
-          mode: mode,
           uccheck: cloudMode ? '5' : 'X'
         };
 
@@ -3024,10 +3021,10 @@ Commands:
   inspect --files <file1>,<file2>,...
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
 
-  syntax --files <file1>,<file2>,... [--mode <mode>] [--cloud] [--json]
+  syntax --files <file1>,<file2>,... [--cloud] [--json]
     Check syntax of ABAP source files WITHOUT pull/activation.
     Reads source from local files and checks directly in ABAP system.
-    Modes: "working_area" (default) or "syntax_statement"
+    Use --cloud for ABAP Cloud (BTP) stricter syntax checking.
 
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
