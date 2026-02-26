@@ -19,7 +19,7 @@ const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
 
-const repoRoot = path.join(__dirname, '..', '..');
+const repoRoot = path.join(__dirname, '..');
 
 // Auto-discover all ABAP test class files
 const ABAP_TEST_CLASSES = fs.readdirSync(path.join(repoRoot, 'abap'))
