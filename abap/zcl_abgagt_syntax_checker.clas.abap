@@ -531,9 +531,9 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
   METHOD get_method_name_by_index.
     " Get method name from TMDIR by method index
-    SELECT SINGLE cmpname FROM tmdir
+    SELECT SINGLE methodname FROM tmdir
       INTO rv_name
-      WHERE clsname = iv_class_name
+      WHERE classname = iv_class_name
         AND methodindx = iv_method_index.
   ENDMETHOD.
 
