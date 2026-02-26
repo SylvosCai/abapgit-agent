@@ -124,7 +124,7 @@ CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS write_inactive_include
       IMPORTING iv_include        TYPE syrepid
                 it_source         TYPE string_table
-                iv_extension_type TYPE c LENGTH 2 OPTIONAL
+                iv_extension_type TYPE sychar02 OPTIONAL
       RAISING   cx_sy_open_sql_error.
 
     "! Delete inactive include (cleanup)
