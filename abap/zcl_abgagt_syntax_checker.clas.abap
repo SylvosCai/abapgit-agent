@@ -638,7 +638,7 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
     rs_result-error_count = 0.
 
     " Get interface pool name for syntax check context
-    lv_intfpool = cl_oo_classname_service=>get_intfpool_name( iv_intf_name ).
+    lv_intfpool = cl_oo_classname_service=>get_interfacepool_name( iv_intf_name ).
 
     " Check each written include using SYNTAX-CHECK statement
     LOOP AT mt_written_includes INTO DATA(lv_include).
