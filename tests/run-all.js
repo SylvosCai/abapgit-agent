@@ -154,7 +154,7 @@ function runAUnitTests() {
 }
 
 // Import command test cases from integration folder
-const commandTestCases = require('./integration/command-test-cases');
+const commandTestCases = require('./integration/abap-commands');
 
 /**
  * Read ABAP configuration from .abapGitAgent file
