@@ -85,14 +85,28 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 ---
 
-### 4. NEVER Run Inspect Before Push/Pull (MOST IMPORTANT!)
+### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG)
 
 ```
-❌ WRONG: Make changes → Run inspect → Check errors → Repeat
-✅ CORRECT: Make changes → Commit → Push → Run pull → Then inspect ONLY if pull fails
+❌ WRONG: Make changes → Commit → Push → Pull → Find errors → Fix → Repeat
+✅ CORRECT: Make changes → Run syntax → Fix locally → Commit → Push → Pull → Done
 ```
 
-**Why**: Inspect runs against the ABAP system, not git. The code must be in git and pulled to ABAP first.
+**For CLAS, INTF, PROG files**: Run `syntax` command BEFORE commit to catch errors early.
+
+```bash
+# Check syntax of local code (no commit/push needed)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+```
+
+**For other types (DDLS, FUGR, TABL, etc.)**: Skip syntax, proceed to commit/push/pull.
+
+**Why use syntax command?**
+- Catches syntax errors BEFORE polluting git history with fix commits
+- No broken inactive objects in ABAP system
+- Faster feedback loop - fix locally without commit/push/pull cycle
+
+**Note**: `inspect` still runs against ABAP system (requires pull first). Use `syntax` for pre-commit checking.
 
 ---
 
@@ -226,48 +240,67 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 3. Write code → place in correct folder (e.g., src/zcl_*.clas.abap)
        │
        ▼
-4. Commit and push → git add . && git commit && git push
+4. Syntax check (for CLAS, INTF, PROG only)
+       │
+       ├─► CLAS/INTF/PROG → abapgit-agent syntax --files <file>
+       │       │
+       │       ├─► Errors? → Fix locally (no commit needed), re-run syntax
+       │       │
+       │       └─► Clean ✅ → Proceed to commit
+       │
+       └─► Other types (DDLS, FUGR, TABL, etc.) → Skip syntax, go to commit
+               │
+               ▼
+5. Commit and push → git add . && git commit && git push
        │
        ▼
-5. Activate → abapgit-agent pull --files src/file.clas.abap
+6. Activate → abapgit-agent pull --files src/file.clas.abap
        │
        ▼
-6. Verify → Check pull output
-   - **Do NOT run inspect before commit/push/pull** - ABAP validates on pull
-   - **Do NOT run unit before pull** - Tests run against ABAP system, code must be activated first
-   - **"Error updating where-used list"** → This is a **SYNTAX ERROR** (check inspect for details)
-   - Objects NOT in "Activated Objects" but in "Failed Objects Log" → Syntax error (check inspect)
-   - Objects NOT appearing at all → XML metadata issue (check XML format in 08_abapgit.md)
+7. Verify → Check pull output
+   - **"Error updating where-used list"** → SYNTAX ERROR (use inspect for details)
+   - Objects in "Failed Objects Log" → Syntax error (use inspect)
+   - Objects NOT appearing at all → XML metadata issue (check 08_abapgit.md)
        │
        ▼
-7. (Optional) Run unit tests → abapgit-agent unit --files src/zcl_test.clas.testclasses.abap (ONLY if test file exists, AFTER successful pull)
-       │
-       ▼
-8. If needed → Use inspect to check syntax (runs against ABAP system)
+8. (Optional) Run unit tests → abapgit-agent unit --files <testclass> (AFTER successful pull)
 ```
 
-**IMPORTANT**:
-- **ALWAYS push to git BEFORE running pull** - abapGit reads from git
-- **Use inspect AFTER pull** to check syntax on objects already in ABAP
-- **Check pull output**:
-  - In "Failed Objects Log" → Syntax error (use inspect for details)
-  - Not appearing at all → XML metadata is wrong
+**Syntax Command - Supported Object Types:**
 
-**When to use inspect vs view**:
-- **inspect**: Use when there are SYNTAX ERRORS (to find line numbers and details)
-- **view**: Use when you need to understand an object STRUCTURE (table fields, class methods)
-- Do NOT use view to debug syntax errors - view shows definitions, not errors
+| Object Type | Syntax Command | What to Do |
+|-------------|----------------|------------|
+| CLAS | ✅ Supported | Run `syntax` before commit |
+| INTF | ✅ Supported | Run `syntax` before commit |
+| PROG | ✅ Supported | Run `syntax` before commit |
+| DDLS | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| FUGR | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| TABL/DTEL | ❌ Not supported | Skip syntax, just `pull` |
+
+**IMPORTANT**:
+- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG - catches errors early, no git pollution
+- **ALWAYS push to git BEFORE running pull** - abapGit reads from git
+- **Use `inspect` AFTER pull** for unsupported types or if pull fails
+
+**When to use syntax vs inspect vs view**:
+- **syntax**: Check LOCAL code BEFORE commit (CLAS, INTF, PROG only)
+- **inspect**: Check ACTIVATED code AFTER pull (all types, runs Code Inspector)
+- **view**: Understand object STRUCTURE (not for debugging errors)
 
 ### Commands
 
 ```bash
-# 1. Pull/activate after pushing to git (abapGit reads from git!)
+# 1. Syntax check LOCAL code BEFORE commit (CLAS, INTF, PROG only)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap
+
+# 2. Pull/activate AFTER pushing to git
 abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 
-# 2. Inspect AFTER pull to check syntax (runs against ABAP system)
+# 3. Inspect AFTER pull (for errors or unsupported types)
 abapgit-agent inspect --files src/zcl_class1.clas.abap
 
-# Run unit tests (multiple test classes)
+# Run unit tests (after successful pull)
 abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 
 # View object definitions (multiple objects)
