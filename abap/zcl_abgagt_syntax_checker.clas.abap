@@ -118,9 +118,13 @@ CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA mt_written_includes TYPE TABLE OF syrepid.
 
     "! Write source to inactive include
+    "! @parameter iv_include | Include name
+    "! @parameter it_source | Source code
+    "! @parameter iv_extension_type | Extension type for class includes (CD=CCDEF, CI=CCIMP)
     METHODS write_inactive_include
-      IMPORTING iv_include TYPE syrepid
-                it_source  TYPE string_table
+      IMPORTING iv_include        TYPE syrepid
+                it_source         TYPE string_table
+                iv_extension_type TYPE c OPTIONAL
       RAISING   cx_sy_open_sql_error.
 
     "! Delete inactive include (cleanup)
@@ -320,13 +324,19 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
         " Local class definitions (CCDEF) - if provided
         IF it_locals_def IS NOT INITIAL.
           lv_program = cl_oo_classname_service=>get_ccdef_name( iv_class_name ).
-          write_inactive_include( iv_include = lv_program it_source = it_locals_def ).
+          write_inactive_include(
+            iv_include        = lv_program
+            it_source         = it_locals_def
+            iv_extension_type = 'CD' ).
         ENDIF.
 
         " Local class implementations (CCIMP) - if provided
         IF it_locals_imp IS NOT INITIAL.
           lv_program = cl_oo_classname_service=>get_ccimp_name( iv_class_name ).
-          write_inactive_include( iv_include = lv_program it_source = it_locals_imp ).
+          write_inactive_include(
+            iv_include        = lv_program
+            it_source         = it_locals_imp
+            iv_extension_type = 'CI' ).
         ENDIF.
 
         " Method implementations
@@ -518,7 +528,13 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
   METHOD write_inactive_include.
     " Write source to inactive include (STATE = 'I')
-    INSERT REPORT iv_include FROM it_source STATE 'I'.
+    " For class extension includes (CCDEF, CCIMP), EXTENSION TYPE is required
+    IF iv_extension_type IS NOT INITIAL.
+      INSERT REPORT iv_include FROM it_source STATE 'I'
+        EXTENSION TYPE iv_extension_type.
+    ELSE.
+      INSERT REPORT iv_include FROM it_source STATE 'I'.
+    ENDIF.
 
     IF sy-subrc = 0.
       APPEND iv_include TO mt_written_includes.
