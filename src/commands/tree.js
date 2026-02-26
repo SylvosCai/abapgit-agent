@@ -5,14 +5,14 @@
 /**
  * Run tree command and return raw result
  */
-async function runTreeCommand(packageName, depth, includeTypes, csrfToken, request) {
+async function runTreeCommand(packageName, depth, includeTypes, csrfToken, http) {
   const data = {
     package: packageName,
     depth: depth,
     include_objects: includeTypes
   };
 
-  return await request('POST', '/sap/bc/z_abapgit_agent/tree', data, { csrfToken });
+  return await http.post('/sap/bc/z_abapgit_agent/tree', data, { csrfToken });
 }
 
 /**
@@ -93,7 +93,7 @@ async function displayTreeOutput(packageName, depth, includeTypes, loadConfig, A
 
   console.log(`\n  Getting package tree for: ${packageName}`);
 
-  const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, request);
+  const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, http);
 
   // Handle uppercase keys from ABAP
   const success = result.SUCCESS || result.success;

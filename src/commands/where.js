@@ -51,7 +51,7 @@ module.exports = {
       data.type = type;
     }
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/where', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/where', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;

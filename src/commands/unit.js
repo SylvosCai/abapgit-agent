@@ -8,7 +8,7 @@ const fs = require('fs');
 /**
  * Run unit test for a single file
  */
-async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, request) {
+async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http) {
   console.log(`  Running unit test for: ${sourceFile}`);
 
   try {
@@ -127,7 +127,7 @@ module.exports = {
     const csrfToken = await http.fetchCsrfToken();
 
     for (const sourceFile of files) {
-      await runUnitTestForFile(sourceFile, csrfToken, config, coverage, request);
+      await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http);
     }
   }
 };
