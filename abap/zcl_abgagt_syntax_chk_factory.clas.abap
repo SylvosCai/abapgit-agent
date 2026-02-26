@@ -1,25 +1,26 @@
 "! <p class="shorttext synchronized">Syntax Checker Factory</p>
-"! Factory class to create syntax checker instances based on mode.
+"! Factory class to create syntax checker instances based on object type.
+"! Uses naming convention: ZCL_ABGAGT_SYNTAX_CHK_{TADIR_TYPE}
 CLASS zcl_abgagt_syntax_chk_factory DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
 
-    "! Create syntax checker instance
-    "! @parameter iv_mode | Check mode (WORKING_AREA or SYNTAX_STATEMENT)
-    "! @parameter ro_checker | Syntax checker instance
+    "! Class name prefix for checkers
+    CONSTANTS gc_checker_prefix TYPE string VALUE 'ZCL_ABGAGT_SYNTAX_CHK_'.
+
+    "! Create syntax checker instance by object type
+    "! @parameter iv_object_type | TADIR object type (CLAS, INTF, PROG, etc.)
+    "! @parameter ro_checker | Syntax checker instance (initial if not supported)
     CLASS-METHODS create
-      IMPORTING iv_mode            TYPE string DEFAULT zif_abgagt_syntax_checker=>gc_mode_working_area
-      RETURNING VALUE(ro_checker)  TYPE REF TO zif_abgagt_syntax_checker.
-
-    "! Create working area syntax checker
-    "! @parameter ro_checker | Syntax checker instance
-    CLASS-METHODS create_working_area
+      IMPORTING iv_object_type    TYPE string
       RETURNING VALUE(ro_checker) TYPE REF TO zif_abgagt_syntax_checker.
 
-    "! Create syntax statement syntax checker
-    "! @parameter ro_checker | Syntax checker instance
-    CLASS-METHODS create_syntax_statement
-      RETURNING VALUE(ro_checker) TYPE REF TO zif_abgagt_syntax_checker.
+    "! Check if object type is supported
+    "! @parameter iv_object_type | TADIR object type
+    "! @parameter rv_supported | True if checker exists for this type
+    CLASS-METHODS is_supported
+      IMPORTING iv_object_type     TYPE string
+      RETURNING VALUE(rv_supported) TYPE abap_bool.
 
 ENDCLASS.
 
@@ -27,25 +28,28 @@ ENDCLASS.
 CLASS zcl_abgagt_syntax_chk_factory IMPLEMENTATION.
 
   METHOD create.
-    CASE iv_mode.
-      WHEN zif_abgagt_syntax_checker=>gc_mode_working_area.
-        ro_checker = create_working_area( ).
-      WHEN zif_abgagt_syntax_checker=>gc_mode_syntax_statement.
-        ro_checker = create_syntax_statement( ).
-      WHEN OTHERS.
-        " Default to working area
-        ro_checker = create_working_area( ).
-    ENDCASE.
+    DATA: lv_class_name TYPE string,
+          lv_type       TYPE string.
+
+    " Normalize object type to uppercase
+    lv_type = to_upper( iv_object_type ).
+
+    " Build class name from naming convention
+    lv_class_name = gc_checker_prefix && lv_type.
+
+    " Try to create instance dynamically
+    TRY.
+        CREATE OBJECT ro_checker TYPE (lv_class_name).
+      CATCH cx_sy_create_object_error.
+        " Checker class doesn't exist for this object type
+        CLEAR ro_checker.
+    ENDTRY.
   ENDMETHOD.
 
 
-  METHOD create_working_area.
-    ro_checker = NEW zcl_abgagt_syntax_chk_workarea( ).
-  ENDMETHOD.
-
-
-  METHOD create_syntax_statement.
-    ro_checker = NEW zcl_abgagt_syntax_chk_stmt( ).
+  METHOD is_supported.
+    DATA(lo_checker) = create( iv_object_type ).
+    rv_supported = xsdbool( lo_checker IS BOUND ).
   ENDMETHOD.
 
 ENDCLASS.

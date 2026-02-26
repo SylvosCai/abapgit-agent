@@ -1,12 +1,7 @@
 "! <p class="shorttext synchronized">Syntax Checker Interface</p>
-"! Interface for syntax checking ABAP source code without activation.
-"! Implementations: working_area (writes to inactive includes) and syntax_statement (in-memory only).
+"! Base interface for syntax checking ABAP source code without activation.
+"! Implementations are object-type specific (CLAS, INTF, PROG, etc.).
 INTERFACE zif_abgagt_syntax_checker PUBLIC.
-
-  " Check modes
-  CONSTANTS:
-    gc_mode_working_area     TYPE string VALUE 'WORKING_AREA',
-    gc_mode_syntax_statement TYPE string VALUE 'SYNTAX_STATEMENT'.
 
   " Error structure
   TYPES: BEGIN OF ty_error,
@@ -42,55 +37,21 @@ INTERFACE zif_abgagt_syntax_checker PUBLIC.
            message      TYPE string,
          END OF ty_result.
 
-  " Source object structure (input)
-  TYPES: BEGIN OF ty_source_object,
-           object_type TYPE string,
-           object_name TYPE string,
-           source      TYPE string,
-         END OF ty_source_object.
+  "! Get the object type this checker handles
+  "! @parameter rv_type | Object type (CLAS, INTF, PROG, etc.)
+  METHODS get_object_type
+    RETURNING VALUE(rv_type) TYPE string.
 
-  TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
+  "! Set the object name to check
+  "! @parameter iv_name | Object name
+  METHODS set_object_name
+    IMPORTING iv_name TYPE clike.
 
-  "! Check class source syntax
-  "! @parameter iv_class_name | Class name (e.g., ZCL_MY_CLASS)
+  "! Run syntax check on provided source
   "! @parameter it_source | Source code as string table
   "! @parameter rs_result | Syntax check result
-  METHODS check_class
-    IMPORTING iv_class_name    TYPE seoclsname
-              it_source        TYPE string_table
-    RETURNING VALUE(rs_result) TYPE ty_result.
-
-  "! Check interface source syntax
-  "! @parameter iv_intf_name | Interface name
-  "! @parameter it_source | Source code as string table
-  "! @parameter rs_result | Syntax check result
-  METHODS check_interface
-    IMPORTING iv_intf_name     TYPE seoclsname
-              it_source        TYPE string_table
-    RETURNING VALUE(rs_result) TYPE ty_result.
-
-  "! Check program source syntax
-  "! @parameter iv_program_name | Program name
-  "! @parameter it_source | Source code as string table
-  "! @parameter iv_uccheck | Unicode check mode (X=Standard, 5=Cloud)
-  "! @parameter rs_result | Syntax check result
-  METHODS check_program
-    IMPORTING iv_program_name  TYPE syrepid
-              it_source        TYPE string_table
-              iv_uccheck       TYPE trdir-uccheck DEFAULT 'X'
-    RETURNING VALUE(rs_result) TYPE ty_result.
-
-  "! Check class source with local classes
-  "! @parameter iv_class_name | Class name (e.g., ZCL_MY_CLASS)
-  "! @parameter it_source | Main class source code
-  "! @parameter it_locals_def | Local class definitions (CCDEF)
-  "! @parameter it_locals_imp | Local class implementations (CCIMP)
-  "! @parameter rs_result | Syntax check result
-  METHODS check_class_with_locals
-    IMPORTING iv_class_name    TYPE seoclsname
-              it_source        TYPE string_table
-              it_locals_def    TYPE string_table OPTIONAL
-              it_locals_imp    TYPE string_table OPTIONAL
+  METHODS check
+    IMPORTING it_source        TYPE string_table
     RETURNING VALUE(rs_result) TYPE ty_result.
 
 ENDINTERFACE.

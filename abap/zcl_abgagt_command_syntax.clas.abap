@@ -1,6 +1,6 @@
 "! <p class="shorttext synchronized">Syntax Command - Check source without activation</p>
 "! Checks ABAP source code syntax directly without requiring pull/activation.
-"! Uses the working area approach (inactive includes) or SYNTAX-CHECK statement.
+"! Uses object-type specific checkers via factory.
 CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -20,7 +20,6 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES: BEGIN OF ty_syntax_params,
              objects   TYPE ty_source_objects,
-             mode      TYPE string,    " 'working_area' or 'syntax_statement' (default: working_area)
              uccheck   TYPE string,    " 'X' (Standard) or '5' (Cloud) - default: X
            END OF ty_syntax_params.
 
@@ -44,18 +43,14 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
 
-    " Syntax checker instance (interface reference)
-    DATA mo_checker TYPE REF TO zif_abgagt_syntax_checker.
-
     "! Parse source string to string table (split by newlines)
     METHODS parse_source
       IMPORTING iv_source       TYPE string
       RETURNING VALUE(rt_lines) TYPE string_table.
 
-    "! Check single object
+    "! Check single object using appropriate checker
     METHODS check_object
       IMPORTING is_object        TYPE ty_source_object
-                iv_mode          TYPE string
                 iv_uccheck       TYPE trdir-uccheck
       RETURNING VALUE(rs_result) TYPE ty_result.
 
@@ -72,8 +67,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params   TYPE ty_syntax_params,
           ls_response TYPE ty_response,
-          lv_uccheck  TYPE trdir-uccheck,
-          lv_mode     TYPE string.
+          lv_uccheck  TYPE trdir-uccheck.
 
     " Initialize response
     ls_response-command = gc_syntax.
@@ -92,15 +86,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Set defaults and map mode to constants
-    IF ls_params-mode IS INITIAL OR ls_params-mode = 'working_area'.
-      lv_mode = zif_abgagt_syntax_checker=>gc_mode_working_area.
-    ELSEIF ls_params-mode = 'syntax_statement'.
-      lv_mode = zif_abgagt_syntax_checker=>gc_mode_syntax_statement.
-    ELSE.
-      lv_mode = zif_abgagt_syntax_checker=>gc_mode_working_area.
-    ENDIF.
-
+    " Set uccheck default
     IF ls_params-uccheck IS INITIAL OR ls_params-uccheck = 'X'.
       lv_uccheck = 'X'.  " Standard ABAP
     ELSEIF ls_params-uccheck = '5'.
@@ -109,14 +95,10 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       lv_uccheck = 'X'.
     ENDIF.
 
-    " Create checker instance using factory
-    mo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_mode ).
-
     " Check each object
     LOOP AT ls_params-objects INTO DATA(ls_object).
       DATA(ls_result) = check_object(
         is_object  = ls_object
-        iv_mode    = lv_mode
         iv_uccheck = lv_uccheck ).
 
       APPEND ls_result TO ls_response-results.
@@ -145,8 +127,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
 
   METHOD parse_source.
-    " Split source string by newlines (handles both LF and CRLF)
-    DATA: lv_source TYPE string.
+    DATA lv_source TYPE string.
 
     lv_source = iv_source.
 
@@ -161,64 +142,57 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
   METHOD check_object.
     DATA: lt_source     TYPE string_table,
-          lt_locals_def TYPE string_table,
-          lt_locals_imp TYPE string_table,
-          lv_name       TYPE seoclsname.
+          lo_checker    TYPE REF TO zif_abgagt_syntax_checker,
+          lv_type       TYPE string.
 
-    " Parse source string to lines
+    " Normalize type
+    lv_type = to_upper( is_object-type ).
+
+    " Get checker for this object type
+    lo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
+
+    IF lo_checker IS NOT BOUND.
+      " Unsupported object type
+      rs_result-object_type = is_object-type.
+      rs_result-object_name = is_object-name.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-errors = VALUE #( (
+        line = 1
+        text = |Unsupported object type: { is_object-type }. Supported: CLAS, INTF, PROG| ) ).
+      rs_result-message = |Unsupported object type: { is_object-type }|.
+      RETURN.
+    ENDIF.
+
+    " Set object name
+    lo_checker->set_object_name( is_object-name ).
+
+    " Parse source
     lt_source = parse_source( is_object-source ).
 
-    " Parse local class sources if provided
-    IF is_object-locals_def IS NOT INITIAL.
-      lt_locals_def = parse_source( is_object-locals_def ).
-    ENDIF.
-    IF is_object-locals_imp IS NOT INITIAL.
-      lt_locals_imp = parse_source( is_object-locals_imp ).
-    ENDIF.
-
-    " Convert name to uppercase
-    lv_name = to_upper( is_object-name ).
-
-    " Check based on object type
-    CASE to_upper( is_object-type ).
-
+    " Handle type-specific setup
+    CASE lv_type.
       WHEN 'CLAS'.
-        " Check if local classes are provided
-        IF lt_locals_def IS NOT INITIAL OR lt_locals_imp IS NOT INITIAL.
-          rs_result = mo_checker->check_class_with_locals(
-            iv_class_name = lv_name
-            it_source     = lt_source
-            it_locals_def = lt_locals_def
-            it_locals_imp = lt_locals_imp ).
-        ELSE.
-          rs_result = mo_checker->check_class(
-            iv_class_name = lv_name
-            it_source     = lt_source ).
+        " Set local classes if provided
+        DATA lo_class_checker TYPE REF TO zcl_abgagt_syntax_chk_clas.
+        lo_class_checker ?= lo_checker.
+
+        IF is_object-locals_def IS NOT INITIAL.
+          lo_class_checker->set_locals_def( parse_source( is_object-locals_def ) ).
+        ENDIF.
+        IF is_object-locals_imp IS NOT INITIAL.
+          lo_class_checker->set_locals_imp( parse_source( is_object-locals_imp ) ).
         ENDIF.
 
-      WHEN 'INTF'.
-        rs_result = mo_checker->check_interface(
-          iv_intf_name = lv_name
-          it_source    = lt_source ).
-
       WHEN 'PROG'.
-        rs_result = mo_checker->check_program(
-          iv_program_name = CONV #( lv_name )
-          it_source       = lt_source
-          iv_uccheck      = iv_uccheck ).
-
-      WHEN OTHERS.
-        " Unsupported object type
-        rs_result-object_type = is_object-type.
-        rs_result-object_name = is_object-name.
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
-        rs_result-errors = VALUE #( (
-          line = 1
-          text = |Unsupported object type: { is_object-type }. Supported: CLAS, INTF, PROG| ) ).
-        rs_result-message = |Unsupported object type: { is_object-type }|.
-
+        " Set uccheck for programs
+        DATA lo_prog_checker TYPE REF TO zcl_abgagt_syntax_chk_prog.
+        lo_prog_checker ?= lo_checker.
+        lo_prog_checker->set_uccheck( iv_uccheck ).
     ENDCASE.
+
+    " Run check
+    rs_result = lo_checker->check( lt_source ).
   ENDMETHOD.
 
 ENDCLASS.
