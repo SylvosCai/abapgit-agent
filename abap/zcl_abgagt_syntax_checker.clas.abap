@@ -1,7 +1,8 @@
 "! <p class="shorttext synchronized">Syntax Checker - Working Area Approach</p>
 "! Checks ABAP source code syntax without activation using the working area approach.
 "! Writes source to inactive includes, runs syntax check, and cleans up.
-"! Version: 2.0 - Added EXTENSION TYPE support for CCDEF/CCIMP includes.
+"! Version: 2.1 - Fixed bug where SEO_CLASS_CHECK_CLASSPOOL checked active version.
+"!               Now uses SYNTAX-CHECK statement directly on inactive includes.
 CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -559,96 +560,118 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
 
   METHOD run_class_check.
-    DATA: ls_clskey      TYPE seoclskey,
-          lv_syntaxerror TYPE abap_bool.
-
-    ls_clskey-clsname = iv_class_name.
+    DATA: lv_classpool   TYPE syrepid,
+          lv_msg         TYPE string,
+          lv_line        TYPE i,
+          lv_word        TYPE string,
+          lt_source      TYPE string_table,
+          lv_method_idx  TYPE i,
+          lv_method_name TYPE seocmpname.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
+    rs_result-success = abap_true.
+    rs_result-error_count = 0.
 
-    " Run syntax check without activation
-    CALL FUNCTION 'SEO_CLASS_CHECK_CLASSPOOL'
-      EXPORTING
-        clskey                       = ls_clskey
-        suppress_error_popup         = abap_true
-      IMPORTING
-        syntaxerror                  = lv_syntaxerror
-      EXCEPTIONS
-        _internal_class_not_existing = 1
-        error_message                = 2
-        OTHERS                       = 3.
+    " Get class pool name for syntax check context
+    lv_classpool = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
 
-    IF sy-subrc <> 0.
-      " Function module error
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |SEO_CLASS_CHECK_CLASSPOOL failed with rc={ sy-subrc }| ) ).
-      rs_result-message = |Syntax check failed (rc={ sy-subrc })|.
-      RETURN.
-    ENDIF.
+    " Check each written include using SYNTAX-CHECK statement
+    " This checks the actual inactive source we wrote, not the active version
+    LOOP AT mt_written_includes INTO DATA(lv_include).
+      " Read the inactive source we just wrote
+      READ REPORT lv_include INTO lt_source STATE 'I'.
+      IF sy-subrc <> 0.
+        CONTINUE. " Skip if can't read
+      ENDIF.
 
-    IF lv_syntaxerror = abap_true.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      " Note: SEO_CLASS_CHECK_CLASSPOOL doesn't return detailed error info
-      " For detailed errors, we would need to use SLIN or parse sy-msg* variables
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |Class { iv_class_name } has syntax errors| ) ).
-      rs_result-message = |Class { iv_class_name } has syntax errors|.
-    ELSE.
-      rs_result-success = abap_true.
-      rs_result-error_count = 0.
+      " Run syntax check in the context of the class pool
+      SYNTAX-CHECK FOR lt_source
+        MESSAGE lv_msg
+        LINE lv_line
+        WORD lv_word
+        PROGRAM lv_classpool
+        INCLUDE lv_include.
+
+      IF sy-subrc <> 0.
+        " Syntax error found
+        rs_result-success = abap_false.
+        rs_result-error_count = rs_result-error_count + 1.
+
+        " Try to extract method name from include (for method includes like CM001)
+        CLEAR lv_method_name.
+        lv_method_idx = parse_method_index( CONV #( lv_include ) ).
+        IF lv_method_idx > 0.
+          lv_method_name = get_method_name_by_index(
+            iv_class_name   = iv_class_name
+            iv_method_index = lv_method_idx ).
+        ENDIF.
+
+        APPEND VALUE #(
+          line        = lv_line
+          text        = lv_msg
+          word        = lv_word
+          include     = CONV #( lv_include )
+          method_name = lv_method_name
+        ) TO rs_result-errors.
+      ENDIF.
+    ENDLOOP.
+
+    IF rs_result-success = abap_true.
       rs_result-message = 'Syntax check passed'.
+    ELSE.
+      rs_result-message = |Class { iv_class_name } has { rs_result-error_count } syntax error(s)|.
     ENDIF.
   ENDMETHOD.
 
 
   METHOD run_interface_check.
-    DATA: ls_intfkey     TYPE seoclskey,
-          lv_syntaxerror TYPE abap_bool.
-
-    ls_intfkey-clsname = iv_intf_name.
+    DATA: lv_intfpool TYPE syrepid,
+          lv_msg      TYPE string,
+          lv_line     TYPE i,
+          lv_word     TYPE string,
+          lt_source   TYPE string_table.
 
     rs_result-object_type = 'INTF'.
     rs_result-object_name = iv_intf_name.
+    rs_result-success = abap_true.
+    rs_result-error_count = 0.
 
-    " Run syntax check for interface
-    CALL FUNCTION 'SEO_INTERFACE_CHECK_INTFPOOL'
-      EXPORTING
-        intkey                       = ls_intfkey
-        suppress_error_popup         = abap_true
-      IMPORTING
-        syntaxerror                  = lv_syntaxerror
-      EXCEPTIONS
-        _internal_intrf_not_existing = 1
-        error_message                = 2
-        OTHERS                       = 3.
+    " Get interface pool name for syntax check context
+    lv_intfpool = cl_oo_classname_service=>get_intfpool_name( iv_intf_name ).
 
-    IF sy-subrc <> 0.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |SEO_INTERFACE_CHECK_INTFPOOL failed with rc={ sy-subrc }| ) ).
-      rs_result-message = |Syntax check failed (rc={ sy-subrc })|.
-      RETURN.
-    ENDIF.
+    " Check each written include using SYNTAX-CHECK statement
+    LOOP AT mt_written_includes INTO DATA(lv_include).
+      " Read the inactive source we just wrote
+      READ REPORT lv_include INTO lt_source STATE 'I'.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
 
-    IF lv_syntaxerror = abap_true.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |Interface { iv_intf_name } has syntax errors| ) ).
-      rs_result-message = |Interface { iv_intf_name } has syntax errors|.
-    ELSE.
-      rs_result-success = abap_true.
-      rs_result-error_count = 0.
+      " Run syntax check in the context of the interface pool
+      SYNTAX-CHECK FOR lt_source
+        MESSAGE lv_msg
+        LINE lv_line
+        WORD lv_word
+        PROGRAM lv_intfpool
+        INCLUDE lv_include.
+
+      IF sy-subrc <> 0.
+        rs_result-success = abap_false.
+        rs_result-error_count = rs_result-error_count + 1.
+        APPEND VALUE #(
+          line    = lv_line
+          text    = lv_msg
+          word    = lv_word
+          include = CONV #( lv_include )
+        ) TO rs_result-errors.
+      ENDIF.
+    ENDLOOP.
+
+    IF rs_result-success = abap_true.
       rs_result-message = 'Syntax check passed'.
+    ELSE.
+      rs_result-message = |Interface { iv_intf_name } has { rs_result-error_count } syntax error(s)|.
     ENDIF.
   ENDMETHOD.
 
