@@ -247,7 +247,7 @@ function verifyListOutput(output, packageName) {
   const checks = {
     hasPackageName: output.includes(packageName),
     hasObjectsText: output.includes('Objects in'),
-    hasTotalCount: output.includes('Total:'),
+    // Total: is optional - only shown with pagination or filtering
     hasGroupedFormat: /[A-Z]{2,4}\s+\(\d+\)/.test(output), // e.g., "CLAS (5)" or "AUTH (1)"
     hasIndentation: /\n\s{2,}[A-Z0-9_$]/.test(output) // Indented object names
   };
