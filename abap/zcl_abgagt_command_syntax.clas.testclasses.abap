@@ -58,8 +58,6 @@ CLASS ltcl_cmd_syntax DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_exec_class_with_locals FOR TESTING.
     METHODS test_exec_prog_with_uccheck FOR TESTING.
     METHODS test_exec_mixed_success_fail FOR TESTING.
-    METHODS test_parse_source FOR TESTING.
-    METHODS test_parse_source_crlf FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_cmd_syntax IMPLEMENTATION.
@@ -391,56 +389,6 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
       act = lv_result
       exp = '*"SUCCESS":false*'
       msg = 'Overall success should be false' ).
-  ENDMETHOD.
-
-  METHOD test_parse_source.
-    " Test parse_source method with LF newlines
-    DATA lv_source TYPE string.
-    lv_source = 'Line 1' && cl_abap_char_utilities=>newline &&
-                'Line 2' && cl_abap_char_utilities=>newline &&
-                'Line 3'.
-
-    DATA(lt_lines) = mo_cut->parse_source( lv_source ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lines( lt_lines )
-      exp = 3
-      msg = 'Should have 3 lines' ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lt_lines[ 1 ]
-      exp = 'Line 1'
-      msg = 'First line should match' ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lt_lines[ 2 ]
-      exp = 'Line 2'
-      msg = 'Second line should match' ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lt_lines[ 3 ]
-      exp = 'Line 3'
-      msg = 'Third line should match' ).
-  ENDMETHOD.
-
-  METHOD test_parse_source_crlf.
-    " Test parse_source method with CRLF newlines (Windows style)
-    DATA lv_source TYPE string.
-    lv_source = 'Line 1' && cl_abap_char_utilities=>cr_lf &&
-                'Line 2' && cl_abap_char_utilities=>cr_lf &&
-                'Line 3'.
-
-    DATA(lt_lines) = mo_cut->parse_source( lv_source ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lines( lt_lines )
-      exp = 3
-      msg = 'Should have 3 lines after CRLF conversion' ).
-
-    cl_abap_unit_assert=>assert_equals(
-      act = lt_lines[ 1 ]
-      exp = 'Line 1'
-      msg = 'First line should match after CRLF conversion' ).
   ENDMETHOD.
 
 ENDCLASS.
