@@ -19,6 +19,13 @@
 const pathModule = require('path');
 const fs = require('fs');
 
+// Import utilities
+const gitUtils = require('../src/utils/git-utils');
+const versionCheck = require('../src/utils/version-check');
+const validators = require('../src/utils/validators');
+const { AbapHttp } = require('../src/utils/abap-http');
+const { loadConfig, getTransport, isAbapIntegrationEnabled } = require('../src/config');
+
 // Get terminal width for responsive table
 const getTermWidth = () => process.stdout.columns || 80;
 const TERM_WIDTH = getTermWidth();
@@ -26,172 +33,7 @@ const TERM_WIDTH = getTermWidth();
 const COOKIE_FILE = '.abapgit_agent_cookies.txt';
 
 /**
- * Convert ISO date formats (YYYY-MM-DD) to ABAP DATS format (YYYYMMDD) in WHERE clause
- * This allows users to use familiar ISO date formats while ensuring compatibility with ABAP SQL
- * @param {string} whereClause - SQL WHERE clause
- * @returns {string} - WHERE clause with dates converted to YYYYMMDD format
- */
-function convertDatesInWhereClause(whereClause) {
-  if (!whereClause) return whereClause;
-
-  // Pattern to match ISO date format: 'YYYY-MM-DD'
-  const isoDatePattern = /'\d{4}-\d{2}-\d{2}'/g;
-
-  return whereClause.replace(isoDatePattern, (match) => {
-    // Extract YYYY, MM, DD from 'YYYY-MM-DD'
-    const dateContent = match.slice(1, -1); // Remove quotes: YYYY-MM-DD
-    const [year, month, day] = dateContent.split('-');
-    // Return in ABAP format: 'YYYYMMDD'
-    return `'${year}${month}${day}'`;
-  });
-}
-
-/**
- * Get CLI version from package.json
- */
-function getCliVersion() {
-  const packageJsonPath = pathModule.join(__dirname, '..', 'package.json');
-  if (fs.existsSync(packageJsonPath)) {
-    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    return pkg.version || '1.0.0';
-  }
-  return '1.0.0';
-}
-
-/**
- * Check version compatibility between CLI and ABAP API
- */
-async function checkVersionCompatibility() {
-  const cliVersion = getCliVersion();
-
-  try {
-    const config = loadConfig();
-    const https = require('https');
-    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${config.host}:${config.sapport}`);
-
-    return new Promise((resolve) => {
-      const options = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`,
-          'sap-client': config.client,
-          'sap-language': config.language || 'EN',
-          'Content-Type': 'application/json'
-        },
-        agent: new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = https.request(options, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          try {
-            const result = JSON.parse(body);
-            const apiVersion = result.version || '1.0.0';
-
-            if (cliVersion !== apiVersion) {
-              console.log(`\n⚠️  Version mismatch: CLI ${cliVersion}, ABAP API ${apiVersion}`);
-              console.log('   Some commands may not work correctly.');
-              console.log('   Update ABAP code: abapgit-agent pull\n');
-            }
-            resolve({ cliVersion, apiVersion, compatible: cliVersion === apiVersion });
-          } catch (e) {
-            resolve({ cliVersion, apiVersion: null, compatible: false, error: e.message });
-          }
-        });
-      });
-
-      req.on('error', (e) => {
-        resolve({ cliVersion, apiVersion: null, compatible: false, error: e.message });
-      });
-      req.end();
-    });
-  } catch (error) {
-    return { cliVersion, apiVersion: null, compatible: false, error: error.message };
-  }
-}
-
-/**
- * Load configuration from .abapGitAgent in current working directory
- */
-function loadConfig() {
-  const repoConfigPath = pathModule.join(process.cwd(), '.abapGitAgent');
-
-  if (fs.existsSync(repoConfigPath)) {
-    return JSON.parse(fs.readFileSync(repoConfigPath, 'utf8'));
-  }
-
-  // Fallback to environment variables
-  return {
-    host: process.env.ABAP_HOST,
-    sapport: parseInt(process.env.ABAP_PORT, 10) || 443,
-    client: process.env.ABAP_CLIENT || '100',
-    user: process.env.ABAP_USER,
-    password: process.env.ABAP_PASSWORD,
-    language: process.env.ABAP_LANGUAGE || 'EN',
-    gitUsername: process.env.GIT_USERNAME,
-    gitPassword: process.env.GIT_PASSWORD,
-    transport: process.env.ABAP_TRANSPORT
-  };
-}
-
-/**
- * Get transport request from config or environment
- */
-function getTransport() {
-  const config = loadConfig();
-  return config.transport;
-}
-
-/**
- * Check if ABAP integration is configured for this repo
- */
-function isAbapIntegrationEnabled() {
-  const repoConfigPath = pathModule.join(process.cwd(), '.abapGitAgent');
-  return fs.existsSync(repoConfigPath);
-}
-
-/**
- * Get git remote URL from .git/config
- */
-function getGitRemoteUrl() {
-  const gitConfigPath = pathModule.join(process.cwd(), '.git', 'config');
-
-  if (!fs.existsSync(gitConfigPath)) {
-    return null;
-  }
-
-  const content = fs.readFileSync(gitConfigPath, 'utf8');
-  const remoteMatch = content.match(/\[remote "origin"\]/);
-
-  if (!remoteMatch) {
-    return null;
-  }
-
-  const urlMatch = content.match(/	url = (.+)/);
-  return urlMatch ? urlMatch[1].trim() : null;
-}
-
-/**
- * Get current git branch
- */
-function getGitBranch() {
-  const headPath = pathModule.join(process.cwd(), '.git', 'HEAD');
-
-  if (!fs.existsSync(headPath)) {
-    return 'main';
-  }
-
-  const content = fs.readFileSync(headPath, 'utf8').trim();
-  const match = content.match(/ref: refs\/heads\/(.+)/);
-  return match ? match[1] : 'main';
-}
-
-/**
- * Read cookies from file
+ * Read cookies from file (legacy function for backward compatibility)
  * Supports both Netscape format and simple cookie string format
  */
 function readNetscapeCookies() {
@@ -224,14 +66,18 @@ function readNetscapeCookies() {
 }
 
 /**
- * Save cookies to Netscape format cookie file
+ * Save cookies to Netscape format cookie file (legacy function for backward compatibility)
  */
 function saveCookies(cookies, host) {
   const cookiePath = pathModule.join(process.cwd(), COOKIE_FILE);
 
   // Parse cookies and convert to Netscape format
   const cookieList = cookies.split(';').map(c => c.trim()).filter(Boolean);
-  const lines = ['# Netscape HTTP Cookie File', '# https://curl.se/docs/http-cookies.html', '# This file was generated by libcurl! Edit at your own risk.'];
+  const lines = [
+    '# Netscape HTTP Cookie File',
+    '# https://curl.se/docs/http-cookies.html',
+    '# This file was generated by libcurl! Edit at your own risk.'
+  ];
 
   for (const cookie of cookieList) {
     const [name, ...valueParts] = cookie.split('=');
@@ -250,7 +96,8 @@ function saveCookies(cookies, host) {
 }
 
 /**
- * Fetch CSRF token using GET /health with X-CSRF-Token: fetch
+ * Fetch CSRF token (legacy function for backward compatibility)
+ * @deprecated Use AbapHttp class from utils instead
  */
 async function fetchCsrfToken(config) {
   const https = require('https');
@@ -306,7 +153,8 @@ async function fetchCsrfToken(config) {
 }
 
 /**
- * Make HTTP request to ABAP REST endpoint
+ * Make HTTP request to ABAP REST endpoint (legacy function for backward compatibility)
+ * @deprecated Use AbapHttp class from utils instead
  */
 function request(method, urlPath, data = null, options = {}) {
   return new Promise((resolve, reject) => {
@@ -1310,7 +1158,7 @@ async function runInit(args) {
   console.log('');
 
   // Detect git remote URL
-  const gitUrl = getGitRemoteUrl();
+  const gitUrl = gitUtils.getRemoteUrl();
   if (!gitUrl) {
     console.error('Error: No git remote configured.');
     console.error('Configure a remote with: git remote add origin <url>');
@@ -1486,6 +1334,71 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
+  // Load command modules (Phase 2 refactoring)
+  const commandModules = {
+    help: require('../src/commands/help'),
+    health: require('../src/commands/health'),
+    status: require('../src/commands/status'),
+    create: require('../src/commands/create'),
+    delete: require('../src/commands/delete'),
+    import: require('../src/commands/import'),
+    inspect: require('../src/commands/inspect'),
+    unit: require('../src/commands/unit'),
+    syntax: require('../src/commands/syntax'),
+    tree: require('../src/commands/tree')
+  };
+
+  // Check if this is a modular command
+  if (commandModules[command] || command === '--help' || command === '-h') {
+    const cmd = command === '--help' || command === '-h' ? commandModules.help : commandModules[command];
+
+    // Check if command requires ABAP configuration
+    if (cmd.requiresAbapConfig && !isAbapIntegrationEnabled()) {
+      console.log(`
+⚠️  ABAP Git Agent not configured for this repository.
+
+To enable integration:
+1. Create a .abapGitAgent file in the repo root with ABAP connection details:
+{
+  "host": "your-sap-system.com",
+  "sapport": 443,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN"
+}
+
+2. Or set environment variables:
+   - ABAP_HOST, ABAP_PORT, ABAP_CLIENT, ABAP_USER, ABAP_PASSWORD
+`);
+      process.exit(1);
+    }
+
+    // Load config if needed
+    const config = cmd.requiresAbapConfig ? loadConfig() : null;
+
+    // Version check if needed
+    if (cmd.requiresVersionCheck && config) {
+      await versionCheck.checkCompatibility(config);
+    }
+
+    // Build context for command
+    const context = {
+      config,
+      gitUtils,
+      validators,
+      versionCheck,
+      isAbapIntegrationEnabled,
+      loadConfig,
+      fetchCsrfToken,
+      request
+    };
+
+    // Execute command
+    await cmd.execute(args.slice(1), context);
+    return;
+  }
+
   // Check if ABAP integration is enabled for this repo
   // (skip for init, help, ref commands - these don't need ABAP connection)
   const noAbapRequired = ['init', 'help', '--help', '-h', 'ref'];
@@ -1515,7 +1428,8 @@ To enable integration:
   // Version compatibility check for commands that interact with ABAP
   const abapCommands = ['create', 'delete', 'import', 'pull', 'inspect', 'unit', 'tree', 'view', 'preview', 'list'];
   if (command && abapCommands.includes(command)) {
-    await checkVersionCompatibility();
+    const config = loadConfig();
+    await versionCheck.checkCompatibility(config);
   }
 
   try {
@@ -1523,246 +1437,6 @@ To enable integration:
       case 'init':
         await runInit(args);
         return;  // Don't check ABAP integration for init
-
-      case 'create': {
-        const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
-
-        // Show help if requested
-        if (helpIndex !== -1) {
-          console.log(`
-Usage:
-  abapgit-agent create
-
-Description:
-  Create abapGit online repository in ABAP system.
-  Auto-detects URL from git remote and package from .abapGitAgent.
-
-Prerequisites:
-  - Run "abapgit-agent init" first
-  - Edit .abapGitAgent with credentials (host, user, password)
-
-Examples:
-  abapgit-agent create                    # Create repo in ABAP
-`);
-          return;
-        }
-
-        // Get parameters from config
-        const config = loadConfig();
-        const repoUrl = getGitRemoteUrl();
-
-        if (!repoUrl) {
-          console.error('Error: No git remote configured. Please configure a remote origin.');
-          process.exit(1);
-        }
-
-        if (!config.package) {
-          console.error('Error: Package not configured. Run "abapgit-agent init" first or set package in .abapGitAgent.');
-          process.exit(1);
-        }
-
-        const branch = getGitBranch();
-
-        // Extract repo name from git URL
-        const repoName = repoUrl.split('/').pop().replace('.git', '');
-
-        console.log(`\n🚀 Creating online repository`);
-        console.log(`   URL: ${repoUrl}`);
-        console.log(`   Package: ${config.package}`);
-        console.log(`   Folder: ${config.folder || '/src/'}`);
-        console.log(`   Name: ${repoName}`);
-        console.log(`   Branch: ${branch}`);
-
-        const csrfToken = await fetchCsrfToken(config);
-
-        const data = {
-          url: repoUrl,
-          package: config.package,
-          name: repoName,
-          branch: branch,
-          folder: config.folder || '/src/'
-        };
-
-        if (config.gitUsername) {
-          data.username = config.gitUsername;
-        }
-
-        if (config.gitPassword) {
-          data.password = config.gitPassword;
-        }
-
-        const result = await request('POST', '/sap/bc/z_abapgit_agent/create', data, { csrfToken });
-
-        console.log('\n');
-
-        // Handle uppercase keys from ABAP
-        const success = result.SUCCESS || result.success;
-        const repoKey = result.REPO_KEY || result.repo_key;
-        const createdRepoName = result.REPO_NAME || result.repo_name;
-        const message = result.MESSAGE || result.message;
-        const error = result.ERROR || result.error;
-
-        if (success === 'X' || success === true) {
-          console.log(`✅ Repository created successfully!`);
-          console.log(`   URL: ${repoUrl}`);
-          console.log(`   Package: ${config.package}`);
-          console.log(`   Name: ${createdRepoName || repoName}`);
-        } else {
-          console.log(`❌ Failed to create repository`);
-          console.log(`   Error: ${error || message || 'Unknown error'}`);
-          process.exit(1);
-        }
-        break;
-      }
-
-      case 'delete': {
-        const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
-
-        // Show help if requested
-        if (helpIndex !== -1) {
-          console.log(`
-Usage:
-  abapgit-agent delete
-
-Description:
-  Delete abapGit online repository from ABAP system.
-  Auto-detects URL from git remote of current directory.
-
-Prerequisites:
-  - Run "abapgit-agent create" first
-
-Examples:
-  abapgit-agent delete   # Delete repo for current git remote
-`);
-          return;
-        }
-
-        // Get URL from current git remote
-        const config = loadConfig();
-        const repoUrl = getGitRemoteUrl();
-
-        if (!repoUrl) {
-          console.error('Error: No git remote configured. Please configure a remote origin.');
-          process.exit(1);
-        }
-
-        console.log(`\n🗑️  Deleting online repository`);
-        console.log(`   URL: ${repoUrl}`);
-
-        const csrfToken = await fetchCsrfToken(config);
-
-        const data = {
-          url: repoUrl
-        };
-
-        const result = await request('POST', '/sap/bc/z_abapgit_agent/delete', data, { csrfToken });
-
-        console.log('\n');
-
-        // Handle uppercase keys from ABAP
-        const success = result.SUCCESS || result.success;
-        const repoKey = result.REPO_KEY || result.repo_key;
-        const message = result.MESSAGE || result.message;
-        const error = result.ERROR || result.error;
-
-        if (success === 'X' || success === true) {
-          console.log(`✅ Repository deleted successfully!`);
-          console.log(`   Key: ${repoKey}`);
-        } else {
-          console.log(`❌ Failed to delete repository`);
-          console.log(`   Error: ${error || message || 'Unknown error'}`);
-          process.exit(1);
-        }
-        break;
-      }
-
-      case 'import': {
-        const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
-
-        // Show help if requested
-        if (helpIndex !== -1) {
-          console.log(`
-Usage:
-  abapgit-agent import [--message <message>]
-
-Description:
-  Import existing objects from package to git repository.
-  Uses the git remote URL to find the abapGit online repository.
-
-Prerequisites:
-  - Run "abapgit-agent create" first or create repository in abapGit UI
-  - Package must have objects to import
-
-Options:
-  --message    Commit message (default: "feat: initial import from ABAP package <package>")
-
-Examples:
-  abapgit-agent import
-  abapgit-agent import --message "Initial import from SAP"
-`);
-          return;
-        }
-
-        // Get parameters from config
-        const config = loadConfig();
-        const repoUrl = getGitRemoteUrl();
-
-        if (!repoUrl) {
-          console.error('Error: No git remote configured. Please configure a remote origin.');
-          process.exit(1);
-        }
-
-        const messageArgIndex = args.indexOf('--message');
-        let commitMessage = null;
-        if (messageArgIndex !== -1 && messageArgIndex + 1 < args.length) {
-          commitMessage = args[messageArgIndex + 1];
-        }
-
-        console.log(`\n📦 Importing objects to git repository`);
-        console.log(`   URL: ${repoUrl}`);
-        if (commitMessage) {
-          console.log(`   Message: ${commitMessage}`);
-        }
-
-        const csrfToken = await fetchCsrfToken(config);
-
-        const data = {
-          url: repoUrl
-        };
-
-        if (commitMessage) {
-          data.message = commitMessage;
-        }
-
-        if (config.gitUsername) {
-          data.username = config.gitUsername;
-        }
-
-        if (config.gitPassword) {
-          data.password = config.gitPassword;
-        }
-
-        const result = await request('POST', '/sap/bc/z_abapgit_agent/import', data, { csrfToken });
-
-        console.log('\n');
-
-        // Handle uppercase keys from ABAP
-        const success = result.SUCCESS || result.success;
-        const filesStaged = result.FILES_STAGED || result.files_staged;
-        const abapCommitMessage = result.COMMIT_MESSAGE || result.commit_message;
-        const error = result.ERROR || result.error;
-
-        if (success === 'X' || success === true) {
-          console.log(`✅ Objects imported successfully!`);
-          console.log(`   Files staged: ${filesStaged}`);
-          console.log(`   Commit: ${commitMessage || abapCommitMessage}`);
-        } else {
-          console.log(`❌ Import failed`);
-          console.log(`   Error: ${error || resultMessage || 'Unknown error'}`);
-          process.exit(1);
-        }
-        break;
-      }
 
       case 'pull':
         const urlArgIndex = args.indexOf('--url');
@@ -1772,7 +1446,7 @@ Examples:
 
         // Auto-detect git remote URL if not provided
         let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
-        let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : getGitBranch();
+        let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : gitUtils.getBranch();
         let files = null;
 
         // Transport: CLI arg takes priority, then config/environment, then null
@@ -1790,7 +1464,7 @@ Examples:
         }
 
         if (!gitUrl) {
-          gitUrl = getGitRemoteUrl();
+          gitUrl = gitUtils.getRemoteUrl();
           if (!gitUrl) {
             console.error('Error: Not in a git repository or no remote configured.');
             console.error('Either run from a git repo, or specify --url <git-url>');
@@ -1801,109 +1475,6 @@ Examples:
 
         await pull(gitUrl, branch, files, transportRequest);
         break;
-
-      case 'health':
-        await healthCheck();
-        break;
-
-      case 'status':
-        if (isAbapIntegrationEnabled()) {
-          console.log('✅ ABAP Git Agent is ENABLED');
-          console.log('   Config location:', pathModule.join(process.cwd(), '.abapGitAgent'));
-
-          // Check if repo exists in ABAP
-          const config = loadConfig();
-          const repoUrl = getGitRemoteUrl();
-
-          if (repoUrl) {
-            try {
-              const csrfToken = await fetchCsrfToken(config);
-              const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl }, { csrfToken });
-
-              const status = result.status || result.STATUS || result.SUCCESS;
-              if (status === 'Found' || status === 'X' || status === true) {
-                console.log('   Repository: ✅ Created');
-                console.log(`      Package: ${result.PACKAGE || result.package}`);
-                console.log(`      URL: ${repoUrl}`);
-                console.log(`      Key: ${result.REPO_KEY || result.repo_key}`);
-              } else {
-                console.log('   Repository: ❌ Not created in ABAP system');
-                console.log(`      URL: ${repoUrl}`);
-                console.log('   Run "abapgit-agent create" to create repository');
-              }
-            } catch (err) {
-              console.log('   Repository: ⚠️ Unable to check status');
-              console.log('   Error:', err.message);
-            }
-          } else {
-            console.log('   No git remote configured');
-          }
-        } else {
-          console.log('❌ ABAP Git Agent is NOT configured');
-        }
-        break;
-
-      case 'inspect': {
-        const filesArgIndex = args.indexOf('--files');
-        if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
-          console.error('Error: --files parameter required');
-          console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>]');
-          console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap');
-          console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS');
-          process.exit(1);
-        }
-
-        const filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
-
-        // Parse optional --variant parameter
-        const variantArgIndex = args.indexOf('--variant');
-        const variant = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
-
-        console.log(`\n  Inspect for ${filesSyntaxCheck.length} file(s)`);
-        if (variant) {
-          console.log(`  Using variant: ${variant}`);
-        }
-        console.log('');
-
-        const config = loadConfig();
-        const csrfToken = await fetchCsrfToken(config);
-
-        // Send all files in one request
-        const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant);
-
-        // Process results
-        for (const result of results) {
-          await processInspectResult(result);
-        }
-        break;
-      }
-
-      case 'unit': {
-        const filesArgIndex = args.indexOf('--files');
-        if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
-          console.error('Error: --files parameter required');
-          console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage]');
-          console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap');
-          console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap --coverage');
-          process.exit(1);
-        }
-
-        const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
-
-        // Check for coverage option
-        const coverage = args.includes('--coverage');
-
-        console.log(`\n  Running unit tests for ${files.length} file(s)${coverage ? ' (with coverage)' : ''}`);
-        console.log('');
-
-        const config = loadConfig();
-        const csrfToken = await fetchCsrfToken(config);
-
-        for (const sourceFile of files) {
-          await runUnitTestForFile(sourceFile, csrfToken, config, coverage);
-        }
-        break;
-      }
 
       case 'tree': {
         const packageArgIndex = args.indexOf('--package');
@@ -2348,7 +1919,7 @@ Examples:
         }
 
         if (where) {
-          data.where = convertDatesInWhereClause(where);
+          data.where = validators.convertDatesInWhereClause(where);
         }
 
         if (columns) {
@@ -2989,130 +2560,9 @@ Examples:
         break;
       }
 
-      case 'help':
-      case '--help':
-      case '-h':
-        console.log(`
-ABAP Git Agent
-
-Usage:
-  abapgit-agent <command> [options]
-
-Commands:
-  init --folder <folder> --package <package>
-    Initialize local configuration for an existing git repository.
-  init --update
-    Update existing files (CLAUDE.md, copilot-instructions.md, guidelines) to latest version.
-
-  create
-    Create abapGit online repository in ABAP system.
-    Auto-detects URL from git remote and package from .abapGitAgent.
-
-  import [--message <message>]
-    Import existing objects from package to git repository.
-    Uses the git remote URL to find the abapGit online repository.
-
-  pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>] [--transport <request>]
-    Pull and activate repository in ABAP system.
-    Auto-detects git remote and branch from current directory.
-    Use --files to pull only specific files.
-    Use --transport to specify a transport request.
-
-  inspect --files <file1>,<file2>,...
-    Inspect ABAP source file(s) for issues. Currently runs syntax check.
-
-  syntax --files <file1>,<file2>,... [--cloud] [--json]
-    Check syntax of ABAP source files WITHOUT pull/activation.
-    Reads source from local files and checks directly in ABAP system.
-    Use --cloud for ABAP Cloud (BTP) stricter syntax checking.
-
-  unit --files <file1>,<file2>,...
-    Run AUnit tests for ABAP test class files (.testclasses.abap)
-
-  tree --package <package> [--depth <n>] [--include-types] [--json]
-    Display package hierarchy tree from ABAP system
-
-  list --package <package> [--type <types>] [--name <pattern>] [--limit <n>] [--offset <n>] [--json]
-    List ABAP objects in a package with filtering and pagination
-
-  view --objects <obj1>,<obj2>,... [--type <type>] [--json]
-    View ABAP object definitions from the ABAP system
-
-  where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]
-    Find where-used list for ABAP objects (classes, interfaces, programs)
-
-  ref <pattern> [--json]
-    Search ABAP reference repositories for patterns. Requires referenceFolder in .abapGitAgent.
-
-  ref --topic <topic> [--json]
-    View specific topic from cheat sheets (exceptions, sql, unit-tests, etc.)
-
-  ref --list-topics
-    List available topics for reference search
-
-  ref --list-repos
-    List all reference repositories in the reference folder
-
-  ref --clone <repo> [--name <folder>]
-    Clone a GitHub repository to the reference folder
-    - Use full URL: https://github.com/user/repo.git
-    - Or short name: user/repo or user/repo (assumes github.com)
-
-  health
-    Check if ABAP REST API is healthy
-
-  status
-    Check if ABAP integration is configured for this repo
-
-Examples:
-  abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
-  abapgit-agent init --update                                # Update files to latest
-  abapgit-agent create                                       # Create repo
-  abapgit-agent delete                                       # Delete repo
-  abapgit-agent import                                       # Import objects to git
-  abapgit-agent import --message "Initial import"            # Import with message
-  abapgit-agent pull                                         # Auto-detect from git
-  abapgit-agent pull --branch develop                        # Specific branch
-  abapgit-agent pull --files src/zcl_my_class.clas.abap          # Specific file
-  abapgit-agent pull --transport DEVK900001                  # With transport
-  abapgit-agent inspect --files src/zcl_my_class.clas.abap       # Syntax check
-  abapgit-agent syntax --files src/zcl_my_class.clas.abap        # Check without pull
-  abapgit-agent syntax --files src/zmy_prog.prog.abap --cloud    # ABAP Cloud check
-  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run tests
-  abapgit-agent tree --package '$ZMY_PACKAGE'                    # Show package tree
-  abapgit-agent tree --package '$ZMY_PACKAGE' --depth 2          # Shallow tree
-  abapgit-agent tree --package '$ZMY_PACKAGE' --include-types    # With type counts
-  abapgit-agent tree --package '$ZMY_PACKAGE' --json             # JSON output
-  abapgit-agent list --package '$ZMY_PACKAGE'                    # List all objects
-  abapgit-agent list --package '$ZMY_PACKAGE' --type CLAS,INTF   # Filter by type
-  abapgit-agent list --package '$ZMY_PACKAGE' --name 'ZCL_*'     # Filter by name
-  abapgit-agent list --package '$ZMY_PACKAGE' --limit 50         # Limit results
-  abapgit-agent list --package '$ZMY_PACKAGE' --json             # JSON output
-  abapgit-agent view --objects ZCL_MY_CLASS                       # View class definition
-  abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF       # View interface
-  abapgit-agent view --objects ZMY_TABLE --type TABL               # View table structure
-  abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json        # Multiple objects
-  abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER               # Find where class is used
-  abapgit-agent where --objects ZIF_MY_INTERFACE                   # Find interface implementations
-  abapgit-agent where --objects CL_SUT_AUNIT_RUNNER --limit 20    # Limit results
-  abapgit-agent where --objects ZIF_MY_INTERFACE --json            # JSON output
-  abapgit-agent ref "CORRESPONDING"                         # Search all reference repos
-  abapgit-agent ref "CX_SY_"                                 # Search exceptions
-  abapgit-agent ref --topic exceptions                       # View exception topic
-  abapgit-agent ref --topic sql                              # View SQL topic
-  abapgit-agent ref --topic unit-tests                       # View unit test topic
-  abapgit-agent ref --list-topics                            # List all topics
-  abapgit-agent ref --list-repos                             # List reference repositories
-  abapgit-agent ref --clone SAP-samples/abap-cheat-sheets    # Clone repo to reference folder
-  abapgit-agent ref --clone https://github.com/user/repo.git # Clone from URL
-  abapgit-agent health
-  abapgit-agent status
-`);
-        break;
-
       default:
         console.error(`Unknown command: ${command}`);
-        console.error('Use: abapgit-agent help');
+        console.error('Run "abapgit-agent help" for usage information');
         process.exit(1);
     }
   } catch (error) {

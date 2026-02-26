@@ -65,9 +65,19 @@ function getTransport() {
   return cfg.transport;
 }
 
+/**
+ * Check if ABAP integration is configured for this repo
+ * @returns {boolean} True if .abapGitAgent file exists
+ */
+function isAbapIntegrationEnabled() {
+  const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
+  return fs.existsSync(repoConfigPath);
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
   getAgentConfig,
-  getTransport
+  getTransport,
+  isAbapIntegrationEnabled
 };
