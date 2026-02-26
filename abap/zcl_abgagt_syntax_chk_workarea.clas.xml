@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZCL_ABGAGT_SYNTAX_CHECKER</CLSNAME>
+    <CLSNAME>ZCL_ABGAGT_SYNTAX_CHK_WORKAREA</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>Syntax Checker - Working Area Approach</DESCRIPT>
+    <DESCRIPT>Syntax Checker - Working Area Implementation</DESCRIPT>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>

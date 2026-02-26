@@ -24,12 +24,12 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
              uccheck   TYPE string,    " 'X' (Standard) or '5' (Cloud) - default: X
            END OF ty_syntax_params.
 
-    " Result types (re-export from checker)
-    TYPES ty_error TYPE zcl_abgagt_syntax_checker=>ty_error.
-    TYPES ty_errors TYPE zcl_abgagt_syntax_checker=>ty_errors.
-    TYPES ty_warning TYPE zcl_abgagt_syntax_checker=>ty_warning.
-    TYPES ty_warnings TYPE zcl_abgagt_syntax_checker=>ty_warnings.
-    TYPES ty_result TYPE zcl_abgagt_syntax_checker=>ty_result.
+    " Result types (re-export from interface)
+    TYPES ty_error TYPE zif_abgagt_syntax_checker=>ty_error.
+    TYPES ty_errors TYPE zif_abgagt_syntax_checker=>ty_errors.
+    TYPES ty_warning TYPE zif_abgagt_syntax_checker=>ty_warning.
+    TYPES ty_warnings TYPE zif_abgagt_syntax_checker=>ty_warnings.
+    TYPES ty_result TYPE zif_abgagt_syntax_checker=>ty_result.
 
     " Response structure
     TYPES: BEGIN OF ty_response,
@@ -44,8 +44,8 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
 
-    " Syntax checker instance
-    DATA mo_checker TYPE REF TO zcl_abgagt_syntax_checker.
+    " Syntax checker instance (interface reference)
+    DATA mo_checker TYPE REF TO zif_abgagt_syntax_checker.
 
     "! Parse source string to string table (split by newlines)
     METHODS parse_source
@@ -54,9 +54,9 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     "! Check single object
     METHODS check_object
-      IMPORTING is_object       TYPE ty_source_object
-                iv_mode         TYPE string
-                iv_uccheck      TYPE trdir-uccheck
+      IMPORTING is_object        TYPE ty_source_object
+                iv_mode          TYPE string
+                iv_uccheck       TYPE trdir-uccheck
       RETURNING VALUE(rs_result) TYPE ty_result.
 
 ENDCLASS.
@@ -72,7 +72,8 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params   TYPE ty_syntax_params,
           ls_response TYPE ty_response,
-          lv_uccheck  TYPE trdir-uccheck.
+          lv_uccheck  TYPE trdir-uccheck,
+          lv_mode     TYPE string.
 
     " Initialize response
     ls_response-command = gc_syntax.
@@ -91,9 +92,13 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Set defaults
-    IF ls_params-mode IS INITIAL.
-      ls_params-mode = 'working_area'.
+    " Set defaults and map mode to constants
+    IF ls_params-mode IS INITIAL OR ls_params-mode = 'working_area'.
+      lv_mode = zif_abgagt_syntax_checker=>gc_mode_working_area.
+    ELSEIF ls_params-mode = 'syntax_statement'.
+      lv_mode = zif_abgagt_syntax_checker=>gc_mode_syntax_statement.
+    ELSE.
+      lv_mode = zif_abgagt_syntax_checker=>gc_mode_working_area.
     ENDIF.
 
     IF ls_params-uccheck IS INITIAL OR ls_params-uccheck = 'X'.
@@ -104,14 +109,14 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       lv_uccheck = 'X'.
     ENDIF.
 
-    " Create checker instance
-    CREATE OBJECT mo_checker.
+    " Create checker instance using factory
+    mo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_mode ).
 
     " Check each object
     LOOP AT ls_params-objects INTO DATA(ls_object).
       DATA(ls_result) = check_object(
         is_object  = ls_object
-        iv_mode    = ls_params-mode
+        iv_mode    = lv_mode
         iv_uccheck = lv_uccheck ).
 
       APPEND ls_result TO ls_response-results.
@@ -178,27 +183,17 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     CASE to_upper( is_object-type ).
 
       WHEN 'CLAS'.
-        IF iv_mode = 'syntax_statement'.
-          " Use SYNTAX-CHECK statement (simpler, no DB writes)
-          " Note: This mode doesn't support local classes
-          rs_result = mo_checker->check_class_syntax_statement(
+        " Check if local classes are provided
+        IF lt_locals_def IS NOT INITIAL OR lt_locals_imp IS NOT INITIAL.
+          rs_result = mo_checker->check_class_with_locals(
             iv_class_name = lv_name
             it_source     = lt_source
-            iv_uccheck    = iv_uccheck ).
+            it_locals_def = lt_locals_def
+            it_locals_imp = lt_locals_imp ).
         ELSE.
-          " Use working area approach (writes to inactive includes)
-          " Check if local classes are provided
-          IF lt_locals_def IS NOT INITIAL OR lt_locals_imp IS NOT INITIAL.
-            rs_result = mo_checker->check_class_with_locals(
-              iv_class_name = lv_name
-              it_source     = lt_source
-              it_locals_def = lt_locals_def
-              it_locals_imp = lt_locals_imp ).
-          ELSE.
-            rs_result = mo_checker->check_class(
-              iv_class_name = lv_name
-              it_source     = lt_source ).
-          ENDIF.
+          rs_result = mo_checker->check_class(
+            iv_class_name = lv_name
+            it_source     = lt_source ).
         ENDIF.
 
       WHEN 'INTF'.
