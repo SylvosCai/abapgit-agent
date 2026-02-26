@@ -2692,6 +2692,159 @@ Examples:
         break;
       }
 
+      case 'syntax': {
+        const filesArgIndex = args.indexOf('--files');
+        if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
+          console.error('Error: --files parameter required');
+          console.error('Usage: abapgit-agent syntax --files <file1>,<file2>,... [--mode <mode>] [--cloud] [--json]');
+          console.error('');
+          console.error('Options:');
+          console.error('  --mode <mode>   Check mode: "working_area" (default) or "syntax_statement"');
+          console.error('  --cloud         Use ABAP Cloud syntax check (stricter)');
+          console.error('  --json          Output raw JSON');
+          console.error('');
+          console.error('Examples:');
+          console.error('  abapgit-agent syntax --files src/zcl_my_class.clas.abap');
+          console.error('  abapgit-agent syntax --files src/zmy_program.prog.abap --mode syntax_statement');
+          console.error('  abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud');
+          process.exit(1);
+        }
+
+        const syntaxFiles = args[filesArgIndex + 1].split(',').map(f => f.trim());
+        const modeArgIndex = args.indexOf('--mode');
+        const mode = modeArgIndex !== -1 ? args[modeArgIndex + 1] : 'working_area';
+        const cloudMode = args.includes('--cloud');
+        const jsonOutput = args.includes('--json');
+
+        if (!jsonOutput) {
+          console.log(`\n  Syntax check for ${syntaxFiles.length} file(s)`);
+          console.log(`  Mode: ${mode}${cloudMode ? ' (ABAP Cloud)' : ''}`);
+          console.log('');
+        }
+
+        const config = loadConfig();
+        const csrfToken = await fetchCsrfToken(config);
+
+        // Build objects array from files
+        const objects = [];
+        for (const file of syntaxFiles) {
+          const baseName = pathModule.basename(file);
+          let objType = 'PROG';
+          let objName = baseName.toUpperCase();
+
+          // Parse file type from extension
+          if (baseName.includes('.clas.')) {
+            objType = 'CLAS';
+            objName = baseName.split('.')[0].toUpperCase();
+          } else if (baseName.includes('.intf.')) {
+            objType = 'INTF';
+            objName = baseName.split('.')[0].toUpperCase();
+          } else if (baseName.includes('.prog.')) {
+            objType = 'PROG';
+            objName = baseName.split('.')[0].toUpperCase();
+          }
+
+          // Read source from file
+          const filePath = pathModule.resolve(file);
+          if (!fs.existsSync(filePath)) {
+            console.error(`  Error: File not found: ${file}`);
+            continue;
+          }
+
+          const source = fs.readFileSync(filePath, 'utf8');
+          objects.push({
+            type: objType,
+            name: objName,
+            source: source
+          });
+        }
+
+        if (objects.length === 0) {
+          console.error('  No valid files to check');
+          process.exit(1);
+        }
+
+        // Send request
+        const data = {
+          objects: objects,
+          mode: mode,
+          uccheck: cloudMode ? '5' : 'X'
+        };
+
+        const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax', data, { csrfToken });
+
+        // Handle response
+        const success = result.SUCCESS !== undefined ? result.SUCCESS : result.success;
+        const results = result.RESULTS || result.results || [];
+        const message = result.MESSAGE || result.message || '';
+
+        if (jsonOutput) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          // Display results for each object
+          for (const res of results) {
+            const objSuccess = res.SUCCESS !== undefined ? res.SUCCESS : res.success;
+            const objType = res.OBJECT_TYPE || res.object_type || 'UNKNOWN';
+            const objName = res.OBJECT_NAME || res.object_name || 'UNKNOWN';
+            const errorCount = res.ERROR_COUNT || res.error_count || 0;
+            const errors = res.ERRORS || res.errors || [];
+            const warnings = res.WARNINGS || res.warnings || [];
+            const objMessage = res.MESSAGE || res.message || '';
+
+            if (objSuccess) {
+              console.log(`✅ ${objType} ${objName} - Syntax check passed`);
+              if (warnings.length > 0) {
+                console.log(`   (${warnings.length} warning(s))`);
+              }
+            } else {
+              console.log(`❌ ${objType} ${objName} - Syntax check failed (${errorCount} error(s))`);
+              console.log('');
+              console.log('Errors:');
+              console.log('─'.repeat(60));
+
+              for (const err of errors) {
+                const line = err.LINE || err.line || '?';
+                const column = err.COLUMN || err.column || '';
+                const text = err.TEXT || err.text || 'Unknown error';
+                const methodName = err.METHOD_NAME || err.method_name || '';
+
+                if (methodName) {
+                  console.log(`  Method: ${methodName}`);
+                }
+                if (column) {
+                  console.log(`  Line ${line}, Column ${column}:`);
+                } else {
+                  console.log(`  Line ${line}:`);
+                }
+                console.log(`    ${text}`);
+                console.log('');
+              }
+            }
+
+            // Show warnings if any
+            if (warnings.length > 0) {
+              console.log('');
+              console.log('Warnings:');
+              console.log('─'.repeat(60));
+              for (const warn of warnings) {
+                const line = warn.LINE || warn.line || '?';
+                const text = warn.TEXT || warn.text || warn.MESSAGE || warn.message || '';
+                console.log(`  Line ${line}: ${text}`);
+              }
+            }
+            console.log('');
+          }
+
+          // Overall summary
+          if (success) {
+            console.log(`✅ ${message}`);
+          } else {
+            console.log(`❌ ${message}`);
+          }
+        }
+        break;
+      }
+
       case 'ref': {
         const refSearch = require('../src/ref-search');
         const topicIndex = args.indexOf('--topic');
@@ -2810,6 +2963,11 @@ Commands:
   inspect --files <file1>,<file2>,...
     Inspect ABAP source file(s) for issues. Currently runs syntax check.
 
+  syntax --files <file1>,<file2>,... [--mode <mode>] [--cloud] [--json]
+    Check syntax of ABAP source files WITHOUT pull/activation.
+    Reads source from local files and checks directly in ABAP system.
+    Modes: "working_area" (default) or "syntax_statement"
+
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
 
@@ -2860,6 +3018,8 @@ Examples:
   abapgit-agent pull --files src/zcl_my_class.clas.abap          # Specific file
   abapgit-agent pull --transport DEVK900001                  # With transport
   abapgit-agent inspect --files src/zcl_my_class.clas.abap       # Syntax check
+  abapgit-agent syntax --files src/zcl_my_class.clas.abap        # Check without pull
+  abapgit-agent syntax --files src/zmy_prog.prog.abap --cloud    # ABAP Cloud check
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run tests
   abapgit-agent tree --package '$ZMY_PACKAGE'                    # Show package tree
   abapgit-agent tree --package '$ZMY_PACKAGE' --depth 2          # Shallow tree
