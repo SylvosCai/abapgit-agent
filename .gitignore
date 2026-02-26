@@ -7,8 +7,6 @@ dist/
 coverage/
 output/
 .abapGitAgent
-.abapgit_agent_cookies.txt
-cookies.txt
 .claude/
 cl_grcaud*.clas.abap
 _site/
