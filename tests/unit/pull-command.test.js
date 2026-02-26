@@ -3,7 +3,28 @@
  * Tests the CLI parsing, file handling, and request building
  */
 
-describe('Pull Command', () => {
+const verifiers = require('../integration/verify-output-spec');
+
+// Mock fs module
+jest.mock('fs', () => ({
+  existsSync: jest.fn(() => true),
+  readFileSync: jest.fn(() => 'mock content')
+}));
+
+// Mock path module
+jest.mock('path', () => ({
+  isAbsolute: jest.fn(() => false),
+  join: jest.fn((...args) => args.join('/')),
+  resolve: jest.fn((...args) => '/' + args.join('/')),
+  basename: jest.fn((p) => p.split('/').pop())
+}));
+
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('Pull Command - Logic Tests', () => {
   describe('File parsing', () => {
     test('parses class file correctly', () => {
       const file = 'src/zcl_my_class.clas.abap';
@@ -210,5 +231,141 @@ describe('Pull Command', () => {
 
       expect(allValid).toBe(true);
     });
+  });
+});
+
+describe('Pull Command - CLI Output Format', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('output matches spec format for successful pull', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: 'X',
+          message: 'Pull completed successfully',
+          job_id: 'CAIS20260208115649',
+          activated_objects: [
+            { obj_type: 'CLAS', obj_name: 'ZCL_MY_CLASS' },
+            { obj_type: 'INTF', obj_name: 'ZIF_MY_INTERFACE' }
+          ],
+          failed_objects: [],
+          pull_log: [
+            { icon: '✅', object: 'CLAS ZCL_MY_CLASS', message: 'Activated successfully' },
+            { icon: '✅', object: 'INTF ZIF_MY_INTERFACE', message: 'Activated successfully' }
+          ]
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Check pull command output elements
+    expect(output).toMatch(/✅/); // Success icon
+    expect(output).toMatch(/Pull completed/i);
+    expect(output).toMatch(/Job ID:/i);
+    expect(output).toMatch(/CAIS/); // Job ID pattern
+  });
+
+  test('output shows failed objects when pull has errors', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: '',
+          message: '1 object(s) failed activation',
+          job_id: 'CAIS20260208115650',
+          activated_objects: [
+            { obj_type: 'INTF', obj_name: 'ZIF_MY_INTERFACE' }
+          ],
+          failed_objects: [
+            { obj_type: 'CLAS', obj_name: 'ZCL_MY_CLASS', error: 'Syntax error on line 10' }
+          ],
+          pull_log: [
+            { icon: '❌', object: 'CLAS ZCL_MY_CLASS', message: 'Syntax error' },
+            { icon: '✅', object: 'INTF ZIF_MY_INTERFACE', message: 'Activated' }
+          ]
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/❌/); // Error icon
+    expect(output).toMatch(/failed/i);
+    expect(output).toMatch(/Failed Objects/i);
+  });
+
+  test('output shows job ID and branch', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: 'X',
+          message: 'Pull completed',
+          job_id: 'CAIS20260208115651',
+          activated_objects: [
+            { obj_type: 'CLAS', obj_name: 'ZCL_MY_CLASS' }
+          ],
+          failed_objects: [],
+          pull_log: [
+            { icon: '📥', object: 'CLAS ZCL_MY_CLASS', message: 'Pulling from repository' },
+            { icon: '🔨', object: 'CLAS ZCL_MY_CLASS', message: 'Activating object' },
+            { icon: '✅', object: 'CLAS ZCL_MY_CLASS', message: 'Activated successfully' }
+          ]
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'develop'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/Branch: develop/i);
+    expect(output).toMatch(/Job ID:/i);
+    expect(output).toMatch(/Starting pull/i);
   });
 });
