@@ -85,9 +85,11 @@ function buildChildLines(node, prefix, isLast, byDepth) {
 /**
  * Display tree output
  */
-async function displayTreeOutput(packageName, depth, includeTypes, loadConfig, fetchCsrfToken, request) {
+async function displayTreeOutput(packageName, depth, includeTypes, loadConfig, AbapHttp) {
   const config = loadConfig();
-  const csrfToken = await fetchCsrfToken(config);
+  const http = new AbapHttp(config);
+
+  const csrfToken = await http.fetchCsrfToken();
 
   console.log(`\n  Getting package tree for: ${packageName}`);
 
@@ -144,7 +146,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const packageArgIndex = args.indexOf('--package');
     if (packageArgIndex === -1) {
@@ -201,7 +203,7 @@ module.exports = {
       const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, request);
       console.log(JSON.stringify(result, null, 2));
     } else {
-      await displayTreeOutput(packageName, depth, includeTypes, loadConfig, fetchCsrfToken, request);
+      await displayTreeOutput(packageName, depth, includeTypes, loadConfig, AbapHttp);
     }
   }
 };

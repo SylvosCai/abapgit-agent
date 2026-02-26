@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const packageArgIndex = args.indexOf('--package');
     if (packageArgIndex === -1) {
@@ -72,7 +72,8 @@ module.exports = {
     const jsonOutput = args.includes('--json');
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     const data = {
       package: packageName,
@@ -88,7 +89,7 @@ module.exports = {
       data.name = name;
     }
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/list', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/list', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;

@@ -11,7 +11,7 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
-    const { gitUtils, isAbapIntegrationEnabled, fetchCsrfToken, request, loadConfig } = context;
+    const { gitUtils, isAbapIntegrationEnabled, AbapHttp, loadConfig } = context;
 
     if (isAbapIntegrationEnabled()) {
       console.log('✅ ABAP Git Agent is ENABLED');
@@ -23,8 +23,9 @@ module.exports = {
 
       if (repoUrl) {
         try {
-          const csrfToken = await fetchCsrfToken(config);
-          const result = await request('POST', '/sap/bc/z_abapgit_agent/status', { url: repoUrl }, { csrfToken });
+          const http = new AbapHttp(config);
+          const csrfToken = await http.fetchCsrfToken();
+          const result = await http.post('/sap/bc/z_abapgit_agent/status', { url: repoUrl }, { csrfToken });
 
           const status = result.status || result.STATUS || result.SUCCESS;
           if (status === 'Found' || status === 'X' || status === true) {

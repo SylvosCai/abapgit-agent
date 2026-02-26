@@ -12,7 +12,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
@@ -42,7 +42,8 @@ module.exports = {
     }
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     // Build objects array from files
     // Group class files together (main + locals)
@@ -150,7 +151,7 @@ module.exports = {
       uccheck: cloudMode ? '5' : 'X'
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/syntax', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/syntax', data, { csrfToken });
 
     // Handle response
     const success = result.SUCCESS !== undefined ? result.SUCCESS : result.success;

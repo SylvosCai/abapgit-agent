@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, gitUtils, fetchCsrfToken, request } = context;
+    const { loadConfig, gitUtils, AbapHttp } = context;
 
     // Show help if requested
     const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
@@ -43,13 +43,14 @@ Examples:
     console.log(`\n🗑️  Deleting online repository`);
     console.log(`   URL: ${repoUrl}`);
 
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     const data = {
       url: repoUrl
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/delete', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/delete', data, { csrfToken });
 
     console.log('\n');
 

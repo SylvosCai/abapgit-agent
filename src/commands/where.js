@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const objectsArgIndex = args.indexOf('--objects');
     if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
@@ -38,7 +38,8 @@ module.exports = {
     console.log(`\n  Where-used list for ${objects.length} object(s)`);
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     const data = {
       objects: objects,

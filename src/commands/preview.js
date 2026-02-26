@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request, validators } = context;
+    const { loadConfig, AbapHttp, validators } = context;
 
     const objectsArgIndex = args.indexOf('--objects');
     if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
@@ -44,7 +44,8 @@ module.exports = {
     console.log(`\n  Previewing ${objects.length} object(s)`);
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     const data = {
       objects: objects,
@@ -64,7 +65,7 @@ module.exports = {
       data.columns = columns;
     }
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;

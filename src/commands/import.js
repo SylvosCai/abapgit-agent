@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, gitUtils, fetchCsrfToken, request } = context;
+    const { loadConfig, gitUtils, AbapHttp } = context;
 
     // Show help if requested
     const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
@@ -57,7 +57,8 @@ Examples:
       console.log(`   Message: ${commitMessage}`);
     }
 
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     const data = {
       url: repoUrl
@@ -75,7 +76,7 @@ Examples:
       data.password = config.gitPassword;
     }
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/import', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/import', data, { csrfToken });
 
     console.log('\n');
 

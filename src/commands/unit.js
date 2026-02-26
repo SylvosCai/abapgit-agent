@@ -47,7 +47,7 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, reque
       coverage: coverage
     };
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
@@ -103,7 +103,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
@@ -123,7 +123,8 @@ module.exports = {
     console.log('');
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     for (const sourceFile of files) {
       await runUnitTestForFile(sourceFile, csrfToken, config, coverage, request);

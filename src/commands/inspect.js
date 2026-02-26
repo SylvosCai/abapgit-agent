@@ -7,7 +7,7 @@ const pathModule = require('path');
 /**
  * Inspect all files in one request
  */
-async function inspectAllFiles(files, csrfToken, config, variant, request) {
+async function inspectAllFiles(files, csrfToken, config, variant, http) {
   // Convert files to uppercase names
   const fileNames = files.map(f => {
     const baseName = pathModule.basename(f).toUpperCase();
@@ -25,7 +25,7 @@ async function inspectAllFiles(files, csrfToken, config, variant, request) {
       data.variant = variant;
     }
 
-    const result = await request('POST', '/sap/bc/z_abapgit_agent/inspect', data, { csrfToken: csrfToken });
+    const result = await http.post('/sap/bc/z_abapgit_agent/inspect', data, { csrfToken });
 
     // Handle both table result and old single result
     let results = [];
@@ -146,7 +146,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request } = context;
+    const { loadConfig, AbapHttp } = context;
 
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
@@ -170,10 +170,11 @@ module.exports = {
     console.log('');
 
     const config = loadConfig();
-    const csrfToken = await fetchCsrfToken(config);
+    const http = new AbapHttp(config);
+    const csrfToken = await http.fetchCsrfToken();
 
     // Send all files in one request
-    const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, request);
+    const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http);
 
     // Process results
     for (const result of results) {

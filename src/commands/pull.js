@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, fetchCsrfToken, request, gitUtils, getTransport } = context;
+    const { loadConfig, AbapHttp, gitUtils, getTransport } = context;
 
     const urlArgIndex = args.indexOf('--url');
     const branchArgIndex = args.indexOf('--branch');
@@ -45,10 +45,10 @@ module.exports = {
       console.log(`📌 Auto-detected git remote: ${gitUrl}`);
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, fetchCsrfToken, request);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, fetchCsrfToken, request) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp) {
     const TERM_WIDTH = process.stdout.columns || 80;
 
     console.log(`\n🚀 Starting pull for: ${gitUrl}`);
@@ -64,7 +64,8 @@ module.exports = {
       const config = loadConfig();
 
       // Fetch CSRF token first
-      const csrfToken = await fetchCsrfToken(config);
+      const http = new AbapHttp(config);
+      const csrfToken = await http.fetchCsrfToken();
 
       // Prepare request data with git credentials
       const data = {
@@ -84,7 +85,7 @@ module.exports = {
         data.transport_request = transportRequest;
       }
 
-      const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
+      const result = await http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
       console.log('\n');
 
