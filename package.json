@@ -19,11 +19,13 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "test:all": "node scripts/test-all.js",
+    "test:all": "node tests/integration/test-all.js",
+    "test:unit": "jest",
     "test:jest": "jest",
-    "test:aunit": "node scripts/test-all.js --aunit",
-    "test:cmd": "node scripts/test-all.js --cmd",
-    "test:cmd:demo": "node scripts/test-all.js --cmd --demo",
+    "test:integration": "node tests/integration/test-all.js --cmd",
+    "test:aunit": "node tests/integration/test-all.js --aunit",
+    "test:cmd": "node tests/integration/test-all.js --cmd",
+    "test:cmd:demo": "node tests/integration/test-all.js --cmd --demo",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"
@@ -43,5 +45,11 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "jest": {
+    "testMatch": [
+      "**/tests/unit/**/*.test.js"
+    ],
+    "testEnvironment": "node"
   }
 }

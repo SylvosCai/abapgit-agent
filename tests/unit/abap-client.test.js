@@ -26,7 +26,7 @@ jest.mock('http', () => ({
 }));
 
 // Mock logger
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
@@ -34,7 +34,7 @@ jest.mock('../src/logger', () => ({
 }));
 
 // Mock config
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getAbapConfig: jest.fn(() => ({
     host: 'test.sap.com',
     sapport: 44300,
@@ -55,7 +55,7 @@ describe('ABAPClient', () => {
     jest.resetModules();
     jest.clearAllMocks();
 
-    ABAPClient = require('../src/abap-client').ABAPClient;
+    ABAPClient = require('../../src/abap-client').ABAPClient;
     client = new ABAPClient();
   });
 
@@ -694,7 +694,7 @@ describe('ABAPClient', () => {
 
   describe('getClient singleton', () => {
     test('getClient returns singleton instance', () => {
-      const { getClient } = require('../src/abap-client');
+      const { getClient } = require('../../src/abap-client');
       const client1 = getClient();
       const client2 = getClient();
 

@@ -28,7 +28,7 @@ describe('Init Command Integration', () => {
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
     // Run init command
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     execSync(`node "${binPath}" init --folder /myabap --package ZTEST_PACKAGE`, {
       cwd: testDir,
       stdio: 'pipe'
@@ -50,7 +50,7 @@ describe('Init Command Integration', () => {
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
     // Run init command without --folder
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     execSync(`node "${binPath}" init --package ZTEST_PACKAGE`, {
       cwd: testDir,
       stdio: 'pipe'
@@ -68,7 +68,7 @@ describe('Init Command Integration', () => {
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
     // Run init command
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
       cwd: testDir,
       stdio: 'pipe'
@@ -89,7 +89,7 @@ describe('Init Command Integration', () => {
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
     // Run init command without --package - should fail
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     expect(() => {
       execSync(`node "${binPath}" init --folder /src`, {
         cwd: testDir,
@@ -99,7 +99,7 @@ describe('Init Command Integration', () => {
   });
 
   test('init fails without git repo', () => {
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     expect(() => {
       execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
         cwd: testDir,
@@ -112,7 +112,7 @@ describe('Init Command Integration', () => {
     // Setup git repo without remote
     execSync('git init', { cwd: testDir, stdio: 'pipe' });
 
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     expect(() => {
       execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
         cwd: testDir,
@@ -130,7 +130,7 @@ describe('Init Command Integration', () => {
     const configPath = path.join(testDir, '.abapGitAgent');
     fs.writeFileSync(configPath, '{"host": "test"}');
 
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     expect(() => {
       execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
         cwd: testDir,
@@ -145,7 +145,7 @@ describe('Init Command Integration', () => {
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
     // Run init command
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
       cwd: testDir,
       stdio: 'pipe'
@@ -170,7 +170,7 @@ describe('Init Command Integration', () => {
     fs.writeFileSync(gitignorePath, 'node_modules/\n');
 
     // Run init command
-    const binPath = path.join(__dirname, '..', 'bin', 'abapgit-agent');
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
     execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
       cwd: testDir,
       stdio: 'pipe'

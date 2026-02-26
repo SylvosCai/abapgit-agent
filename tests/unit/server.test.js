@@ -6,14 +6,14 @@ const request = require('supertest');
 const express = require('express');
 
 // Mock agent before requiring server
-jest.mock('../src/agent', () => ({
+jest.mock('../../src/agent', () => ({
   ABAPGitAgent: jest.fn().mockImplementation(() => ({
     pull: jest.fn(),
     healthCheck: jest.fn()
   }))
 }));
 
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getAgentConfig: jest.fn().mockReturnValue({ port: 3000 })
 }));
 
@@ -23,9 +23,9 @@ describe('Server', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    const { ABAPGitAgent } = require('../src/agent');
+    const { ABAPGitAgent } = require('../../src/agent');
     mockAgent = new ABAPGitAgent();
-    require('../src/config').getAgentConfig.mockReturnValue({ port: 3000 });
+    require('../../src/config').getAgentConfig.mockReturnValue({ port: 3000 });
 
     // Create express app similar to server
     app = express();

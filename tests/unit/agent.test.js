@@ -17,7 +17,7 @@ const mockView = jest.fn();
 const mockWhere = jest.fn();
 
 // Mock abap-client before requiring agent
-jest.mock('../src/abap-client', () => ({
+jest.mock('../../src/abap-client', () => ({
   getClient: jest.fn(() => ({
     pull: mockPull,
     healthCheck: mockHealthCheck,
@@ -46,7 +46,7 @@ describe('ABAPGitAgent', () => {
   beforeEach(() => {
     jest.resetModules();
     // Re-setup mocks after reset
-    jest.doMock('../src/abap-client', () => ({
+    jest.doMock('../../src/abap-client', () => ({
       getClient: jest.fn(() => ({
         pull: mockPull,
         healthCheck: mockHealthCheck,
@@ -63,7 +63,7 @@ describe('ABAPGitAgent', () => {
       }))
     }));
 
-    ABAPGitAgent = require('../src/agent').ABAPGitAgent;
+    ABAPGitAgent = require('../../src/agent').ABAPGitAgent;
     agent = new ABAPGitAgent();
   });
 

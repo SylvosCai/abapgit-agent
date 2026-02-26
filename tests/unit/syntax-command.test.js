@@ -15,7 +15,7 @@ jest.mock('fs');
 jest.mock('https');
 
 // Mock config
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getAbapConfig: jest.fn().mockReturnValue({
     host: 'test.sap.com',
     sapport: 443,

@@ -270,22 +270,72 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 | Object Type | Syntax Command | What to Do |
 |-------------|----------------|------------|
-| CLAS | ✅ Supported | Run `syntax` before commit |
-| INTF | ✅ Supported | Run `syntax` before commit |
-| PROG | ✅ Supported | Run `syntax` before commit |
-| DDLS | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
-| FUGR | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
-| TABL/DTEL | ❌ Not supported | Skip syntax, just `pull` |
+| CLAS (classes) | ✅ Supported | Run `syntax` before commit |
+| CLAS (test classes: .testclasses.abap) | ✅ Supported | Run `syntax` before commit |
+| INTF (interfaces) | ✅ Supported | Run `syntax` before commit |
+| PROG (programs) | ✅ Supported | Run `syntax` before commit |
+| DDLS (CDS views) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| FUGR (function groups) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| TABL/DTEL/DOMA/MSAG/SHLP | ❌ Not supported | Skip syntax, just `pull` |
+| All other types | ❌ Not supported | Skip syntax, just `pull` |
 
 **IMPORTANT**:
-- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG - catches errors early, no git pollution
+- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG (including test classes) - catches errors early, no git pollution
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
 - **Use `inspect` AFTER pull** for unsupported types or if pull fails
+
+**Working with mixed file types:**
+When modifying multiple files of different types (e.g., 1 class + 1 CDS view):
+1. Run `syntax` on supported files only (CLAS, INTF, PROG)
+2. Commit ALL files together (including unsupported types)
+3. Push and pull ALL files together
+
+Example:
+```bash
+# Check syntax on class and interface only (skip CDS)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
+
+# Commit and push all files including CDS
+git add src/zcl_my_class.clas.abap src/zif_my_intf.intf.abap src/zc_my_view.ddls.asddls
+git commit -m "feat: add class, interface, and CDS view"
+git push
+
+# Pull all files together
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,src/zc_my_view.ddls.asddls
+```
 
 **When to use syntax vs inspect vs view**:
 - **syntax**: Check LOCAL code BEFORE commit (CLAS, INTF, PROG only)
 - **inspect**: Check ACTIVATED code AFTER pull (all types, runs Code Inspector)
 - **view**: Understand object STRUCTURE (not for debugging errors)
+
+### Quick Decision Tree for AI
+
+**When user asks to modify/create ABAP code:**
+
+```
+1. Identify file extension(s)
+   ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported
+   ├─ .intf.abap → INTF ✅ syntax supported
+   ├─ .prog.abap → PROG ✅ syntax supported
+   ├─ .ddls.asddls → DDLS ❌ syntax not supported
+   └─ All other extensions → ❌ syntax not supported
+
+2. For SUPPORTED types (CLAS/INTF/PROG):
+   Write code → Run syntax → Fix errors → Commit → Push → Pull
+
+3. For UNSUPPORTED types (DDLS, FUGR, TABL, etc.):
+   Write code → Skip syntax → Commit → Push → Pull → (if errors: inspect)
+
+4. For MIXED types (some supported + some unsupported):
+   Write all code → Run syntax on supported files ONLY → Commit ALL → Push → Pull ALL
+```
+
+**Error indicators after pull:**
+- ❌ **"Error updating where-used list"** → SYNTAX ERROR - run `inspect` for details
+- ❌ **Objects in "Failed Objects Log"** → SYNTAX ERROR - run `inspect`
+- ❌ **Objects NOT appearing at all** → XML metadata issue (check `ref --topic abapgit`)
+- ⚠️ **"Activated with warnings"** → Code Inspector warnings - run `inspect` to see details
 
 ### Commands
 

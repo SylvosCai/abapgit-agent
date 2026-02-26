@@ -31,7 +31,7 @@ describe('Config', () => {
       agent: { port: 3000 }
     }));
 
-    const { loadConfig } = require('../src/config');
+    const { loadConfig } = require('../../src/config');
     const config = loadConfig();
 
     expect(config.host).toBe('test-host.com');
@@ -51,7 +51,7 @@ describe('Config', () => {
     process.env.ABAP_PASSWORD = 'env_pass';
     process.env.ABAP_LANGUAGE = 'DE';
 
-    const { loadConfig } = require('../src/config');
+    const { loadConfig } = require('../../src/config');
     const config = loadConfig();
 
     expect(config.host).toBe('env-host.com');
@@ -74,7 +74,7 @@ describe('Config', () => {
       gitPassword: 'git-pass'
     }));
 
-    const { getAbapConfig } = require('../src/config');
+    const { getAbapConfig } = require('../../src/config');
     const abapConfig = getAbapConfig();
 
     expect(abapConfig).toEqual({
@@ -101,7 +101,7 @@ describe('Config', () => {
       agent: { port: 3000, host: 'localhost' }
     }));
 
-    const { getAgentConfig } = require('../src/config');
+    const { getAgentConfig } = require('../../src/config');
     const agentConfig = getAgentConfig();
 
     expect(agentConfig).toEqual({ port: 3000, host: 'localhost' });
@@ -116,7 +116,7 @@ describe('Config', () => {
       password: 'pass'
     }));
 
-    const { getAgentConfig } = require('../src/config');
+    const { getAgentConfig } = require('../../src/config');
     const agentConfig = getAgentConfig();
 
     expect(agentConfig).toBeUndefined();
