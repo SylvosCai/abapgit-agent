@@ -136,8 +136,7 @@ The syntax checker uses **object-type based implementations** with dynamic insta
 │ zif_abgagt_syntax_checker (interface)                       │
 ├─────────────────────────────────────────────────────────────┤
 │ + get_object_type() -> string                               │
-│ + set_object_name(iv_name)                                  │
-│ + check(it_source) -> ty_result                             │
+│ + check(iv_name, it_source) -> ty_result                    │
 └─────────────────────────────────────────────────────────────┘
                            ▲
            ┌───────────────┼───────────────┐
