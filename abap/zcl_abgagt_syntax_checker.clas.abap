@@ -275,118 +275,73 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
 
   METHOD check_class_with_locals.
-    DATA: lo_scanner    TYPE REF TO cl_oo_source_scanner_class,
-          lv_program    TYPE syrepid,
-          lt_source     TYPE string_table,
-          lt_methods    TYPE cl_oo_source_scanner_class=>type_method_implementations,
-          lv_method     TYPE seocpdname,
-          ls_mtdkey     TYPE seocpdkey,
-          lx_scan_error TYPE REF TO cx_root.
+    DATA: ls_dir         TYPE trdir,
+          lv_msg         TYPE string,
+          lv_line        TYPE i,
+          lv_word        TYPE string,
+          lv_classpool   TYPE syrepid,
+          lt_skeleton    TYPE string_table.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
 
-    CLEAR mt_written_includes.
+    " Build combined source: CLASS-POOL + locals_def + main source + locals_imp
+    " This allows SYNTAX-CHECK to validate all parts together
+    APPEND 'CLASS-POOL.' TO lt_skeleton.
 
-    TRY.
-        " 1. Parse main class source using class scanner
-        TRY.
-            lo_scanner = cl_oo_source_scanner_class=>create_class_scanner(
-              clif_name = iv_class_name
-              source    = it_source ).
-            lo_scanner->scan( ).
-          CATCH cx_root INTO lx_scan_error.
-            rs_result-success = abap_false.
-            rs_result-error_count = 1.
-            rs_result-errors = VALUE #( (
-              line = 1
-              text = |Source parse error: { lx_scan_error->get_text( ) }| ) ).
-            rs_result-message = lx_scan_error->get_text( ).
-            RETURN.
-        ENDTRY.
+    " Add local class definitions first (they need to be defined before used)
+    IF it_locals_def IS NOT INITIAL.
+      APPEND LINES OF it_locals_def TO lt_skeleton.
+    ENDIF.
 
-        " 2. Write sections to inactive includes
-        " Public section
-        lt_source = lo_scanner->get_public_section_source( ).
-        IF lt_source IS NOT INITIAL.
-          lv_program = cl_oo_classname_service=>get_pubsec_name( iv_class_name ).
-          write_inactive_include( iv_include = lv_program it_source = lt_source ).
-        ENDIF.
+    " Add main class source
+    APPEND LINES OF it_source TO lt_skeleton.
 
-        " Protected section
-        lt_source = lo_scanner->get_protected_section_source( ).
-        IF lt_source IS NOT INITIAL.
-          lv_program = cl_oo_classname_service=>get_prosec_name( iv_class_name ).
-          write_inactive_include( iv_include = lv_program it_source = lt_source ).
-        ENDIF.
+    " Add local class implementations
+    IF it_locals_imp IS NOT INITIAL.
+      APPEND LINES OF it_locals_imp TO lt_skeleton.
+    ENDIF.
 
-        " Private section
-        lt_source = lo_scanner->get_private_section_source( ).
-        IF lt_source IS NOT INITIAL.
-          lv_program = cl_oo_classname_service=>get_prisec_name( iv_class_name ).
-          write_inactive_include( iv_include = lv_program it_source = lt_source ).
-        ENDIF.
+    IF lt_skeleton IS INITIAL OR lines( lt_skeleton ) <= 1.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-errors = VALUE #( (
+        line = 1
+        text = 'No source provided for syntax check' ) ).
+      rs_result-message = 'No source provided'.
+      RETURN.
+    ENDIF.
 
-        " Local class definitions (CCDEF) - if provided
-        IF it_locals_def IS NOT INITIAL.
-          lv_program = cl_oo_classname_service=>get_ccdef_name( iv_class_name ).
-          write_inactive_include(
-            iv_include        = lv_program
-            it_source         = it_locals_def
-            iv_extension_type = 'CD' ).
-        ENDIF.
+    " Get TRDIR entry for class pool (for context)
+    lv_classpool = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_classpool.
+    IF sy-subrc <> 0.
+      " Class doesn't exist - use default
+      ls_dir-name = lv_classpool.
+      ls_dir-subc = 'K'.  " Class pool
+      ls_dir-uccheck = 'X'.
+    ENDIF.
 
-        " Local class implementations (CCIMP) - if provided
-        IF it_locals_imp IS NOT INITIAL.
-          lv_program = cl_oo_classname_service=>get_ccimp_name( iv_class_name ).
-          write_inactive_include(
-            iv_include        = lv_program
-            it_source         = it_locals_imp
-            iv_extension_type = 'CI' ).
-        ENDIF.
+    " Run syntax check on the combined source
+    SYNTAX-CHECK FOR lt_skeleton
+      MESSAGE lv_msg
+      LINE lv_line
+      WORD lv_word
+      DIRECTORY ENTRY ls_dir.
 
-        " Method implementations
-        lt_methods = lo_scanner->get_method_implementations( ).
-        LOOP AT lt_methods INTO lv_method.
-          TRY.
-              lt_source = lo_scanner->get_method_impl_source( lv_method ).
-            CATCH cx_oo_clif_component.
-              CONTINUE.
-          ENDTRY.
-
-          ls_mtdkey-clsname = iv_class_name.
-          ls_mtdkey-cpdname = lv_method.
-
-          cl_oo_classname_service=>get_method_include(
-            EXPORTING
-              mtdkey              = ls_mtdkey
-            RECEIVING
-              result              = lv_program
-            EXCEPTIONS
-              method_not_existing = 1
-              OTHERS              = 2 ).
-
-          IF sy-subrc = 0 AND lv_program IS NOT INITIAL.
-            write_inactive_include( iv_include = lv_program it_source = lt_source ).
-          ENDIF.
-        ENDLOOP.
-
-        " 3. Run syntax check using SYNTAX-CHECK on original source
-        rs_result = run_class_check(
-          iv_class_name = iv_class_name
-          it_source     = it_source ).
-
-      CATCH cx_root INTO DATA(lx_error).
-        rs_result-success = abap_false.
-        rs_result-error_count = 1.
-        rs_result-errors = VALUE #( (
-          line = 1
-          text = lx_error->get_text( ) ) ).
-        rs_result-message = lx_error->get_text( ).
-    ENDTRY.
-
-    " 4. Cleanup - ALWAYS executed
-    cleanup_all_includes( ).
+    IF sy-subrc = 0.
+      rs_result-success = abap_true.
+      rs_result-error_count = 0.
+      rs_result-message = 'Syntax check passed'.
+    ELSE.
+      rs_result-success = abap_false.
+      rs_result-error_count = 1.
+      rs_result-errors = VALUE #( (
+        line   = lv_line
+        text   = lv_msg
+        word   = lv_word ) ).
+      rs_result-message = lv_msg.
+    ENDIF.
   ENDMETHOD.
 
 
