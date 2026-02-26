@@ -1,6 +1,7 @@
 "! <p class="shorttext synchronized">Syntax Checker - Working Area Approach</p>
 "! Checks ABAP source code syntax without activation using the working area approach.
 "! Writes source to inactive includes, runs syntax check, and cleans up.
+"! Version: 2.0 - Added EXTENSION TYPE support for CCDEF/CCIMP includes.
 CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
