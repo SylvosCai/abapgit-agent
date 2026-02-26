@@ -161,8 +161,8 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
         line = 1
-        text = |Unsupported object type: { is_object-type }. Supported: CLAS, INTF, PROG| ) ).
-      rs_result-message = |Unsupported object type: { is_object-type }|.
+        text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG. Use 'pull' command for other object types.| ) ).
+      rs_result-message = |Unsupported object type: { is_object-type }. Use 'pull' command instead.|.
       RETURN.
     ENDIF.
 
