@@ -1,7 +1,7 @@
 ---
 layout: default
 title: syntax - Source Syntax Check
-nav_order: 3
+nav_order: 2
 parent: Development Commands
 ---
 
