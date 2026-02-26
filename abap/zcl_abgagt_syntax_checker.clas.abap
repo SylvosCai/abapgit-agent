@@ -136,14 +136,16 @@ CLASS zcl_abgagt_syntax_checker DEFINITION PUBLIC FINAL CREATE PUBLIC.
     "! Cleanup all written includes
     METHODS cleanup_all_includes.
 
-    "! Run SEO_CLASS_CHECK_CLASSPOOL and collect errors
+    "! Run syntax check on class source using SYNTAX-CHECK statement
     METHODS run_class_check
       IMPORTING iv_class_name   TYPE seoclsname
+                it_source       TYPE string_table
       RETURNING VALUE(rs_result) TYPE ty_result.
 
-    "! Run SEO_INTERFACE_CHECK_INTFPOOL and collect errors
+    "! Run syntax check on interface source using SYNTAX-CHECK statement
     METHODS run_interface_check
       IMPORTING iv_intf_name    TYPE seoclsname
+                it_source       TYPE string_table
       RETURNING VALUE(rs_result) TYPE ty_result.
 
     "! Build class skeleton for SYNTAX-CHECK statement
@@ -253,8 +255,10 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
 
-        " 3. Run syntax check
-        rs_result = run_class_check( iv_class_name ).
+        " 3. Run syntax check using SYNTAX-CHECK on original source
+        rs_result = run_class_check(
+          iv_class_name = iv_class_name
+          it_source     = it_source ).
 
       CATCH cx_root INTO DATA(lx_error).
         rs_result-success = abap_false.
@@ -367,8 +371,10 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
 
-        " 3. Run syntax check
-        rs_result = run_class_check( iv_class_name ).
+        " 3. Run syntax check using SYNTAX-CHECK on original source
+        rs_result = run_class_check(
+          iv_class_name = iv_class_name
+          it_source     = it_source ).
 
       CATCH cx_root INTO DATA(lx_error).
         rs_result-success = abap_false.
@@ -415,8 +421,10 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
         lv_program = cl_oo_classname_service=>get_pubsec_name( iv_intf_name ).
         write_inactive_include( iv_include = lv_program it_source = it_source ).
 
-        " 3. Run syntax check
-        rs_result = run_interface_check( iv_intf_name ).
+        " 3. Run syntax check using SYNTAX-CHECK on original source
+        rs_result = run_interface_check(
+          iv_intf_name = iv_intf_name
+          it_source    = it_source ).
 
       CATCH cx_root INTO DATA(lx_error).
         rs_result-success = abap_false.
@@ -565,34 +573,23 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           lv_line       TYPE i,
           lv_word       TYPE string,
           lv_classpool  TYPE syrepid,
-          lt_full_source TYPE string_table,
-          lv_include    TYPE syrepid,
-          lt_inc_source TYPE string_table.
+          lt_skeleton   TYPE string_table.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
 
-    " Build complete class source from all inactive includes we wrote
-    " Start with CLASS-POOL statement
-    APPEND 'CLASS-POOL.' TO lt_full_source.
+    " Build class skeleton from original source
+    lt_skeleton = build_class_skeleton(
+      iv_class_name = iv_class_name
+      it_source     = it_source ).
 
-    " Read and concatenate all inactive includes in order:
-    " 1. Class definition sections (CU=public, CO=protected, CP=private)
-    " 2. Method implementations
-    LOOP AT mt_written_includes INTO lv_include.
-      READ REPORT lv_include INTO lt_inc_source STATE 'I'.
-      IF sy-subrc = 0.
-        APPEND LINES OF lt_inc_source TO lt_full_source.
-      ENDIF.
-    ENDLOOP.
-
-    IF lt_full_source IS INITIAL OR lines( lt_full_source ) <= 1.
+    IF lt_skeleton IS INITIAL.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
         line = 1
-        text = 'No source includes found for syntax check' ) ).
-      rs_result-message = 'No source includes found'.
+        text = 'Failed to build class skeleton for syntax check' ) ).
+      rs_result-message = 'Failed to build class skeleton'.
       RETURN.
     ENDIF.
 
@@ -607,7 +604,7 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check on the complete source
-    SYNTAX-CHECK FOR lt_full_source
+    SYNTAX-CHECK FOR lt_skeleton
       MESSAGE lv_msg
       LINE lv_line
       WORD lv_word
@@ -635,34 +632,15 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           lv_line       TYPE i,
           lv_word       TYPE string,
           lv_intfpool   TYPE syrepid,
-          lt_full_source TYPE string_table,
-          lv_include    TYPE syrepid,
-          lt_inc_source TYPE string_table.
+          lt_skeleton   TYPE string_table.
 
     rs_result-object_type = 'INTF'.
     rs_result-object_name = iv_intf_name.
 
-    " Build complete interface source from inactive includes
-    " Start with INTERFACE-POOL statement
-    APPEND 'INTERFACE-POOL.' TO lt_full_source.
-
-    " Read and concatenate inactive includes
-    LOOP AT mt_written_includes INTO lv_include.
-      READ REPORT lv_include INTO lt_inc_source STATE 'I'.
-      IF sy-subrc = 0.
-        APPEND LINES OF lt_inc_source TO lt_full_source.
-      ENDIF.
-    ENDLOOP.
-
-    IF lt_full_source IS INITIAL OR lines( lt_full_source ) <= 1.
-      rs_result-success = abap_false.
-      rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = 'No source includes found for syntax check' ) ).
-      rs_result-message = 'No source includes found'.
-      RETURN.
-    ENDIF.
+    " Build interface skeleton from original source
+    " Start with INTERFACE-POOL statement, then append source
+    APPEND 'INTERFACE-POOL.' TO lt_skeleton.
+    APPEND LINES OF it_source TO lt_skeleton.
 
     " Get TRDIR entry for interface pool (for context)
     lv_intfpool = cl_oo_classname_service=>get_interfacepool_name( iv_intf_name ).
@@ -674,7 +652,7 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
     ENDIF.
 
     " Run syntax check on the complete source
-    SYNTAX-CHECK FOR lt_full_source
+    SYNTAX-CHECK FOR lt_skeleton
       MESSAGE lv_msg
       LINE lv_line
       WORD lv_word
