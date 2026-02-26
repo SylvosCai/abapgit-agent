@@ -2,7 +2,7 @@
  * Unit tests for list command - ABAPGitAgent
  */
 
-const verifiers = require('../integration/verify-output-spec');
+const verifiers = require('../helpers/verify-output-spec');
 
 // Mock fs module
 jest.mock('fs', () => ({

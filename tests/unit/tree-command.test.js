@@ -3,7 +3,7 @@
  * Tests package hierarchy display
  */
 
-const verifiers = require('../integration/verify-output-spec');
+const verifiers = require('../helpers/verify-output-spec');
 
 // Mock fs module
 jest.mock('fs', () => ({
