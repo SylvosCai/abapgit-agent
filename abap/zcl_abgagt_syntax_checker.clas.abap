@@ -154,7 +154,7 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           lv_program    TYPE syrepid,
           lt_source     TYPE string_table,
           lt_methods    TYPE cl_oo_source_scanner_class=>type_method_implementations,
-          lv_method     TYPE seocmpname,
+          lv_method     TYPE seocpdname,
           ls_mtdkey     TYPE seocpdkey,
           lx_scan_error TYPE REF TO cx_root.
 
@@ -203,27 +203,9 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
           write_inactive_include( iv_include = lv_program it_source = lt_source ).
         ENDIF.
 
-        " Local definitions (if any)
-        TRY.
-            lt_source = lo_scanner->get_local_def_section_source( ).
-            IF lt_source IS NOT INITIAL.
-              lv_program = cl_oo_classname_service=>get_ccdef_name( iv_class_name ).
-              write_inactive_include( iv_include = lv_program it_source = lt_source ).
-            ENDIF.
-          CATCH cx_root.
-            " No local definitions
-        ENDTRY.
-
-        " Local implementations (if any)
-        TRY.
-            lt_source = lo_scanner->get_local_imp_section_source( ).
-            IF lt_source IS NOT INITIAL.
-              lv_program = cl_oo_classname_service=>get_ccimp_name( iv_class_name ).
-              write_inactive_include( iv_include = lv_program it_source = lt_source ).
-            ENDIF.
-          CATCH cx_root.
-            " No local implementations
-        ENDTRY.
+        " Note: Local definitions/implementations (CCDEF, CCIMP) are separate includes
+        " and not part of the main class source scanned here. They would need to be
+        " provided separately if syntax checking local classes is required.
 
         " Method implementations
         lt_methods = lo_scanner->get_method_implementations( ).
@@ -354,11 +336,12 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
 
 
   METHOD check_class_syntax_statement.
-    DATA: lv_msg      TYPE string,
-          lv_line     TYPE i,
-          lv_word     TYPE string,
-          ls_dir      TYPE trdir,
-          lt_skeleton TYPE string_table.
+    DATA: lv_msg       TYPE string,
+          lv_line      TYPE i,
+          lv_word      TYPE string,
+          ls_dir       TYPE trdir,
+          lt_skeleton  TYPE string_table,
+          lv_classpool TYPE syrepid.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
@@ -379,8 +362,8 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
     ENDIF.
 
     " Try to get TRDIR entry from existing class (for context)
-    DATA(lv_classpool) = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
-    SELECT SINGLE * FROM trdir WHERE name = @lv_classpool INTO @ls_dir.
+    lv_classpool = cl_oo_classname_service=>get_classpool_name( iv_class_name ).
+    SELECT SINGLE * FROM trdir INTO ls_dir WHERE name = lv_classpool.
     IF sy-subrc <> 0.
       " Class doesn't exist - use default settings
       CLEAR ls_dir.
@@ -549,9 +532,9 @@ CLASS zcl_abgagt_syntax_checker IMPLEMENTATION.
   METHOD get_method_name_by_index.
     " Get method name from TMDIR by method index
     SELECT SINGLE cmpname FROM tmdir
-      WHERE clsname = @iv_class_name
-        AND methodindx = @iv_method_index
-      INTO @rv_name.
+      INTO rv_name
+      WHERE clsname = iv_class_name
+        AND methodindx = iv_method_index.
   ENDMETHOD.
 
 
