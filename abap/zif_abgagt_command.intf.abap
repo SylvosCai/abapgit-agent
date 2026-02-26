@@ -14,7 +14,8 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_view TYPE string VALUE 'VIEW',
     gc_preview TYPE string VALUE 'PREVIEW',
     gc_list TYPE string VALUE 'LIST',
-    gc_where TYPE string VALUE 'WHERE'.
+    gc_where TYPE string VALUE 'WHERE',
+    gc_syntax TYPE string VALUE 'SYNTAX'.
 
   " Get command name
   METHODS get_name
