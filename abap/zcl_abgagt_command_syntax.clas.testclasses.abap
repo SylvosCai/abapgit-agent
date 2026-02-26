@@ -56,8 +56,8 @@ CLASS ltcl_cmd_syntax DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_exec_multi_objects FOR TESTING.
     METHODS test_exec_unsupported_type FOR TESTING.
     METHODS test_exec_class_with_locals FOR TESTING.
-    METHODS test_exec_class_locals_def_only FOR TESTING.
-    METHODS test_exec_class_locals_imp_only FOR TESTING.
+    METHODS test_exec_clas_locals_def FOR TESTING.
+    METHODS test_exec_clas_locals_imp FOR TESTING.
     METHODS test_exec_prog_with_uccheck FOR TESTING.
     METHODS test_exec_invalid_uccheck FOR TESTING.
     METHODS test_exec_mixed_success_fail FOR TESTING.
@@ -329,7 +329,7 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
       msg = 'Result should contain class name' ).
   ENDMETHOD.
 
-  METHOD test_exec_class_locals_def_only.
+  METHOD test_exec_clas_locals_def.
     " Test execute with class that has only local definitions (no implementations)
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
 
@@ -358,7 +358,7 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
       msg = 'Result should contain class name' ).
   ENDMETHOD.
 
-  METHOD test_exec_class_locals_imp_only.
+  METHOD test_exec_clas_locals_imp.
     " Test execute with class that has only local implementations (no definitions)
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
 
