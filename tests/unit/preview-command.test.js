@@ -3,7 +3,28 @@
  * Tests object parsing, argument handling, and formatting
  */
 
-describe('Preview Command', () => {
+const verifiers = require('../integration/verify-output-spec');
+
+// Mock fs module
+jest.mock('fs', () => ({
+  existsSync: jest.fn(() => true),
+  readFileSync: jest.fn(() => 'mock content')
+}));
+
+// Mock path module
+jest.mock('path', () => ({
+  isAbsolute: jest.fn(() => false),
+  join: jest.fn((...args) => args.join('/')),
+  resolve: jest.fn((...args) => '/' + args.join('/')),
+  basename: jest.fn((p) => p.split('/').pop())
+}));
+
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('Preview Command - Logic Tests', () => {
   describe('Object parsing', () => {
     test('parses single table name', () => {
       const objectsArg = 'SFLIGHT';
@@ -208,5 +229,161 @@ describe('Preview Command', () => {
 
       expect(request.columns.length).toBe(3);
     });
+  });
+});
+
+describe('Preview Command - CLI Output Format', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('output matches spec format for table preview', async () => {
+    const previewCommand = require('../../src/commands/preview');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          COMMAND: 'PREVIEW',
+          OBJECTS: [{
+            NAME: 'SFLIGHT',
+            TYPE: 'TABL',
+            TYPE_TEXT: 'Table',
+            ROW_COUNT: 2,
+            TOTAL_ROWS: 10,
+            ROWS: [
+              { CARRID: 'AA', CONNID: '0017', FLDATE: '20240201', PRICE: '422.94' },
+              { CARRID: 'LH', CONNID: '0400', FLDATE: '20240202', PRICE: '515.17' }
+            ],
+            FIELDS: [
+              { FIELD: 'CARRID', TYPE: 'CHAR', LENGTH: 3 },
+              { FIELD: 'CONNID', TYPE: 'NUMC', LENGTH: 4 },
+              { FIELD: 'FLDATE', TYPE: 'DATS', LENGTH: 8 },
+              { FIELD: 'PRICE', TYPE: 'CURR', LENGTH: 16 }
+            ],
+            COLUMNS_DISPLAYED: 4,
+            COLUMNS_HIDDEN: []
+          }],
+          SUMMARY: { TOTAL_OBJECTS: 1, TOTAL_ROWS: 2 },
+          ERROR: ''
+        })
+      }))
+    };
+
+    await previewCommand.execute(['--objects', 'SFLIGHT'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format using verifier
+    const verified = verifiers.verifyPreviewOutput(output, 'SFLIGHT');
+    expect(verified).toBe(true);
+
+    // Additional specific checks
+    expect(output).toMatch(/📊/); // Preview icon
+    expect(output).toMatch(/SFLIGHT/);
+    expect(output).toMatch(/┌/); // Table borders
+    expect(output).toMatch(/│/);
+    expect(output).toMatch(/of.*rows/); // Row count
+  });
+
+  test('output shows pagination info with limit', async () => {
+    const previewCommand = require('../../src/commands/preview');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          OBJECTS: [{
+            NAME: 'SFLIGHT',
+            TYPE: 'TABL',
+            TYPE_TEXT: 'Table',
+            ROW_COUNT: 5,
+            TOTAL_ROWS: 100,
+            ROWS: Array(5).fill({ CARRID: 'AA', CONNID: '0017' }),
+            FIELDS: [
+              { FIELD: 'CARRID', TYPE: 'CHAR', LENGTH: 3 },
+              { FIELD: 'CONNID', TYPE: 'NUMC', LENGTH: 4 }
+            ],
+            COLUMNS_DISPLAYED: 2,
+            COLUMNS_HIDDEN: []
+          }],
+          PAGINATION: {
+            LIMIT: 5,
+            OFFSET: 0,
+            TOTAL: 100,
+            HAS_MORE: true,
+            NEXT_OFFSET: 5
+          },
+          ERROR: ''
+        })
+      }))
+    };
+
+    await previewCommand.execute(['--objects', 'SFLIGHT', '--limit', '5'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/5 of 100/); // Pagination text
+    expect(output).toMatch(/--offset 5/); // Next offset suggestion
+  });
+
+  test('output shows vertical format when requested', async () => {
+    const previewCommand = require('../../src/commands/preview');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          OBJECTS: [{
+            NAME: 'SFLIGHT',
+            TYPE: 'TABL',
+            TYPE_TEXT: 'Table',
+            ROW_COUNT: 1,
+            TOTAL_ROWS: 1,
+            ROWS: [
+              { CARRID: 'AA', CONNID: '0017', FLDATE: '20240201' }
+            ],
+            FIELDS: [
+              { FIELD: 'CARRID', TYPE: 'CHAR', LENGTH: 3 },
+              { FIELD: 'CONNID', TYPE: 'NUMC', LENGTH: 4 },
+              { FIELD: 'FLDATE', TYPE: 'DATS', LENGTH: 8 }
+            ],
+            COLUMNS_DISPLAYED: 3,
+            COLUMNS_HIDDEN: []
+          }],
+          ERROR: ''
+        })
+      }))
+    };
+
+    await previewCommand.execute(['--objects', 'SFLIGHT', '--vertical'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // In vertical mode, field names are shown with colons on their own lines
+    expect(output).toMatch(/CARRID:/); // Field name on its own line
+    expect(output).toMatch(/CONNID:/);
+    expect(output).toMatch(/FLDATE:/);
+    // Fields appear in order without table borders
+    expect(output).not.toMatch(/┌/); // No table borders in vertical mode
   });
 });
