@@ -1,0 +1,321 @@
+/**
+ * Init command - Initialize local repository configuration
+ */
+
+const pathModule = require('path');
+const fs = require('fs');
+
+/**
+ * Copy a file if source exists (helper for init --update)
+ */
+async function copyFileIfExists(srcPath, destPath, label, createParentDir = false) {
+  try {
+    if (fs.existsSync(srcPath)) {
+      if (createParentDir) {
+        const parentDir = pathModule.dirname(destPath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+      }
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`✅ Updated ${label}`);
+    } else {
+      console.log(`⚠️  ${label} not found in abapgit-agent`);
+    }
+  } catch (error) {
+    console.error(`Error copying ${label}: ${error.message}`);
+  }
+}
+
+/**
+ * Copy guidelines folder (helper for init --update)
+ */
+async function copyGuidelinesFolder(srcPath, destPath, overwrite = false) {
+  try {
+    if (fs.existsSync(srcPath)) {
+      // Create destination directory if needed
+      if (!fs.existsSync(destPath)) {
+        fs.mkdirSync(destPath, { recursive: true });
+      }
+
+      const files = fs.readdirSync(srcPath);
+      let copied = 0;
+
+      for (const file of files) {
+        if (file.endsWith('.md')) {
+          const srcFile = pathModule.join(srcPath, file);
+          const destFile = pathModule.join(destPath, file);
+
+          // Skip if file exists and not overwriting
+          if (fs.existsSync(destFile) && !overwrite) {
+            continue;
+          }
+
+          fs.copyFileSync(srcFile, destFile);
+          copied++;
+        }
+      }
+
+      if (copied > 0) {
+        console.log(`✅ Updated guidelines/ (${copied} files)`);
+      } else {
+        console.log(`⚠️  No guideline files found`);
+      }
+    } else {
+      console.log(`⚠️  guidelines folder not found in abapgit-agent`);
+    }
+  } catch (error) {
+    console.error(`Error copying guidelines: ${error.message}`);
+  }
+}
+
+module.exports = {
+  name: 'init',
+  description: 'Initialize local repository configuration',
+  requiresAbapConfig: false,
+  requiresVersionCheck: false,
+
+  async execute(args, context) {
+    const { gitUtils } = context;
+
+    const folderArgIndex = args.indexOf('--folder');
+    const packageArgIndex = args.indexOf('--package');
+    const updateMode = args.includes('--update');
+
+    // Get parameters
+    let folder = folderArgIndex !== -1 && folderArgIndex + 1 < args.length
+      ? args[folderArgIndex + 1]
+      : '/src/';
+
+    // Normalize folder path: ensure it starts with / and ends with /
+    folder = folder.trim();
+    if (!folder.startsWith('/')) {
+      folder = '/' + folder;
+    }
+    if (!folder.endsWith('/')) {
+      folder = folder + '/';
+    }
+
+    const packageName = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
+      ? args[packageArgIndex + 1]
+      : null;
+
+    // Validate package is required for non-update mode
+    if (!updateMode && !packageName) {
+      console.error('Error: --package is required');
+      console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
+      console.error('       abapgit-agent init --update    # Update files to latest version');
+      process.exit(1);
+    }
+
+    // Check if current folder is git repo root
+    const gitDir = pathModule.join(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) {
+      console.error('Error: Current folder is not a git repository.');
+      console.error('Run this command from the root folder of your git repository.');
+      process.exit(1);
+    }
+
+    // In update mode, just copy the files and return
+    if (updateMode) {
+      console.log(`\n🔄 Updating abapGit Agent files`);
+      console.log('');
+
+      // Copy CLAUDE.md
+      await copyFileIfExists(
+        pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.md'),
+        pathModule.join(process.cwd(), 'CLAUDE.md'),
+        'CLAUDE.md'
+      );
+
+      // Copy copilot-instructions.md
+      await copyFileIfExists(
+        pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.md'),
+        pathModule.join(process.cwd(), '.github', 'copilot-instructions.md'),
+        '.github/copilot-instructions.md',
+        true  // create parent dir
+      );
+
+      // Copy guidelines folder to project root
+      await copyGuidelinesFolder(
+        pathModule.join(__dirname, '..', '..', 'abap', 'guidelines'),
+        pathModule.join(process.cwd(), 'guidelines'),
+        true  // overwrite
+      );
+
+      console.log(`
+📋 Update complete!
+   Run 'abapgit-agent ref --list-topics' to see available topics.
+`);
+      return;
+    }
+
+    // Validate package is required
+    if (!packageName) {
+      console.error('Error: --package is required');
+      console.error('Usage: abapgit-agent init --folder /src --package ZMY_PACKAGE');
+      console.error('       abapgit-agent init --update    # Update files to latest version');
+      process.exit(1);
+    }
+
+    console.log(`\n🚀 Initializing abapGit Agent for local repository`);
+    console.log(`   Folder: ${folder}`);
+    console.log(`   Package: ${packageName}`);
+    console.log('');
+
+    // Detect git remote URL
+    const gitUrl = gitUtils.getRemoteUrl();
+    if (!gitUrl) {
+      console.error('Error: No git remote configured.');
+      console.error('Configure a remote with: git remote add origin <url>');
+      process.exit(1);
+    }
+    console.log(`📌 Git remote: ${gitUrl}`);
+
+    // Check if .abapGitAgent already exists
+    const configPath = pathModule.join(process.cwd(), '.abapGitAgent');
+    if (fs.existsSync(configPath)) {
+      console.error('Error: .abapGitAgent already exists.');
+      console.error('To reinitialize, delete the existing file first.');
+      process.exit(1);
+    }
+
+    // Copy .abapGitAgent.example to .abapGitAgent
+    const samplePath = pathModule.join(__dirname, '..', '..', '.abapGitAgent.example');
+    if (!fs.existsSync(samplePath)) {
+      console.error('Error: .abapGitAgent.example not found.');
+      process.exit(1);
+    }
+
+    try {
+      // Read sample and update with package/folder
+      const sampleContent = fs.readFileSync(samplePath, 'utf8');
+      const config = JSON.parse(sampleContent);
+      config.package = packageName;
+      config.folder = folder;
+
+      // Write updated config
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+      console.log(`✅ Created .abapGitAgent`);
+    } catch (error) {
+      console.error(`Error creating .abapGitAgent: ${error.message}`);
+      process.exit(1);
+    }
+
+    // Update .gitignore
+    const gitignorePath = pathModule.join(process.cwd(), '.gitignore');
+    const ignoreEntries = ['.abapGitAgent', '.abapgit_agent_cookies.txt'];
+    let existingIgnore = '';
+
+    if (fs.existsSync(gitignorePath)) {
+      existingIgnore = fs.readFileSync(gitignorePath, 'utf8');
+    }
+
+    let updated = false;
+    let newIgnoreContent = existingIgnore;
+
+    for (const entry of ignoreEntries) {
+      if (!newIgnoreContent.includes(entry)) {
+        if (newIgnoreContent && !newIgnoreContent.endsWith('\n')) {
+          newIgnoreContent += '\n';
+        }
+        newIgnoreContent += entry + '\n';
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      fs.writeFileSync(gitignorePath, newIgnoreContent);
+      console.log(`✅ Updated .gitignore`);
+    } else {
+      fs.writeFileSync(gitignorePath, newIgnoreContent);
+      console.log(`✅ .gitignore already up to date`);
+    }
+
+    // Copy CLAUDE.md
+    const claudeMdPath = pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.md');
+    const localClaudeMdPath = pathModule.join(process.cwd(), 'CLAUDE.md');
+    try {
+      if (fs.existsSync(claudeMdPath)) {
+        fs.copyFileSync(claudeMdPath, localClaudeMdPath);
+        console.log(`✅ Created CLAUDE.md`);
+      } else {
+        console.log(`⚠️  CLAUDE.md not found in abap/ directory`);
+      }
+    } catch (error) {
+      console.error(`Error copying CLAUDE.md: ${error.message}`);
+    }
+
+    // Copy copilot-instructions.md for GitHub Copilot
+    const copilotMdPath = pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.md');
+    const githubDir = pathModule.join(process.cwd(), '.github');
+    const localCopilotMdPath = pathModule.join(githubDir, 'copilot-instructions.md');
+    try {
+      if (fs.existsSync(copilotMdPath)) {
+        // Ensure .github directory exists
+        if (!fs.existsSync(githubDir)) {
+          fs.mkdirSync(githubDir, { recursive: true });
+        }
+        fs.copyFileSync(copilotMdPath, localCopilotMdPath);
+        console.log(`✅ Created .github/copilot-instructions.md`);
+      } else {
+        console.log(`⚠️  copilot-instructions.md not found in abap/ directory`);
+      }
+    } catch (error) {
+      console.error(`Error copying copilot-instructions.md: ${error.message}`);
+    }
+
+    // Copy guidelines folder to project root
+    const guidelinesSrcPath = pathModule.join(__dirname, '..', '..', 'abap', 'guidelines');
+    const guidelinesDestPath = pathModule.join(process.cwd(), 'guidelines');
+    try {
+      if (fs.existsSync(guidelinesSrcPath)) {
+        if (!fs.existsSync(guidelinesDestPath)) {
+          // Create guidelines directory
+          fs.mkdirSync(guidelinesDestPath, { recursive: true });
+          // Copy all files from guidelines folder
+          const files = fs.readdirSync(guidelinesSrcPath);
+          for (const file of files) {
+            if (file.endsWith('.md')) {
+              fs.copyFileSync(
+                pathModule.join(guidelinesSrcPath, file),
+                pathModule.join(guidelinesDestPath, file)
+              );
+            }
+          }
+          console.log(`✅ Created guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
+        } else {
+          console.log(`⚠️  guidelines/ already exists, skipped`);
+        }
+      } else {
+        console.log(`⚠️  guidelines folder not found in abap/ directory`);
+      }
+    } catch (error) {
+      console.error(`Error copying guidelines: ${error.message}`);
+    }
+
+    // Create folder
+    const folderPath = pathModule.join(process.cwd(), folder);
+    try {
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+        console.log(`✅ Created folder: ${folder}`);
+
+        // Create .gitkeep
+        const gitkeepPath = pathModule.join(folderPath, '.gitkeep');
+        fs.writeFileSync(gitkeepPath, '');
+      } else {
+        console.log(`✅ Folder already exists: ${folder}`);
+      }
+    } catch (error) {
+      console.error(`Error creating folder: ${error.message}`);
+    }
+
+    console.log(`
+📋 Next steps:
+   1. Edit .abapGitAgent with your ABAP credentials (host, user, password)
+   2. Run 'abapgit-agent create --import' to create online repository
+   3. Run 'abapgit-agent pull' to activate objects
+`);
+  }
+};
