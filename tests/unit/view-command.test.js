@@ -3,7 +3,28 @@
  * Tests object parsing and request building
  */
 
-describe('View Command', () => {
+const verifiers = require('../integration/verify-output-spec');
+
+// Mock fs module
+jest.mock('fs', () => ({
+  existsSync: jest.fn(() => true),
+  readFileSync: jest.fn(() => 'mock content')
+}));
+
+// Mock path module
+jest.mock('path', () => ({
+  isAbsolute: jest.fn(() => false),
+  join: jest.fn((...args) => args.join('/')),
+  resolve: jest.fn((...args) => '/' + args.join('/')),
+  basename: jest.fn((p) => p.split('/').pop())
+}));
+
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('View Command - Logic Tests', () => {
   describe('Object parsing', () => {
     test('parses single object name', () => {
       const objectsArg = 'ZCL_MY_CLASS';
@@ -180,5 +201,131 @@ describe('View Command', () => {
 
       expect(type).toBe('DDLS');
     });
+  });
+});
+
+describe('View Command - CLI Output Format', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('output matches spec format for class view', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          command: 'VIEW',
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZCL_MY_CLASS',
+            type: 'CLAS',
+            type_text: 'Class',
+            description: 'Class ZCL_MY_CLASS in $PACKAGE',
+            source: 'CLASS zcl_my_class DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    METHODS: constructor.\nENDCLASS.',
+            not_found: false
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_MY_CLASS'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format using verifier
+    const verified = verifiers.verifyViewOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Additional specific checks
+    expect(output).toMatch(/📖/); // View icon
+    expect(output).toMatch(/ZCL_MY_CLASS/);
+    expect(output).toMatch(/\(Class\)/);
+    expect(output).toMatch(/CLASS zcl_my_class/); // Source code
+  });
+
+  test('output handles multiple objects', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          objects: [
+            {
+              name: 'ZCL_CLASS1',
+              type: 'CLAS',
+              type_text: 'Class',
+              description: 'Class ZCL_CLASS1',
+              source: 'CLASS zcl_class1 DEFINITION...',
+              not_found: false
+            },
+            {
+              name: 'ZIF_INTERFACE1',
+              type: 'INTF',
+              type_text: 'Interface',
+              description: 'Interface ZIF_INTERFACE1',
+              source: 'INTERFACE zif_interface1 PUBLIC...',
+              not_found: false
+            }
+          ],
+          summary: { total: 2 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_CLASS1,ZIF_INTERFACE1'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/ZCL_CLASS1/);
+    expect(output).toMatch(/ZIF_INTERFACE1/);
+    expect(output).toMatch(/\(Class\)/);
+    expect(output).toMatch(/\(Interface\)/);
+  });
+
+  test('output handles object not found', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: false,
+          objects: [{
+            name: 'ZCL_NONEXISTENT',
+            not_found: true
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_NONEXISTENT'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // When success=false, shows error message
+    expect(output).toMatch(/Error:|Failed/i);
   });
 });
