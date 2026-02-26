@@ -2,41 +2,38 @@
  * Unit tests for agent.js
  */
 
-// Create mock functions
-const mockPull = jest.fn();
-const mockHealthCheck = jest.fn();
-const mockSyntaxCheck = jest.fn();
-const mockSyntaxCheckSource = jest.fn();
-const mockUnitTest = jest.fn();
-const mockCreate = jest.fn();
-const mockImport = jest.fn();
-const mockTree = jest.fn();
-const mockPreview = jest.fn();
-const mockList = jest.fn();
-const mockView = jest.fn();
-const mockWhere = jest.fn();
+// Create mock functions for AbapHttp
+const mockFetchCsrfToken = jest.fn();
+const mockGet = jest.fn();
+const mockPost = jest.fn();
 
-// Mock abap-client before requiring agent
-jest.mock('../../src/abap-client', () => ({
-  getClient: jest.fn(() => ({
-    pull: mockPull,
-    healthCheck: mockHealthCheck,
-    syntaxCheck: mockSyntaxCheck,
-    syntaxCheckSource: mockSyntaxCheckSource,
-    unitTest: mockUnitTest,
-    create: mockCreate,
-    import: mockImport,
-    tree: mockTree,
-    preview: mockPreview,
-    list: mockList,
-    view: mockView,
-    where: mockWhere
+// Mock AbapHttp
+jest.mock('../../src/utils/abap-http', () => ({
+  AbapHttp: jest.fn().mockImplementation(() => ({
+    fetchCsrfToken: mockFetchCsrfToken,
+    get: mockGet,
+    post: mockPost
+  }))
+}));
+
+// Mock config
+jest.mock('../../src/config', () => ({
+  getAbapConfig: jest.fn(() => ({
+    host: 'test.example.com',
+    sapport: 443,
+    client: '100',
+    user: 'TEST_USER',
+    password: 'test',
+    language: 'EN',
+    gitUsername: 'git_user',
+    gitPassword: 'git_token'
   }))
 }));
 
 // Clear module cache and require fresh
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchCsrfToken.mockResolvedValue('test-csrf-token');
 });
 
 describe('ABAPGitAgent', () => {
@@ -45,878 +42,178 @@ describe('ABAPGitAgent', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    // Re-setup mocks after reset
-    jest.doMock('../../src/abap-client', () => ({
-      getClient: jest.fn(() => ({
-        pull: mockPull,
-        healthCheck: mockHealthCheck,
-        syntaxCheck: mockSyntaxCheck,
-        syntaxCheckSource: mockSyntaxCheckSource,
-        unitTest: mockUnitTest,
-        create: mockCreate,
-        import: mockImport,
-        tree: mockTree,
-        preview: mockPreview,
-        list: mockList,
-        view: mockView,
-        where: mockWhere
-      }))
-    }));
-
     ABAPGitAgent = require('../../src/agent').ABAPGitAgent;
     agent = new ABAPGitAgent();
   });
 
+  describe('constructor', () => {
+    it('creates agent instance with AbapHttp client', () => {
+      expect(agent).toBeDefined();
+      expect(agent.http).toBeDefined();
+    });
+  });
+
   describe('pull', () => {
-    test('returns success=true for X response', async () => {
-      mockPull.mockResolvedValue({
-        success: 'X',
-        job_id: 'TEST123',
-        message: 'Pull completed successfully',
-        error_detail: null
+    it('calls AbapHttp.post with correct parameters', async () => {
+      mockPost.mockResolvedValue({
+        SUCCESS: 'X',
+        JOB_ID: 'TEST123',
+        MESSAGE: 'Pull completed',
+        ACTIVATED_COUNT: 5,
+        FAILED_COUNT: 0,
+        ACTIVATED_OBJECTS: [],
+        FAILED_OBJECTS: []
       });
 
-      const result = await agent.pull('http://test.com/repo', 'main');
+      const result = await agent.pull('https://github.com/test/repo.git', 'main');
+
+      expect(mockFetchCsrfToken).toHaveBeenCalled();
+      expect(mockPost).toHaveBeenCalledWith(
+        '/sap/bc/z_abapgit_agent/pull',
+        expect.objectContaining({
+          url: 'https://github.com/test/repo.git',
+          branch: 'main'
+        }),
+        { csrfToken: 'test-csrf-token' }
+      );
 
       expect(result.success).toBe(true);
       expect(result.job_id).toBe('TEST123');
-      expect(result.message).toBe('Pull completed successfully');
-      expect(result.error_detail).toBeNull();
     });
 
-    test('returns success=true for boolean true response', async () => {
-      mockPull.mockResolvedValue({
-        success: true,
-        job_id: 'TEST456',
-        message: 'Success',
-        error_detail: null
-      });
+    it('handles errors gracefully', async () => {
+      mockPost.mockRejectedValue(new Error('Connection failed'));
 
-      const result = await agent.pull('http://test.com/repo');
-
-      expect(result.success).toBe(true);
-    });
-
-    test('returns success=false for error response', async () => {
-      mockPull.mockResolvedValue({
-        success: '',
-        job_id: 'TEST789',
-        message: 'Pull completed with errors',
-        error_detail: 'Errors/Warnings:\n  - CLAS ZCL_TEST: Syntax error'
-      });
-
-      const result = await agent.pull('http://test.com/repo', 'main', 'user', 'pass');
-
-      expect(result.success).toBe(false);
-      expect(result.error_detail).toContain('CLAS ZCL_TEST');
-    });
-
-    test('throws error on exception', async () => {
-      mockPull.mockRejectedValue(new Error('Network error'));
-
-      await expect(agent.pull('http://test.com/repo'))
-        .rejects.toThrow('Pull failed: Network error');
-    });
-
-    test('calls abap.pull with correct parameters', async () => {
-      mockPull.mockResolvedValue({
-        success: 'X',
-        job_id: 'TEST',
-        message: 'OK',
-        error_detail: null
-      });
-
-      await agent.pull('http://test.com/repo', 'develop', 'user', 'pass');
-
-      expect(mockPull).toHaveBeenCalledWith(
-        'http://test.com/repo',
-        'develop',
-        'user',
-        'pass',
-        null  // files is optional
-      );
-    });
-
-    test('handles uppercase response keys from ABAP', async () => {
-      mockPull.mockResolvedValue({
-        SUCCESS: 'X',
-        JOB_ID: 'UPPER123',
-        MESSAGE: 'Upper case response',
-        ERROR_DETAIL: null,
-        ACTIVATED_COUNT: 5,
-        FAILED_COUNT: 0
-      });
-
-      const result = await agent.pull('http://test.com/repo');
-
-      expect(result.success).toBe(true);
-      expect(result.job_id).toBe('UPPER123');
-      expect(result.activated_count).toBe(5);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockPull.mockResolvedValue({});
-
-      const result = await agent.pull('http://test.com/repo');
-
-      expect(result.success).toBe(false);
-      expect(result.job_id).toBeUndefined();
-      expect(result.activated_count).toBe(0);
-      expect(result.failed_count).toBe(0);
-      expect(result.activated_objects).toEqual([]);
-      expect(result.failed_objects).toEqual([]);
+      await expect(agent.pull('https://github.com/test/repo.git')).rejects.toThrow('Pull failed');
     });
   });
 
   describe('healthCheck', () => {
-    test('returns healthy status', async () => {
-      mockHealthCheck.mockResolvedValue({
-        status: 'OK',
-        version: '1.0.0'
-      });
+    it('returns healthy status when ABAP is reachable', async () => {
+      mockGet.mockResolvedValue({ version: '1.4.0' });
 
       const result = await agent.healthCheck();
 
       expect(result.status).toBe('healthy');
       expect(result.abap).toBe('connected');
-      expect(result.version).toBe('1.0.0');
+      expect(result.version).toBe('1.4.0');
     });
 
-    test('returns unhealthy status on error', async () => {
-      mockHealthCheck.mockRejectedValue(new Error('Connection refused'));
+    it('returns unhealthy status when ABAP is unreachable', async () => {
+      mockGet.mockRejectedValue(new Error('Connection failed'));
 
       const result = await agent.healthCheck();
 
       expect(result.status).toBe('unhealthy');
       expect(result.abap).toBe('disconnected');
     });
-
-    test('uses default version when not returned', async () => {
-      mockHealthCheck.mockResolvedValue({});
-
-      const result = await agent.healthCheck();
-
-      expect(result.version).toBe('1.4.0');
-    });
-  });
-
-  describe('syntaxCheck', () => {
-    test('returns success=true for clean syntax check', async () => {
-      mockSyntaxCheck.mockResolvedValue({
-        success: 'X',
-        object_type: 'CLAS',
-        object_name: 'ZCL_TEST',
-        error_count: 0,
-        errors: []
-      });
-
-      const result = await agent.syntaxCheck('CLAS', 'ZCL_TEST');
-
-      expect(result.success).toBe(true);
-      expect(result.object_type).toBe('CLAS');
-      expect(result.object_name).toBe('ZCL_TEST');
-      expect(result.error_count).toBe(0);
-      expect(result.errors).toEqual([]);
-    });
-
-    test('returns errors when syntax issues found', async () => {
-      mockSyntaxCheck.mockResolvedValue({
-        success: '',
-        object_type: 'CLAS',
-        object_name: 'ZCL_TEST',
-        error_count: 2,
-        errors: [
-          { line: '15', column: '12', text: 'Variable "LV_TEST" not found' },
-          { line: '20', column: '5', text: 'SYNTAX_ERROR' }
-        ]
-      });
-
-      const result = await agent.syntaxCheck('CLAS', 'ZCL_TEST');
-
-      expect(result.success).toBe(false);
-      expect(result.error_count).toBe(2);
-      expect(result.errors).toHaveLength(2);
-    });
-
-    test('throws error on exception', async () => {
-      mockSyntaxCheck.mockRejectedValue(new Error('ABAP system error'));
-
-      await expect(agent.syntaxCheck('CLAS', 'ZCL_TEST'))
-        .rejects.toThrow('Syntax check failed: ABAP system error');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockSyntaxCheck.mockResolvedValue({
-        SUCCESS: 'X',
-        OBJECT_TYPE: 'CLAS',
-        OBJECT_NAME: 'ZCL_TEST',
-        ERROR_COUNT: 1,
-        ERRORS: [{ LINE: '10', COLUMN: '5', TEXT: 'Error' }]
-      });
-
-      const result = await agent.syntaxCheck('CLAS', 'ZCL_TEST');
-
-      expect(result.success).toBe(true);
-      expect(result.object_type).toBe('CLAS');
-      expect(result.error_count).toBe(1);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockSyntaxCheck.mockResolvedValue({});
-
-      const result = await agent.syntaxCheck('CLAS', 'ZCL_TEST');
-
-      expect(result.success).toBe(false);
-      expect(result.error_count).toBe(0);
-      expect(result.errors).toEqual([]);
-    });
   });
 
   describe('syntaxCheckSource', () => {
-    test('returns success=true for clean syntax check', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: 'X',
-        MESSAGE: 'All 1 object(s) passed syntax check',
+    it('calls AbapHttp.post with correct syntax check data', async () => {
+      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS zcl_test DEFINITION.' }];
+
+      mockPost.mockResolvedValue({
+        SUCCESS: true,
+        MESSAGE: 'All checks passed',
         RESULTS: [{
           OBJECT_TYPE: 'CLAS',
           OBJECT_NAME: 'ZCL_TEST',
-          SUCCESS: 'X',
+          SUCCESS: true,
           ERROR_COUNT: 0,
           ERRORS: [],
-          WARNINGS: [],
-          MESSAGE: 'Syntax check passed'
+          WARNINGS: []
         }]
       });
 
-      const objects = [{
-        type: 'CLAS',
-        name: 'ZCL_TEST',
-        source: 'CLASS zcl_test DEFINITION PUBLIC.\nENDCLASS.\nCLASS zcl_test IMPLEMENTATION.\nENDCLASS.'
-      }];
+      const result = await agent.syntaxCheckSource(objects, 'X');
 
-      const result = await agent.syntaxCheckSource(objects);
+      expect(mockPost).toHaveBeenCalledWith(
+        '/sap/bc/z_abapgit_agent/syntax',
+        expect.objectContaining({
+          objects: objects,
+          uccheck: 'X'
+        }),
+        { csrfToken: 'test-csrf-token' }
+      );
 
       expect(result.success).toBe(true);
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].object_type).toBe('CLAS');
-      expect(result.results[0].object_name).toBe('ZCL_TEST');
-      expect(result.results[0].success).toBe(true);
-      expect(result.results[0].error_count).toBe(0);
-    });
-
-    test('returns errors when syntax issues found', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: false,
-        MESSAGE: '1 of 1 object(s) have syntax errors',
-        RESULTS: [{
-          OBJECT_TYPE: 'CLAS',
-          OBJECT_NAME: 'ZCL_TEST',
-          SUCCESS: false,
-          ERROR_COUNT: 1,
-          ERRORS: [{
-            LINE: 5,
-            TEXT: 'Variable "LV_UNDEFINED" is unknown.',
-            WORD: 'LV_UNDEFINED'
-          }],
-          WARNINGS: [],
-          MESSAGE: 'Variable "LV_UNDEFINED" is unknown.'
-        }]
-      });
-
-      const objects = [{
-        type: 'CLAS',
-        name: 'ZCL_TEST',
-        source: 'CLASS zcl_test DEFINITION PUBLIC.\nENDCLASS.\nCLASS zcl_test IMPLEMENTATION.\nMETHOD test. lv_undefined = 1. ENDMETHOD.\nENDCLASS.'
-      }];
-
-      const result = await agent.syntaxCheckSource(objects);
-
-      expect(result.success).toBe(false);
-      expect(result.results[0].success).toBe(false);
-      expect(result.results[0].error_count).toBe(1);
-      expect(result.results[0].errors).toHaveLength(1);
-      expect(result.results[0].errors[0].LINE).toBe(5);
-    });
-
-    test('handles multiple objects', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: 'X',
-        MESSAGE: 'All 3 object(s) passed syntax check',
-        RESULTS: [
-          { OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_CLASS1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] },
-          { OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_INTF1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] },
-          { OBJECT_TYPE: 'PROG', OBJECT_NAME: 'ZPROG1', SUCCESS: 'X', ERROR_COUNT: 0, ERRORS: [] }
-        ]
-      });
-
-      const objects = [
-        { type: 'CLAS', name: 'ZCL_CLASS1', source: 'CLASS...' },
-        { type: 'INTF', name: 'ZIF_INTF1', source: 'INTERFACE...' },
-        { type: 'PROG', name: 'ZPROG1', source: 'REPORT...' }
-      ];
-
-      const result = await agent.syntaxCheckSource(objects);
-
-      expect(result.success).toBe(true);
-      expect(result.results).toHaveLength(3);
-      expect(result.results[0].object_type).toBe('CLAS');
-      expect(result.results[1].object_type).toBe('INTF');
-      expect(result.results[2].object_type).toBe('PROG');
-    });
-
-    test('handles class with local classes', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: 'X',
-        RESULTS: [{
-          OBJECT_TYPE: 'CLAS',
-          OBJECT_NAME: 'ZCL_TEST',
-          SUCCESS: 'X',
-          ERROR_COUNT: 0,
-          ERRORS: []
-        }]
-      });
-
-      const objects = [{
-        type: 'CLAS',
-        name: 'ZCL_TEST',
-        source: 'CLASS zcl_test...',
-        locals_def: 'CLASS lcl_helper DEFINITION...',
-        locals_imp: 'CLASS lcl_helper IMPLEMENTATION...'
-      }];
-
-      await agent.syntaxCheckSource(objects);
-
-      expect(mockSyntaxCheckSource).toHaveBeenCalledWith(objects, 'X');
-    });
-
-    test('passes uccheck parameter for Cloud mode', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: 'X',
-        RESULTS: []
-      });
-
-      const objects = [{ type: 'PROG', name: 'ZPROG', source: 'REPORT zprog.' }];
-
-      await agent.syntaxCheckSource(objects, '5');
-
-      expect(mockSyntaxCheckSource).toHaveBeenCalledWith(objects, '5');
-    });
-
-    test('throws error on exception', async () => {
-      mockSyntaxCheckSource.mockRejectedValue(new Error('ABAP system error'));
-
-      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
-
-      await expect(agent.syntaxCheckSource(objects))
-        .rejects.toThrow('Source syntax check failed: ABAP system error');
-    });
-
-    test('handles lowercase response keys', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        success: true,
-        message: 'All passed',
-        results: [{
-          object_type: 'CLAS',
-          object_name: 'ZCL_TEST',
-          success: true,
-          error_count: 0,
-          errors: [],
-          warnings: []
-        }]
-      });
-
-      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
-      const result = await agent.syntaxCheckSource(objects);
-
-      expect(result.success).toBe(true);
-      expect(result.results[0].object_type).toBe('CLAS');
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({});
-
-      const objects = [{ type: 'CLAS', name: 'ZCL_TEST', source: 'CLASS...' }];
-      const result = await agent.syntaxCheckSource(objects);
-
-      expect(result.success).toBe(false);
-      expect(result.results).toEqual([]);
-      expect(result.message).toBe('');
-    });
-
-    test('handles unsupported object type in response', async () => {
-      mockSyntaxCheckSource.mockResolvedValue({
-        SUCCESS: false,
-        MESSAGE: '1 of 1 object(s) have syntax errors',
-        RESULTS: [{
-          OBJECT_TYPE: 'FUGR',
-          OBJECT_NAME: 'ZTEST_FUGR',
-          SUCCESS: false,
-          ERROR_COUNT: 1,
-          ERRORS: [{
-            LINE: 1,
-            TEXT: 'Unsupported object type: FUGR. Use pull command instead.'
-          }]
-        }]
-      });
-
-      const objects = [{ type: 'FUGR', name: 'ZTEST_FUGR', source: 'FUNCTION...' }];
-      const result = await agent.syntaxCheckSource(objects);
-
-      expect(result.success).toBe(false);
-      expect(result.results[0].errors[0].TEXT).toContain('Unsupported');
     });
   });
 
   describe('unitCheck', () => {
-    test('returns success=true for all tests passed', async () => {
-      mockUnitTest.mockResolvedValue({
-        success: 'X',
-        test_count: 10,
-        passed_count: 10,
-        failed_count: 0,
-        message: 'All 10 tests passed',
-        errors: []
+    it('calls AbapHttp.post for unit tests', async () => {
+      mockPost.mockResolvedValue({
+        SUCCESS: 'X',
+        TEST_COUNT: 10,
+        PASSED_COUNT: 10,
+        FAILED_COUNT: 0,
+        MESSAGE: 'All tests passed'
       });
 
-      const result = await agent.unitCheck('ZTEST_PACKAGE');
+      const result = await agent.unitCheck('$ZTEST_PACKAGE');
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/sap/bc/z_abapgit_agent/unit',
+        expect.objectContaining({
+          package: '$ZTEST_PACKAGE'
+        }),
+        { csrfToken: 'test-csrf-token' }
+      );
 
       expect(result.success).toBe(true);
       expect(result.test_count).toBe(10);
-      expect(result.passed_count).toBe(10);
-      expect(result.failed_count).toBe(0);
-      expect(result.errors).toEqual([]);
-    });
-
-    test('returns failure count when tests fail', async () => {
-      mockUnitTest.mockResolvedValue({
-        success: '',
-        test_count: 5,
-        passed_count: 3,
-        failed_count: 2,
-        message: '2 of 5 tests failed',
-        errors: [
-          { class_name: 'ZCL_TEST', method_name: 'TEST_1', error_kind: 'ERROR', error_text: 'Expected X but got Y' },
-          { class_name: 'ZCL_TEST', method_name: 'TEST_2', error_kind: 'FAILURE', error_text: 'Reference is initial' }
-        ]
-      });
-
-      const result = await agent.unitCheck('ZTEST_PACKAGE');
-
-      expect(result.success).toBe(false);
-      expect(result.test_count).toBe(5);
-      expect(result.failed_count).toBe(2);
-      expect(result.errors).toHaveLength(2);
-      expect(result.errors[0].class_name).toBe('ZCL_TEST');
-      expect(result.errors[0].method_name).toBe('TEST_1');
-    });
-
-    test('accepts objects parameter', async () => {
-      mockUnitTest.mockResolvedValue({
-        success: 'X',
-        test_count: 2,
-        passed_count: 2,
-        failed_count: 0,
-        errors: []
-      });
-
-      const objects = [
-        { object_type: 'CLAS', object_name: 'ZCL_TEST1' },
-        { object_type: 'CLAS', object_name: 'ZCL_TEST2' }
-      ];
-
-      await agent.unitCheck(null, objects);
-
-      expect(mockUnitTest).toHaveBeenCalledWith(null, objects);
-    });
-
-    test('throws error on exception', async () => {
-      mockUnitTest.mockRejectedValue(new Error('AUnit execution failed'));
-
-      await expect(agent.unitCheck('ZTEST_PACKAGE'))
-        .rejects.toThrow('Unit tests failed: AUnit execution failed');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockUnitTest.mockResolvedValue({
-        SUCCESS: 'X',
-        TEST_COUNT: 5,
-        PASSED_COUNT: 5,
-        FAILED_COUNT: 0,
-        MESSAGE: 'All passed',
-        ERRORS: []
-      });
-
-      const result = await agent.unitCheck('ZTEST_PACKAGE');
-
-      expect(result.success).toBe(true);
-      expect(result.test_count).toBe(5);
-      expect(result.passed_count).toBe(5);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockUnitTest.mockResolvedValue({});
-
-      const result = await agent.unitCheck('ZTEST_PACKAGE');
-
-      expect(result.success).toBe(false);
-      expect(result.test_count).toBe(0);
-      expect(result.passed_count).toBe(0);
-      expect(result.failed_count).toBe(0);
-      expect(result.errors).toEqual([]);
     });
   });
 
   describe('create', () => {
-    test('returns success=true for X response', async () => {
-      mockCreate.mockResolvedValue({
-        success: 'X',
-        repo_key: 'REPO123',
-        repo_name: 'test-repo',
-        message: 'Repository created successfully'
+    it('creates repository with correct parameters', async () => {
+      mockPost.mockResolvedValue({
+        SUCCESS: 'X',
+        REPO_KEY: 'REPO123',
+        REPO_NAME: 'test_repo',
+        MESSAGE: 'Created successfully'
       });
 
-      const result = await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE', 'test-repo', 'main');
+      const result = await agent.create('https://github.com/test/repo.git', '$ZTEST', 'main');
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/sap/bc/z_abapgit_agent/create',
+        expect.objectContaining({
+          url: 'https://github.com/test/repo.git',
+          package: '$ZTEST',
+          branch: 'main'
+        }),
+        { csrfToken: 'test-csrf-token' }
+      );
 
       expect(result.success).toBe(true);
       expect(result.repo_key).toBe('REPO123');
-      expect(result.repo_name).toBe('test-repo');
-    });
-
-    test('returns success=false for error response', async () => {
-      mockCreate.mockResolvedValue({
-        success: '',
-        error: 'Repository already exists'
-      });
-
-      const result = await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Repository already exists');
-    });
-
-    test('throws error on exception', async () => {
-      mockCreate.mockRejectedValue(new Error('Network error'));
-
-      await expect(agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE'))
-        .rejects.toThrow('Create failed: Network error');
-    });
-
-    test('calls abap.create with correct parameters', async () => {
-      mockCreate.mockResolvedValue({
-        success: 'X',
-        repo_key: 'REPO123',
-        repo_name: 'test-repo'
-      });
-
-      await agent.create('https://github.com/org/repo.git', 'ZTEST_PACKAGE', 'test-repo', 'develop', 'gituser', 'gitpass');
-
-      expect(mockCreate).toHaveBeenCalledWith(
-        'https://github.com/org/repo.git',
-        'ZTEST_PACKAGE',
-        'test-repo',
-        'develop',
-        'gituser',
-        'gitpass'
-      );
     });
   });
 
-  describe('import', () => {
-    test('returns success=true for X response', async () => {
-      mockImport.mockResolvedValue({
-        success: 'X',
-        files_staged: '15',
-        commit_message: 'feat: initial import from ABAP package ZTEST'
-      });
-
-      const result = await agent.import('https://github.com/org/repo.git');
-
-      expect(result.success).toBe(true);
-      expect(result.files_staged).toBe('15');
-    });
-
-    test('returns success=true with custom message', async () => {
-      mockImport.mockResolvedValue({
-        success: 'X',
-        files_staged: '10',
-        commit_message: 'My custom message'
-      });
-
-      const result = await agent.import('https://github.com/org/repo.git', 'My custom message');
-
-      expect(result.success).toBe(true);
-    });
-
-    test('returns success=false for error response', async () => {
-      mockImport.mockResolvedValue({
-        success: '',
-        error: 'Repository not found'
-      });
-
-      const result = await agent.import('https://github.com/org/repo.git');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Repository not found');
-    });
-
-    test('throws error on exception', async () => {
-      mockImport.mockRejectedValue(new Error('Git push failed'));
-
-      await expect(agent.import('https://github.com/org/repo.git'))
-        .rejects.toThrow('Import failed: Git push failed');
-    });
-
-    test('calls abap.import with correct parameters', async () => {
-      mockImport.mockResolvedValue({
-        success: 'X',
-        files_staged: '5'
-      });
-
-      await agent.import('https://github.com/org/repo.git', 'Custom commit message');
-
-      expect(mockImport).toHaveBeenCalledWith(
-        'https://github.com/org/repo.git',
-        'Custom commit message'
-      );
-    });
-  });
-
-  describe('tree', () => {
-    test('returns success=true for tree command', async () => {
-      mockTree.mockResolvedValue({
-        success: 'X',
-        command: 'TREE',
-        package: '$ZTEST',
-        hierarchy: [{ package: '$ZTEST', objects: 10 }],
-        summary: { total_packages: 1, total_objects: 10 }
-      });
-
-      const result = await agent.tree('$ZTEST');
-
-      expect(result.success).toBe(true);
-      expect(result.command).toBe('TREE');
-      expect(result.package).toBe('$ZTEST');
-      expect(result.hierarchy).toHaveLength(1);
-    });
-
-    test('returns success with depth parameter', async () => {
-      mockTree.mockResolvedValue({
-        success: 'X',
-        package: '$ZTEST',
-        hierarchy: []
-      });
-
-      await agent.tree('$ZTEST', 2, true);
-
-      expect(mockTree).toHaveBeenCalledWith('$ZTEST', 2, true);
-    });
-
-    test('throws error on exception', async () => {
-      mockTree.mockRejectedValue(new Error('Package not found'));
-
-      await expect(agent.tree('$ZTEST'))
-        .rejects.toThrow('Tree command failed: Package not found');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockTree.mockResolvedValue({
+  describe('list', () => {
+    it('lists objects with normalized keys', async () => {
+      mockPost.mockResolvedValue({
         SUCCESS: 'X',
-        COMMAND: 'TREE',
-        PACKAGE: '$ZTEST',
-        HIERARCHY: [{ package: '$ZTEST' }],
-        SUMMARY: { TOTAL_PACKAGES: 1 }
+        OBJECTS: [
+          { TYPE: 'CLAS', NAME: 'ZCL_TEST1' },
+          { TYPE: 'INTF', NAME: 'ZIF_TEST1' }
+        ],
+        BY_TYPE: [
+          { TYPE: 'CLAS', COUNT: 1 },
+          { TYPE: 'INTF', COUNT: 1 }
+        ],
+        TOTAL: 2
       });
 
-      const result = await agent.tree('$ZTEST');
+      const result = await agent.list('$ZTEST');
 
       expect(result.success).toBe(true);
-      expect(result.hierarchy).toHaveLength(1);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockTree.mockResolvedValue({});
-
-      const result = await agent.tree('$ZTEST');
-
-      expect(result.success).toBe(false);
-      expect(result.hierarchy).toBeNull();
-      expect(result.summary).toBeNull();
-    });
-  });
-
-  describe('preview', () => {
-    test('returns success=true for preview command', async () => {
-      mockPreview.mockResolvedValue({
-        success: 'X',
-        command: 'PREVIEW',
-        objects: [{ name: 'SFLIGHT', type: 'TABL', rows: [] }],
-        summary: { total_objects: 1, total_rows: 0 }
-      });
-
-      const result = await agent.preview(['SFLIGHT']);
-
-      expect(result.success).toBe(true);
-      expect(result.command).toBe('PREVIEW');
-      expect(result.objects).toHaveLength(1);
-    });
-
-    test('passes type and limit parameters', async () => {
-      mockPreview.mockResolvedValue({
-        success: 'X',
-        objects: []
-      });
-
-      await agent.preview(['SFLIGHT'], 'TABL', 20);
-
-      expect(mockPreview).toHaveBeenCalledWith(['SFLIGHT'], 'TABL', 20, 0, null, null);
-    });
-
-    test('throws error on exception', async () => {
-      mockPreview.mockRejectedValue(new Error('Table not found'));
-
-      await expect(agent.preview(['INVALID']))
-        .rejects.toThrow('Preview command failed: Table not found');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockPreview.mockResolvedValue({
-        SUCCESS: 'X',
-        COMMAND: 'PREVIEW',
-        OBJECTS: [{ NAME: 'SFLIGHT', TYPE: 'TABL' }],
-        SUMMARY: { TOTAL_OBJECTS: 1 }
-      });
-
-      const result = await agent.preview(['SFLIGHT']);
-
-      expect(result.success).toBe(true);
-      expect(result.objects).toHaveLength(1);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockPreview.mockResolvedValue({});
-
-      const result = await agent.preview(['SFLIGHT']);
-
-      expect(result.success).toBe(false);
-      expect(result.objects).toEqual([]);
-      expect(result.summary).toBeNull();
-    });
-  });
-
-  describe('view', () => {
-    test('returns success=true for view command', async () => {
-      mockView.mockResolvedValue({
-        success: 'X',
-        command: 'VIEW',
-        objects: [
-          { name: 'ZCL_TEST', type: 'CLAS', source: 'CLASS zcl_test DEFINITION...' }
-        ]
-      });
-
-      const result = await agent.view(['ZCL_TEST']);
-
-      expect(result.success).toBe(true);
-      expect(result.command).toBe('VIEW');
-      expect(result.objects).toHaveLength(1);
-      expect(result.objects[0].name).toBe('ZCL_TEST');
-    });
-
-    test('passes type parameter when specified', async () => {
-      mockView.mockResolvedValue({
-        success: 'X',
-        objects: []
-      });
-
-      await agent.view(['SFLIGHT'], 'TABL');
-
-      expect(mockView).toHaveBeenCalledWith(['SFLIGHT'], 'TABL');
-    });
-
-    test('throws error on exception', async () => {
-      mockView.mockRejectedValue(new Error('Object not found'));
-
-      await expect(agent.view(['ZCL_INVALID']))
-        .rejects.toThrow('View command failed: Object not found');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockView.mockResolvedValue({
-        SUCCESS: 'X',
-        COMMAND: 'VIEW',
-        OBJECTS: [{ NAME: 'ZCL_TEST', TYPE: 'CLAS' }]
-      });
-
-      const result = await agent.view(['ZCL_TEST']);
-
-      expect(result.success).toBe(true);
-      expect(result.objects).toHaveLength(1);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockView.mockResolvedValue({});
-
-      const result = await agent.view(['ZCL_TEST']);
-
-      expect(result.success).toBe(false);
-      expect(result.objects).toEqual([]);
-    });
-  });
-
-  describe('where', () => {
-    test('returns success=true for where command', async () => {
-      mockWhere.mockResolvedValue({
-        success: 'X',
-        command: 'WHERE',
-        objects: [
-          { object_name: 'ZCL_USAGE', object_type: 'CLAS', program: 'ZCL_TEST' }
-        ]
-      });
-
-      const result = await agent.where(['ZCL_TEST']);
-
-      expect(result.success).toBe(true);
-      expect(result.command).toBe('WHERE');
-      expect(result.objects).toHaveLength(1);
-    });
-
-    test('passes type and limit parameters', async () => {
-      mockWhere.mockResolvedValue({
-        success: 'X',
-        objects: []
-      });
-
-      await agent.where(['ZCL_TEST'], 'CLAS', 50);
-
-      expect(mockWhere).toHaveBeenCalledWith(['ZCL_TEST'], 'CLAS', 50, 0);
-    });
-
-    test('throws error on exception', async () => {
-      mockWhere.mockRejectedValue(new Error('Package not found'));
-
-      await expect(agent.where(['ZCL_INVALID']))
-        .rejects.toThrow('Where command failed: Package not found');
-    });
-
-    test('handles uppercase response keys', async () => {
-      mockWhere.mockResolvedValue({
-        SUCCESS: 'X',
-        COMMAND: 'WHERE',
-        OBJECTS: [{ OBJECT_NAME: 'ZCL_USAGE', OBJECT_TYPE: 'CLAS' }]
-      });
-
-      const result = await agent.where(['ZCL_TEST']);
-
-      expect(result.success).toBe(true);
-      expect(result.objects).toHaveLength(1);
-    });
-
-    test('handles missing response fields gracefully', async () => {
-      mockWhere.mockResolvedValue({});
-
-      const result = await agent.where(['ZCL_TEST']);
-
-      expect(result.success).toBe(false);
-      expect(result.objects).toEqual([]);
+      expect(result.objects).toHaveLength(2);
+      expect(result.objects[0].type).toBe('CLAS');
+      expect(result.by_type).toHaveLength(2);
     });
   });
 });

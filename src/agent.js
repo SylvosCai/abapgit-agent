@@ -1,13 +1,16 @@
 /**
  * ABAP Git Agent - Main agent class
+ * Uses AbapHttp for all ABAP communication
  */
 
-const { getClient } = require('./abap-client');
+const { AbapHttp } = require('./utils/abap-http');
+const { getAbapConfig } = require('./config');
 const logger = require('./logger');
 
 class ABAPGitAgent {
   constructor() {
-    this.abap = getClient();
+    this.config = getAbapConfig();
+    this.http = new AbapHttp(this.config);
   }
 
   /**
@@ -17,13 +20,31 @@ class ABAPGitAgent {
    * @param {string} username - Git username (optional)
    * @param {string} password - Git password/token (optional)
    * @param {Array} files - Specific files to pull (optional)
+   * @param {string} transportRequest - Transport request number (optional)
    * @returns {object} Pull result with success, job_id, message, error_detail
    */
-  async pull(repoUrl, branch = 'main', username = null, password = null, files = null) {
-    logger.info('Starting pull operation', { repoUrl, branch, username: !!username, files });
+  async pull(repoUrl, branch = 'main', username = null, password = null, files = null, transportRequest = null) {
+    logger.info('Starting pull operation', { repoUrl, branch, username: !!username, files, transportRequest });
 
     try {
-      const result = await this.abap.pull(repoUrl, branch, username, password, files);
+      const csrfToken = await this.http.fetchCsrfToken();
+
+      const data = {
+        url: repoUrl,
+        branch: branch,
+        username: username || this.config.gitUsername,
+        password: password || this.config.gitPassword
+      };
+
+      if (files && files.length > 0) {
+        data.files = files;
+      }
+
+      if (transportRequest) {
+        data.transport_request = transportRequest;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
       // Return the result directly from ABAP (handle uppercase keys from /UI2/CL_JSON)
       return {
@@ -49,7 +70,7 @@ class ABAPGitAgent {
    */
   async healthCheck() {
     try {
-      const result = await this.abap.healthCheck();
+      const result = await this.http.get('/sap/bc/z_abapgit_agent/health');
       return {
         status: 'healthy',
         abap: 'connected',
@@ -65,7 +86,7 @@ class ABAPGitAgent {
   }
 
   /**
-   * Check syntax of an ABAP object
+   * Check syntax of an ABAP object (legacy - not used by CLI)
    * @param {string} objectType - ABAP object type (e.g., 'CLAS', 'PROG', 'INTF')
    * @param {string} objectName - ABAP object name
    * @returns {object} Syntax check result with errors (if any)
@@ -74,7 +95,13 @@ class ABAPGitAgent {
     logger.info('Starting syntax check', { objectType, objectName });
 
     try {
-      const result = await this.abap.syntaxCheck(objectType, objectName);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        object_type: objectType,
+        object_name: objectName
+      };
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         object_type: result.OBJECT_TYPE || result.object_type,
@@ -99,7 +126,13 @@ class ABAPGitAgent {
     logger.info('Starting source syntax check', { objectCount: objects.length, uccheck });
 
     try {
-      const result = await this.abap.syntaxCheckSource(objects, uccheck);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        objects: objects,
+        uccheck: uccheck
+      };
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/syntax', data, { csrfToken });
       const success = result.SUCCESS === 'X' || result.SUCCESS === true ||
                       result.success === 'X' || result.success === true;
       const results = result.RESULTS || result.results || [];
@@ -137,7 +170,18 @@ class ABAPGitAgent {
     logger.info('Starting unit tests', { package: packageName, objects });
 
     try {
-      const result = await this.abap.unitTest(packageName, objects);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {};
+
+      if (packageName) {
+        data.package = packageName;
+      }
+
+      if (objects && objects.length > 0) {
+        data.objects = objects;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         test_count: result.TEST_COUNT || result.test_count || 0,
@@ -166,7 +210,26 @@ class ABAPGitAgent {
     logger.info('Creating repository', { repoUrl, packageName, branch });
 
     try {
-      const result = await this.abap.create(repoUrl, packageName, branch, displayName, name, folderLogic);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        url: repoUrl,
+        package: packageName,
+        branch: branch
+      };
+
+      if (displayName) {
+        data.display_name = displayName;
+      }
+
+      if (name) {
+        data.name = name;
+      }
+
+      if (folderLogic) {
+        data.folder_logic = folderLogic;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/create', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         repo_key: result.REPO_KEY || result.repo_key,
@@ -190,7 +253,16 @@ class ABAPGitAgent {
     logger.info('Starting import operation', { repoUrl, message });
 
     try {
-      const result = await this.abap.import(repoUrl, message);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        url: repoUrl
+      };
+
+      if (message) {
+        data.message = message;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/import', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         files_staged: result.FILES_STAGED || result.files_staged || 0,
@@ -215,7 +287,14 @@ class ABAPGitAgent {
     logger.info('Getting package tree', { package: packageName, depth, includeObjects });
 
     try {
-      const result = await this.abap.tree(packageName, depth, includeObjects);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        package: packageName,
+        depth: Math.min(Math.max(1, depth), 10),
+        include_objects: includeObjects
+      };
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/tree', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'TREE',
@@ -245,7 +324,27 @@ class ABAPGitAgent {
     logger.info('Previewing data', { objects, type, limit, offset, where, columns });
 
     try {
-      const result = await this.abap.preview(objects, type, limit, offset, where, columns);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        objects: objects,
+        limit: Math.min(Math.max(1, limit), 500),
+        offset: Math.max(0, offset)
+      };
+
+      if (type) {
+        data.type = type;
+      }
+
+      if (where) {
+        // Convert ISO date format (YYYY-MM-DD) to ABAP DATS format (YYYYMMDD)
+        data.where = this.convertDatesInWhereClause(where);
+      }
+
+      if (columns) {
+        data.columns = columns;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/preview', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'PREVIEW',
@@ -262,6 +361,22 @@ class ABAPGitAgent {
   }
 
   /**
+   * Convert ISO date formats to ABAP DATS format in WHERE clause
+   * @param {string} whereClause - SQL WHERE clause
+   * @returns {string} - WHERE clause with dates converted to YYYYMMDD format
+   */
+  convertDatesInWhereClause(whereClause) {
+    if (!whereClause) return whereClause;
+
+    const isoDatePattern = /'\\d{4}-\\d{2}-\\d{2}'/g;
+    return whereClause.replace(isoDatePattern, (match) => {
+      const dateContent = match.slice(1, -1);
+      const [year, month, day] = dateContent.split('-');
+      return `'${year}${month}${day}'`;
+    });
+  }
+
+  /**
    * List objects in an ABAP package
    * @param {string} packageName - ABAP package name
    * @param {string} type - Comma-separated object types to filter (optional)
@@ -274,7 +389,22 @@ class ABAPGitAgent {
     logger.info('Listing objects', { package: packageName, type, name, limit, offset });
 
     try {
-      const result = await this.abap.list(packageName, type, name, limit, offset);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        package: packageName,
+        limit: Math.min(Math.max(1, limit), 1000),
+        offset: Math.max(0, offset)
+      };
+
+      if (type) {
+        data.type = type;
+      }
+
+      if (name) {
+        data.name = name;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/list', data, { csrfToken });
 
       // Normalize objects array to use lowercase keys
       const rawObjects = result.OBJECTS || result.objects || [];
@@ -316,7 +446,16 @@ class ABAPGitAgent {
     logger.info('Viewing objects', { objects, type });
 
     try {
-      const result = await this.abap.view(objects, type);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        objects: objects
+      };
+
+      if (type) {
+        data.type = type;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/view', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'VIEW',
@@ -341,7 +480,18 @@ class ABAPGitAgent {
     logger.info('Finding where-used', { objects, type, limit, offset });
 
     try {
-      const result = await this.abap.where(objects, type, limit, offset);
+      const csrfToken = await this.http.fetchCsrfToken();
+      const data = {
+        objects: objects,
+        limit: Math.min(Math.max(1, limit), 500),
+        offset: Math.max(0, offset)
+      };
+
+      if (type) {
+        data.type = type;
+      }
+
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/where-used', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'WHERE',
