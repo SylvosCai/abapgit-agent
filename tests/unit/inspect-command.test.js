@@ -3,7 +3,28 @@
  * Tests the CLI parsing, file handling, and request building
  */
 
-describe('Inspect Command', () => {
+const verifiers = require('../integration/verify-output-spec');
+
+// Mock fs module to fake file existence
+jest.mock('fs', () => ({
+  existsSync: jest.fn(() => true), // All files exist in tests
+  readFileSync: jest.fn(() => 'mock file content')
+}));
+
+// Mock path module
+jest.mock('path', () => ({
+  isAbsolute: jest.fn(() => false),
+  join: jest.fn((...args) => args.join('/')),
+  resolve: jest.fn((...args) => '/' + args.join('/')),
+  basename: jest.fn((p) => p.split('/').pop())
+}));
+
+// Mock process.exit to prevent tests from actually exiting
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('Inspect Command - Logic Tests', () => {
   describe('File parsing', () => {
     test('parses class file for inspection', () => {
       const file = 'src/zcl_my_class.clas.abap';
@@ -233,5 +254,161 @@ describe('Inspect Command', () => {
       expect(types).toContain('DDLS');
       expect(types).toContain('INTF');
     });
+  });
+});
+
+describe('Inspect Command - CLI Output Format', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('output matches spec format for passed syntax check', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([
+          {
+            OBJECT_TYPE: 'CLAS',
+            OBJECT_NAME: 'ZCL_MY_CLASS',
+            SUCCESS: true,
+            ERROR_COUNT: 0,
+            WARNING_COUNT: 0,
+            ERRORS: [],
+            WARNINGS: [],
+            MESSAGE: 'Syntax check passed'
+          }
+        ])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format using verifier
+    const verified = verifiers.verifyInspectOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Additional specific checks
+    expect(output).toMatch(/✅/);
+    expect(output).toMatch(/CLAS/);
+    expect(output).toMatch(/ZCL_MY_CLASS/);
+    expect(output).toMatch(/Syntax check passed/);
+  });
+
+  test('output matches spec format for syntax check with warnings', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([
+          {
+            OBJECT_TYPE: 'CLAS',
+            OBJECT_NAME: 'ZCL_MY_CLASS',
+            SUCCESS: true,
+            ERROR_COUNT: 0,
+            WARNING_COUNT: 2,
+            ERRORS: [],
+            WARNINGS: [
+              {
+                SOBJNAME: 'ZCL_MY_CLASS========CM002',
+                LINE: 49,
+                COLUMN: 0,
+                METHOD_NAME: 'MY_METHOD',
+                TEXT: 'The exception CX_DD_DDL_READ is not caught'
+              },
+              {
+                SOBJNAME: 'ZCL_MY_CLASS========CM002',
+                LINE: 31,
+                COLUMN: 0,
+                METHOD_NAME: 'MY_METHOD',
+                TEXT: 'Another warning'
+              }
+            ],
+            MESSAGE: 'Syntax check passed with warnings'
+          }
+        ])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format
+    const verified = verifiers.verifyInspectOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Specific checks for warnings
+    expect(output).toMatch(/⚠️/);
+    expect(output).toMatch(/Warnings:/);
+    expect(output).toMatch(/─{20,}/); // Separator line
+    expect(output).toMatch(/MY_METHOD/);
+    expect(output).toMatch(/Line.*49/);
+  });
+
+  test('output matches spec format for failed syntax check', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([
+          {
+            OBJECT_TYPE: 'CLAS',
+            OBJECT_NAME: 'ZCL_MY_CLASS',
+            SUCCESS: false,
+            ERROR_COUNT: 1,
+            WARNING_COUNT: 0,
+            ERRORS: [
+              {
+                SOBJNAME: 'ZCL_MY_CLASS========CM002',
+                LINE: 21,
+                COLUMN: 12,
+                METHOD_NAME: 'MY_METHOD',
+                TEXT: 'Syntax error: Unknown statement'
+              }
+            ],
+            WARNINGS: [],
+            MESSAGE: 'Syntax check failed'
+          }
+        ])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Verify format
+    const verified = verifiers.verifyInspectOutput(output, 'ZCL_MY_CLASS');
+    expect(verified).toBe(true);
+
+    // Specific checks for errors
+    expect(output).toMatch(/❌/);
+    expect(output).toMatch(/Errors:/);
+    expect(output).toMatch(/─{20,}/); // Separator line
+    expect(output).toMatch(/Line.*21/);
+    expect(output).toMatch(/Column.*12/);
+    expect(output).toMatch(/Syntax error/);
   });
 });
