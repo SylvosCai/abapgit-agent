@@ -56,7 +56,10 @@ CLASS ltcl_cmd_syntax DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_exec_multi_objects FOR TESTING.
     METHODS test_exec_unsupported_type FOR TESTING.
     METHODS test_exec_class_with_locals FOR TESTING.
+    METHODS test_exec_class_locals_def_only FOR TESTING.
+    METHODS test_exec_class_locals_imp_only FOR TESTING.
     METHODS test_exec_prog_with_uccheck FOR TESTING.
+    METHODS test_exec_invalid_uccheck FOR TESTING.
     METHODS test_exec_mixed_success_fail FOR TESTING.
 ENDCLASS.
 
@@ -326,6 +329,63 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
       msg = 'Result should contain class name' ).
   ENDMETHOD.
 
+  METHOD test_exec_class_locals_def_only.
+    " Test execute with class that has only local definitions (no implementations)
+    DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+
+    ls_param-objects = VALUE #( (
+      type       = 'CLAS'
+      name       = 'ZCL_TEST_DEF_ONLY'
+      source     = 'CLASS zcl_test_def_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                   '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                   '    TYPES ty_test TYPE i.' && cl_abap_char_utilities=>newline &&
+                   'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                   'CLASS zcl_test_def_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                   'ENDCLASS.'
+      locals_def = 'TYPES ty_local TYPE string.'
+    ) ).
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Result should contain the class name
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*ZCL_TEST_DEF_ONLY*'
+      msg = 'Result should contain class name' ).
+  ENDMETHOD.
+
+  METHOD test_exec_class_locals_imp_only.
+    " Test execute with class that has only local implementations (no definitions)
+    DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+
+    ls_param-objects = VALUE #( (
+      type       = 'CLAS'
+      name       = 'ZCL_TEST_IMP_ONLY'
+      source     = 'CLASS zcl_test_imp_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                   '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                   'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                   'CLASS zcl_test_imp_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                   'ENDCLASS.'
+      locals_imp = 'DATA gv_local TYPE string.'
+    ) ).
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Result should contain the class name
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*ZCL_TEST_IMP_ONLY*'
+      msg = 'Result should contain class name' ).
+  ENDMETHOD.
+
   METHOD test_exec_prog_with_uccheck.
     " Test execute with program and uccheck parameter
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
@@ -348,6 +408,31 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
       exp = '*ZTEST_CLOUD_PROG*'
+      msg = 'Result should contain program name' ).
+  ENDMETHOD.
+
+  METHOD test_exec_invalid_uccheck.
+    " Test execute with invalid uccheck value - should default to 'X'
+    DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+
+    ls_param-uccheck = 'Z'. " Invalid value - should fallback to 'X'
+    ls_param-objects = VALUE #( (
+      type   = 'PROG'
+      name   = 'ZTEST_INVALID_UC'
+      source = 'REPORT ztest_invalid_uc.' && cl_abap_char_utilities=>newline &&
+               'DATA lv_test TYPE string.'
+    ) ).
+
+    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+      act = lv_result
+      msg = 'Result should not be initial' ).
+
+    " Result should contain the program name (should work with default uccheck)
+    cl_abap_unit_assert=>assert_char_cp(
+      act = lv_result
+      exp = '*ZTEST_INVALID_UC*'
       msg = 'Result should contain program name' ).
   ENDMETHOD.
 
