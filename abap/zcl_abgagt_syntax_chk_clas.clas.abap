@@ -25,9 +25,10 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     "! Run syntax check on skeleton
     METHODS run_check
-      IMPORTING iv_class_name    TYPE seoclsname
-                it_skeleton      TYPE string_table
-      RETURNING VALUE(rs_result) TYPE zif_abgagt_syntax_checker=>ty_result.
+      IMPORTING iv_class_name      TYPE seoclsname
+                it_skeleton        TYPE string_table
+                iv_prepended_lines TYPE i DEFAULT 1
+      RETURNING VALUE(rs_result)   TYPE zif_abgagt_syntax_checker=>ty_result.
 
 ENDCLASS.
 
@@ -41,15 +42,18 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~check.
     DATA: lt_skeleton  TYPE string_table,
-          lv_classname TYPE seoclsname.
+          lv_classname TYPE seoclsname,
+          lv_prepended TYPE i.
 
     lv_classname = to_upper( iv_name ).
 
     " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp
     APPEND 'CLASS-POOL.' TO lt_skeleton.
+    lv_prepended = 1.  " CLASS-POOL. line
 
     " Add local class definitions first (they need to be defined before used)
     IF mt_locals_def IS NOT INITIAL.
+      lv_prepended = lv_prepended + lines( mt_locals_def ).
       APPEND LINES OF mt_locals_def TO lt_skeleton.
     ENDIF.
 
@@ -63,8 +67,9 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
 
     " Run syntax check
     rs_result = run_check(
-      iv_class_name = lv_classname
-      it_skeleton   = lt_skeleton ).
+      iv_class_name      = lv_classname
+      it_skeleton        = lt_skeleton
+      iv_prepended_lines = lv_prepended ).
   ENDMETHOD.
 
 
@@ -125,10 +130,16 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       rs_result-error_count = 0.
       rs_result-message = 'Syntax check passed'.
     ELSE.
+      " Adjust line number: subtract prepended lines (CLASS-POOL. + locals_def)
+      DATA(lv_adjusted_line) = lv_line - iv_prepended_lines.
+      IF lv_adjusted_line < 1.
+        lv_adjusted_line = 1.
+      ENDIF.
+
       rs_result-success = abap_false.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
-        line = lv_line
+        line = lv_adjusted_line
         text = lv_msg
         word = lv_word ) ).
       rs_result-message = lv_msg.
