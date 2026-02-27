@@ -757,7 +757,7 @@ where carrid = $parameters.p_carrid
   },
   {
     command: 'syntax',
-    name: 'syntax check class without FIXPT in XML defaults to FIXPT=X',
+    name: 'syntax check class without FIXPT in XML should fail with modern SQL',
     setup: () => {
       const fs = require('fs');
       const path = require('path');
@@ -766,7 +766,7 @@ where carrid = $parameters.p_carrid
         fs.mkdirSync(fixturesDir, { recursive: true });
       }
       // Class with modern SQL syntax (comma, @ prefix) and no FIXPT in XML
-      // Should PASS because we default to FIXPT=X
+      // Should FAIL because no FIXPT means FIXPT=blank (false), but modern SQL requires FIXPT=X
       const source = `CLASS zcl_test_no_fixpt DEFINITION PUBLIC.
   PUBLIC SECTION.
     TYPES: BEGIN OF ty_flight,
@@ -789,7 +789,7 @@ CLASS zcl_test_no_fixpt IMPLEMENTATION.
 ENDCLASS.`;
       fs.writeFileSync(path.join(fixturesDir, 'zcl_test_no_fixpt.clas.abap'), source);
 
-      // XML without FIXPT flag (should default to FIXPT=X)
+      // XML without FIXPT flag (means FIXPT=blank/false)
       const xml = `<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
@@ -813,8 +813,8 @@ ENDCLASS.`;
       try {
         const json = JSON.parse(output);
         const result = json.RESULTS && json.RESULTS[0];
-        // Should PASS because we default to FIXPT=X (modern SQL works)
-        return result && result.SUCCESS === true;
+        // Should FAIL because no FIXPT=X, but modern SQL needs it
+        return result && result.SUCCESS === false && result.ERROR_COUNT > 0;
       } catch (e) {
         return false;
       }

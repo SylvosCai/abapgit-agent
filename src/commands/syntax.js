@@ -128,6 +128,9 @@ module.exports = {
             const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
             if (fixptMatch && fixptMatch[1] === 'X') {
               obj.fixpt = 'X';
+            } else {
+              // No FIXPT tag means FIXPT=false (blank)
+              obj.fixpt = '';
             }
           }
         }
@@ -220,6 +223,9 @@ module.exports = {
             const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
             if (fixptMatch && fixptMatch[1] === 'X') {
               obj.fixpt = 'X';
+            } else {
+              // No FIXPT tag means FIXPT=false (blank)
+              obj.fixpt = '';
             }
           }
         }
