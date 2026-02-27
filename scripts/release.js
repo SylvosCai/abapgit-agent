@@ -7,7 +7,6 @@
  *   --patch    Bump patch version (e.g., 1.4.0 -> 1.4.1)
  *   --minor    Bump minor version (e.g., 1.4.0 -> 1.5.0)
  *   --major    Bump major version (e.g., 1.4.0 -> 2.0.0)
- *   --edit     Open editor to modify generated release notes
  *   --dry-run  Preview only, don't make any changes
  *
  * This script:
@@ -35,7 +34,6 @@ const repoRoot = path.join(__dirname, '..');
 // Parse arguments
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
-const editMode = args.includes('--edit');
 
 // Get bump type (--patch, --minor, or --major)
 let bumpType = null;
@@ -52,63 +50,12 @@ if (!bumpType) {
   console.error('  npm run release -- --major    # e.g., 1.4.0 -> 2.0.0');
   console.error('');
   console.error('Options:');
-  console.error('  --edit       Open editor to modify generated release notes');
   console.error('  --dry-run    Preview only, no changes made');
-  console.error('');
-  console.error('Examples:');
-  console.error('  npm run release -- --patch --edit');
-  console.error('  npm run release -- --minor --dry-run');
   process.exit(1);
 }
 
 if (dryRun) {
   console.log('🔹 DRY RUN MODE - Preview only, no changes will be made\n');
-}
-
-if (editMode) {
-  console.log('📝 EDIT MODE - You will be prompted to edit release notes\n');
-}
-
-/**
- * Opens editor to edit release notes
- * @param {string} content - Initial content to edit
- * @returns {string} Edited content
- */
-function editReleaseNotes(content) {
-  const editor = process.env.EDITOR || 'vim';
-
-  // Write content to temp file
-  fs.writeFileSync(releaseNotesDraftPath, content);
-  console.log(`Opening editor (${editor})...`);
-  console.log('Save and close the editor to continue.\n');
-
-  try {
-    // Open editor synchronously
-    execSync(`${editor} "${releaseNotesDraftPath}"`, {
-      stdio: 'inherit',
-      cwd: repoRoot
-    });
-
-    // Read edited content
-    const editedContent = fs.readFileSync(releaseNotesDraftPath, 'utf8').trim();
-
-    // Clean up temp file
-    fs.unlinkSync(releaseNotesDraftPath);
-
-    return editedContent;
-  } catch (e) {
-    console.error('Error opening editor:', e.message);
-    console.error('Using original content');
-
-    // Clean up temp file on error
-    try {
-      fs.unlinkSync(releaseNotesDraftPath);
-    } catch (cleanupError) {
-      // Ignore cleanup errors
-    }
-
-    return content;
-  }
 }
 
 // Read version from package.json
@@ -235,20 +182,16 @@ OMIT any category that has no items.`;
   releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
 }
 
-// Open editor if --edit flag is set
-if (editMode) {
-  console.log('');
-  releaseNotesContent = editReleaseNotes(releaseNotesContent);
-  console.log('');
-  console.log('✅ Release notes edited');
-  console.log('');
-}
+// Write release notes to draft file
+fs.writeFileSync(releaseNotesDraftPath, releaseNotesContent);
 
 // Show release notes preview
 console.log('📝 Release Notes Preview:');
 console.log('─'.repeat(50));
 console.log(releaseNotesContent);
 console.log('─'.repeat(50));
+console.log('');
+console.log(`💡 You can edit the release notes in: ${releaseNotesDraftPath}`);
 console.log('');
 
 // Show what will happen
@@ -268,6 +211,14 @@ if (dryRun) {
   console.log('To release, run without --dry-run:');
   console.log(`  npm run release -- --${bumpType}`);
   console.log('');
+
+  // Clean up draft file
+  try {
+    fs.unlinkSync(releaseNotesDraftPath);
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+
   process.exit(0);
 }
 
@@ -285,7 +236,22 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   if (!proceed) {
     console.log('');
     console.log('Release cancelled.');
+
+    // Clean up draft file
+    try {
+      fs.unlinkSync(releaseNotesDraftPath);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
     process.exit(0);
+  }
+
+  // Read release notes from draft file (may have been edited)
+  try {
+    releaseNotesContent = fs.readFileSync(releaseNotesDraftPath, 'utf8').trim();
+  } catch (e) {
+    console.log('⚠️ Could not read draft file, using original content');
   }
 
   console.log('');
@@ -406,4 +372,11 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   console.log('');
   console.log('Next step for ABAP system:');
   console.log('  abapgit-agent pull --files abap/zcl_abgagt_resource_health.clas.abap');
+
+  // Clean up draft file
+  try {
+    fs.unlinkSync(releaseNotesDraftPath);
+  } catch (e) {
+    // Ignore cleanup errors
+  }
 });
