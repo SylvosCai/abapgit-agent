@@ -41,7 +41,13 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
     " Validate each object has required fields
     IF rv_valid = abap_true.
       LOOP AT ls_request-objects INTO DATA(ls_obj).
-        IF ls_obj-type IS INITIAL OR ls_obj-name IS INITIAL OR ls_obj-source IS INITIAL.
+        " type and name are always required
+        IF ls_obj-type IS INITIAL OR ls_obj-name IS INITIAL.
+          rv_valid = abap_false.
+          EXIT.
+        ENDIF.
+        " source is required UNLESS testclasses is provided (testclasses-only case)
+        IF ls_obj-source IS INITIAL AND ls_obj-testclasses IS INITIAL.
           rv_valid = abap_false.
           EXIT.
         ENDIF.
@@ -55,7 +61,7 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
     ls_request = is_request.
 
     IF ls_request-objects IS INITIAL OR lines( ls_request-objects ) = 0.
-      rv_message = 'Objects array is required. Each object needs: type, name, source'.
+      rv_message = 'Objects array is required. Each object needs: type, name, source (or testclasses)'.
       RETURN.
     ENDIF.
 
@@ -68,8 +74,8 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
         rv_message = |Object at index { sy-tabix } missing "name"|.
         RETURN.
       ENDIF.
-      IF ls_obj-source IS INITIAL.
-        rv_message = |Object at index { sy-tabix } missing "source"|.
+      IF ls_obj-source IS INITIAL AND ls_obj-testclasses IS INITIAL.
+        rv_message = |Object at index { sy-tabix } missing "source" or "testclasses"|.
         RETURN.
       ENDIF.
     ENDLOOP.
