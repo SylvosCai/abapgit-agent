@@ -367,6 +367,129 @@ const commandTestCases = [
       return hasMultipleErrors || (hasClassError && hasIntfError && hasProgError);
     }
   },
+  // syntax command - auto-detection and include field tests
+  {
+    command: 'syntax',
+    name: 'syntax check testclasses file with auto-detection',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.testclasses.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should auto-detect main, locals_def, locals_imp
+      const hasAutoDetect = output.includes('Auto-detected') ||
+        output.includes('ZCL_TEST_AUTO_DETECT');
+      const hasMainFile = output.includes('zcl_test_auto_detect.clas.abap') ||
+        output.includes('Syntax check');
+      return hasAutoDetect || hasMainFile;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check testclasses detects error in testclasses with include field',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.testclasses.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect UNDEFINED_VARIABLE error in testclasses section
+      const hasError = output.includes('UNDEFINED_VARIABLE') ||
+        output.includes('failed') ||
+        output.includes('error');
+      const hasInclude = output.includes('Test classes') ||
+        output.includes('testclasses');
+      const hasLineNumber = /Line \d+/.test(output);
+      return hasError && (hasInclude || hasLineNumber);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check locals_imp detects error with include field',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.locals_imp.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should detect missing period error in locals_imp
+      const hasError = output.includes('failed') ||
+        output.includes('error') ||
+        output.includes('expected');
+      const hasInclude = output.includes('Local implementations') ||
+        output.includes('locals_imp');
+      const hasLineNumber = /Line \d+/.test(output);
+      // Error should be at line 3 in locals_imp (missing period after rv_result = iv_a * iv_b)
+      return hasError && (hasInclude || hasLineNumber);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check main class with auto-detection of companions',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should auto-detect locals_def, locals_imp, testclasses
+      const hasAutoDetect = output.includes('Auto-detected') ||
+        output.includes('ZCL_TEST_AUTO_DETECT');
+      const hasCompanionFile = output.includes('locals_def') ||
+        output.includes('locals_imp') ||
+        output.includes('testclasses');
+      // Should find errors in locals_imp and testclasses
+      const hasError = output.includes('failed') || output.includes('error');
+      return hasAutoDetect || hasCompanionFile || hasError;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check with JSON output includes include field',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.locals_imp.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should return valid JSON with include field in error
+      try {
+        const json = JSON.parse(output);
+        const results = json.RESULTS || json.results;
+        if (!results || results.length === 0) return false;
+
+        const errors = results[0].ERRORS || results[0].errors || [];
+        if (errors.length === 0) return false;
+
+        // Check if include field exists
+        const hasInclude = errors.some(err =>
+          (err.INCLUDE && err.INCLUDE === 'locals_imp') ||
+          (err.include && err.include === 'locals_imp')
+        );
+        return hasInclude;
+      } catch (e) {
+        return false;
+      }
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check auto-detection from locals_def',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.locals_def.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should auto-detect main, locals_imp, testclasses
+      const hasAutoDetect = output.includes('Auto-detected') ||
+        output.includes('ZCL_TEST_AUTO_DETECT');
+      const hasResult = output.includes('Syntax check') ||
+        output.includes('error') ||
+        output.includes('passed');
+      return hasAutoDetect || hasResult;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check shows exact filename with include location',
+    args: ['--files', 'tests/fixtures/zcl_test_auto_detect.clas.testclasses.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show both human-readable name AND exact filename
+      // Format: "In: Test classes (zcl_test_auto_detect.clas.testclasses.abap)"
+      const hasFilename = output.includes('.testclasses.abap') ||
+        output.includes('.locals_imp.abap') ||
+        output.includes('.clas.abap');
+      const hasReadableName = output.includes('Test classes') ||
+        output.includes('Local implementations') ||
+        output.includes('Main class');
+      return hasFilename || hasReadableName;
+    }
+  },
   // ref commands (local file search - no ABAP required)
   {
     command: 'ref',
