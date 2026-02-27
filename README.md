@@ -1,3 +1,8 @@
+---
+title: abapGit Agent
+nav_order: 1
+---
+
 # abapGit Agent
 
 A local agent that enables AI coding tools (Claude, Copilot, etc.) to automatically pull and activate ABAP code from git repositories using REST API.
@@ -87,7 +92,18 @@ abapgit-agent import --message "feat: add new feature"
 ### Validation Commands
 
 ```bash
-# Inspect source file for issues
+# Check syntax of local source files BEFORE commit (fast, no activation)
+# Supported: CLAS, INTF, PROG, DDLS (CDS Views)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
+# Syntax check with ABAP Cloud mode
+abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
+
+# Syntax check multiple files
+abapgit-agent syntax --files src/zcl_class.clas.abap,src/zc_view.ddls.asddls
+
+# Inspect source file for issues (after activation)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 # Run AUnit tests for test classes
@@ -158,6 +174,7 @@ npm run pull -- --url <git-url> --branch main
 | delete Command | [docs/delete-command.md](docs/delete-command.md) |
 | import Command | [docs/import-command.md](docs/import-command.md) |
 | pull Command | [docs/pull-command.md](docs/pull-command.md) |
+| syntax Command | [docs/syntax-command.md](docs/syntax-command.md) |
 | inspect Command | [docs/inspect-command.md](docs/inspect-command.md) |
 | unit Command | [docs/unit-command.md](docs/unit-command.md) |
 | tree Command | [docs/tree-command.md](docs/tree-command.md) |
