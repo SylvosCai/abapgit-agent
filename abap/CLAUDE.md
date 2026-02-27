@@ -97,6 +97,9 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 ```bash
 # Check syntax of local code (no commit/push needed)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Check multiple INDEPENDENT files
+abapgit-agent syntax --files src/zcl_utils.clas.abap,src/zcl_logger.clas.abap
 ```
 
 **For other types (DDLS, FUGR, TABL, etc.)**: Skip syntax, proceed to commit/push/pull.
@@ -105,6 +108,23 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap
 - Catches syntax errors BEFORE polluting git history with fix commits
 - No broken inactive objects in ABAP system
 - Faster feedback loop - fix locally without commit/push/pull cycle
+- Works even for NEW objects that don't exist in ABAP system yet
+
+**⚠️ Important: Syntax checks files independently**
+
+When checking multiple files, each is validated in isolation:
+- ✅ **Use for**: Multiple independent files (bug fixes, unrelated changes)
+- ❌ **Don't use for**: Files with dependencies (interface + implementing class)
+
+**For dependent files, skip `syntax` and use `pull` instead:**
+```bash
+# ❌ BAD - Interface and implementing class (may show false errors)
+abapgit-agent syntax --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
+
+# ✅ GOOD - Use pull instead for dependent files
+git add . && git commit && git push
+abapgit-agent pull --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
+```
 
 **Note**: `inspect` still runs against ABAP system (requires pull first). Use `syntax` for pre-commit checking.
 
@@ -281,18 +301,20 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 **IMPORTANT**:
 - **Use `syntax` BEFORE commit** for CLAS/INTF/PROG (including test classes) - catches errors early, no git pollution
+- **Syntax checks files INDEPENDENTLY** - no cross-file dependency support (e.g., interface definition not available when checking implementing class)
+- **For dependent files** (interface + class, class + using class): Skip `syntax`, use `pull` directly
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
 - **Use `inspect` AFTER pull** for unsupported types or if pull fails
 
 **Working with mixed file types:**
 When modifying multiple files of different types (e.g., 1 class + 1 CDS view):
-1. Run `syntax` on supported files only (CLAS, INTF, PROG)
+1. Run `syntax` on supported files only (CLAS, INTF, PROG) - **only if they're independent**
 2. Commit ALL files together (including unsupported types)
 3. Push and pull ALL files together
 
 Example:
 ```bash
-# Check syntax on class and interface only (skip CDS)
+# Check syntax on independent class and interface only (skip CDS, skip if dependent)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
 
 # Commit and push all files including CDS
@@ -314,21 +336,28 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,
 **When user asks to modify/create ABAP code:**
 
 ```
-1. Identify file extension(s)
-   ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported
-   ├─ .intf.abap → INTF ✅ syntax supported
+1. Identify file extension(s) AND dependencies
+   ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported (if independent)
+   ├─ .intf.abap → INTF ✅ syntax supported (if independent)
    ├─ .prog.abap → PROG ✅ syntax supported
    ├─ .ddls.asddls → DDLS ❌ syntax not supported
    └─ All other extensions → ❌ syntax not supported
 
-2. For SUPPORTED types (CLAS/INTF/PROG):
-   Write code → Run syntax → Fix errors → Commit → Push → Pull
+2. Check for dependencies:
+   ├─ Interface + implementing class? → Dependencies exist
+   ├─ Class A uses class B? → Dependencies exist
+   ├─ New objects that don't exist in ABAP system? → Check if they depend on each other
+   └─ Unrelated bug fixes across files? → No dependencies
 
-3. For UNSUPPORTED types (DDLS, FUGR, TABL, etc.):
+3. For SUPPORTED types (CLAS/INTF/PROG):
+   ├─ Independent files → Run syntax → Fix errors → Commit → Push → Pull
+   └─ Dependent files → Skip syntax → Commit → Push → Pull
+
+4. For UNSUPPORTED types (DDLS, FUGR, TABL, etc.):
    Write code → Skip syntax → Commit → Push → Pull → (if errors: inspect)
 
-4. For MIXED types (some supported + some unsupported):
-   Write all code → Run syntax on supported files ONLY → Commit ALL → Push → Pull ALL
+5. For MIXED types (some supported + some unsupported):
+   Write all code → Run syntax on independent supported files ONLY → Commit ALL → Push → Pull ALL
 ```
 
 **Error indicators after pull:**

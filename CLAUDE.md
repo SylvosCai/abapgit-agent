@@ -387,7 +387,7 @@ Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source
 # Check syntax of a class file
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 
-# Check syntax of multiple files
+# Check syntax of multiple INDEPENDENT files (see note below)
 abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 
 # Check with ABAP Cloud (BTP) stricter rules
@@ -395,6 +395,29 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
 
 # Output as JSON
 abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
+```
+
+**⚠️ Important: Files Are Checked Independently**
+
+When checking multiple files, each file is validated in isolation:
+- ✅ **Use for**: Multiple independent files (e.g., 3 unrelated classes, bug fixes across different files)
+- ❌ **Don't use for**: Files with dependencies (e.g., interface + class implementing it)
+
+For dependent files, skip `syntax` and use `pull` instead, which activates them together in the correct order.
+
+**Examples:**
+
+```bash
+# ✅ GOOD - Independent files (no cross-dependencies)
+abapgit-agent syntax --files src/zcl_utils.clas.abap,src/zcl_logger.clas.abap,src/zcl_parser.clas.abap
+
+# ❌ BAD - Dependent files (class implements interface)
+# This may show false errors if interface doesn't exist in ABAP system yet
+abapgit-agent syntax --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
+
+# ✅ CORRECT for dependent files - Use pull instead
+git commit && git push
+abapgit-agent pull --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
 ```
 
 ### Parameters
@@ -458,10 +481,12 @@ Files are parsed to extract `(obj_type, obj_name)`:
 
 ### Key Behaviors
 
-1. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
-2. **Local classes auto-detected** - When checking a class, companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
-3. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-4. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+1. **Files checked independently** - Each file is validated in isolation with no cross-file dependency support. The interface definition from one file is NOT available when checking another file in the same command.
+2. **Works for new objects** - Syntax check works even if the object doesn't exist in the ABAP system yet (creates a temporary TRDIR entry)
+3. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
+4. **Local classes auto-detected** - When checking a class, companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
+5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
+6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
 
 ### Response JSON Structure
 ```json
