@@ -158,17 +158,17 @@ Errors:
 ```
   Syntax check for 1 file(s)
 
-  Auto-detected: zcl_calculator.clas.abap
-  Auto-detected: zcl_calculator.clas.locals_def.abap
-  Auto-detected: zcl_calculator.clas.locals_imp.abap
+  Auto-detected: zcl_my_class.clas.abap
+  Auto-detected: zcl_my_class.clas.locals_def.abap
+  Auto-detected: zcl_my_class.clas.locals_imp.abap
 
-❌ CLAS ZCL_CALCULATOR - Syntax check failed (1 error(s))
+❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s))
 
 Errors:
 ────────────────────────────────────────────────────────────
-  In: Local implementations (zcl_calculator.clas.locals_imp.abap)
+  In: Local implementations (zcl_my_class.clas.locals_imp.abap)
   Line 24:
-    "." expected after "MV_ADD_RESULT".
+    "." expected after "LV_RESULT".
 
 ❌ 1 of 1 object(s) have syntax errors
 ```
@@ -236,13 +236,13 @@ Errors:
       "ERRORS": [
         {
           "LINE": 24,
-          "TEXT": "\".\" expected after \"MV_ADD_RESULT\".",
-          "WORD": "MV_ADD_RESULT",
+          "TEXT": "\".\" expected after \"LV_RESULT\".",
+          "WORD": "LV_RESULT",
           "INCLUDE": "locals_imp"
         }
       ],
       "WARNINGS": [],
-      "MESSAGE": "\".\" expected after \"MV_ADD_RESULT\"."
+      "MESSAGE": "\".\" expected after \"LV_RESULT\"."
     }
   ]
 }
@@ -258,7 +258,7 @@ Errors:
    - Local definitions (`.clas.locals_def.abap`)
    - Local implementations (`.clas.locals_imp.abap`)
    - Test classes (`.clas.testclasses.abap`)
-3. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_calculator.clas.locals_imp.abap)")
+3. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_my_class.clas.locals_imp.abap)")
 4. **Test classes fully supported** - `.testclasses.abap` files can be checked by providing just the testclasses file
 5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
 6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
@@ -298,12 +298,12 @@ When checking any class file, the command automatically detects and includes ALL
 **Example:**
 ```bash
 # You provide only testclasses file
-abapgit-agent syntax --files src/zcl_calculator.clas.testclasses.abap
+abapgit-agent syntax --files src/zcl_my_class.clas.testclasses.abap
 
 # Command auto-detects and includes:
-  Auto-detected: zcl_calculator.clas.abap
-  Auto-detected: zcl_calculator.clas.locals_def.abap
-  Auto-detected: zcl_calculator.clas.locals_imp.abap
+  Auto-detected: zcl_my_class.clas.abap
+  Auto-detected: zcl_my_class.clas.locals_def.abap
+  Auto-detected: zcl_my_class.clas.locals_imp.abap
 ```
 
 ---
@@ -314,10 +314,10 @@ When errors occur in classes with multiple files, the output shows exactly which
 
 | Include Type | Display Format |
 |--------------|----------------|
-| Main class | `In: Main class (zcl_calculator.clas.abap)` |
-| Local definitions | `In: Local definitions (zcl_calculator.clas.locals_def.abap)` |
-| Local implementations | `In: Local implementations (zcl_calculator.clas.locals_imp.abap)` |
-| Test classes | `In: Test classes (zcl_calculator.clas.testclasses.abap)` |
+| Main class | `In: Main class (zcl_my_class.clas.abap)` |
+| Local definitions | `In: Local definitions (zcl_my_class.clas.locals_def.abap)` |
+| Local implementations | `In: Local implementations (zcl_my_class.clas.locals_imp.abap)` |
+| Test classes | `In: Test classes (zcl_my_class.clas.testclasses.abap)` |
 
 This makes it immediately clear which file to edit.
 
@@ -418,7 +418,7 @@ Errors:
 ────────────────────────────────────────────────────────────
   In: Local implementations (zcl_my_class.clas.locals_imp.abap)
   Line 24:
-    "." expected after "MV_ADD_RESULT".
+    "." expected after "LV_RESULT".
 
 # Fix the error in zcl_my_class.clas.locals_imp.abap at line 24
 vim src/zcl_my_class.clas.locals_imp.abap +24
