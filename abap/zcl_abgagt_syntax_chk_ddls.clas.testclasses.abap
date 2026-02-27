@@ -159,7 +159,7 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     " Test with invalid annotation syntax
     DATA(lt_source) = build_source(
       |@InvalidAnnotation.missingValue\n| &&
-      |define view ZTEST_ANNOT as select from sflight { key carrid }| ).
+      |define view ZTEST_ANNOT as select from sflight \{ carrid \}| ).
 
     DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
       iv_name = 'ZTEST_ANNOT'
