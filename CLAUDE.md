@@ -84,27 +84,47 @@ abapgit-agent where --objects ZCL_MY_CLASS           # See where it's used
 ```
 abapgit-agent/
 ├── bin/
-│   └── abapgit-agent        # CLI entry point
+│   ├── abapgit-agent        # CLI entry point
+│   └── abgagt               # Alias for abapgit-agent
 ├── src/
+│   ├── commands/            # Command implementations (CLI layer)
+│   ├── utils/               # Utility modules
 │   ├── agent.js             # Main agent class
-│   ├── abap-client.js       # REST client for ABAP communication
 │   ├── config.js            # Configuration management
 │   ├── server.js            # HTTP server
-│   └── logger.js            # Logging utilities
+│   ├── logger.js            # Logging utilities
+│   └── index.js             # Main entry point
 ├── abap/                    # ABAP backend components
-│   ├── zcl_abapgit_agent*.clas.abap    # Main agent class
-│   ├── zif_abapgit_agent.intf.abap     # Agent interface
-│   ├── zcl_abgagt_cmd_factory.clas.abap # Command factory
-│   ├── zcl_abgagt_command_*.clas.abap   # Command implementations
-│   ├── zif_abgagt_command.intf.abap     # Command interface
-│   ├── zcl_abgagt_resource_*.clas.abap  # REST resource handlers
-│   └── CLAUDE.md            # ABAP project guidelines
-├── docs/                    # Command documentation
+│   ├── guidelines/          # ABAP development guidelines
+│   ├── zcl_abgagt_agent.clas.abap           # Main agent class
+│   ├── zif_abgagt_agent.intf.abap           # Agent interface
+│   ├── zcl_abgagt_cmd_factory.clas.abap     # Command factory
+│   ├── zcl_abgagt_command_*.clas.abap       # Command implementations
+│   ├── zif_abgagt_command.intf.abap         # Command interface
+│   ├── zcl_abgagt_resource_*.clas.abap      # REST resource handlers
+│   ├── zcl_abgagt_rest_handler.clas.abap    # REST handler
+│   ├── zcl_abgagt_syntax_chk_*.clas.abap    # Syntax checkers
+│   ├── zif_abgagt_syntax_checker.intf.abap  # Syntax checker interface
+│   ├── zcl_abgagt_viewer_*.clas.abap        # Object viewers
+│   ├── zif_abgagt_viewer.intf.abap          # Viewer interface
+│   └── CLAUDE.md                            # ABAP project guidelines
+├── docs/                    # Command documentation (user docs)
 │   ├── commands.md          # All commands overview
 │   ├── pull-command.md      # Pull command detailed spec
 │   ├── syntax-command.md    # Syntax command detailed spec
 │   └── ...                  # Other command specs
-└── tests/
+├── pages/                   # Website pages (Jekyll)
+│   ├── getting-started.md
+│   ├── development-commands.md
+│   └── ...
+├── tests/
+│   ├── integration/         # Integration tests
+│   ├── unit/                # Unit tests
+│   ├── fixtures/            # Test fixtures
+│   └── helpers/             # Test helpers
+├── scripts/                 # Build and release scripts
+├── CLAUDE.md                # Project guidelines (this file)
+└── package.json             # Node.js project configuration
 ```
 
 ## ABAP Architecture
