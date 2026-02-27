@@ -2,6 +2,25 @@
 title: Release Notes
 ---
 
+## v1.8.2
+
+  New Features
+
+  - DDLS (CDS View) support in syntax command
+  - FIXPT support in syntax checkers for fixed-point arithmetic handling
+
+  Documentation
+
+  - Update CLAUDE.md and syntax-command.md with DDLS support
+  - Add CDS selection patterns and FIXPT guidelines
+  - Hide CLAUDE.md, Syntax Command Spec, and Implementation Plan from Jekyll navigation
+  - Make README.md first item in Jekyll navigation
+
+---
+
+---
+
+
 ## v1.8.1
 
 See commit history for changes.
