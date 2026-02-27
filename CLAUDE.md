@@ -6,10 +6,10 @@ This is the **abapgit-agent** CLI tool project - a Node.js application for pulli
 
 ```bash
 # Quick commands
-abapgit-agent pull                              # Pull and activate all
-abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull specific file(s)
-abapgit-agent inspect --files src/zcl_my_class.clas.abap    # Syntax check
-abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run tests
+abapgit-agent syntax --files src/zcl_my_class.clas.abap    # Check syntax BEFORE commit (local files)
+abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull and activate (AFTER push)
+abapgit-agent inspect --files src/zcl_my_class.clas.abap   # Code Inspector check (AFTER pull)
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run unit tests
 abapgit-agent preview --objects TABLE           # Preview table data
 abapgit-agent view --objects OBJ               # View object definition
 abapgit-agent tree --package '$PACKAGE'          # Show package hierarchy
