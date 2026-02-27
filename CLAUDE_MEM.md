@@ -1,3 +1,7 @@
+---
+nav_exclude: true
+---
+
 # claude-mem for ABAP Knowledge Management
 
 claude-mem is a Claude Code plugin that stores memories across sessions. Use it to retain ABAP knowledge learned from the reference repositories.
