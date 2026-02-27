@@ -325,6 +325,11 @@ function runCommandTests(demoMode = false, commandFilter = null) {
     let output = '';
 
     try {
+      // Run setup if provided
+      if (testCase.setup) {
+        testCase.setup();
+      }
+
       const args = [testCase.command, ...testCase.args];
       output = execSync(
         `node bin/abapgit-agent ${args.join(' ')}`,
@@ -358,6 +363,15 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       output = error.stdout || error.message;
       // If command crashed, it's a failure (unless we expect failure)
       commandPassed = !testCase.expectSuccess;
+    } finally {
+      // Run cleanup if provided
+      if (testCase.cleanup) {
+        try {
+          testCase.cleanup();
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+      }
     }
 
     if (commandPassed) {
@@ -373,14 +387,16 @@ function runCommandTests(demoMode = false, commandFilter = null) {
   let passedCount = results.filter(r => r.passed).length;
   let totalCount = results.length;
 
-  // Run lifecycle tests (init, create, import, delete) if test directory exists
-  const lifecycleResults = runLifecycleTestsWrapper();
-  if (lifecycleResults && !lifecycleResults.skipped && lifecycleResults.results) {
-    // Merge lifecycle results into command test results
-    results.push(...lifecycleResults.results);
-    passedCount += lifecycleResults.passedCount || 0;
-    totalCount += lifecycleResults.totalCount || 0;
-    printInfo(`  (Including ${lifecycleResults.passedCount || 0}/${lifecycleResults.totalCount || 0} lifecycle tests)`);
+  // Run lifecycle tests (init, create, import, delete) ONLY if no command filter is specified
+  if (!commandFilter) {
+    const lifecycleResults = runLifecycleTestsWrapper();
+    if (lifecycleResults && !lifecycleResults.skipped && lifecycleResults.results) {
+      // Merge lifecycle results into command test results
+      results.push(...lifecycleResults.results);
+      passedCount += lifecycleResults.passedCount || 0;
+      totalCount += lifecycleResults.totalCount || 0;
+      printInfo(`  (Including ${lifecycleResults.passedCount || 0}/${lifecycleResults.totalCount || 0} lifecycle tests)`);
+    }
   }
 
   if (passedCount === totalCount) {

@@ -454,7 +454,50 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 
 ---
 
-## DDLS (CDS View) Specific Notes
+## DDLS (Data Definition Language Source) Specific Notes
+
+### CDS View vs CDS View Entity
+
+The syntax command supports both CDS Views and CDS View Entities:
+
+| Feature | CDS View | CDS View Entity |
+|---------|----------|-----------------|
+| **Syntax** | `define view` | `define view entity` |
+| **@AbapCatalog.sqlViewName** | ✅ **REQUIRED** | ❌ Not allowed (error if present) |
+| **Creates SQL View** | Yes (DDLS + SQL view) | No (DDLS only) |
+| **Recommended for** | Legacy systems (< 7.50) | New development (S/4HANA, ABAP Cloud) |
+| **Parameter syntax** | `:param` or `$parameters.param` | `$parameters.param` only |
+
+**Example CDS View (Legacy):**
+```ddl
+@AbapCatalog.sqlViewName: 'ZV_MY_VIEW'  ← Required for CDS View
+@EndUserText.label: 'My CDS View'
+define view ZC_My_View as select from sflight
+{
+  key carrid,
+      connid
+}
+```
+
+**Example CDS View Entity (Modern):**
+```ddl
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'My CDS View Entity'
+define view entity ZC_My_Entity as select from sflight
+{
+  key carrid,
+      connid
+}
+```
+
+**Syntax command validates both:**
+```bash
+# CDS View (checks for required sqlViewName)
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
+# CDS View Entity (accepts without sqlViewName)
+abapgit-agent syntax --files src/zc_my_entity.ddls.asddls
+```
 
 ### Supported Features
 
@@ -462,38 +505,29 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 ✅ **Annotation validation** - Checks annotation syntax and requirements
 ✅ **Field references** - Validates field selection syntax
 ✅ **Associations** - Validates association syntax
+✅ **Parameters** - Validates parameter definitions and usage
 ✅ **Cast operations** - Validates CAST expressions
 ✅ **Line/column errors** - Precise error location
 
 ### Limitations
 
-⚠️ **Requires annotations** - CDS Views must include `@AbapCatalog.sqlViewName`
+⚠️ **CDS Views require `@AbapCatalog.sqlViewName`** - Will fail without it
+⚠️ **CDS View Entities must NOT have `@AbapCatalog.sqlViewName`** - Will fail if present
 ⚠️ **Schema context** - May not catch all errors for non-existent tables
 ⚠️ **Type validation** - Cannot fully validate types without data dictionary
-
-### Example: Valid CDS View
-
-```ddl
-@AbapCatalog.sqlViewName: 'ZV_MY_VIEW'
-@EndUserText.label: 'My Test View'
-define view ZC_My_View as select from sflight
-{
-  key carrid,
-      connid,
-      fldate,
-      price
-}
-```
+⚠️ **Parameter syntax** - View entities require `$parameters.` prefix (not `:`)
 
 ### Common Errors Caught
 
 | Error | Detection |
 |-------|-----------|
-| Missing annotation | ✅ Caught |
+| Missing `@AbapCatalog.sqlViewName` (CDS View) | ✅ Caught |
+| Has `@AbapCatalog.sqlViewName` (CDS View Entity) | ✅ Caught |
 | Invalid keyword | ✅ Caught |
 | Incomplete SELECT | ✅ Caught |
 | Invalid annotation syntax | ✅ Caught |
 | Missing braces | ✅ Caught |
+| Wrong parameter syntax (`:param` in view entity) | ✅ Caught |
 | Non-existent table | ⚠️ May pass (limitation) |
 
 ### When to Use inspect Instead

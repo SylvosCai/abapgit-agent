@@ -73,30 +73,38 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 **Each ABAP object requires an XML metadata file for abapGit to understand how to handle it.**
 
-| Object Type | ABAP File (if folder=/src/) | XML File |
-|-------------|------------------------------|----------|
-| Class | `src/zcl_*.clas.abap` | `src/zcl_*.clas.xml` |
-| Interface | `src/zif_*.intf.abap` | `src/zif_*.intf.xml` |
-| Program | `src/z*.prog.abap` | `src/z*.prog.xml` |
-| Table | `src/z*.tabl.abap` | `src/z*.tabl.xml` |
-| CDS View | `src/zc_*.ddls.asddls` | `src/zc_*.ddls.xml` |
+| Object Type | ABAP File (if folder=/src/) | XML File | Details |
+|-------------|------------------------------|----------|---------|
+| Class | `src/zcl_*.clas.abap` | `src/zcl_*.clas.xml` | See `guidelines/08_abapgit.md` |
+| Interface | `src/zif_*.intf.abap` | `src/zif_*.intf.xml` | See `guidelines/08_abapgit.md` |
+| Program | `src/z*.prog.abap` | `src/z*.prog.xml` | See `guidelines/08_abapgit.md` |
+| Table | `src/z*.tabl.abap` | `src/z*.tabl.xml` | See `guidelines/08_abapgit.md` |
+| **CDS View Entity** | `src/zc_*.ddls.asddls` | `src/zc_*.ddls.xml` | **Use by default** - See `guidelines/04_cds.md` |
+| CDS View (legacy) | `src/zc_*.ddls.asddls` | `src/zc_*.ddls.xml` | Only if explicitly requested - See `guidelines/04_cds.md` |
 
-**Use `ref --topic abapgit` for complete XML templates.**
+**IMPORTANT: When user says "create CDS view", create CDS View Entity by default.**
+
+**Why:** Modern S/4HANA standard, simpler (no SQL view), no namespace conflicts.
+
+**For complete XML templates, DDL examples, and detailed comparison:**
+- **CDS Views**: `guidelines/04_cds.md`
+- **XML templates**: `guidelines/08_abapgit.md`
 
 ---
 
-### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG)
+### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG, DDLS)
 
 ```
 ❌ WRONG: Make changes → Commit → Push → Pull → Find errors → Fix → Repeat
 ✅ CORRECT: Make changes → Run syntax → Fix locally → Commit → Push → Pull → Done
 ```
 
-**For CLAS, INTF, PROG files**: Run `syntax` command BEFORE commit to catch errors early.
+**For CLAS, INTF, PROG, DDLS files**: Run `syntax` command BEFORE commit to catch errors early.
 
 ```bash
 # Check syntax of local code (no commit/push needed)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
 
 # Check multiple INDEPENDENT files
 abapgit-agent syntax --files src/zcl_utils.clas.abap,src/zcl_logger.clas.abap
@@ -260,15 +268,15 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 3. Write code → place in correct folder (e.g., src/zcl_*.clas.abap)
        │
        ▼
-4. Syntax check (for CLAS, INTF, PROG only)
+4. Syntax check (for CLAS, INTF, PROG, DDLS only)
        │
-       ├─► CLAS/INTF/PROG → abapgit-agent syntax --files <file>
+       ├─► CLAS/INTF/PROG/DDLS → abapgit-agent syntax --files <file>
        │       │
        │       ├─► Errors? → Fix locally (no commit needed), re-run syntax
        │       │
        │       └─► Clean ✅ → Proceed to commit
        │
-       └─► Other types (DDLS, FUGR, TABL, etc.) → Skip syntax, go to commit
+       └─► Other types (FUGR, TABL, etc.) → Skip syntax, go to commit
                │
                ▼
 5. Commit and push → git add . && git commit && git push
@@ -301,34 +309,88 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 **IMPORTANT**:
 - **Use `syntax` BEFORE commit** for CLAS/INTF/PROG/DDLS - catches errors early, no git pollution
-- **Syntax checks files INDEPENDENTLY** - no cross-file dependency support (e.g., interface definition not available when checking implementing class)
-- **For dependent files** (interface + class, class + using class): Skip `syntax`, use `pull` directly
+- **Syntax checks files INDEPENDENTLY** - syntax checker doesn't have access to uncommitted files
+- **For dependent files** (interface + class): Create/activate underlying object FIRST, then dependent object (see workflow below)
 - **DDLS requires proper annotations** - CDS views need `@AbapCatalog.sqlViewName`, view entities don't
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
 - **Use `inspect` AFTER pull** for unsupported types or if pull fails
 
+**Working with dependent objects (RECOMMENDED APPROACH):**
+
+When creating objects with dependencies (e.g., interface → class), create and activate the underlying object FIRST:
+
+```bash
+# Step 1: Create interface, syntax check, commit, activate
+vim src/zif_my_interface.intf.abap
+abapgit-agent syntax --files src/zif_my_interface.intf.abap  # ✅ Works (no dependencies)
+git add src/zif_my_interface.intf.abap src/zif_my_interface.intf.xml
+git commit -m "feat: add interface"
+git push
+abapgit-agent pull --files src/zif_my_interface.intf.abap   # Interface now activated
+
+# Step 2: Create class, syntax check, commit, activate
+vim src/zcl_my_class.clas.abap
+abapgit-agent syntax --files src/zcl_my_class.clas.abap     # ✅ Works (interface already activated)
+git add src/zcl_my_class.clas.abap src/zcl_my_class.clas.xml
+git commit -m "feat: add class implementing interface"
+git push
+abapgit-agent pull --files src/zcl_my_class.clas.abap
+```
+
+**Benefits:**
+- ✅ Syntax checking works for both objects
+- ✅ Each step is validated independently
+- ✅ Easier to debug if something fails
+- ✅ Cleaner workflow
+
+**Alternative approach (when interface design is uncertain):**
+
+If the interface might need changes while implementing the class, commit both together:
+
+```bash
+# Create both files
+vim src/zif_my_interface.intf.abap
+vim src/zcl_my_class.clas.abap
+
+# Skip syntax (files depend on each other), commit together
+git add src/zif_my_interface.intf.abap src/zif_my_interface.intf.xml
+git add src/zcl_my_class.clas.abap src/zcl_my_class.clas.xml
+git commit -m "feat: add interface and implementing class"
+git push
+
+# Pull both together
+abapgit-agent pull --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
+
+# Use inspect if errors occur
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
+```
+
+**Use this approach when:**
+- ❌ Interface design is still evolving
+- ❌ Multiple iterations expected
+
 **Working with mixed file types:**
 When modifying multiple files of different types (e.g., 1 class + 1 CDS view):
-1. Run `syntax` on supported files only (CLAS, INTF, PROG) - **only if they're independent**
+1. Run `syntax` on independent supported files (CLAS, INTF, PROG, DDLS)
 2. Commit ALL files together (including unsupported types)
 3. Push and pull ALL files together
 
 Example:
 ```bash
-# Check syntax on independent class and interface only (skip CDS, skip if dependent)
-abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
+# Check syntax on independent files only
+abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
 
-# Commit and push all files including CDS
-git add src/zcl_my_class.clas.abap src/zif_my_intf.intf.abap src/zc_my_view.ddls.asddls
-git commit -m "feat: add class, interface, and CDS view"
+# Commit and push all files
+git add src/zcl_my_class.clas.abap src/zc_my_view.ddls.asddls
+git commit -m "feat: add class and CDS view"
 git push
 
 # Pull all files together
-abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,src/zc_my_view.ddls.asddls
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
 ```
 
 **When to use syntax vs inspect vs view**:
-- **syntax**: Check LOCAL code BEFORE commit (CLAS, INTF, PROG only)
+- **syntax**: Check LOCAL code BEFORE commit (CLAS, INTF, PROG, DDLS)
 - **inspect**: Check ACTIVATED code AFTER pull (all types, runs Code Inspector)
 - **view**: Understand object STRUCTURE (not for debugging errors)
 
@@ -338,27 +400,61 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,
 
 ```
 1. Identify file extension(s) AND dependencies
-   ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported (if independent)
-   ├─ .intf.abap → INTF ✅ syntax supported (if independent)
+   ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported
+   ├─ .intf.abap → INTF ✅ syntax supported
    ├─ .prog.abap → PROG ✅ syntax supported
    ├─ .ddls.asddls → DDLS ✅ syntax supported (requires proper annotations)
    └─ All other extensions → ❌ syntax not supported
 
 2. Check for dependencies:
-   ├─ Interface + implementing class? → Dependencies exist
-   ├─ Class A uses class B? → Dependencies exist
-   ├─ New objects that don't exist in ABAP system? → Check if they depend on each other
-   └─ Unrelated bug fixes across files? → No dependencies
+   ├─ Interface + implementing class? → DEPENDENT (interface is underlying)
+   ├─ Class A uses class B? → DEPENDENT (class B is underlying)
+   ├─ CDS view uses table? → INDEPENDENT (table already exists)
+   └─ Unrelated bug fixes across files? → INDEPENDENT
 
 3. For SUPPORTED types (CLAS/INTF/PROG/DDLS):
-   ├─ Independent files → Run syntax → Fix errors → Commit → Push → Pull
-   └─ Dependent files → Skip syntax → Commit → Push → Pull
+   ├─ INDEPENDENT files → Run syntax → Fix errors → Commit → Push → Pull
+   │
+   └─ DEPENDENT files (NEW objects):
+       ├─ RECOMMENDED: Create underlying object first (interface, base class, etc.)
+       │   1. Create underlying object → Syntax → Commit → Push → Pull
+       │   2. Create dependent object → Syntax (works!) → Commit → Push → Pull
+       │   ✅ Benefits: Both syntax checks work, cleaner workflow
+       │
+       └─ ALTERNATIVE: If interface design uncertain, commit both together
+           → Skip syntax → Commit both → Push → Pull → (if errors: inspect)
 
 4. For UNSUPPORTED types (FUGR, TABL, etc.):
    Write code → Skip syntax → Commit → Push → Pull → (if errors: inspect)
 
 5. For MIXED types (some supported + some unsupported):
    Write all code → Run syntax on independent supported files ONLY → Commit ALL → Push → Pull ALL
+```
+
+**Example workflows:**
+
+**Scenario 1: Interface + Class (RECOMMENDED)**
+```bash
+# Step 1: Interface first
+vim src/zif_calculator.intf.abap
+abapgit-agent syntax --files src/zif_calculator.intf.abap  # ✅ Works
+git commit -am "feat: add calculator interface" && git push
+abapgit-agent pull --files src/zif_calculator.intf.abap    # Interface activated
+
+# Step 2: Class next
+vim src/zcl_calculator.clas.abap
+abapgit-agent syntax --files src/zcl_calculator.clas.abap  # ✅ Works (interface exists!)
+git commit -am "feat: implement calculator" && git push
+abapgit-agent pull --files src/zcl_calculator.clas.abap
+```
+
+**Scenario 2: Multiple independent classes**
+```bash
+# All syntax checks work (no dependencies)
+vim src/zcl_class1.clas.abap src/zcl_class2.clas.abap
+abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
+git commit -am "feat: add utility classes" && git push
+abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 ```
 
 **Error indicators after pull:**
@@ -370,9 +466,10 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,
 ### Commands
 
 ```bash
-# 1. Syntax check LOCAL code BEFORE commit (CLAS, INTF, PROG only)
+# 1. Syntax check LOCAL code BEFORE commit (CLAS, INTF, PROG, DDLS)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
-abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap,src/zc_view.ddls.asddls
 
 # 2. Pull/activate AFTER pushing to git
 abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
