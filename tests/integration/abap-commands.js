@@ -490,6 +490,237 @@ const commandTestCases = [
       return hasFilename || hasReadableName;
     }
   },
+  // DDLS syntax tests (CDS View and CDS View Entity)
+  {
+    command: 'syntax',
+    name: 'syntax check valid CDS view with annotations',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@AbapCatalog.sqlViewName: 'ZV_TEST_VALID'
+@EndUserText.label: 'Test Valid View'
+define view ZC_Test_Valid as select from sflight
+{
+  key carrid,
+      connid,
+      fldate
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_test_valid.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_test_valid.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.OBJECT_TYPE === 'DDLS' && result.SUCCESS === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_test_valid.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check CDS view without required sqlViewName fails',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@EndUserText.label: 'Missing Annotation'
+define view ZC_Missing_Annotation as select from sflight
+{
+  key carrid
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_missing_annot.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_missing_annot.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // Should fail with error about missing sqlViewName
+        return result && result.SUCCESS === false && result.ERROR_COUNT > 0;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_missing_annot.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check valid CDS view entity without sqlViewName',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Valid Entity'
+define view entity ZC_Valid_Entity as select from sflight
+{
+  key carrid,
+      connid,
+      fldate
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_valid_entity.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_valid_entity.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // View entity should pass without sqlViewName
+        return result && result.OBJECT_TYPE === 'DDLS' && result.SUCCESS === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_valid_entity.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check detects incomplete DDLS statement',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@AbapCatalog.sqlViewName: 'ZV_INCOMPLETE'
+define view ZC_Incomplete as select from`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_incomplete.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_incomplete.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // Should detect syntax error
+        return result && result.SUCCESS === false && result.ERROR_COUNT > 0;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_incomplete.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check CDS view with association',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@AbapCatalog.sqlViewName: 'ZV_ASSOC'
+@EndUserText.label: 'View with Association'
+define view ZC_Assoc as select from sflight
+  association [1..1] to scarr as _Carrier
+    on $projection.carrid = _Carrier.carrid
+{
+  key carrid,
+      connid,
+      _Carrier
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_assoc.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_assoc.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.OBJECT_TYPE === 'DDLS' && result.SUCCESS === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_assoc.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check CDS view entity with parameters',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/ddls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Entity with Parameters'
+define view entity ZC_Entity_Param
+  with parameters
+    p_carrid : s_carr_id,
+    p_date   : s_date
+  as select from sflight
+{
+  key carrid,
+      connid,
+      fldate
+}
+where carrid = $parameters.p_carrid
+  and fldate >= $parameters.p_date`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_entity_param.ddls.asddls'), source);
+    },
+    args: ['--files', 'tests/fixtures/ddls/zc_entity_param.ddls.asddls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.OBJECT_TYPE === 'DDLS' && result.SUCCESS === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/ddls/zc_entity_param.ddls.asddls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
   // ref commands (local file search - no ABAP required)
   {
     command: 'ref',
@@ -522,6 +753,83 @@ const commandTestCases = [
       // Should show topic content or error
       const hasResult = output.includes('Exception') || output.includes('cx_') || output.includes('Topic') || output.length > 50;
       return hasResult;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check class without FIXPT in XML defaults to FIXPT=X',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/fixpt-test');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      // Class with modern SQL syntax (comma, @ prefix) and no FIXPT in XML
+      // Should PASS because we default to FIXPT=X
+      const source = `CLASS zcl_test_no_fixpt DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    TYPES: BEGIN OF ty_flight,
+             carrid TYPE s_carr_id,
+             connid TYPE s_conn_id,
+           END OF ty_flight.
+    TYPES ty_flights TYPE STANDARD TABLE OF ty_flight WITH DEFAULT KEY.
+    METHODS get_data
+      IMPORTING iv_carrid TYPE s_carr_id DEFAULT 'AA'
+      RETURNING VALUE(rt_result) TYPE ty_flights.
+ENDCLASS.
+
+CLASS zcl_test_no_fixpt IMPLEMENTATION.
+  METHOD get_data.
+    SELECT carrid, connid
+      FROM sflight
+      INTO TABLE @rt_result
+      WHERE carrid = @iv_carrid.
+  ENDMETHOD.
+ENDCLASS.`;
+      fs.writeFileSync(path.join(fixturesDir, 'zcl_test_no_fixpt.clas.abap'), source);
+
+      // XML without FIXPT flag (should default to FIXPT=X)
+      const xml = `<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_TEST_NO_FIXPT</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Test class without FIXPT in XML</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>`;
+      fs.writeFileSync(path.join(fixturesDir, 'zcl_test_no_fixpt.clas.xml'), xml);
+    },
+    args: ['--files', 'tests/fixtures/fixpt-test/zcl_test_no_fixpt.clas.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // Should PASS because we default to FIXPT=X (modern SQL works)
+        return result && result.SUCCESS === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/fixpt-test');
+      try {
+        fs.unlinkSync(path.join(fixturesDir, 'zcl_test_no_fixpt.clas.abap'));
+        fs.unlinkSync(path.join(fixturesDir, 'zcl_test_no_fixpt.clas.xml'));
+        fs.rmdirSync(fixturesDir);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
   }
 ];
