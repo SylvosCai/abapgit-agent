@@ -181,7 +181,7 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     DATA(lt_source) = build_source(
       |define view ZTEST_NOTFOUND as select from ZTABLE_DOES_NOT_EXIST\n| &&
       |\{\n| &&
-      |  key field1\n| &&
+      |  field1\n| &&
       |\}| ).
 
     DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
