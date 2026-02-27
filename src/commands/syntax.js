@@ -139,6 +139,16 @@ module.exports = {
         if (files.locals_def) obj.locals_def = files.locals_def;
         if (files.locals_imp) obj.locals_imp = files.locals_imp;
         objects.push(obj);
+      } else if (files.locals_imp) {
+        // Test classes only (no main file needed)
+        // ABAP backend will create: CLASS-POOL. + locals_imp
+        const obj = {
+          type: 'CLAS',
+          name: className,
+          source: '',  // Empty main source
+          locals_imp: files.locals_imp
+        };
+        objects.push(obj);
       } else {
         console.error(`  Warning: No main class file for ${className}, skipping local files`);
       }

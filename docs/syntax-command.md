@@ -210,10 +210,11 @@ Errors:
 
 1. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
 2. **Local classes auto-detected** - Companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
-3. **Test classes treated as local implementations** - `.testclasses.abap` files are treated as local implementation includes (both definition and implementation together)
-4. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-5. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
-6. **No database writes** - Source is checked in memory only
+3. **Test classes can be checked standalone** - `.testclasses.abap` files don't require the main `.clas.abap` file to be present
+4. **Test classes treated as local implementations** - `.testclasses.abap` files are treated as local implementation includes (both definition and implementation together)
+5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
+6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+7. **No database writes** - Source is checked in memory only
 
 ---
 
@@ -260,6 +261,9 @@ Files are parsed to extract object type and name:
 ```bash
 # Basic syntax check
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Check test classes (no main class file needed)
+abapgit-agent syntax --files src/zcl_my_class.clas.testclasses.abap
 
 # Multiple files
 abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
