@@ -69,6 +69,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params   TYPE ty_syntax_params,
           ls_response TYPE ty_response,
+          ls_object   TYPE ty_source_object,
           lv_uccheck  TYPE trdir-uccheck.
 
     " Initialize response
@@ -98,7 +99,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     ENDIF.
 
     " Check each object
-    LOOP AT ls_params-objects INTO DATA(ls_object).
+    LOOP AT ls_params-objects INTO ls_object.
       DATA(ls_result) = check_object(
         is_object  = ls_object
         iv_uccheck = lv_uccheck ).

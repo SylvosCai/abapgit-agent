@@ -38,6 +38,10 @@ CLASS lcl_syntax_checker_mock IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+  METHOD zif_abgagt_syntax_checker~set_fixpt.
+    " Mock implementation - do nothing
+  ENDMETHOD.
+
 ENDCLASS.
 
 "**********************************************************************
