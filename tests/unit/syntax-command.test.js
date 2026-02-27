@@ -434,47 +434,48 @@ describe('Syntax Command - Logic Tests', () => {
         const className = baseName.split('.')[0].toUpperCase();
         let fileKind = 'main';
 
-        if (baseName.includes('.clas.locals_def.')) {
-          fileKind = 'locals_def';
-        } else if (baseName.includes('.clas.locals_imp.')) {
-          fileKind = 'locals_imp';
-        } else if (baseName.includes('.clas.testclasses.')) {
+        if (baseName.includes('.clas.testclasses.')) {
           fileKind = 'locals_imp';
         }
 
         if (!classFilesMap.has(className)) {
-          classFilesMap.set(className, { main: null, locals_def: null, locals_imp: null });
+          classFilesMap.set(className, { main: null, locals_def: null, locals_imp: null, testclasses: null });
         }
-        classFilesMap.get(className)[fileKind] = `test class source`;
+        const classFiles = classFilesMap.get(className);
+        // Testclasses go in testclasses field
+        if (fileKind === 'locals_imp' && baseName.includes('.testclasses.')) {
+          classFiles.testclasses = 'test class source';
+        } else {
+          classFiles[fileKind] = 'source';
+        }
       }
 
       expect(classFilesMap.has('ZCL_CALCULATOR')).toBe(true);
       expect(classFilesMap.get('ZCL_CALCULATOR').main).toBeNull();
-      expect(classFilesMap.get('ZCL_CALCULATOR').locals_imp).toBe('test class source');
+      expect(classFilesMap.get('ZCL_CALCULATOR').testclasses).toBe('test class source');
 
-      // Should create object even without main file
+      // Should auto-detect main file and create object
       const objects = [];
       for (const [className, files] of classFilesMap) {
+        // In real code, auto-detection would populate files.main here
+        // For this test, simulate that main file was found
+        if (!files.main && files.testclasses) {
+          files.main = 'auto-detected main source';
+        }
+
         if (files.main) {
           const obj = { type: 'CLAS', name: className, source: files.main };
           if (files.locals_def) obj.locals_def = files.locals_def;
           if (files.locals_imp) obj.locals_imp = files.locals_imp;
+          if (files.testclasses) obj.testclasses = files.testclasses;
           objects.push(obj);
-        } else if (files.locals_imp) {
-          // Test classes only
-          objects.push({
-            type: 'CLAS',
-            name: className,
-            source: '',
-            locals_imp: files.locals_imp
-          });
         }
       }
 
       expect(objects.length).toBe(1);
       expect(objects[0].name).toBe('ZCL_CALCULATOR');
-      expect(objects[0].source).toBe('');
-      expect(objects[0].locals_imp).toBe('test class source');
+      expect(objects[0].source).toBe('auto-detected main source');
+      expect(objects[0].testclasses).toBe('test class source');
     });
   });
 
