@@ -831,6 +831,84 @@ ENDCLASS.`;
         // Ignore cleanup errors
       }
     }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check class with FIXPT=X in XML should pass with modern SQL',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/fixpt-test-with-x');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      // Class with modern SQL syntax (comma, @ prefix) and FIXPT=X in XML
+      // Should PASS because FIXPT=X enables modern SQL syntax
+      const source = `CLASS zcl_test_with_fixpt DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    TYPES: BEGIN OF ty_flight,
+             carrid TYPE s_carr_id,
+             connid TYPE s_conn_id,
+           END OF ty_flight.
+    TYPES ty_flights TYPE STANDARD TABLE OF ty_flight WITH DEFAULT KEY.
+    METHODS get_data
+      IMPORTING iv_carrid TYPE s_carr_id DEFAULT 'AA'
+      RETURNING VALUE(rt_result) TYPE ty_flights.
+ENDCLASS.
+
+CLASS zcl_test_with_fixpt IMPLEMENTATION.
+  METHOD get_data.
+    SELECT carrid, connid
+      FROM sflight
+      INTO TABLE @rt_result
+      WHERE carrid = @iv_carrid.
+  ENDMETHOD.
+ENDCLASS.`;
+      fs.writeFileSync(path.join(fixturesDir, 'zcl_test_with_fixpt.clas.abap'), source);
+
+      // XML with FIXPT=X flag
+      const xml = `<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_TEST_WITH_FIXPT</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Test class with FIXPT=X in XML</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+    <FIXPT>X</FIXPT>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>`;
+      fs.writeFileSync(path.join(fixturesDir, 'zcl_test_with_fixpt.clas.xml'), xml);
+    },
+    args: ['--files', 'tests/fixtures/fixpt-test-with-x/zcl_test_with_fixpt.clas.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // Should PASS because FIXPT=X enables modern SQL
+        return result && result.SUCCESS === true && result.ERROR_COUNT === 0;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/fixpt-test-with-x');
+      try {
+        fs.unlinkSync(path.join(fixturesDir, 'zcl_test_with_fixpt.clas.abap'));
+        fs.unlinkSync(path.join(fixturesDir, 'zcl_test_with_fixpt.clas.xml'));
+        fs.rmdirSync(fixturesDir);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
   }
 ];
 module.exports = commandTestCases;
