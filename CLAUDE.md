@@ -220,14 +220,44 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 
 ### For CLI Tool Development (Node.js)
 
-1. Make changes to CLI code (JavaScript in `src/`)
-2. Test locally:
-   ```bash
-   node bin/abapgit-agent --help
-   node bin/abapgit-agent <command> --help
-   ```
-3. Test against real ABAP system (requires configured `.abapGitAgent`)
-4. Commit and push
+**Workflow:**
+```
+1. Make changes to CLI code (JavaScript in src/ or tests/)
+2. Run unit tests: npm test (or npm run test:unit)
+3. Test locally: node bin/abapgit-agent <command>
+4. (Optional) Run integration tests against ABAP system
+5. Commit and push
+```
+
+**Test structure:**
+```bash
+# Unit tests (fast, no ABAP system needed)
+npm test                    # Run all unit tests (Jest)
+npm run test:unit          # Same as npm test
+
+# Integration tests (require configured .abapGitAgent)
+npm run test:integration   # Test against real ABAP system
+npm run test:cmd           # Command integration tests
+npm run test:aunit         # AUnit integration tests
+npm run test:lifecycle     # Full lifecycle tests
+npm run test:all           # All tests (unit + integration)
+```
+
+**Unit tests location:**
+- `tests/unit/` - One test file per command/module
+- Example: `tests/unit/syntax-command.test.js` tests `src/commands/syntax.js`
+- Run fast, no external dependencies
+
+**Integration tests location:**
+- `tests/integration/` - Tests against real ABAP system
+- Requires `.abapGitAgent` configuration
+- Tests actual command execution end-to-end
+
+**Manual testing:**
+```bash
+node bin/abapgit-agent --help
+node bin/abapgit-agent syntax --files src/example.clas.abap
+```
 
 ### For ABAP Backend Development
 
