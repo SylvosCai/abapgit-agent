@@ -107,11 +107,32 @@ module.exports = {
           classFiles[fileKind] = source;
         }
       } else {
-        objects.push({
+        const obj = {
           type: objType,
           name: objName,
           source: source
-        });
+        };
+
+        // Read FIXPT from XML metadata for INTF and PROG
+        if (objType === 'INTF' || objType === 'PROG') {
+          const dir = pathModule.dirname(filePath);
+          let xmlFile;
+          if (objType === 'INTF') {
+            xmlFile = pathModule.join(dir, `${objName.toLowerCase()}.intf.xml`);
+          } else if (objType === 'PROG') {
+            xmlFile = pathModule.join(dir, `${objName.toLowerCase()}.prog.xml`);
+          }
+          if (xmlFile && fs.existsSync(xmlFile)) {
+            const xmlContent = fs.readFileSync(xmlFile, 'utf8');
+            // Simple regex to extract FIXPT value
+            const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
+            if (fixptMatch && fixptMatch[1] === 'X') {
+              obj.fixpt = 'X';
+            }
+          }
+        }
+
+        objects.push(obj);
       }
     }
 
@@ -184,6 +205,25 @@ module.exports = {
         if (files.locals_def) obj.locals_def = files.locals_def;
         if (files.locals_imp) obj.locals_imp = files.locals_imp;
         if (files.testclasses) obj.testclasses = files.testclasses;
+
+        // Read FIXPT from XML metadata
+        const mainFile = syntaxFiles.find(f => {
+          const bn = pathModule.basename(f).toUpperCase();
+          return bn.startsWith(className) && bn.includes('.CLAS.ABAP') && !bn.includes('LOCALS') && !bn.includes('TESTCLASSES');
+        });
+        if (mainFile) {
+          const dir = pathModule.dirname(mainFile);
+          const xmlFile = pathModule.join(dir, `${className.toLowerCase()}.clas.xml`);
+          if (fs.existsSync(xmlFile)) {
+            const xmlContent = fs.readFileSync(xmlFile, 'utf8');
+            // Simple regex to extract FIXPT value
+            const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
+            if (fixptMatch && fixptMatch[1] === 'X') {
+              obj.fixpt = 'X';
+            }
+          }
+        }
+
         objects.push(obj);
       } else {
         console.error(`  Warning: No main class file for ${className}, skipping local files`);
