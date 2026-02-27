@@ -1,3 +1,7 @@
+---
+nav_exclude: true
+---
+
 # ABAP Git Bridge - Implementation Plan
 
 ## Overview
