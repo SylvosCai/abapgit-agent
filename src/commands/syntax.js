@@ -237,13 +237,20 @@ module.exports = {
 
             // Display which file/include the error is in
             if (include) {
-              const includeDisplay = {
-                'main': 'Main class',
-                'locals_def': 'Local definitions',
-                'locals_imp': 'Local implementations',
-                'testclasses': 'Test classes'
-              }[include] || include;
-              console.log(`  In: ${includeDisplay}`);
+              const includeMap = {
+                'main': { display: 'Main class', suffix: '.clas.abap' },
+                'locals_def': { display: 'Local definitions', suffix: '.clas.locals_def.abap' },
+                'locals_imp': { display: 'Local implementations', suffix: '.clas.locals_imp.abap' },
+                'testclasses': { display: 'Test classes', suffix: '.clas.testclasses.abap' }
+              };
+              const includeInfo = includeMap[include] || { display: include, suffix: '' };
+
+              // Show both display name and filename
+              if (includeInfo.suffix) {
+                console.log(`  In: ${includeInfo.display} (${objName.toLowerCase()}${includeInfo.suffix})`);
+              } else {
+                console.log(`  In: ${includeInfo.display}`);
+              }
             }
             if (methodName) {
               console.log(`  Method: ${methodName}`);
