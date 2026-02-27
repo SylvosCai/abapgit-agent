@@ -15,11 +15,19 @@ Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source
 - `syntax` - Checks LOCAL source code BEFORE commit (no pull needed)
 - `inspect` - Checks ACTIVATED code AFTER pull (uses Code Inspector)
 
+**Auto-detection:** When checking any class file (main, locals_def, locals_imp, or testclasses), the command automatically detects and includes ALL companion files for a complete syntax check.
+
 ## Command
 
 ```bash
-# Check single file
+# Check single file - auto-detects all companions
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Check test classes - auto-detects main class and local files
+abapgit-agent syntax --files src/zcl_my_class.clas.testclasses.abap
+
+# Check local implementations - auto-detects main, locals_def, testclasses
+abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
 # Check multiple files
 abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
@@ -36,6 +44,7 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
 - Supported object types: CLAS, INTF, PROG
+- For class files: Companion files are auto-detected if they exist
 
 ## Parameters
 
@@ -104,6 +113,20 @@ Read source code from local filesystem
 ✅ All 1 object(s) passed syntax check
 ```
 
+### Success with Auto-Detection
+
+```
+  Syntax check for 1 file(s)
+
+  Auto-detected: zcl_my_class.clas.abap
+  Auto-detected: zcl_my_class.clas.locals_def.abap
+  Auto-detected: zcl_my_class.clas.locals_imp.abap
+
+✅ CLAS ZCL_MY_CLASS - Syntax check passed
+
+✅ All 1 object(s) passed syntax check
+```
+
 ### With ABAP Cloud Mode
 
 ```
@@ -115,7 +138,7 @@ Read source code from local filesystem
 ✅ All 1 object(s) passed syntax check
 ```
 
-### With Errors
+### With Errors (Single File)
 
 ```
   Syntax check for 1 file(s)
@@ -130,7 +153,27 @@ Errors:
 ❌ 1 of 1 object(s) have syntax errors
 ```
 
-### Multiple Files with Errors
+### With Errors (Multiple Files - Shows Which File)
+
+```
+  Syntax check for 1 file(s)
+
+  Auto-detected: zcl_calculator.clas.abap
+  Auto-detected: zcl_calculator.clas.locals_def.abap
+  Auto-detected: zcl_calculator.clas.locals_imp.abap
+
+❌ CLAS ZCL_CALCULATOR - Syntax check failed (1 error(s))
+
+Errors:
+────────────────────────────────────────────────────────────
+  In: Local implementations (zcl_calculator.clas.locals_imp.abap)
+  Line 24:
+    "." expected after "MV_ADD_RESULT".
+
+❌ 1 of 1 object(s) have syntax errors
+```
+
+### Multiple Objects with Errors
 
 ```
   Syntax check for 3 file(s)
@@ -177,7 +220,7 @@ Errors:
 }
 ```
 
-**With errors:**
+**With errors (includes file location):**
 
 ```json
 {
@@ -192,13 +235,14 @@ Errors:
       "ERROR_COUNT": 1,
       "ERRORS": [
         {
-          "LINE": 9,
-          "TEXT": "The statement \"UNKNOWN_STATEMENT\" is invalid.",
-          "WORD": "UNKNOWN_STATEMENT"
+          "LINE": 24,
+          "TEXT": "\".\" expected after \"MV_ADD_RESULT\".",
+          "WORD": "MV_ADD_RESULT",
+          "INCLUDE": "locals_imp"
         }
       ],
       "WARNINGS": [],
-      "MESSAGE": "The statement \"UNKNOWN_STATEMENT\" is invalid."
+      "MESSAGE": "\".\" expected after \"MV_ADD_RESULT\"."
     }
   ]
 }
@@ -208,12 +252,17 @@ Errors:
 
 ## Key Behaviors
 
-1. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
-2. **Local classes auto-detected** - Companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
-3. **Test classes can be checked standalone** - `.testclasses.abap` files don't require the main `.clas.abap` file to be present
-4. **Test classes treated as local implementations** - `.testclasses.abap` files are treated as local implementation includes (both definition and implementation together)
+1. **Line numbers match source file** - Error line numbers correspond to the actual line in the source file
+2. **All companion files auto-detected** - When any class file is checked, ALL companion files are automatically included:
+   - Main class (`.clas.abap`)
+   - Local definitions (`.clas.locals_def.abap`)
+   - Local implementations (`.clas.locals_imp.abap`)
+   - Test classes (`.clas.testclasses.abap`)
+3. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_calculator.clas.locals_imp.abap)")
+4. **Test classes fully supported** - `.testclasses.abap` files can be checked by providing just the testclasses file
 5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
 6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+7. **No database writes** - Source is checked in memory only
 7. **No database writes** - Source is checked in memory only
 
 ---
@@ -223,10 +272,54 @@ Errors:
 | Type | Description | File Extension |
 |------|-------------|----------------|
 | CLAS | Class | `.clas.abap` |
+| CLAS | Local definitions | `.clas.locals_def.abap` |
+| CLAS | Local implementations | `.clas.locals_imp.abap` |
+| CLAS | Test classes | `.clas.testclasses.abap` |
 | INTF | Interface | `.intf.abap` |
 | PROG | Program | `.prog.abap` |
 
-**Note:** For other types (DDLS, FUGR, TABL, etc.), use `pull` then `inspect`.
+**Note:**
+- For class files, ALL companion files are automatically detected and included
+- For other types (DDLS, FUGR, TABL, etc.), use `pull` then `inspect`
+
+---
+
+## Auto-Detection
+
+When checking any class file, the command automatically detects and includes ALL companion files:
+
+| You Provide | Auto-Detects (if exist) |
+|-------------|-------------------------|
+| `.clas.abap` | locals_def, locals_imp, testclasses |
+| `.clas.locals_def.abap` | main, locals_imp, testclasses |
+| `.clas.locals_imp.abap` | main, locals_def, testclasses |
+| `.clas.testclasses.abap` | main, locals_def, locals_imp |
+
+**Example:**
+```bash
+# You provide only testclasses file
+abapgit-agent syntax --files src/zcl_calculator.clas.testclasses.abap
+
+# Command auto-detects and includes:
+  Auto-detected: zcl_calculator.clas.abap
+  Auto-detected: zcl_calculator.clas.locals_def.abap
+  Auto-detected: zcl_calculator.clas.locals_imp.abap
+```
+
+---
+
+## Error Location Display
+
+When errors occur in classes with multiple files, the output shows exactly which file contains the error:
+
+| Include Type | Display Format |
+|--------------|----------------|
+| Main class | `In: Main class (zcl_calculator.clas.abap)` |
+| Local definitions | `In: Local definitions (zcl_calculator.clas.locals_def.abap)` |
+| Local implementations | `In: Local implementations (zcl_calculator.clas.locals_imp.abap)` |
+| Test classes | `In: Test classes (zcl_calculator.clas.testclasses.abap)` |
+
+This makes it immediately clear which file to edit.
 
 ---
 
@@ -256,24 +349,45 @@ Files are parsed to extract object type and name:
 
 ---
 
-## Example
+## Examples
+
+### Check Any Class File
 
 ```bash
-# Basic syntax check
+# Check main class - auto-detects all companions
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 
-# Check test classes (no main class file needed)
+# Check test classes - auto-detects main and local files
 abapgit-agent syntax --files src/zcl_my_class.clas.testclasses.abap
 
-# Multiple files
-abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
+# Check local implementations - auto-detects all others
+abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
-# ABAP Cloud mode (stricter)
+# All produce the same complete syntax check
+```
+
+### Multiple Independent Objects
+
+```bash
+# Check multiple unrelated files
+abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap,src/zif_intf.intf.abap
+```
+
+### ABAP Cloud Mode
+
+```bash
+# Use stricter ABAP Cloud syntax rules
 abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
+```
 
-# JSON output
+### JSON Output
+
+```bash
+# Get raw JSON response
 abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 ```
+
+---
 
 ## Use Case
 
@@ -281,24 +395,44 @@ Use `syntax` when:
 - You want to check code BEFORE committing to git
 - You want faster feedback than pull + inspect
 - You're developing CLAS, INTF, or PROG objects
+- You want to identify exactly which file has the error
 
-```
-# Workflow: Check locally BEFORE commit
-vim src/zcl_my_class.clas.abap
+### Typical Workflow
 
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
-   ❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
-      Line 9:
-        The statement "UNKNOWN_STATEMENT" is invalid.
+```bash
+# Edit any class file (main, locals, or testclasses)
+vim src/zcl_my_class.clas.locals_imp.abap
 
-# Fix the error locally, then check again
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
+# Check syntax (auto-detects all companion files)
+abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
+
+   Syntax check for 1 file(s)
+
+   Auto-detected: zcl_my_class.clas.abap
+   Auto-detected: zcl_my_class.clas.locals_def.abap
+   Auto-detected: zcl_my_class.clas.testclasses.abap
+
+❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s))
+
+Errors:
+────────────────────────────────────────────────────────────
+  In: Local implementations (zcl_my_class.clas.locals_imp.abap)
+  Line 24:
+    "." expected after "MV_ADD_RESULT".
+
+# Fix the error in zcl_my_class.clas.locals_imp.abap at line 24
+vim src/zcl_my_class.clas.locals_imp.abap +24
+
+# Check again
+abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
    ✅ CLAS ZCL_MY_CLASS - Syntax check passed
 
 # Now safe to commit and push
-git add . && git commit -m "Fix class" && git push
+git add . && git commit -m "Fix local implementation" && git push
 abapgit-agent pull --files src/zcl_my_class.clas.abap
 ```
+
+---
 
 ## Comparison with inspect
 
