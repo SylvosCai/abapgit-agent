@@ -133,43 +133,95 @@ abapgit-agent/
 ```
 CLI (bin/abapgit-agent)
     ↓
-REST Client (src/abap-client.js)
+REST Client (src/agent.js + src/config.js)
     ↓
-ABAP REST Handler (ZCL_ABGAGT_REST_HANDLER)
+HTTP → ABAP REST Handler (ZCL_ABGAGT_REST_HANDLER)
     ↓
-Resource: ZCL_ABGAGT_RESOURCE_PULL → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_PULL → ZCL_ABGAGT_AGENT
-Resource: ZCL_ABGAGT_RESOURCE_INSPECT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_INSPECT → ZCL_ABGAGT_AGENT
-Resource: ZCL_ABGAGT_RESOURCE_UNIT → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_UNIT → ZCL_ABGAGT_AGENT
-Resource: ZCL_ABGAGT_RESOURCE_TREE → ZCL_ABGAGT_CMD_FACTORY → ZCL_ABGAGT_COMMAND_TREE → ZCL_ABGAGT_AGENT
+Resource Layer (ZCL_ABGAGT_RESOURCE_*)
+    ↓
+Command Factory (ZCL_ABGAGT_CMD_FACTORY)
+    ↓
+Command Layer (ZCL_ABGAGT_COMMAND_*)
+    ↓
+Core Agent (ZCL_ABGAGT_AGENT)
 ```
 
-### ABAP Objects
+**Example flow:**
+```
+abapgit-agent pull --files ...
+    ↓
+ZCL_ABGAGT_RESOURCE_PULL
+    ↓
+ZCL_ABGAGT_CMD_FACTORY (creates command)
+    ↓
+ZCL_ABGAGT_COMMAND_PULL
+    ↓
+ZCL_ABGAGT_AGENT (executes pull logic)
+```
 
-| Object | Description |
-|--------|-------------|
-| `ZCL_ABGAGT_AGENT` | Main agent - handles pull, inspect, unit operations |
-| `ZCL_ABGAGT_CMD_FACTORY` | Command factory - creates command instances dynamically |
-| `ZCL_ABGAGT_COMMAND_PULL` | Pull command - implements ZIF_ABGAGT_COMMAND |
-| `ZCL_ABGAGT_COMMAND_INSPECT` | Inspect command - implements ZIF_ABGAGT_COMMAND |
-| `ZCL_ABGAGT_COMMAND_SYNTAX` | Syntax command - check source without activation |
-| `ZCL_ABGAGT_COMMAND_UNIT` | Unit command - implements ZIF_ABGAGT_COMMAND |
-| `ZCL_ABGAGT_COMMAND_TREE` | Tree command - displays package hierarchy |
-| `ZIF_ABGAGT_COMMAND` | Command interface with constants |
-| `ZIF_ABGAGT_CMD_FACTORY` | Factory interface |
+### ABAP Components Overview
+
+| Layer | Objects | Purpose |
+|-------|---------|---------|
+| **REST Handler** | `ZCL_ABGAGT_REST_HANDLER` | Routes HTTP requests to resources |
+| **Resources** | `ZCL_ABGAGT_RESOURCE_*` (15 classes) | REST endpoints, one per command |
+| **Factory** | `ZCL_ABGAGT_CMD_FACTORY` | Creates command instances dynamically |
+| **Commands** | `ZCL_ABGAGT_COMMAND_*` (13 classes) | Business logic for each command |
+| **Core Agent** | `ZCL_ABGAGT_AGENT` | Core operations (pull, activate, etc.) |
+| **Utilities** | `ZCL_ABGAGT_UTIL` | Helper methods |
+
+### Command Classes (13)
+
+| Command Class | Purpose |
+|--------------|---------|
+| `ZCL_ABGAGT_COMMAND_PULL` | Pull and activate from git |
+| `ZCL_ABGAGT_COMMAND_SYNTAX` | Check syntax without activation |
+| `ZCL_ABGAGT_COMMAND_INSPECT` | Run Code Inspector |
+| `ZCL_ABGAGT_COMMAND_UNIT` | Run AUnit tests |
+| `ZCL_ABGAGT_COMMAND_VIEW` | View object definitions |
+| `ZCL_ABGAGT_COMMAND_PREVIEW` | Preview table/CDS data |
+| `ZCL_ABGAGT_COMMAND_WHERE` | Where-used list |
+| `ZCL_ABGAGT_COMMAND_TREE` | Package hierarchy |
+| `ZCL_ABGAGT_COMMAND_LIST` | List objects in package |
+| `ZCL_ABGAGT_COMMAND_CREATE` | Create online repository |
+| `ZCL_ABGAGT_COMMAND_IMPORT` | Import from package to git |
+| `ZCL_ABGAGT_COMMAND_DELETE` | Delete repository |
+| `ZCL_ABGAGT_COMMAND_STATUS` | Check repository status |
+
+All implement `ZIF_ABGAGT_COMMAND` interface.
 
 ### Syntax Checker Architecture
 
-The syntax checker uses object-type based implementations with dynamic instantiation:
+Type-specific syntax checkers with dynamic instantiation:
 
 | Object | Description |
 |--------|-------------|
 | `ZIF_ABGAGT_SYNTAX_CHECKER` | Interface for syntax checkers |
+| `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` | Factory - creates checkers by type |
 | `ZCL_ABGAGT_SYNTAX_CHK_CLAS` | Class checker (supports local classes) |
 | `ZCL_ABGAGT_SYNTAX_CHK_INTF` | Interface checker |
 | `ZCL_ABGAGT_SYNTAX_CHK_PROG` | Program checker |
-| `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` | Factory - creates checkers by TADIR type |
 
 **Naming convention:** `ZCL_ABGAGT_SYNTAX_CHK_{TADIR_TYPE}` enables dynamic instantiation.
+
+### Viewer Architecture
+
+Type-specific object viewers with dynamic instantiation:
+
+| Object | Description |
+|--------|-------------|
+| `ZIF_ABGAGT_VIEWER` | Interface for object viewers |
+| `ZCL_ABGAGT_VIEWER_FACTORY` | Factory - creates viewers by type |
+| `ZCL_ABGAGT_VIEWER_CLAS` | Class viewer |
+| `ZCL_ABGAGT_VIEWER_INTF` | Interface viewer |
+| `ZCL_ABGAGT_VIEWER_PROG` | Program viewer |
+| `ZCL_ABGAGT_VIEWER_TABL` | Table viewer |
+| `ZCL_ABGAGT_VIEWER_STRU` | Structure viewer |
+| `ZCL_ABGAGT_VIEWER_DTEL` | Data element viewer |
+| `ZCL_ABGAGT_VIEWER_TTYP` | Table type viewer |
+| `ZCL_ABGAGT_VIEWER_DDLS` | CDS view viewer |
+
+**Naming convention:** `ZCL_ABGAGT_VIEWER_{TADIR_TYPE}` enables dynamic instantiation.
 
 ## CLI Commands Overview
 
