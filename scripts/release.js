@@ -259,7 +259,17 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
     const versionRegex = new RegExp(`## (Release Notes for )?v${newVersion.replace(/\./g, '\\.')}`);
     if (!versionRegex.test(existingContent)) {
       let newContent;
-      if (existingContent.startsWith('# Release Notes')) {
+
+      // Check for frontmatter at the start
+      const frontmatterMatch = existingContent.match(/^---\n[\s\S]*?\n---\n/);
+      const hasFrontmatter = frontmatterMatch && frontmatterMatch.index === 0;
+
+      if (hasFrontmatter) {
+        // Preserve frontmatter, insert after it
+        const frontmatter = frontmatterMatch[0];
+        const contentAfterFrontmatter = existingContent.slice(frontmatter.length);
+        newContent = frontmatter + '\n' + releaseNotesContent + '\n\n---\n\n' + contentAfterFrontmatter;
+      } else if (existingContent.startsWith('# Release Notes')) {
         const lines = existingContent.split('\n');
         let insertIndex = 0;
         for (let i = 0; i < lines.length; i++) {

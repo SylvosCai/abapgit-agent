@@ -1,11 +1,11 @@
+---
+title: Release Notes
+---
+
 ## v1.8.1
 
 See commit history for changes.
 
----
-
----
-title: Release Notes
 ---
 
 ## v1.8.0
@@ -31,23 +31,6 @@ title: Release Notes
 - Syntax command documentation and examples
 
 ---
-
----
-
----
-layout: default
-title: Release Notes
-nav_order: 4
-parent: Reference
----
-
-# Release Notes
-
-
-
-
-
-
 
 ## v1.7.2
 
