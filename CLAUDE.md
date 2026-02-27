@@ -79,16 +79,6 @@ abapgit-agent view --objects ZCL_MY_CLASS            # See class definition
 abapgit-agent where --objects ZCL_MY_CLASS           # See where it's used
 ```
 
-## IMPORTANT: When Working on ABAP Files
-
-When making changes to files in the `abap/` folder, **always read `abap/CLAUDE.md` first**.
-
-This file contains critical ABAP development rules including:
-- Never run inspect before commit/push/pull
-- Always push to git BEFORE running pull
-- Use inspect AFTER pull to check syntax
-- ABAP naming conventions
-
 ## Project Structure
 
 ```
