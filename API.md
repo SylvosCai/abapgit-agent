@@ -18,6 +18,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/create` | Create abapGit online repository |
 | POST | `/delete` | Delete abapGit repository from ABAP |
 | POST | `/status` | Check if repo exists in ABAP system |
+| POST | `/syntax` | **Pre-commit syntax check (CLAS, INTF, PROG, DDLS)** |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
@@ -257,6 +258,156 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
   "status": "Not found"
 }
 ```
+
+## POST /syntax
+
+**Pre-commit syntax check** for ABAP source code without requiring pull/activation. Checks CLAS, INTF, PROG, and DDLS files directly from local filesystem.
+
+**Key Features:**
+- Check syntax before committing to git
+- Auto-detection of companion files (locals_def, locals_imp, testclasses)
+- FIXPT flag support from XML metadata
+- Exact line numbers and filenames in errors
+
+### Request Body
+
+```json
+{
+  "objects": [
+    {
+      "type": "CLAS",
+      "name": "ZCL_MY_CLASS",
+      "source": "CLASS zcl_my_class DEFINITION PUBLIC.\n...",
+      "locals_def": "CLASS lcl_helper DEFINITION.\n...",
+      "locals_imp": "CLASS lcl_helper IMPLEMENTATION.\n...",
+      "testclasses": "CLASS ltcl_test DEFINITION FOR TESTING.\n...",
+      "fixpt": "X"
+    }
+  ],
+  "uccheck": "X"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `objects` | Array | List of objects to check (required) |
+| `uccheck` | String | Unicode check mode: 'X' (Standard) or '5' (Cloud). Default: 'X' |
+
+### Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | String | Object type: CLAS, INTF, PROG, DDLS (required) |
+| `name` | String | Object name (required) |
+| `source` | String | Main source code with `\n` line separators (required) |
+| `locals_def` | String | Local class definitions (CLAS only, optional) |
+| `locals_imp` | String | Local class implementations (CLAS only, optional) |
+| `testclasses` | String | Test classes (CLAS only, optional) |
+| `fixpt` | String | FIXPT flag from XML: 'X' or '' (optional) |
+
+### Supported Object Types
+
+| Type | Description | Supports |
+|------|-------------|----------|
+| CLAS | Class | locals_def, locals_imp, testclasses, fixpt |
+| INTF | Interface | fixpt |
+| PROG | Program | uccheck, fixpt |
+| DDLS | CDS View/Entity | Annotations required |
+
+### Response (success)
+
+```json
+{
+  "success": true,
+  "command": "SYNTAX",
+  "message": "All 1 object(s) passed syntax check",
+  "results": [
+    {
+      "object_type": "CLAS",
+      "object_name": "ZCL_MY_CLASS",
+      "success": true,
+      "error_count": 0,
+      "warning_count": 0,
+      "errors": [],
+      "warnings": [],
+      "message": "Syntax check passed"
+    }
+  ]
+}
+```
+
+### Response (with errors)
+
+```json
+{
+  "success": false,
+  "command": "SYNTAX",
+  "message": "1 of 1 object(s) have syntax errors",
+  "results": [
+    {
+      "object_type": "CLAS",
+      "object_name": "ZCL_MY_CLASS",
+      "success": false,
+      "error_count": 2,
+      "warning_count": 0,
+      "errors": [
+        {
+          "line": 15,
+          "text": "The statement METHOD is unexpected",
+          "include": "Main class"
+        },
+        {
+          "line": 42,
+          "text": "Variable LV_TEST not declared",
+          "include": "Local implementation"
+        }
+      ],
+      "warnings": [],
+      "message": "Syntax check failed with 2 error(s)"
+    }
+  ]
+}
+```
+
+### Response (unsupported type)
+
+```json
+{
+  "success": false,
+  "command": "SYNTAX",
+  "message": "1 of 1 object(s) have syntax errors",
+  "results": [
+    {
+      "object_type": "FUGR",
+      "object_name": "Z_MY_FUGR",
+      "success": false,
+      "error_count": 1,
+      "errors": [
+        {
+          "line": 1,
+          "text": "Unsupported object type: FUGR. Syntax command only supports CLAS, INTF, PROG, DDLS. Use 'pull' command for other object types."
+        }
+      ],
+      "message": "Unsupported object type: FUGR. Use 'pull' command instead."
+    }
+  ]
+}
+```
+
+### Error Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `line` | Integer | Line number in source (1-based) |
+| `text` | String | Error message |
+| `include` | String | Source location: "Main class", "Local definitions", "Local implementation", "Test classes" |
+
+### Notes
+
+- **Line numbers are exact** - they match the source code strings provided
+- **FIXPT support** - Reads from XML metadata, defaults to blank if not specified
+- **Auto-detection** - CLI automatically detects and includes companion files
+- **No activation required** - Checks happen before git commit
 
 ## POST /inspect
 
