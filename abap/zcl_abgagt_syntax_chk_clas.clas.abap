@@ -148,12 +148,8 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       ls_dir-name = lv_classpool.
       ls_dir-subc = 'K'.  " Class pool
       ls_dir-uccheck = 'X'.
-      " Use FIXPT from XML metadata (default to 'X' if not specified for modern ABAP)
-      IF mv_fixpt IS NOT INITIAL.
-        ls_dir-fixpt = mv_fixpt.
-      ELSE.
-        ls_dir-fixpt = 'X'.  " Default to FIXPT=X for new classes
-      ENDIF.
+      " Use FIXPT from XML metadata
+      ls_dir-fixpt = mv_fixpt.
     ENDIF.
 
     " Run syntax check
