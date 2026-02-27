@@ -1,3 +1,7 @@
+---
+title: Release Notes
+---
+
 ## v1.8.0
 
 ### New Features
