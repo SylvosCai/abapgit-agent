@@ -245,6 +245,11 @@ try {
       const isOldPattern = firstCommit && firstCommit.match(/^chore: release v\d+\.\d+\.\d+$/) &&
                           secondCommit && secondCommit.match(/^\d+\.\d+\.\d+$/);
 
+      // Check for SINGLE CHORE pattern:
+      // firstCommit (HEAD) = "chore: release vX.X.X" (only commit, no separate version commit)
+      const isSingleChorePattern = firstCommit && firstCommit.match(/^chore: release v\d+\.\d+\.\d+$/) &&
+                                   (!secondCommit || !secondCommit.match(/^\d+\.\d+\.\d+$/));
+
       if (isNewPattern) {
         // New pattern: remove last 2 commits
         const resetToRef = execSync(`git rev-parse ${remoteRef}~2`, { cwd: repoRoot, encoding: 'utf8' }).trim();
@@ -276,6 +281,22 @@ try {
           console.log('Force pushing to remote...');
           execSync(`git push ${remoteName} +HEAD --force`, { cwd: repoRoot });
           console.log('✅ Force pushed to remote - release commits removed from history');
+        }
+      } else if (isSingleChorePattern) {
+        // Single chore commit pattern: remove only the chore commit
+        const resetToRef = execSync(`git rev-parse ${remoteRef}~1`, { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+        if (dryRun) {
+          console.log(`🔹 DRY RUN - Would force push to remove single chore release commit from remote`);
+          console.log(`   Would remove: "${firstCommit}"`);
+          console.log(`   Would reset remote to: ${resetToRef.slice(0, 7)}`);
+        } else {
+          execSync(`git reset --hard ${resetToRef}`, { cwd: repoRoot });
+          console.log('✅ Reset to commit before release');
+
+          console.log('Force pushing to remote...');
+          execSync(`git push ${remoteName} +HEAD --force`, { cwd: repoRoot });
+          console.log('✅ Force pushed to remote - release commit removed from history');
         }
       } else {
         console.log('⚠️  Remote top commits do not match release pattern, skipping');
