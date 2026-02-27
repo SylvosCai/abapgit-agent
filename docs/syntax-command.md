@@ -210,9 +210,10 @@ Errors:
 
 1. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
 2. **Local classes auto-detected** - Companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
-3. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-4. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
-5. **No database writes** - Source is checked in memory only
+3. **Test classes treated as local implementations** - `.testclasses.abap` files are treated as local implementation includes (both definition and implementation together)
+4. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
+5. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+6. **No database writes** - Source is checked in memory only
 
 ---
 
@@ -250,6 +251,7 @@ Files are parsed to extract object type and name:
 | `zmy_program.prog.abap` | PROG | ZMY_PROGRAM |
 | `zcl_my_class.clas.locals_def.abap` | CLAS | ZCL_MY_CLASS (local defs) |
 | `zcl_my_class.clas.locals_imp.abap` | CLAS | ZCL_MY_CLASS (local imps) |
+| `zcl_my_class.clas.testclasses.abap` | CLAS | ZCL_MY_CLASS (test classes) |
 
 ---
 

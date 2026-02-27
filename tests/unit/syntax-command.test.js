@@ -106,12 +106,20 @@ describe('Syntax Command - Logic Tests', () => {
       expect(baseName.includes('.clas.locals_imp.')).toBe(true);
       expect(baseName.split('.')[0].toUpperCase()).toBe('ZCL_MY_CLASS');
     });
+
+    test('parses testclasses file correctly', () => {
+      const baseName = 'zcl_my_class.clas.testclasses.abap';
+
+      expect(baseName.includes('.clas.testclasses.')).toBe(true);
+      expect(baseName.split('.')[0].toUpperCase()).toBe('ZCL_MY_CLASS');
+    });
   });
 
   describe('Object type detection', () => {
     function detectObjectType(baseName) {
       if (baseName.includes('.clas.locals_def.')) return { type: 'CLAS', kind: 'locals_def' };
       if (baseName.includes('.clas.locals_imp.')) return { type: 'CLAS', kind: 'locals_imp' };
+      if (baseName.includes('.clas.testclasses.')) return { type: 'CLAS', kind: 'locals_imp' };
       if (baseName.includes('.clas.')) return { type: 'CLAS', kind: 'main' };
       if (baseName.includes('.intf.')) return { type: 'INTF', kind: 'main' };
       if (baseName.includes('.prog.')) return { type: 'PROG', kind: 'main' };
@@ -144,6 +152,12 @@ describe('Syntax Command - Logic Tests', () => {
 
     test('detects locals_imp from .clas.locals_imp.abap', () => {
       const result = detectObjectType('zcl_test.clas.locals_imp.abap');
+      expect(result.type).toBe('CLAS');
+      expect(result.kind).toBe('locals_imp');
+    });
+
+    test('detects testclasses as locals_imp from .clas.testclasses.abap', () => {
+      const result = detectObjectType('zcl_test.clas.testclasses.abap');
       expect(result.type).toBe('CLAS');
       expect(result.kind).toBe('locals_imp');
     });

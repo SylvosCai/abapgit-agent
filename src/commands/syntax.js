@@ -65,6 +65,10 @@ module.exports = {
         objType = 'CLAS';
         objName = baseName.split('.')[0].toUpperCase();
         fileKind = 'locals_imp';
+      } else if (baseName.includes('.clas.testclasses.')) {
+        objType = 'CLAS';
+        objName = baseName.split('.')[0].toUpperCase();
+        fileKind = 'locals_imp';  // Test classes are implementations
       } else if (baseName.includes('.clas.')) {
         objType = 'CLAS';
         objName = baseName.split('.')[0].toUpperCase();
