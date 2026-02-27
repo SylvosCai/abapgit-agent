@@ -84,6 +84,11 @@ abapgit-agent/
 │   ├── zif_abgagt_command.intf.abap     # Command interface
 │   ├── zcl_abgagt_resource_*.clas.abap  # REST resource handlers
 │   └── CLAUDE.md            # ABAP project guidelines
+├── docs/                    # Command documentation
+│   ├── commands.md          # All commands overview
+│   ├── pull-command.md      # Pull command detailed spec
+│   ├── syntax-command.md    # Syntax command detailed spec
+│   └── ...                  # Other command specs
 └── tests/
 ```
 
@@ -131,895 +136,111 @@ The syntax checker uses object-type based implementations with dynamic instantia
 
 **Naming convention:** `ZCL_ABGAGT_SYNTAX_CHK_{TADIR_TYPE}` enables dynamic instantiation.
 
-## CLI Commands
+## CLI Commands Overview
 
-```bash
-# Pull and activate from current git repo
-abapgit-agent pull
+> **📖 For detailed command specifications, see [docs/commands.md](docs/commands.md)**
 
-# Pull specific files only (fast - recommended for iterative development)
-abapgit-agent pull --files src/<file1>,src/<file2>,...
+### Command Categories
 
-# Pull from specific branch
-abapgit-agent pull --branch <branch>
+| Category | Commands | Purpose |
+|----------|----------|---------|
+| **Development** | `syntax`, `pull`, `inspect`, `unit` | Core development workflow |
+| **Exploration** | `view`, `preview`, `tree`, `list`, `where` | Explore ABAP system |
+| **Setup** | `init`, `create`, `import`, `delete` | Repository setup |
+| **Utility** | `ref`, `status`, `health` | Reference & diagnostics |
 
-# Pull from specific URL
-abapgit-agent pull --url <git-url>
+### When to Use Which Command
 
-# Syntax check an ABAP file (IMPORTANT for debugging activation errors)
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
+| Scenario | Command | Documentation |
+|----------|---------|---------------|
+| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG only) | `syntax` | [docs/syntax-command.md](docs/syntax-command.md) |
+| Activate code AFTER push to git | `pull` | [docs/pull-command.md](docs/pull-command.md) |
+| Check activated code with Code Inspector | `inspect` | [docs/inspect-command.md](docs/inspect-command.md) |
+| Run unit tests | `unit` | [docs/unit-command.md](docs/unit-command.md) |
+| Explore package structure | `tree` | [docs/tree-command.md](docs/tree-command.md) |
+| Understand table/class/interface | `view` | [docs/view-command.md](docs/view-command.md) |
+| See table data | `preview` | [docs/preview-command.md](docs/preview-command.md) |
+| Find where object is used | `where` | [docs/where-command.md](docs/where-command.md) |
+| Search ABAP reference docs | `ref` | [docs/ref-command.md](docs/ref-command.md) |
 
-# Run unit tests for ABAP test classes
-abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
+### Key Command Characteristics
 
-# Display package hierarchy tree
-abapgit-agent tree --package '$MY_PACKAGE'
+#### syntax Command
+- ✅ Checks LOCAL source files (no commit/push needed)
+- ✅ Works for NEW objects that don't exist in ABAP system yet
+- ⚠️ **Files checked INDEPENDENTLY** - no cross-file dependencies
+- ✅ Supported: CLAS, INTF, PROG
+- ❌ Not supported: DDLS, FUGR, TABL, etc.
+- **Use for**: Independent files only (not interface + implementing class)
+- **See**: [docs/syntax-command.md](docs/syntax-command.md)
 
-# View ABAP object definitions from ABAP system
-abapgit-agent view --objects ZCL_MY_CLASS
-abapgit-agent view --objects ZIF_MY_INTERFACE --type INTF
-abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2 --json
+#### pull Command
+- ✅ Activates code from git in ABAP system
+- ✅ Handles dependencies correctly (activates in correct order)
+- ⚠️ **CRITICAL**: Always pull ALL changed files together (don't pull one by one)
+- ⚠️ **CRITICAL**: Always push to git BEFORE running pull
+- **See**: [docs/pull-command.md](docs/pull-command.md)
 
-# Preview table/CDS view data
-abapgit-agent preview --objects SFLIGHT
-abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
-abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE --limit 20
-abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
-abapgit-agent preview --objects SFLIGHT --vertical
-abapgit-agent preview --objects SFLIGHT --compact
+#### inspect Command
+- ✅ Runs Code Inspector on ACTIVATED code
+- ✅ Works AFTER pull
+- ✅ Supports all object types (CLAS, INTF, DDLS, etc.)
+- ✅ Shows warnings and info messages
+- **See**: [docs/inspect-command.md](docs/inspect-command.md)
 
-# Health check
-abapgit-agent health
+#### view Command
+- ✅ **PRIMARY way to explore unfamiliar objects**
+- ✅ View table structure, class methods, interface definitions
+- ✅ Works without git (reads from ABAP system)
+- **See**: [docs/view-command.md](docs/view-command.md)
 
-# Check configuration
-abapgit-agent status
+#### preview Command
+- ✅ **PRIMARY way to explore table/CDS view DATA**
+- ✅ See sample rows, filter, paginate
+- **See**: [docs/preview-command.md](docs/preview-command.md)
+
+## Development Workflow
+
+### For CLI Tool Development (Node.js)
+
+1. Make changes to CLI code (JavaScript in `src/`)
+2. Test locally:
+   ```bash
+   node bin/abapgit-agent --help
+   node bin/abapgit-agent <command> --help
+   ```
+3. Test against real ABAP system (requires configured `.abapGitAgent`)
+4. Commit and push
+
+### For ABAP Backend Development
+
+**See [abap/CLAUDE.md](abap/CLAUDE.md) for complete workflow.**
+
+Key workflow:
 ```
-Note: All ABAP commands automatically check CLI/ABAP API version compatibility.
-
-## Pull Command
-
-### Description
-Pull and activate ABAP objects from git repository.
-
-### Rule: Pull All Changed Files Together
-
-**CRITICAL**: When multiple ABAP files are changed, pull them ALL together in a single command:
-
-```bash
-# WRONG - Pull files one by one (may cause activation issues)
-abapgit-agent pull --files src/zcl_class1.clas.abap
-abapgit-agent pull --files src/zcl_class2.clas.abap
-abapgit-agent pull --files src/zif_interface1.intf.abap
-
-# CORRECT - Pull all changed files together
-abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap,src/zif_interface1.intf.abap
-```
-
-**Why?** ABAP objects often have dependencies on each other. Pulling separately can cause activation errors if dependent objects haven't been activated yet. Pulling together ensures the ABAP system processes all changes atomically.
-
-### Usage
-```bash
-# Auto-detect git remote and branch from current directory
-abapgit-agent pull
-
-# Pull specific files only
-abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
-
-# Pull from specific branch
-abapgit-agent pull --branch develop
-
-# Pull from specific URL (useful for CI/CD)
-abapgit-agent pull --url https://github.com/org/my-repo.git
-
-# Combined options
-abapgit-agent pull --branch develop --files src/zcl_my_class.clas.abap
-```
-
-### File Format
-Files are parsed to extract `(obj_type, obj_name)`:
-- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
-- `zif_my_intf.intf.abap` → INTF, ZIF_MY_INTF
-- `src/zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS (subdirectory support)
-
-### Output
-```
-✅ Pull completed successfully!
-   Job ID: CAIS20260208115649
-   Message: Pull completed successfully
-
-📋 Pull Log (N messages):
-───────────────────────────────────────────────────────────────────────────────
-Icon │ Object                      │ Message
-...
-
-📦 Activated Objects (N):
-───────────────────────────────────────────────────────────────────────────────
-✅ CLAS ZCL_MY_CLASS
-...
-
-❌ Failed Objects Log (M entries):
-───────────────────────────────────────────────────────────────────────────────
-❌ CLAS ZCL_MY_CLASS: Error message text
-Exception: Exception details
+1. Read .abapGitAgent → get folder value
+2. Research → use ref command for unfamiliar topics
+3. Write code → place in correct folder
+4. Syntax check (CLAS/INTF/PROG only):
+   - Independent files → use syntax command
+   - Dependent files → skip syntax
+5. Commit and push
+6. Activate → pull command
+7. Verify → check output
+8. (Optional) Run unit tests
 ```
 
-### Key Behaviors
-1. **Activated Objects** - Only includes objects that completed successfully (no errors in log)
-2. **Failed Objects Log** - Shows all error messages (duplicates allowed for multiple errors per object)
-3. **Error Details** - When errors occur, displays error detail section at the top
+### Decision Tree: When to Use syntax vs pull
 
-## Health Check
-
-### Description
-Check if the ABAP REST API is healthy.
-
-### Usage
-```bash
-abapgit-agent health
 ```
-
-### Output
-```json
-{
-  "status": "healthy",
-  "abap": "connected",
-  "version": "1.0.0"
-}
-```
-
-## Inspect Command
-
-### Description
-Run syntax check for ABAP objects. Supports both regular ABAP objects (classes, interfaces, programs) and CDS views (DDLS).
-
-### Usage
-```bash
-# Inspect single file
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-
-# Inspect multiple files
-abapgit-agent inspect --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
-
-# Inspect CDS view
-abapgit-agent inspect --files src/zc_my_view.ddls.asddls
-
-# Inspect mixed file types (DDLS + CLAS)
-abapgit-agent inspect --files src/zc_my_view.ddls.asddls,src/zcl_my_class.clas.abap
-
-# Inspect with specific Code Inspector variant
-abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
-
-# Inspect with no variant (uses default SAP standard checks)
-abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
-```
-
-### Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--files` | Yes | Comma-separated list of ABAP files to inspect |
-| `--variant` | No | Code Inspector variant name (e.g., `ALL_CHECKS`, `EMPTY`) |
-
-### Supported Object Types
-
-| Type | Description | Validation Method |
-|------|-------------|------------------|
-| CLAS | Class | Code Inspector (SCI) |
-| INTF | Interface | Code Inspector (SCI) |
-| PROG | Program | Code Inspector (SCI) |
-| FUGR | Function Group | Code Inspector (SCI) |
-| DDLS | CDS View/Entity | DDL Handler (CL_DD_DDL_HANDLER_FACTORY) |
-
-### Output
-
-**Passed:**
-```
-✅ CLAS ZCL_MY_CLASS - Syntax check passed
-```
-
-**With Warnings:**
-```
-⚠️  CLAS ZCL_MY_CLASS - Syntax check passed with warnings (2):
-
-Warnings:
-────────────────────────────────────────────────────────────
-  Method: MY_METHOD
-  Line 000049:
-    Include: ZCL_MY_CLASS========CM002
-    The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
-  Method: MY_METHOD
-  Line 000031:
-    Include: ZCL_MY_CLASS========CM002
-    The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
-```
-
-**With Info:**
-```
-⚠️  CLAS ZCL_MY_CLASS - Syntax check passed with warnings (1):
-
-Info:
-────────────────────────────────────────────────────────────
-  Method: MY_METHOD
-  Line 000015:
-    Include: ZCL_MY_CLASS========CM002
-    Information message text
-```
-
-**Failed:**
-```
-❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s)):
-
-Errors:
-────────────────────────────────────────────────────────────
-  Method: MY_METHOD
-  Line 000021, Column 12:
-    Include: ZCL_MY_CLASS========CM002
-    Error message text
-```
-
-### Key Behaviors
-
-1. **Multiple files in one request** - All files are sent in a single API call for better performance
-2. **CDS View validation** - Uses `CL_DD_DDL_HANDLER_FACTORY` to validate CDS views
-3. **Check inactive version first** - For CDS views, checks the inactive version first (`get_state = 'M'`), then falls back to active version
-4. **Detailed error messages** - Uses `get_errors()` and `get_warnings()` methods from the exception to get detailed information
-5. **Per-object results** - Returns results for each object individually
-6. **Method name extraction** - For classes, extracts method name from TMDIR based on include number (CM00X) in SOBJNAME
-7. **Separate warnings and info** - Warnings ('W') and Information ('I') messages are displayed in separate sections
-8. **Sorted results** - Errors, warnings, and info are sorted by method name and line number ascending
-
-### File Format
-Files are parsed to extract `(obj_type, obj_name)`:
-- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
-- `zc_my_view.ddls.asddls` → DDLS, ZC_MY_VIEW
-
-## Syntax Command
-
-### Description
-Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source from local files and checks in ABAP system memory. This is faster than `inspect` and catches errors before committing to git.
-
-**Key difference from `inspect`:**
-- `syntax` - Checks LOCAL source code BEFORE commit (no pull needed)
-- `inspect` - Checks ACTIVATED code AFTER pull (uses Code Inspector)
-
-### Usage
-```bash
-# Check syntax of a class file
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
-
-# Check syntax of multiple INDEPENDENT files (see note below)
-abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
-
-# Check with ABAP Cloud (BTP) stricter rules
-abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
-
-# Output as JSON
-abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
-```
-
-**⚠️ Important: Files Are Checked Independently**
-
-When checking multiple files, each file is validated in isolation:
-- ✅ **Use for**: Multiple independent files (e.g., 3 unrelated classes, bug fixes across different files)
-- ❌ **Don't use for**: Files with dependencies (e.g., interface + class implementing it)
-
-For dependent files, skip `syntax` and use `pull` instead, which activates them together in the correct order.
-
-**Examples:**
-
-```bash
-# ✅ GOOD - Independent files (no cross-dependencies)
-abapgit-agent syntax --files src/zcl_utils.clas.abap,src/zcl_logger.clas.abap,src/zcl_parser.clas.abap
-
-# ❌ BAD - Dependent files (class implements interface)
-# This may show false errors if interface doesn't exist in ABAP system yet
-abapgit-agent syntax --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
-
-# ✅ CORRECT for dependent files - Use pull instead
-git commit && git push
-abapgit-agent pull --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
-```
-
-### Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--files` | Yes | Comma-separated list of ABAP files to check |
-| `--cloud` | No | Use ABAP Cloud syntax check (stricter, for BTP) |
-| `--json` | No | Output raw JSON |
-
-### Supported Object Types
-
-| Type | Description | File Extension |
-|------|-------------|----------------|
-| CLAS | Class | `.clas.abap` |
-| INTF | Interface | `.intf.abap` |
-| PROG | Program | `.prog.abap` |
-
-**Note:** For other types (DDLS, FUGR, TABL, etc.), use `pull` then `inspect`.
-
-### Output
-
-**Passed:**
-```
-  Syntax check for 1 file(s)
-
-✅ CLAS ZCL_MY_CLASS - Syntax check passed
-
-✅ All 1 object(s) passed syntax check
-```
-
-**Failed:**
-```
-  Syntax check for 1 file(s)
-
-❌ CLAS ZCL_MY_CLASS - Syntax check failed (1 error(s))
-
-Errors:
-────────────────────────────────────────────────────────────
-  Line 9:
-    The statement "UNKNOWN_STATEMENT" is invalid. Check the spelling.
-
-❌ 1 of 1 object(s) have syntax errors
-```
-
-**With ABAP Cloud mode:**
-```
-  Syntax check for 1 file(s)
-  Mode: ABAP Cloud
-
-✅ CLAS ZCL_MY_CLASS - Syntax check passed
-```
-
-### File Format
-Files are parsed to extract `(obj_type, obj_name)`:
-- `zcl_my_class.clas.abap` → CLAS, ZCL_MY_CLASS
-- `zif_my_interface.intf.abap` → INTF, ZIF_MY_INTERFACE
-- `zmy_program.prog.abap` → PROG, ZMY_PROGRAM
-- `zcl_my_class.clas.locals_def.abap` → Local class definitions (auto-detected)
-- `zcl_my_class.clas.locals_imp.abap` → Local class implementations (auto-detected)
-
-### Key Behaviors
-
-1. **Files checked independently** - Each file is validated in isolation with no cross-file dependency support. The interface definition from one file is NOT available when checking another file in the same command.
-2. **Works for new objects** - Syntax check works even if the object doesn't exist in the ABAP system yet (creates a temporary TRDIR entry)
-3. **Line numbers match source file** - Error line numbers correspond to VS Code line numbers
-4. **Local classes auto-detected** - When checking a class, companion `.locals_def.abap` and `.locals_imp.abap` files are automatically included
-5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
-
-### Response JSON Structure
-```json
-{
-  "SUCCESS": true,
-  "COMMAND": "SYNTAX",
-  "MESSAGE": "All 1 object(s) passed syntax check",
-  "RESULTS": [
-    {
-      "OBJECT_TYPE": "CLAS",
-      "OBJECT_NAME": "ZCL_MY_CLASS",
-      "SUCCESS": true,
-      "ERROR_COUNT": 0,
-      "ERRORS": [],
-      "WARNINGS": [],
-      "MESSAGE": "Syntax check passed"
-    }
-  ]
-}
-```
-
-### Implementation
-The syntax command uses ABAP's `SYNTAX-CHECK` statement:
-- `ZCL_ABGAGT_COMMAND_SYNTAX` - Main command class
-- `ZCL_ABGAGT_SYNTAX_CHK_FACTORY` - Creates type-specific checkers
-- `ZCL_ABGAGT_SYNTAX_CHK_CLAS` - Class checker (prepends CLASS-POOL., adjusts line numbers)
-- `ZCL_ABGAGT_SYNTAX_CHK_INTF` - Interface checker
-- `ZCL_ABGAGT_SYNTAX_CHK_PROG` - Program checker
-
-## Unit Command
-
-### Description
-Run AUnit tests for ABAP test classes and display detailed results including failed test methods with error messages.
-
-### Usage
-```bash
-# Run unit tests for a single test class file
-abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
-
-# Run unit tests for multiple test class files
-abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
-
-# Run unit tests for a specific package
-abapgit-agent unit --package '$MY_PACKAGE'
-```
-
-### File Format
-The command accepts test class files (`.clas.testclasses.abap`):
-- `zcl_my_test.clas.testclasses.abap` → CLAS, ZCL_MY_TEST
-- `src/tests/zcl_my_test.clas.testclasses.abap` → CLAS, ZCL_MY_TEST (with path)
-
-### Output
-```
-✅ ZCL_MY_TEST - All tests passed
-   Tests: 10 | Passed: 10 | Failed: 0
-```
-
-When tests fail:
-```
-❌ ZCL_MY_TEST - Tests failed
-   Tests: 10 | Passed: 8 | Failed: 2
-   ✗ ZCL_MY_TEST=>TEST_METHOD_1: Error description
-   ✗ ZCL_MY_TEST=>TEST_METHOD_2: Another error
-
-Failed Tests:
-────────────────────────────────────────────────────────────────────────────────
-   ✗ ZCL_MY_TEST=>TEST_METHOD_1
-     Error: Expected X but got Y
-```
-
-### Error Details
-When a test fails, the output includes:
-- **Test Class**: The class containing the failed test
-- **Method**: The failed test method name (with `=>` notation)
-- **Error Kind**: Type of error (e.g., 'ERROR', 'FAILURE')
-- **Error Text**: Detailed error message from AUnit
-
-### Response JSON Structure
-```json
-{
-  "success": "X",
-  "message": "2 of 10 tests failed",
-  "test_count": 10,
-  "passed_count": 8,
-  "failed_count": 2,
-  "errors": [
-    {
-      "class_name": "ZCL_MY_TEST",
-      "method_name": "TEST_METHOD_1",
-      "error_kind": "ERROR",
-      "error_text": "Expected X but got Y"
-    }
-  ]
-}
-```
-
-### Implementation
-The unit command uses `CL_SUT_AUNIT_RUNNER` to execute AUnit tests:
-- `CL_SUT_AUNIT_RUNNER=>S_CREATE` - Create test runner
-- `run()` - Execute tests
-- `str_results` - Get test statistics (cnt_testmethods, cnt_ok_methods, cnt_error_methods)
-- `tab_objects` - Get detailed results with nested structure:
-  - `TAB_TESTCLASSES` → `TAB_METHODS` → `STR_ERROR` → `STR_ERROR_CORE`
-
-## Tree Command
-
-### Description
-Display the package hierarchy tree from an ABAP system, showing parent packages, sub-packages, and object counts.
-
-### Usage
-```bash
-# Basic usage
-abapgit-agent tree --package '$MY_PACKAGE'
-
-# With object type breakdown
-abapgit-agent tree --package '$MY_PACKAGE' --include-types
-
-# Limit depth (default: 3, max: 10)
-abapgit-agent tree --package '$MY_PACKAGE' --depth 2
-
-# JSON output for scripting
-abapgit-agent tree --package '$MY_PACKAGE' --json
-```
-
-### Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--package` | Yes | ABAP package name (e.g., `$ZMY_PACKAGE`, `ZMY_PACKAGE`) |
-| `--depth` | No | Maximum depth to traverse (default: 3, max: 10) |
-| `--include-types` | No | Include object type counts (e.g., CLAS=10 INTF=2) |
-| `--json` | No | Output raw JSON only (for scripting) |
-
-### Output
-
-**Human-readable with AI metadata:**
-```
-🌳 Package Tree: $ZMAIN_PACKAGE
-
-📦 $ZMAIN_PACKAGE (Main Package)
-   ├─ 📦 $ZMAIN_SUB1 (Sub Package 1)
-   │    ├─ 📦 $ZMAIN_SUB1_A (Sub Package 1A)
-   │    └─ 📦 $ZMAIN_SUB1_B (Sub Package 1B)
-   └─ 📦 $ZMAIN_SUB2 (Sub Package 2)
-
-📊 Summary
-PACKAGES: 4
-OBJECTS: 127
-
-<!-- AI_METADATA_START -->
-{"package":"$ZMAIN_PACKAGE","parent":"$ZSAP_BASE","total_packages":4,"total_objects":127}
-<!-- AI_METADATA_END -->
-```
-
-**With object breakdown:**
-```
-📊 Summary
-PACKAGES: 4
-OBJECTS: 127
-TYPES: CLAS=10 INTF=2 PROG=11 FUGR=1 TABL=3
-```
-
-### JSON Output
-```json
-{
-  "SUCCESS": true,
-  "COMMAND": "TREE",
-  "PACKAGE": "$ZMAIN_PACKAGE",
-  "PARENT_PACKAGE": "$ZSAP_BASE",
-  "NODES": [
-    {
-      "PACKAGE": "$ZMAIN_PACKAGE",
-      "PARENT": "",
-      "DESCRIPTION": "$ZMAIN_PACKAGE",
-      "DEPTH": 0,
-      "OBJECT_COUNT": 11
-    }
-  ],
-  "TOTAL_PACKAGES": 4,
-  "TOTAL_OBJECTS": 127,
-  "OBJECTS": [
-    { "OBJECT": "CLAS", "COUNT": 10 },
-    { "OBJECT": "INTF", "COUNT": 2 },
-    { "OBJECT": "PROG", "COUNT": 11 },
-    { "OBJECT": "FUGR", "COUNT": 1 },
-    { "OBJECT": "TABL", "COUNT": 3 }
-  ],
-  "ERROR": ""
-}
-```
-
-### Error Handling
-
-| Error | Message |
-|-------|---------|
-| Package not found | `Package <name> does not exist in the system` |
-| Invalid package name | `Invalid package name: <name>` |
-| Access denied | `Access denied to package information` |
-| Depth too large | `Depth value too large (max: 10)` |
-
-## View Command
-
-### Description
-View ABAP object definitions directly from the ABAP system without pulling from git. **This is the PRIMARY way to explore unfamiliar ABAP objects** - tables, structures, classes, interfaces, and data elements.
-
-**When you encounter an unknown table or structure, use this command instead of guessing!**
-
-### Explore Unknown Tables/Structures
-
-```bash
-# View table fields - see all columns, keys, and descriptions
-abapgit-agent view --objects ZMY_TABLE --type TABL
-
-# View structure components
-abapgit-agent view --objects ZMY_STRUCT --type STRU
-
-# View data element type information
-abapgit-agent view --objects ZMY_DTEL --type DTEL
-
-# View CDS view definition
-abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
-
-# View class interface and methods
-abapgit-agent view --objects ZCL_UNKNOWN_CLASS
-
-# View interface definition
-abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
-```
-
-### When to Use View Command
-
-AI assistant SHOULD call `view` command when:
-
-- User asks to "check", "look up", or "explore" an unfamiliar object
-- Working with a table/structure and you don't know the field names/types
-- Calling a class/interface method and you don't know the parameters
-- User provides an object name that may not exist in the git repository
-- You need to verify an object exists before using it
-
-**Example workflow:**
-```
-User: "Check if SFLIGHT table has a PRICE field"
-
-Assistant: <calls `abapgit-agent view --objects SFLIGHT --type TABL`>
-→ Shows table structure with all fields including PRICE
-```
-
-### Usage
-```bash
-# View single object (auto-detect type from TADIR)
-abapgit-agent view --objects ZCL_MY_CLASS
-abapgit-agent view --objects ZIF_MY_INTERFACE
-
-# View with explicit type
-abapgit-agent view --objects ZCL_MY_CLASS --type CLAS
-abapgit-agent view --objects ZIF_MY_INT --type INTF
-abapgit-agent view --objects ZMY_TABLE --type TABL
-
-# View multiple objects
-abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
-
-# JSON output (for scripting/AI processing)
-abapgit-agent view --objects ZCL_MY_CLASS --json
-```
-
-### Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected from TADIR if not specified |
-| `--json` | No | Output raw JSON only (for scripting) |
-
-### Supported Object Types
-
-| Type | Description |
-|------|-------------|
-| CLAS | Class |
-| INTF | Interface |
-| TABL | Table |
-| STRU | Structure |
-| DTEL | Data Element |
-| TTYP | Table Type |
-| DDLS | CDS View/Entity |
-
-**Note:** Object type is automatically detected from TADIR. Use `--type` only when you know the type and want to override auto-detection.
-
-### Output
-
-**Human-readable:**
-```
-📖 ZCL_MY_CLASS (Class)
-   Class ZCL_MY_CLASS in $PACKAGE
-
-CLASS zcl_my_class DEFINITION PUBLIC.
-
-  PUBLIC SECTION.
-    INTERFACES: zif_my_interface.
-    METHODS: constructor,
-      get_value RETURNING VALUE(rv_result) TYPE string.
-ENDCLASS.
-```
-
-**JSON Output:**
-```json
-{
-  "success": true,
-  "command": "VIEW",
-  "message": "Retrieved object(s)",
-  "objects": [
-    {
-      "name": "ZCL_MY_CLASS",
-      "type": "CLAS",
-      "type_text": "Class",
-      "description": "Class ZCL_MY_CLASS in $PACKAGE",
-      "source": "CLASS zcl_my_class DEFINITION PUBLIC...",
-      "not_found": false
-    }
-  ],
-  "summary": { "total": 1 }
-}
-```
-
-**Table Type Output:**
-```
-📖 ZMY_TTYP (Table Type)
-   Table Type ZMY_TTYP in $PACKAGE
-
-   Line Type: ZMY_STRUCTURE
-   Access Mode: STANDARD
-   Key Definition: WITH KEY
-```
-
-**CDS View Output:**
-```
-📖 ZC_MY_CDS_VIEW (CDS View)
-   CDS View ZC_MY_CDS_VIEW in $PACKAGE
-
-@AbapCatalog.sqlViewName: 'ZCMYVIEW'
-@AbapCatalog.compiler.compareFilter: true
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'My CDS View'
-define view ZC_MY_CDS_VIEW as select from tdevc
-{
-  key devclass as Devclass,
-      parentcl as ParentPackage,
-      ctext    as Description
-}
-where devclass not like '$%'
-```
-
-### Error Handling
-
-| Error | Message |
-|-------|---------|
-| Object not found | `Object <name> not found` |
-| Invalid object type | `Unsupported object type: <type>` |
-
-## Preview Command
-
-### Description
-Preview data from ABAP tables or CDS views directly from the ABAP system. This command retrieves sample data rows to help developers understand table/view contents without needing to query manually.
-
-**This is the PRIMARY way to explore table and CDS view DATA.**
-
-### Usage
-```bash
-# Preview table data (auto-detect type)
-abapgit-agent preview --objects SFLIGHT
-
-# Preview CDS view data
-abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
-
-# Preview with explicit type
-abapgit-agent preview --objects SFLIGHT --type TABL
-
-# Preview with row limit
-abapgit-agent preview --objects SFLIGHT --limit 20
-
-# Preview with offset for paging
-abapgit-agent preview --objects SFLIGHT --offset 10 --limit 20
-
-# Preview with WHERE clause filter
-abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
-
-# Preview specific columns only
-abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,FLDATE,PRICE
-
-# Vertical format (for wide tables)
-abapgit-agent preview --objects SFLIGHT --vertical
-
-# JSON output (for scripting/AI processing)
-abapgit-agent preview --objects SFLIGHT --json
-```
-
-### Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--objects` | Yes | Comma-separated list of table/view names |
-| `--type` | No | Object type (TABL, DDLS). Auto-detected from TADIR if not specified |
-| `--limit` | No | Maximum rows to return (default: 100, max: 500) |
-| `--offset` | No | Number of rows to skip (for paging, default: 0) |
-| `--where` | No | WHERE clause filter (e.g., `CARRID = 'AA'`) |
-| `--columns` | No | Comma-separated column names to display |
-| `--vertical` | No | Show data in vertical format (one field per line) |
-| `--compact` | No | Truncate values to fit columns |
-| `--json` | No | Output raw JSON only |
-
-### Output
-
-**Default (first 6 columns shown with indicator):**
-```
-📊 Preview: SFLIGHT (Table)
-
-┌──────────┬────────┬──────────┬───────────┬─────────┬─────────┐
-│ CARRID   │ CONNID │ FLDATE   │ PRICE     │ CURRENCY│ PLANETYPE│
-├──────────┼────────┼──────────┼───────────┼─────────┼─────────┤
-│ AA       │ 0017   │ 20240201 │    422.94 │ USD     │ 747-400 │
-│ AA       │ 0017   │ 20240202 │    422.94 │ USD     │ 747-400 │
-└──────────┴────────┴──────────┴───────────┴─────────┴─────────┘
-
-Showing 2 of 10 rows
-⚠️  Note: 3 more columns hidden (SEATSMAX, SEATSOCC, PAYMENTSUM)
-   Use --columns to select specific columns
-   Use --json for full data
-```
-
-**With WHERE Filter:**
-```
-📊 Preview: SFLIGHT (filtered)
-
-┌──────────┬────────┬──────────┬─────────┐
-│ CARRID   │ CONNID │ FLDATE   │ PRICE   │
-├──────────┼────────┼──────────┼─────────┤
-│ AA       │ 0017   │ 20240201 │  422.94 │
-│ AA       │ 0017   │ 20240202 │  422.94 │
-└──────────┴────────┴──────────┴─────────┘
-
-WHERE: CARRID = 'AA'
-```
-
-**With Pagination:**
-```
-📊 Preview: SFLIGHT (Table)
-
-...
-
-Retrieved data (Showing 11-20 of 354) — Use --offset 20 to see more
-```
-
-**Vertical Format (for wide tables):**
-```
-📊 Preview: SFLIGHT (1 of 10 rows, vertical)
-
-Row 1:
-────────────────────────────────────────────────────────────
-  CARRID:      AA
-  CONNID:      0017
-  FLDATE:      20240201
-  PRICE:       422.94
-  CURRENCY:    USD
-  PLANETYPE:   747-400
-  SEATSMAX:    400
-  SEATSOCC:    350
-  PAYMENTSUM:  145000
-────────────────────────────────────────────────────────────
-```
-
-### JSON Output
-```json
-{
-  "SUCCESS": true,
-  "COMMAND": "PREVIEW",
-  "OBJECTS": [
-    {
-      "NAME": "SFLIGHT",
-      "TYPE": "TABL",
-      "TYPE_TEXT": "Table",
-      "ROW_COUNT": 2,
-      "TOTAL_ROWS": 10,
-      "ROWS": [
-        { "CARRID": "AA", "CONNID": "0017", "FLDATE": "20240201", "PRICE": "422.94", ... }
-      ],
-      "FIELDS": [
-        { "FIELD": "CARRID", "TYPE": "CHAR", "LENGTH": 3 },
-        { "FIELD": "PRICE", "TYPE": "CURR", "LENGTH": 16 }
-      ],
-      "COLUMNS_DISPLAYED": 6,
-      "COLUMNS_HIDDEN": ["SEATSMAX", "SEATSOCC", "PAYMENTSUM"]
-    }
-  ],
-  "SUMMARY": { "TOTAL_OBJECTS": 1, "TOTAL_ROWS": 2 },
-  "PAGINATION": { "LIMIT": 10, "OFFSET": 0, "TOTAL": 354, "HAS_MORE": true, "NEXT_OFFSET": 10 },
-  "ERROR": ""
-}
-```
-
-### Error Handling
-
-| Error | Message |
-|-------|---------|
-| Table not found | `Table not found: Z_NONEXISTENT` |
-| CDS View not found | `CDS View not found: Z_NONEXISTENT` |
-| Access denied | `Access denied to table: SFLIGHT` |
-| Invalid WHERE clause | `Invalid WHERE clause: <reason>` |
-
-### Auto-Detection Rules
-
-| Object Name Pattern | Default Type |
-|---------------------|--------------|
-| `ZC_*` or `zc_*` | DDLS (CDS View) |
-| Other | TABL (Table) |
-
-## Status Check
-
-### Description
-Check if ABAP integration is configured for the current repository.
-
-### Usage
-```bash
-abapgit-agent status
-```
-
-### Output
-```
-✅ ABAP Git Agent is ENABLED
-   Config location: /path/to/repo/.abapGitAgent
-```
-
-Or if not configured:
-```
-❌ ABAP Git Agent is NOT configured
+Modified ABAP files?
+├─ CLAS/INTF/PROG files?
+│  ├─ Independent files (no cross-dependencies)?
+│  │  └─ ✅ Use: syntax → commit → push → pull
+│  └─ Dependent files (interface + class, class uses class)?
+│     └─ ✅ Use: skip syntax → commit → push → pull
+└─ Other types (DDLS, FUGR, TABL, etc.)?
+   └─ ✅ Use: skip syntax → commit → push → pull → (if errors: inspect)
 ```
 
 ## Configuration
@@ -1035,23 +256,10 @@ Create `.abapGitAgent` in repository root:
   "password": "your-password",
   "language": "EN",
   "gitUsername": "git-username",
-  "gitPassword": "git-token"
+  "gitPassword": "git-token",
+  "transport": "DEVK900001"
 }
 ```
-
-### Configuration Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `host` | SAP system hostname | Required |
-| `sapport` | SAP port (usually 443) | 443 |
-| `client` | SAP client number | 100 |
-| `user` | SAP username | Required |
-| `password` | SAP password | Required |
-| `language` | SAP language | EN |
-| `gitUsername` | Git username/token | Optional |
-| `gitPassword` | Git password/token | Optional |
-| `transport` | Default transport request for pull | Optional |
 
 ### Environment Variables
 ```bash
@@ -1095,58 +303,30 @@ When running `pull` command, the transport request is determined in this order:
 - Table may not exist or may have different name
 - Use `view` command to check available tables
 
-**Terminal width issues with preview:**
-- Use `--columns` to specify exact columns
-- Use `--vertical` for wide tables
+## Command Documentation
 
-## Development Workflow
+All command specifications are maintained in the `docs/` folder:
 
-### Exploring Unknown ABAP Objects
-
-**Check package structure:**
-```bash
-abapgit-agent tree --package '$MY_PACKAGE'
-```
-
-**Before working with an unfamiliar table, structure, class, or interface:**
-
-```bash
-# Don't guess! Use view command to explore:
-
-# Check table structure
-abapgit-agent view --objects ZMY_TABLE --type TABL
-
-# Check structure components
-abapgit-agent view --objects ZMY_STRUCT --type STRU
-
-# Check class methods and interface
-abapgit-agent view --objects ZCL_UNKNOWN_CLASS
-
-# Check interface definition
-abapgit-agent view --objects ZIF_UNKNOWN_INTERFACE
-
-# Check data element type
-abapgit-agent view --objects ZMY_DTEL --type DTEL
-
-# JSON output for programmatic use
-abapgit-agent view --objects ZMY_TABLE --type TABL --json
-```
-
-### CLI Tool Development
-
-1. Make changes to CLI code (JavaScript)
-2. Test locally:
-   ```bash
-   node bin/abapgit-agent --help
-   node bin/abapgit-agent <command> --help
-   ```
-3. Test against real ABAP system (requires configured `.abapGitAgent`)
-4. Commit and push
-
-### ABAP Backend Development
-
-For ABAP backend development workflow, see `/abap/CLAUDE.md`.
+| Command | Documentation |
+|---------|---------------|
+| Overview | [docs/commands.md](docs/commands.md) |
+| pull | [docs/pull-command.md](docs/pull-command.md) |
+| syntax | [docs/syntax-command.md](docs/syntax-command.md) |
+| inspect | [docs/inspect-command.md](docs/inspect-command.md) |
+| unit | [docs/unit-command.md](docs/unit-command.md) |
+| tree | [docs/tree-command.md](docs/tree-command.md) |
+| view | [docs/view-command.md](docs/view-command.md) |
+| preview | [docs/preview-command.md](docs/preview-command.md) |
+| where | [docs/where-command.md](docs/where-command.md) |
+| ref | [docs/ref-command.md](docs/ref-command.md) |
+| init | [docs/init-command.md](docs/init-command.md) |
+| create | [docs/create-command.md](docs/create-command.md) |
+| import | [docs/import-command.md](docs/import-command.md) |
+| delete | [docs/delete-command.md](docs/delete-command.md) |
+| list | [docs/list-command.md](docs/list-command.md) |
+| status | [docs/status-command.md](docs/status-command.md) |
+| health | [docs/health-command.md](docs/health-command.md) |
 
 ## For ABAP Code Generation
 
-**NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see `/abap/CLAUDE.md`. Copy that file to your ABAP repository root when setting up new projects.
+**NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see [abap/CLAUDE.md](abap/CLAUDE.md).
