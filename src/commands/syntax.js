@@ -93,10 +93,15 @@ module.exports = {
       // For class files, group them together
       if (objType === 'CLAS') {
         if (!classFilesMap.has(objName)) {
-          classFilesMap.set(objName, { main: null, locals_def: null, locals_imp: null });
+          classFilesMap.set(objName, { main: null, locals_def: null, locals_imp: null, testclasses: null });
         }
         const classFiles = classFilesMap.get(objName);
-        classFiles[fileKind] = source;
+        // For testclasses, store in testclasses field (not locals_imp)
+        if (fileKind === 'locals_imp' && baseName.includes('.testclasses.')) {
+          classFiles.testclasses = source;
+        } else {
+          classFiles[fileKind] = source;
+        }
       } else {
         objects.push({
           type: objType,
@@ -108,17 +113,18 @@ module.exports = {
 
     // Add class objects with their local files
     for (const [className, files] of classFilesMap) {
-      // Try to auto-detect local files if only main file provided
-      if (files.main && !files.locals_def && !files.locals_imp) {
-        // Look for companion local files in the same directory
+      // Try to auto-detect companion files if only one type is provided
+      if (files.main && !files.locals_def && !files.locals_imp && !files.testclasses) {
+        // Main file provided - look for companion local files
         const mainFile = syntaxFiles.find(f => {
           const bn = pathModule.basename(f).toUpperCase();
-          return bn.startsWith(className) && bn.includes('.CLAS.ABAP');
+          return bn.startsWith(className) && bn.includes('.CLAS.ABAP') && !bn.includes('LOCALS') && !bn.includes('TESTCLASSES');
         });
         if (mainFile) {
           const dir = pathModule.dirname(mainFile);
           const defFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_def.abap`);
           const impFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_imp.abap`);
+          const testFile = pathModule.join(dir, `${className.toLowerCase()}.clas.testclasses.abap`);
           if (fs.existsSync(defFile)) {
             files.locals_def = fs.readFileSync(defFile, 'utf8');
             if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(defFile)}`);
@@ -126,6 +132,24 @@ module.exports = {
           if (fs.existsSync(impFile)) {
             files.locals_imp = fs.readFileSync(impFile, 'utf8');
             if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(impFile)}`);
+          }
+          if (fs.existsSync(testFile)) {
+            files.testclasses = fs.readFileSync(testFile, 'utf8');
+            if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(testFile)}`);
+          }
+        }
+      } else if (!files.main && (files.locals_imp || files.testclasses)) {
+        // Locals or testclasses provided - look for main class file
+        const localFile = syntaxFiles.find(f => {
+          const bn = pathModule.basename(f).toUpperCase();
+          return bn.startsWith(className) && (bn.includes('.LOCALS_') || bn.includes('.TESTCLASSES.'));
+        });
+        if (localFile) {
+          const dir = pathModule.dirname(localFile);
+          const mainFile = pathModule.join(dir, `${className.toLowerCase()}.clas.abap`);
+          if (fs.existsSync(mainFile)) {
+            files.main = fs.readFileSync(mainFile, 'utf8');
+            if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(mainFile)}`);
           }
         }
       }
@@ -138,17 +162,7 @@ module.exports = {
         };
         if (files.locals_def) obj.locals_def = files.locals_def;
         if (files.locals_imp) obj.locals_imp = files.locals_imp;
-        objects.push(obj);
-      } else if (files.locals_imp) {
-        // Test classes only (no main file needed)
-        // Put testclasses content in 'testclasses' field
-        // Send empty string as source to minimize dummy content
-        const obj = {
-          type: 'CLAS',
-          name: className,
-          source: '',  // Empty source - will be replaced by backend if needed
-          testclasses: files.locals_imp
-        };
+        if (files.testclasses) obj.testclasses = files.testclasses;
         objects.push(obj);
       } else {
         console.error(`  Warning: No main class file for ${className}, skipping local files`);
