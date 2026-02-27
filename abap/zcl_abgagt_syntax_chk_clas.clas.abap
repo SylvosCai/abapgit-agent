@@ -34,6 +34,8 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_class_name      TYPE seoclsname
                 it_skeleton        TYPE string_table
                 iv_prepended_lines TYPE i DEFAULT 1
+                iv_main_lines      TYPE i DEFAULT 0
+                iv_locals_imp_lines TYPE i DEFAULT 0
       RETURNING VALUE(rs_result)   TYPE zif_abgagt_syntax_checker=>ty_result.
 
 ENDCLASS.
@@ -49,7 +51,9 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   METHOD zif_abgagt_syntax_checker~check.
     DATA: lt_skeleton  TYPE string_table,
           lv_classname TYPE seoclsname,
-          lv_prepended TYPE i.
+          lv_prepended TYPE i,
+          lv_main_lines TYPE i,
+          lv_locals_imp_lines TYPE i.
 
     lv_classname = to_upper( iv_name ).
 
@@ -64,10 +68,12 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     ENDIF.
 
     " Add main class source
+    lv_main_lines = lines( it_source ).
     APPEND LINES OF it_source TO lt_skeleton.
 
     " Add local class implementations
     IF mt_locals_imp IS NOT INITIAL.
+      lv_locals_imp_lines = lines( mt_locals_imp ).
       APPEND LINES OF mt_locals_imp TO lt_skeleton.
     ENDIF.
 
@@ -78,9 +84,11 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
 
     " Run syntax check
     rs_result = run_check(
-      iv_class_name      = lv_classname
-      it_skeleton        = lt_skeleton
-      iv_prepended_lines = lv_prepended ).
+      iv_class_name       = lv_classname
+      it_skeleton         = lt_skeleton
+      iv_prepended_lines  = lv_prepended
+      iv_main_lines       = lv_main_lines
+      iv_locals_imp_lines = lv_locals_imp_lines ).
   ENDMETHOD.
 
 
@@ -109,7 +117,8 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
           lv_msg       TYPE string,
           lv_line      TYPE i,
           lv_word      TYPE string,
-          lv_classpool TYPE syrepid.
+          lv_classpool TYPE syrepid,
+          lv_testclasses_start TYPE i.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
@@ -146,8 +155,27 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       rs_result-error_count = 0.
       rs_result-message = 'Syntax check passed'.
     ELSE.
-      " Adjust line number: subtract prepended lines (CLASS-POOL. + locals_def)
-      DATA(lv_adjusted_line) = lv_line - iv_prepended_lines.
+      " Calculate where testclasses section starts
+      " Skeleton: CLASS-POOL (1) + locals_def + main + locals_imp + testclasses
+      lv_testclasses_start = iv_prepended_lines + iv_main_lines + iv_locals_imp_lines.
+
+      DATA(lv_adjusted_line) = lv_line.
+
+      " Determine which section the error is in and adjust accordingly
+      IF lv_line > lv_testclasses_start.
+        " Error is in testclasses section
+        lv_adjusted_line = lv_line - lv_testclasses_start.
+      ELSEIF lv_line > iv_prepended_lines + iv_main_lines.
+        " Error is in locals_imp section
+        lv_adjusted_line = lv_line - ( iv_prepended_lines + iv_main_lines ).
+      ELSEIF lv_line > iv_prepended_lines.
+        " Error is in main source section
+        lv_adjusted_line = lv_line - iv_prepended_lines.
+      ELSE.
+        " Error is in CLASS-POOL or locals_def section
+        lv_adjusted_line = lv_line - iv_prepended_lines.
+      ENDIF.
+
       IF lv_adjusted_line < 1.
         lv_adjusted_line = 1.
       ENDIF.
