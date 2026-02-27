@@ -15,6 +15,7 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
              locals_def  TYPE string,      " Local class definitions (optional, for CLAS)
              locals_imp  TYPE string,      " Local class implementations (optional, for CLAS)
              testclasses TYPE string,      " Test classes (optional, for CLAS)
+             fixpt       TYPE string,      " FIXPT flag from XML metadata (optional, for CLAS)
            END OF ty_source_object.
 
     TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
@@ -193,6 +194,11 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
         lo_prog_checker ?= lo_checker.
         lo_prog_checker->set_uccheck( iv_uccheck ).
     ENDCASE.
+
+    " Set FIXPT for all types if provided (via interface)
+    IF is_object-fixpt IS NOT INITIAL.
+      lo_checker->set_fixpt( is_object-fixpt ).
+    ENDIF.
 
     " Run check with object name
     rs_result = lo_checker->check(

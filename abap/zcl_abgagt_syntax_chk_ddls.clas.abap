@@ -31,6 +31,12 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_abgagt_syntax_checker~set_fixpt.
+    " DDLS doesn't use FIXPT flag - do nothing
+    RETURN.
+  ENDMETHOD.
+
+
   METHOD zif_abgagt_syntax_checker~check.
     DATA: lo_handler  TYPE REF TO if_dd_ddl_handler,
           ls_ddlsrcv  TYPE ddddlsrcv,

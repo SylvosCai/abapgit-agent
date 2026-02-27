@@ -21,6 +21,11 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_testclasses
       IMPORTING it_testclasses TYPE string_table.
 
+    "! Set FIXPT flag from XML metadata
+    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
+    METHODS set_fixpt
+      IMPORTING iv_fixpt TYPE string.
+
     "! Clear local class sources
     METHODS clear_locals.
 
@@ -28,6 +33,7 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA mt_locals_def TYPE string_table.
     DATA mt_locals_imp TYPE string_table.
     DATA mt_testclasses TYPE string_table.
+    DATA mv_fixpt TYPE string.
 
     "! Run syntax check on skeleton
     METHODS run_check
@@ -107,8 +113,13 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD set_fixpt.
+    mv_fixpt = iv_fixpt.
+  ENDMETHOD.
+
+
   METHOD clear_locals.
-    CLEAR: mt_locals_def, mt_locals_imp, mt_testclasses.
+    CLEAR: mt_locals_def, mt_locals_imp, mt_testclasses, mv_fixpt.
   ENDMETHOD.
 
 
@@ -142,6 +153,12 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       ls_dir-name = lv_classpool.
       ls_dir-subc = 'K'.  " Class pool
       ls_dir-uccheck = 'X'.
+      " Use FIXPT from XML metadata (default to 'X' if not specified for modern ABAP)
+      IF mv_fixpt IS NOT INITIAL.
+        ls_dir-fixpt = mv_fixpt.
+      ELSE.
+        ls_dir-fixpt = 'X'.  " Default to FIXPT=X for new classes
+      ENDIF.
     ENDIF.
 
     " Run syntax check

@@ -5,6 +5,14 @@ CLASS zcl_abgagt_syntax_chk_intf DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_syntax_checker.
 
+    "! Set FIXPT flag from XML metadata
+    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
+    METHODS set_fixpt
+      IMPORTING iv_fixpt TYPE string.
+
+  PRIVATE SECTION.
+    DATA mv_fixpt TYPE string.
+
 ENDCLASS.
 
 
@@ -12,6 +20,11 @@ CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~get_object_type.
     rv_type = 'INTF'.
+  ENDMETHOD.
+
+
+  METHOD set_fixpt.
+    mv_fixpt = iv_fixpt.
   ENDMETHOD.
 
 
@@ -50,6 +63,12 @@ CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
       ls_dir-name = lv_intfpool.
       ls_dir-subc = 'J'.  " Interface pool
       ls_dir-uccheck = 'X'.
+      " Use FIXPT from XML metadata (default to 'X' if not specified for modern ABAP)
+      IF mv_fixpt IS NOT INITIAL.
+        ls_dir-fixpt = mv_fixpt.
+      ELSE.
+        ls_dir-fixpt = 'X'.  " Default to FIXPT=X for new interfaces
+      ENDIF.
     ENDIF.
 
     " Run syntax check

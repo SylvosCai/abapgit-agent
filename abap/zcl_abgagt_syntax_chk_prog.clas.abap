@@ -10,8 +10,14 @@ CLASS zcl_abgagt_syntax_chk_prog DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_uccheck
       IMPORTING iv_uccheck TYPE trdir-uccheck.
 
+    "! Set FIXPT flag from XML metadata
+    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
+    METHODS set_fixpt
+      IMPORTING iv_fixpt TYPE string.
+
   PRIVATE SECTION.
     DATA mv_uccheck TYPE trdir-uccheck VALUE 'X'.
+    DATA mv_fixpt TYPE string.
 
 ENDCLASS.
 
@@ -25,6 +31,11 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
 
   METHOD set_uccheck.
     mv_uccheck = iv_uccheck.
+  ENDMETHOD.
+
+
+  METHOD set_fixpt.
+    mv_fixpt = iv_fixpt.
   ENDMETHOD.
 
 
@@ -53,6 +64,12 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
     " Set TRDIR entry for syntax check context
     ls_dir-name = lv_progname.
     ls_dir-uccheck = mv_uccheck.
+    " Use FIXPT from XML metadata (default to 'X' if not specified for modern ABAP)
+    IF mv_fixpt IS NOT INITIAL.
+      ls_dir-fixpt = mv_fixpt.
+    ELSE.
+      ls_dir-fixpt = 'X'.  " Default to FIXPT=X for new programs
+    ENDIF.
 
     " Run syntax check
     SYNTAX-CHECK FOR it_source
