@@ -214,41 +214,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 | Find where object is used | `where` | [docs/where-command.md](docs/where-command.md) |
 | Search ABAP reference docs | `ref` | [docs/ref-command.md](docs/ref-command.md) |
 
-### Key Command Characteristics
-
-#### syntax Command
-- ✅ Checks LOCAL source files (no commit/push needed)
-- ✅ Works for NEW objects that don't exist in ABAP system yet
-- ⚠️ **Files checked INDEPENDENTLY** - no cross-file dependencies
-- ✅ Supported: CLAS, INTF, PROG
-- ❌ Not supported: DDLS, FUGR, TABL, etc.
-- **Use for**: Independent files only (not interface + implementing class)
-- **See**: [docs/syntax-command.md](docs/syntax-command.md)
-
-#### pull Command
-- ✅ Activates code from git in ABAP system
-- ✅ Handles dependencies correctly (activates in correct order)
-- ⚠️ **CRITICAL**: Always pull ALL changed files together (don't pull one by one)
-- ⚠️ **CRITICAL**: Always push to git BEFORE running pull
-- **See**: [docs/pull-command.md](docs/pull-command.md)
-
-#### inspect Command
-- ✅ Runs Code Inspector on ACTIVATED code
-- ✅ Works AFTER pull
-- ✅ Supports all object types (CLAS, INTF, DDLS, etc.)
-- ✅ Shows warnings and info messages
-- **See**: [docs/inspect-command.md](docs/inspect-command.md)
-
-#### view Command
-- ✅ **PRIMARY way to explore unfamiliar objects**
-- ✅ View table structure, class methods, interface definitions
-- ✅ Works without git (reads from ABAP system)
-- **See**: [docs/view-command.md](docs/view-command.md)
-
-#### preview Command
-- ✅ **PRIMARY way to explore table/CDS view DATA**
-- ✅ See sample rows, filter, paginate
-- **See**: [docs/preview-command.md](docs/preview-command.md)
+> **For ABAP development workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
 
 ## Development Workflow
 
