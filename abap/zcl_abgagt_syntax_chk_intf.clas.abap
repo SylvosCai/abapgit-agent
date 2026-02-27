@@ -5,11 +5,6 @@ CLASS zcl_abgagt_syntax_chk_intf DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_syntax_checker.
 
-    "! Set FIXPT flag from XML metadata
-    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
-    METHODS set_fixpt
-      IMPORTING iv_fixpt TYPE string.
-
   PRIVATE SECTION.
     DATA mv_fixpt TYPE string.
 
@@ -23,7 +18,7 @@ CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD set_fixpt.
+  METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
 

@@ -10,11 +10,6 @@ CLASS zcl_abgagt_syntax_chk_prog DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_uccheck
       IMPORTING iv_uccheck TYPE trdir-uccheck.
 
-    "! Set FIXPT flag from XML metadata
-    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
-    METHODS set_fixpt
-      IMPORTING iv_fixpt TYPE string.
-
   PRIVATE SECTION.
     DATA mv_uccheck TYPE trdir-uccheck VALUE 'X'.
     DATA mv_fixpt TYPE string.
@@ -34,7 +29,7 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD set_fixpt.
+  METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
 

@@ -21,11 +21,6 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_testclasses
       IMPORTING it_testclasses TYPE string_table.
 
-    "! Set FIXPT flag from XML metadata
-    "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
-    METHODS set_fixpt
-      IMPORTING iv_fixpt TYPE string.
-
     "! Clear local class sources
     METHODS clear_locals.
 
@@ -113,7 +108,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD set_fixpt.
+  METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
 
