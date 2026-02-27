@@ -29,6 +29,9 @@ abapgit-agent syntax --files src/zcl_my_class.clas.testclasses.abap
 # Check local implementations - auto-detects main, locals_def, testclasses
 abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
+# Check CDS view
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
 # Check multiple files
 abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
@@ -43,7 +46,7 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
-- Supported object types: CLAS, INTF, PROG
+- Supported object types: CLAS, INTF, PROG, DDLS
 - For class files: Companion files are auto-detected if they exist
 
 ## Parameters
@@ -277,10 +280,12 @@ Errors:
 | CLAS | Test classes | `.clas.testclasses.abap` |
 | INTF | Interface | `.intf.abap` |
 | PROG | Program | `.prog.abap` |
+| DDLS | CDS View | `.ddls.asddls` |
 
 **Note:**
 - For class files, ALL companion files are automatically detected and included
-- For other types (DDLS, FUGR, TABL, etc.), use `pull` then `inspect`
+- For DDLS: Requires `@AbapCatalog.sqlViewName` annotation for CDS views
+- For other types (FUGR, TABL, etc.), use `pull` then `inspect`
 
 ---
 
@@ -346,6 +351,7 @@ Files are parsed to extract object type and name:
 | `zcl_my_class.clas.locals_def.abap` | CLAS | ZCL_MY_CLASS (local defs) |
 | `zcl_my_class.clas.locals_imp.abap` | CLAS | ZCL_MY_CLASS (local imps) |
 | `zcl_my_class.clas.testclasses.abap` | CLAS | ZCL_MY_CLASS (test classes) |
+| `zc_my_view.ddls.asddls` | DDLS | ZC_MY_VIEW |
 
 ---
 
@@ -441,7 +447,72 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 | When to use | BEFORE commit | AFTER pull |
 | Requires pull? | No | Yes |
 | Checks | Local source | Activated code |
-| Uses | SYNTAX-CHECK statement | Code Inspector (SCI) |
-| Warnings | No | Yes |
-| Object types | CLAS, INTF, PROG | All (including DDLS) |
+| Uses | SYNTAX-CHECK / DDL handler | Code Inspector (SCI) |
+| Warnings | No (DDLS: Yes) | Yes |
+| Object types | CLAS, INTF, PROG, DDLS | All (including FUGR, TABL) |
 | Speed | Fast | Slower |
+
+---
+
+## DDLS (CDS View) Specific Notes
+
+### Supported Features
+
+✅ **Syntax validation** - DDL keywords, structure, brackets
+✅ **Annotation validation** - Checks annotation syntax and requirements
+✅ **Field references** - Validates field selection syntax
+✅ **Associations** - Validates association syntax
+✅ **Cast operations** - Validates CAST expressions
+✅ **Line/column errors** - Precise error location
+
+### Limitations
+
+⚠️ **Requires annotations** - CDS Views must include `@AbapCatalog.sqlViewName`
+⚠️ **Schema context** - May not catch all errors for non-existent tables
+⚠️ **Type validation** - Cannot fully validate types without data dictionary
+
+### Example: Valid CDS View
+
+```ddl
+@AbapCatalog.sqlViewName: 'ZV_MY_VIEW'
+@EndUserText.label: 'My Test View'
+define view ZC_My_View as select from sflight
+{
+  key carrid,
+      connid,
+      fldate,
+      price
+}
+```
+
+### Common Errors Caught
+
+| Error | Detection |
+|-------|-----------|
+| Missing annotation | ✅ Caught |
+| Invalid keyword | ✅ Caught |
+| Incomplete SELECT | ✅ Caught |
+| Invalid annotation syntax | ✅ Caught |
+| Missing braces | ✅ Caught |
+| Non-existent table | ⚠️ May pass (limitation) |
+
+### When to Use inspect Instead
+
+Use `inspect` command after activation for:
+- Full semantic validation
+- Type compatibility checks
+- Code Inspector warnings
+- Deep dependency validation
+
+**Workflow:**
+```bash
+# 1. Check syntax locally
+abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
+# 2. If passes, commit and activate
+git add . && git commit && git push
+abapgit-agent pull --files src/zc_my_view.ddls.asddls
+
+# 3. Final validation with Code Inspector
+abapgit-agent inspect --files src/zc_my_view.ddls.asddls
+```

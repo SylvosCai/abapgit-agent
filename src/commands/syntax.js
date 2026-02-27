@@ -79,6 +79,10 @@ module.exports = {
       } else if (baseName.includes('.prog.')) {
         objType = 'PROG';
         objName = baseName.split('.')[0].toUpperCase();
+      } else if (baseName.includes('.ddls.asddls')) {
+        objType = 'DDLS';
+        objName = baseName.split('.')[0].toUpperCase();
+        fileKind = 'main';
       }
 
       // Read source from file

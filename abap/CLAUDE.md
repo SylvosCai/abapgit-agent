@@ -294,15 +294,16 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 | CLAS (test classes: .testclasses.abap) | ✅ Supported | Run `syntax` before commit |
 | INTF (interfaces) | ✅ Supported | Run `syntax` before commit |
 | PROG (programs) | ✅ Supported | Run `syntax` before commit |
-| DDLS (CDS views) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| DDLS (CDS views) | ✅ Supported | Run `syntax` before commit (requires annotations) |
 | FUGR (function groups) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
 | TABL/DTEL/DOMA/MSAG/SHLP | ❌ Not supported | Skip syntax, just `pull` |
 | All other types | ❌ Not supported | Skip syntax, just `pull` |
 
 **IMPORTANT**:
-- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG (including test classes) - catches errors early, no git pollution
+- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG/DDLS - catches errors early, no git pollution
 - **Syntax checks files INDEPENDENTLY** - no cross-file dependency support (e.g., interface definition not available when checking implementing class)
 - **For dependent files** (interface + class, class + using class): Skip `syntax`, use `pull` directly
+- **DDLS requires proper annotations** - CDS views need `@AbapCatalog.sqlViewName`, view entities don't
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
 - **Use `inspect` AFTER pull** for unsupported types or if pull fails
 
@@ -340,7 +341,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,
    ├─ .clas.abap or .clas.testclasses.abap → CLAS ✅ syntax supported (if independent)
    ├─ .intf.abap → INTF ✅ syntax supported (if independent)
    ├─ .prog.abap → PROG ✅ syntax supported
-   ├─ .ddls.asddls → DDLS ❌ syntax not supported
+   ├─ .ddls.asddls → DDLS ✅ syntax supported (requires proper annotations)
    └─ All other extensions → ❌ syntax not supported
 
 2. Check for dependencies:
@@ -349,11 +350,11 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap,
    ├─ New objects that don't exist in ABAP system? → Check if they depend on each other
    └─ Unrelated bug fixes across files? → No dependencies
 
-3. For SUPPORTED types (CLAS/INTF/PROG):
+3. For SUPPORTED types (CLAS/INTF/PROG/DDLS):
    ├─ Independent files → Run syntax → Fix errors → Commit → Push → Pull
    └─ Dependent files → Skip syntax → Commit → Push → Pull
 
-4. For UNSUPPORTED types (DDLS, FUGR, TABL, etc.):
+4. For UNSUPPORTED types (FUGR, TABL, etc.):
    Write code → Skip syntax → Commit → Push → Pull → (if errors: inspect)
 
 5. For MIXED types (some supported + some unsupported):
