@@ -1,3 +1,29 @@
+## v1.8.0
+
+### New Features
+
+- Syntax command for pre-commit validation
+- Testclasses auto-detection and syntax checking
+- Session caching with automatic retry
+
+### Bug Fixes
+
+- Accurate line numbers in syntax errors
+- Testclasses file handling corrections
+
+### Improvements
+
+- Exact filename shown in syntax errors
+- In-memory session storage
+
+### Documentation
+
+- Syntax command documentation and examples
+
+---
+
+---
+
 ---
 layout: default
 title: Release Notes
