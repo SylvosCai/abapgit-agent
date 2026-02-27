@@ -64,6 +64,7 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
   METHOD test_valid_ddl_with_sflight.
     " Test with valid DDL referencing standard table SFLIGHT
     DATA(lt_source) = build_source(
+      |@AbapCatalog.sqlViewName: 'ZTESTVALIDFLT'\n| &&
       |@EndUserText.label: 'Test Flight View'\n| &&
       |define view ZTEST_VALID_FLIGHT as select from sflight\n| &&
       |\{\n| &&
@@ -227,6 +228,7 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
   METHOD test_valid_ddl_multi_fields.
     " Test with valid DDL with multiple fields and calculations
     DATA(lt_source) = build_source(
+      |@AbapCatalog.sqlViewName: 'ZTESTMULTI'\n| &&
       |@EndUserText.label: 'Flight Price View'\n| &&
       |define view ZTEST_MULTI as select from sflight\n| &&
       |\{\n| &&
