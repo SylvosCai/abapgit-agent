@@ -138,8 +138,8 @@ module.exports = {
             if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(testFile)}`);
           }
         }
-      } else if (!files.main && (files.locals_imp || files.testclasses)) {
-        // Locals or testclasses provided - look for main class file
+      } else if (!files.main && (files.locals_def || files.locals_imp || files.testclasses)) {
+        // Any local file provided - look for main class file and other companions
         const localFile = syntaxFiles.find(f => {
           const bn = pathModule.basename(f).toUpperCase();
           return bn.startsWith(className) && (bn.includes('.LOCALS_') || bn.includes('.TESTCLASSES.'));
@@ -147,9 +147,26 @@ module.exports = {
         if (localFile) {
           const dir = pathModule.dirname(localFile);
           const mainFile = pathModule.join(dir, `${className.toLowerCase()}.clas.abap`);
+          const defFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_def.abap`);
+          const impFile = pathModule.join(dir, `${className.toLowerCase()}.clas.locals_imp.abap`);
+          const testFile = pathModule.join(dir, `${className.toLowerCase()}.clas.testclasses.abap`);
+
           if (fs.existsSync(mainFile)) {
             files.main = fs.readFileSync(mainFile, 'utf8');
             if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(mainFile)}`);
+          }
+          // Also auto-detect other companion files
+          if (!files.locals_def && fs.existsSync(defFile)) {
+            files.locals_def = fs.readFileSync(defFile, 'utf8');
+            if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(defFile)}`);
+          }
+          if (!files.locals_imp && fs.existsSync(impFile)) {
+            files.locals_imp = fs.readFileSync(impFile, 'utf8');
+            if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(impFile)}`);
+          }
+          if (!files.testclasses && fs.existsSync(testFile)) {
+            files.testclasses = fs.readFileSync(testFile, 'utf8');
+            if (!jsonOutput) console.log(`  Auto-detected: ${pathModule.basename(testFile)}`);
           }
         }
       }
