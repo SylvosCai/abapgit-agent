@@ -42,6 +42,11 @@ INTERFACE zif_abgagt_syntax_checker PUBLIC.
   METHODS get_object_type
     RETURNING VALUE(rv_type) TYPE string.
 
+  "! Set FIXPT flag from XML metadata (optional)
+  "! @parameter iv_fixpt | FIXPT flag ('X' or blank)
+  METHODS set_fixpt
+    IMPORTING iv_fixpt TYPE string.
+
   "! Run syntax check on provided source
   "! @parameter iv_name | Object name (e.g., ZCL_MY_CLASS)
   "! @parameter it_source | Source code as string table
