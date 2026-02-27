@@ -1,6 +1,7 @@
 ---
 title: abapGit Agent
 nav_order: 1
+permalink: /
 ---
 
 # abapGit Agent
