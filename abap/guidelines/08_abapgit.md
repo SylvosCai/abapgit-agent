@@ -65,6 +65,7 @@ abapGit needs XML files to:
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>
+    <FIXPT>X</FIXPT>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>
@@ -77,6 +78,9 @@ abapGit needs XML files to:
 - `EXPOSURE`: Exposure (2 = Public, 3 = Protected, 4 = Private)
 - `STATE`: State (1 = Active)
 - `UNICODE`: Unicode encoding (X = Yes)
+- `FIXPT`: Fixed-point arithmetic (X = Yes) - **Always include for correct decimal arithmetic**
+
+**Note**: `<FIXPT>X</FIXPT>` is default for modern ABAP. Without it, decimals treated as integers.
 
 **Local Classes**: If the class has local classes (e.g., test doubles), add:
 - `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` - for test classes
@@ -171,7 +175,41 @@ abapGit needs XML files to:
 
 ---
 
-### CDS View (DDLS)
+### CDS View Entity (DDLS) - RECOMMENDED
+
+**Use by default when user says "create CDS view"**
+
+**Filename**: `src/zc_my_entity.ddls.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>ZC_MY_ENTITY</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>My CDS View Entity</DDTEXT>
+    <SOURCE_TYPE>W</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key Points for CDS View Entities**:
+1. **ABAP file extension**: Use `.ddls.asddls` (NOT `.ddls.abap`)
+2. **XML file**: Use `.ddls.xml`
+3. **DDLNAME**: Must match the CDS view entity name in the source
+4. **SOURCE_TYPE**: `W` = View Entity (modern, recommended)
+5. **Serializer**: Use `LCL_OBJECT_DDLS`
+6. **Source file**: Use `define view entity` (no `@AbapCatalog.sqlViewName`)
+
+---
+
+### CDS View (DDLS) - Legacy Only
+
+**Only use when explicitly requested (e.g., "create legacy CDS view")**
 
 **Filename**: `src/zc_my_view.ddls.xml`
 
@@ -191,12 +229,15 @@ abapGit needs XML files to:
 </abapGit>
 ```
 
-**Key Points for CDS Views**:
+**Key Points for CDS Views (Legacy)**:
 1. **ABAP file extension**: Use `.ddls.asddls` (NOT `.ddls.abap`)
 2. **XML file**: Use `.ddls.xml`
 3. **DDLNAME**: Must match the CDS view name in the source
-4. **SOURCE_TYPE**: V = View, C = Consumption
+4. **SOURCE_TYPE**: `V` = View (legacy)
 5. **Serializer**: Use `LCL_OBJECT_DDLS`
+6. **Source file**: Must include `@AbapCatalog.sqlViewName` annotation
+
+**For detailed comparison and usage guidance, see `guidelines/04_cds.md`**
 
 ---
 

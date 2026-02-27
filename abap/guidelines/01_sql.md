@@ -90,6 +90,26 @@ SELECT object obj_name FROM tadir ...
 
 ---
 
+## 6. Modern ABAP SQL (with FIXPT)
+
+When `<FIXPT>X</FIXPT>` is in class XML (default for modern ABAP):
+
+```abap
+" ✅ Required syntax
+SELECT carrid, connid, fldate      " Commas required
+  FROM sflight
+  INTO TABLE @lt_result             " @ for host variables
+  WHERE carrid = @lv_carrier.       " @ for parameters
+```
+
+**Common errors**:
+- Missing commas → Add between all SELECT fields
+- Missing @ → Add to all ABAP variables (not DB columns)
+
+**Why FIXPT**: Without it, decimals treated as integers in calculations.
+
+---
+
 ## See Also
 - **Constructor Expressions** (05_classes.md) - for VALUE #(), FILTER, FOR loops
 - **Internal Tables** - for filtering and iteration patterns

@@ -21,6 +21,77 @@ grand_parent: ABAP Development
 
 CDS views (Data Definition Language Source) require specific file naming and structure for abapGit.
 
+### CDS View vs View Entity: When to Use Which
+
+**IMPORTANT**: When creating CDS views, use **View Entity** by default unless explicitly requested otherwise.
+
+| User Request | Create Type | Why |
+|--------------|-------------|-----|
+| "Create CDS view" | CDS View Entity (modern) | Default for new development |
+| "Create CDS view for..." | CDS View Entity (modern) | Recommended approach |
+| "Create legacy CDS view" | CDS View (legacy) | Only if explicitly requested |
+| "Create CDS view with sqlViewName" | CDS View (legacy) | Explicit legacy request |
+
+### Key Differences
+
+| Aspect | CDS View (Legacy) | CDS View Entity (Modern) |
+|--------|-------------------|-------------------------|
+| **Syntax** | `define view` | `define view entity` |
+| **@AbapCatalog.sqlViewName** | ✅ Required | ❌ Not allowed (will fail) |
+| **Creates SQL View** | Yes (DDLS + SQL view) | No (DDLS only) |
+| **XML SOURCE_TYPE** | `V` | `W` |
+| **ABAP Version** | 7.40+ | 7.55+ / S/4HANA Cloud |
+| **Parameter Syntax** | `:param` or `$parameters.param` | `$parameters.param` only |
+| **Use For** | Legacy systems, existing code | New development, S/4HANA |
+
+### XML Metadata: The Key Difference
+
+The XML metadata differs only in the `SOURCE_TYPE` field:
+
+**CDS View Entity XML (RECOMMENDED - use by default):**
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>ZC_MY_ENTITY</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>My CDS View Entity</DDTEXT>
+    <SOURCE_TYPE>W</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**CDS View XML (Legacy - only if explicitly requested):**
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>ZC_MY_VIEW</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>My CDS View</DDTEXT>
+    <SOURCE_TYPE>V</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**SOURCE_TYPE values:**
+- `W` = View Entity (modern, no SQL view created)
+- `V` = View (legacy, creates SQL view)
+
+---
+
+## Creating CDS Views (DDLS)
+
+CDS views (Data Definition Language Source) require specific file naming and structure for abapGit.
+
 ### File Naming
 
 CDS views require **two files**:
@@ -34,6 +105,20 @@ CDS views require **two files**:
 
 ### DDL Source File (`.ddls.asddls`)
 
+**CDS View Entity (RECOMMENDED - use by default):**
+```abap
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'My CDS View Entity'
+define view entity ZC_My_Entity as select from tdevc
+{
+  key devclass as Devclass,
+      parentcl as ParentPackage,
+      ctext    as Description
+}
+where devclass not like '$%'
+```
+
+**CDS View (Legacy - only if explicitly requested):**
 ```abap
 @AbapCatalog.sqlViewName: 'ZCMYVIEW'
 @AbapCatalog.compiler.compareFilter: true
@@ -48,55 +133,34 @@ define view ZC_My_View as select from tdevc
 where devclass not like '$%'
 ```
 
-### XML Metadata File (`.ddls.xml`)
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DDLS>
-    <DDLNAME>ZC_MY_VIEW</DDLNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>My CDS View</DDTEXT>
-   </DDLS>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
+**Note the key differences:**
+- View Entity: No `@AbapCatalog.sqlViewName`, uses `define view entity`
+- View (legacy): Has `@AbapCatalog.sqlViewName`, uses `define view`
 
 ### Key Points
 
 1. **Avoid reserved words** - Field names like `PACKAGE`, `CLASS`, `INTERFACE` are reserved in CDS. Use alternatives like `PackageName`, `ClassName`.
 
-2. **Pull all files to activate** - When activating CDS views, use `abapgit-agent pull` (not single file) to ensure proper activation:
-   ```bash
-   abapgit-agent pull  # Pull all files
-   ```
+2. **Workflow for creating CDS views** - See `../CLAUDE.md` for complete workflow guidance:
+   - Independent CDS views: `syntax → commit → pull --files`
+   - Dependent CDS views (with associations to NEW views): Create underlying view first, then dependent view
+   - See CLAUDE.md section on "Working with dependent objects"
 
 3. **System support** - CDS views require SAP systems with CDS capability (S/4HANA, SAP BW/4HANA, or ABAP 7.51+). Older systems will show error: "Object type DDLS is not supported by this system"
 
-### Debugging Activation Errors
+### Activating CDS Views
 
-When pull shows generic errors like "Activation cancelled. Check the inactive objects":
+**For standard workflow, see `../CLAUDE.md`**
 
-1. **Check in ADT/Eclipse** - Open the DDL source in ADT and run syntax check for detailed errors
-2. **Pull all files** - Sometimes `abapgit-agent pull` (all files) works better than single file for CDS views
+**CDS-specific notes:**
+- Single independent DDLS file: `abapgit-agent pull --files src/zc_view.ddls.asddls`
+- CDS views with associations to OTHER NEW views: Create target view first (see `../CLAUDE.md` for workflow)
 
-## Creating CDS View Entities
+## CDS View Entity Features
 
-CDS View Entities (`define view entity`) are the modern replacement for CDS Views with additional features like **associations for OData navigation**.
+CDS View Entities are the modern replacement for CDS Views with enhanced features like **associations for OData navigation**.
 
-### Differences from CDS Views
-
-| Aspect | CDS View | View Entity |
-|--------|----------|-------------|
-| Syntax | `define view` | `define view entity` |
-| Associations | No | Yes (exposed for navigation) |
-| OData/Navigation | Requires separate service | Auto-exposes associations |
-| ABAP Version | 7.40+ | 7.55+ / S/4HANA Cloud |
-
-### DDL Source File with Association
+### Associations in View Entities
 
 ```abap
 @EndUserText.label: 'Package Hierarchy'
@@ -135,6 +199,49 @@ When working with CDS view syntax (arithmetic, built-in functions, aggregations,
    - `zdemo_abap_cds_ve_assoc.ddls.asddls` - Associations
 
 **Note**: This requires `abap-cheat-sheets` to be in the reference folder (configured in `.abapGitAgent`).
+
+---
+
+## Selecting from CDS Views in Classes
+
+### Best Practice: Use CDS View Entity as Type
+
+```abap
+" ✅ RECOMMENDED - Use view entity directly
+TYPES ty_results TYPE STANDARD TABLE OF zc_my_view WITH DEFAULT KEY.
+
+METHOD get_data.
+  SELECT * FROM zc_my_view INTO TABLE @rt_results.
+ENDMETHOD.
+```
+
+**Benefits**: No field mismatches, 33% less code, auto-sync with CDS changes.
+
+---
+
+### Alternative: Manual Structure Definition
+
+Only when you need to hide/transform fields:
+
+```abap
+" Use data elements from underlying tables
+TYPES: BEGIN OF ty_custom,
+         carrierid TYPE s_carr_id,     " ✅ Data element
+         connid    TYPE s_conn_id,     " ✅ NOT: TYPE c LENGTH 3
+       END OF ty_custom.
+```
+
+**Find data elements**:
+```bash
+abapgit-agent view --objects SFLIGHT --type TABL
+```
+
+**Match field names**:
+```bash
+abapgit-agent preview --objects ZC_MY_VIEW --limit 1
+```
+
+**Calculated fields**: Use `TYPE decfloat34` for division/complex math.
 
 ---
 
