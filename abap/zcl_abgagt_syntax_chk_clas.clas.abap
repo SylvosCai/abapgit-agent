@@ -118,7 +118,8 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
           lv_line      TYPE i,
           lv_word      TYPE string,
           lv_classpool TYPE syrepid,
-          lv_testclasses_start TYPE i.
+          lv_testclasses_start TYPE i,
+          lv_include TYPE string.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
@@ -165,15 +166,24 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       IF lv_line > lv_testclasses_start.
         " Error is in testclasses section
         lv_adjusted_line = lv_line - lv_testclasses_start.
+        lv_include = 'testclasses'.
       ELSEIF lv_line > iv_prepended_lines + iv_main_lines.
         " Error is in locals_imp section
         lv_adjusted_line = lv_line - ( iv_prepended_lines + iv_main_lines ).
+        lv_include = 'locals_imp'.
       ELSEIF lv_line > iv_prepended_lines.
         " Error is in main source section
         lv_adjusted_line = lv_line - iv_prepended_lines.
+        lv_include = 'main'.
       ELSE.
         " Error is in CLASS-POOL or locals_def section
-        lv_adjusted_line = lv_line - iv_prepended_lines.
+        IF lv_line > 1.
+          lv_adjusted_line = lv_line - 1.  " Subtract CLASS-POOL line
+          lv_include = 'locals_def'.
+        ELSE.
+          lv_adjusted_line = 1.
+          lv_include = 'class_pool'.
+        ENDIF.
       ENDIF.
 
       IF lv_adjusted_line < 1.
@@ -185,7 +195,8 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       rs_result-errors = VALUE #( (
         line = lv_adjusted_line
         text = lv_msg
-        word = lv_word ) ).
+        word = lv_word
+        include = lv_include ) ).
       rs_result-message = lv_msg.
     ENDIF.
   ENDMETHOD.

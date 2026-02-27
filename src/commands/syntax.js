@@ -233,7 +233,18 @@ module.exports = {
             const column = err.COLUMN || err.column || '';
             const text = err.TEXT || err.text || 'Unknown error';
             const methodName = err.METHOD_NAME || err.method_name || '';
+            const include = err.INCLUDE || err.include || '';
 
+            // Display which file/include the error is in
+            if (include) {
+              const includeDisplay = {
+                'main': 'Main class',
+                'locals_def': 'Local definitions',
+                'locals_imp': 'Local implementations',
+                'testclasses': 'Test classes'
+              }[include] || include;
+              console.log(`  In: ${includeDisplay}`);
+            }
             if (methodName) {
               console.log(`  Method: ${methodName}`);
             }
