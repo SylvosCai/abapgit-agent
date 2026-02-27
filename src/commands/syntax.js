@@ -141,12 +141,13 @@ module.exports = {
         objects.push(obj);
       } else if (files.locals_imp) {
         // Test classes only (no main file needed)
-        // ABAP backend will create: CLASS-POOL. + locals_imp
+        // Put testclasses content in 'testclasses' field (not locals_imp)
+        // ABAP backend will create: CLASS-POOL. + dummy source + testclasses
         const obj = {
           type: 'CLAS',
           name: className,
-          source: '',  // Empty main source
-          locals_imp: files.locals_imp
+          source: `"! Test classes for ${className}`,  // Minimal dummy source
+          testclasses: files.locals_imp  // locals_imp contains testclasses content
         };
         objects.push(obj);
       } else {

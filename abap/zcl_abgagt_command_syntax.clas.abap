@@ -14,6 +14,7 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
              source      TYPE string,      " Source code (newline separated)
              locals_def  TYPE string,      " Local class definitions (optional, for CLAS)
              locals_imp  TYPE string,      " Local class implementations (optional, for CLAS)
+             testclasses TYPE string,      " Test classes (optional, for CLAS)
            END OF ty_source_object.
 
     TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
@@ -181,6 +182,9 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
         ENDIF.
         IF is_object-locals_imp IS NOT INITIAL.
           lo_class_checker->set_locals_imp( parse_source( is_object-locals_imp ) ).
+        ENDIF.
+        IF is_object-testclasses IS NOT INITIAL.
+          lo_class_checker->set_testclasses( parse_source( is_object-testclasses ) ).
         ENDIF.
 
       WHEN 'PROG'.

@@ -16,12 +16,18 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_locals_imp
       IMPORTING it_locals_imp TYPE string_table.
 
+    "! Set test classes source (CCAU)
+    "! @parameter it_testclasses | Test classes (definitions + implementations)
+    METHODS set_testclasses
+      IMPORTING it_testclasses TYPE string_table.
+
     "! Clear local class sources
     METHODS clear_locals.
 
   PRIVATE SECTION.
     DATA mt_locals_def TYPE string_table.
     DATA mt_locals_imp TYPE string_table.
+    DATA mt_testclasses TYPE string_table.
 
     "! Run syntax check on skeleton
     METHODS run_check
@@ -47,7 +53,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
 
     lv_classname = to_upper( iv_name ).
 
-    " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp
+    " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp + testclasses
     APPEND 'CLASS-POOL.' TO lt_skeleton.
     lv_prepended = 1.  " CLASS-POOL. line
 
@@ -63,6 +69,11 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     " Add local class implementations
     IF mt_locals_imp IS NOT INITIAL.
       APPEND LINES OF mt_locals_imp TO lt_skeleton.
+    ENDIF.
+
+    " Add test classes (CCAU - contains both definition and implementation)
+    IF mt_testclasses IS NOT INITIAL.
+      APPEND LINES OF mt_testclasses TO lt_skeleton.
     ENDIF.
 
     " Run syntax check
@@ -83,8 +94,13 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD set_testclasses.
+    mt_testclasses = it_testclasses.
+  ENDMETHOD.
+
+
   METHOD clear_locals.
-    CLEAR: mt_locals_def, mt_locals_imp.
+    CLEAR: mt_locals_def, mt_locals_imp, mt_testclasses.
   ENDMETHOD.
 
 
