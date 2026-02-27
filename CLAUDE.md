@@ -1,3 +1,7 @@
+---
+nav_exclude: true
+---
+
 # ABAP Git Agent - CLI Tool Development
 
 This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
