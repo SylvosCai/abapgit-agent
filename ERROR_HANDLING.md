@@ -3,6 +3,7 @@ layout: default
 title: Error Handling
 nav_order: 3
 parent: Reference
+nav_exclude: true
 ---
 
 # Error Handling
