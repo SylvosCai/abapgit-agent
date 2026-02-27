@@ -39,19 +39,44 @@ This ensures you use correct ABAP syntax rather than guessing.
 
 ## Common Tasks
 
-**Making code changes:**
-```bash
+### For ABAP Development Workflow
+
+> **📖 For complete ABAP development workflow, see [abap/CLAUDE.md](abap/CLAUDE.md)**
+
+**High-level workflow:**
+```
 1. Edit ABAP file(s)
-2. git add && git commit && git push
-3. abapgit-agent pull --files src/zcl_my_class.clas.abap
-4. Check for errors in output
-5. If "Error updating where-used list" → use inspect for details
+2. syntax (for CLAS/INTF/PROG only - if files are independent)
+3. git add && git commit && git push
+4. pull --files <files>
+5. Verify output (if errors: use inspect)
+6. (Optional) unit tests
 ```
 
-**Exploring unknown tables:**
+**Quick examples:**
 ```bash
+# Check syntax before commit (CLAS/INTF/PROG only)
+abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Pull and activate after push
+abapgit-agent pull --files src/zcl_my_class.clas.abap
+
+# If errors, use inspect for details
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
+```
+
+### For Exploring ABAP System
+
+**Exploring unknown tables/structures:**
+```bash
+abapgit-agent view --objects SFLIGHT --type TABL    # See table structure
 abapgit-agent preview --objects SFLIGHT              # See sample data
-abapgit-agent view --objects SFLIGHT --type TABL    # See structure
+```
+
+**Exploring unknown classes/interfaces:**
+```bash
+abapgit-agent view --objects ZCL_MY_CLASS            # See class definition
+abapgit-agent where --objects ZCL_MY_CLASS           # See where it's used
 ```
 
 ## IMPORTANT: When Working on ABAP Files
