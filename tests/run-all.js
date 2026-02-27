@@ -271,9 +271,24 @@ async function runDemoCommandTests(testCases, startTime) {
 /**
  * Run command tests against real ABAP system
  * @param {boolean} demoMode - If true, show command and output for each test
+ * @param {string} commandFilter - Optional command name to filter tests (e.g., 'syntax', 'pull')
  */
-function runCommandTests(demoMode = false) {
+function runCommandTests(demoMode = false, commandFilter = null) {
   printSubHeader('Running Command Tests (Real ABAP System)' + (demoMode ? ' [DEMO MODE]' : ''));
+
+  // Filter test cases by command if specified
+  const filteredCases = commandFilter
+    ? commandTestCases.filter(tc => tc.command === commandFilter)
+    : commandTestCases;
+
+  if (commandFilter && filteredCases.length === 0) {
+    printWarning(`No tests found for command: ${commandFilter}`);
+    return { success: true, results: [], duration: '0.0', passedCount: 0, totalCount: 0 };
+  }
+
+  if (commandFilter) {
+    printInfo(`  Filtering tests for command: ${commandFilter}`);
+  }
 
   const startTime = Date.now();
   const results = [];
@@ -299,11 +314,11 @@ function runCommandTests(demoMode = false) {
 
   // Use synchronous execution for non-demo mode, async for demo mode
   if (demoMode) {
-    return runDemoCommandTests(commandTestCases, startTime);
+    return runDemoCommandTests(filteredCases, startTime);
   }
 
   // Original synchronous implementation
-  for (const testCase of commandTestCases) {
+  for (const testCase of filteredCases) {
     process.stdout.write(`  Testing: ${testCase.command} ${testCase.name}... `);
 
     let commandPassed = false;
@@ -471,6 +486,10 @@ async function main() {
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
 
+  // Command filter for running tests of specific command only (e.g., --command=syntax)
+  const commandFilterArg = args.find(arg => arg.startsWith('--command='));
+  const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
+
   let runJest, runAunit, runCmd, runLifecycle;
 
   if (args.includes('--jest')) {
@@ -517,7 +536,7 @@ async function main() {
 
   // Run Command tests
   if (runCmd) {
-    results.cmd = await runCommandTests(demoMode);
+    results.cmd = await runCommandTests(demoMode, commandFilter);
   }
 
   // Run Lifecycle tests only

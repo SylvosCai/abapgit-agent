@@ -237,10 +237,23 @@ npm run test:unit          # Same as npm test
 
 # Integration tests (require configured .abapGitAgent)
 npm run test:integration   # Test against real ABAP system
-npm run test:cmd           # Command integration tests
+npm run test:cmd           # Command integration tests (all commands)
 npm run test:aunit         # AUnit integration tests
 npm run test:lifecycle     # Full lifecycle tests
 npm run test:all           # All tests (unit + integration)
+
+# Test specific commands only (NEW - fast feedback!)
+npm run test:cmd:syntax    # Test only syntax command
+npm run test:cmd:pull      # Test only pull command
+npm run test:cmd:inspect   # Test only inspect command
+npm run test:cmd:unit      # Test only unit command
+npm run test:cmd:view      # Test only view command
+npm run test:cmd:preview   # Test only preview command
+npm run test:cmd:tree      # Test only tree command
+
+# Or use the --command flag directly
+npm run test:cmd -- --command=syntax
+npm run test:cmd -- --command=syntax --demo  # Demo mode for specific command
 ```
 
 **Unit tests location:**
