@@ -96,6 +96,17 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         IF mo_repo IS BOUND.
           mo_repo->refresh( ).
 
+          " Switch branch/tag if specified and it's an online repository
+          IF iv_branch IS NOT INITIAL.
+            DATA: li_repo_online TYPE REF TO zif_abapgit_repo_online.
+            TRY.
+                li_repo_online ?= mo_repo.
+                li_repo_online->select_branch( iv_branch ).
+              CATCH cx_sy_move_cast_error.
+                " Not an online repository, skip branch selection
+            ENDTRY.
+          ENDIF.
+
           DATA(ls_checks) = prepare_deserialize_checks(
             it_files = it_files
             iv_transport_request = iv_transport_request ).
