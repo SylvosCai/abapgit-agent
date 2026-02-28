@@ -4,34 +4,26 @@ This directory contains integration tests for the `pull` command with different 
 
 ## Test Structure
 
-### 1. Basic Pull Tests (`abap-commands.js`)
+All tests are located in `tests/integration/abap-commands.js`. The tests verify:
+1. Pull succeeds from different git refs (tags/branches)
+2. The activated code matches the expected version (verified using `view` command)
 
-Located in `tests/integration/abap-commands.js`, these tests verify that:
-- Pull succeeds from tag `v0.1.0`
-- Pull succeeds from tag `v1.0.0`
-- Pull succeeds from branch `feature/test-branch`
-- Pull succeeds from branch `main`
+**Test flow:**
+```
+pull from v0.1.0 → view ZIF_SIMPLE_TEST → verify only get_message exists
+pull from v1.0.0 → view ZIF_SIMPLE_TEST → verify get_message + validate_input exist
+pull from feature/test-branch → view ZIF_SIMPLE_TEST → verify get_message + calculate_sum exist
+pull from main → view ZIF_SIMPLE_TEST → verify get_message + validate_input exist
+```
 
-**Run with:**
+**Run all tests:**
 ```bash
 npm run test:cmd:pull
 ```
 
-These tests verify the pull command executes successfully but don't verify the activated code content (because they run from the main repo directory).
-
-### 2. Full Verification Tests (`pull-refs-verification.js`)
-
-Located in `tests/integration/pull-refs-verification.js`, this comprehensive test:
-- Pulls from each git ref (tag/branch)
-- Uses `view` command to inspect the activated code
-- Verifies the correct methods exist in the activated interface
-- Confirms version-specific methods are present/absent
-
-**IMPORTANT**: This test must be run from the test repository directory:
-
+**Run all command tests:**
 ```bash
-cd /Users/i045696/Documents/code/project/abgagt-pull-test
-node /Users/i045696/Documents/code/project/abapgit-agent/tests/integration/pull-refs-verification.js
+npm run test:cmd
 ```
 
 ## Test Repository
@@ -89,21 +81,17 @@ The test verifies the correct version by checking:
 - ✅ Expected methods ARE present
 - ✅ Unexpected methods are NOT present
 
-## Running All Tests
+## Running Tests
 
 ```bash
-# Basic pull tests (from main repo)
-cd /Users/i045696/Documents/code/project/abapgit-agent
+# All pull tests (including tag/branch tests)
 npm run test:cmd:pull
 
-# Full verification tests (from test repo)
-cd /Users/i045696/Documents/code/project/abgagt-pull-test
-node /Users/i045696/Documents/code/project/abapgit-agent/tests/integration/pull-refs-verification.js
+# All command tests
+npm run test:cmd
 
-# Or create a symlink for convenience
-cd /Users/i045696/Documents/code/project/abgagt-pull-test
-ln -s /Users/i045696/Documents/code/project/abapgit-agent/tests/integration/pull-refs-verification.js test-pull-refs.js
-node test-pull-refs.js
+# Specific command tests
+npm run test:cmd -- --command=pull
 ```
 
 ## Expected Output
@@ -111,59 +99,42 @@ node test-pull-refs.js
 ### Successful Test Run
 
 ```
-╔════════════════════════════════════════════════════════════════════════════╗
-║                                                                            ║
-║  Pull Command - Git References Verification Test                          ║
-║                                                                            ║
-╚════════════════════════════════════════════════════════════════════════════╝
+======================================================================
+  UNIFIED TEST SUITE
+======================================================================
 
-================================================================================
-Testing: Tag v0.1.0 - only get_message method
-  Ref: v0.1.0
-================================================================================
+----------------------------------------------------------------------
+  Running Command Tests (Real ABAP System)
+----------------------------------------------------------------------
+    Filtering tests for command: pull
+  Testing: pull pull --files (specific file)... ✅
+  Testing: pull pull from tag v0.1.0... ✅
+  Testing: view verify v0.1.0 - has only get_message... ✅
+  Testing: pull pull from tag v1.0.0... ✅
+  Testing: view verify v1.0.0 - has get_message and validate_input... ✅
+  Testing: pull pull from branch feature/test-branch... ✅
+  Testing: view verify feature/test-branch - has get_message and calculate_sum... ✅
+  Testing: pull pull from branch main... ✅
+  Testing: view verify main - has get_message and validate_input... ✅
+  ✅ Command tests: 9/9 passed (XX.Xs)
 
-📥 Pulling from v0.1.0...
-✅ Pull completed successfully
+======================================================================
+  TEST SUITE SUMMARY
+======================================================================
+  ✅ Command Tests: 9/9 PASSED (XX.Xs)
 
-📖 Viewing ZIF_SIMPLE_TEST...
-
-🔍 Activated methods: get_message
-
-✓ Expected methods:
-  ✅ get_message - found
-
-✓ Should NOT have:
-  ✅ validate_input - correctly absent
-  ✅ calculate_sum - correctly absent
-
-================================================================================
-✅ TEST PASSED: v0.1.0
-================================================================================
-
-[... similar output for v1.0.0, feature/test-branch, main ...]
-
-================================================================================
-TEST SUMMARY
-================================================================================
-
-  ✅ v0.1.0
-  ✅ v1.0.0
-  ✅ feature/test-branch
-  ✅ main
-
-4/4 tests passed
-
-✅ ALL TESTS PASSED!
+======================================================================
+  ✅ ALL TESTS PASSED (Total: XX.Xs)
+======================================================================
 ```
 
 ## Troubleshooting
 
 ### Test Fails with "INCORRECTLY PRESENT"
 
-This means the previous version's methods are still in the interface. Possible causes:
-- abapGit doesn't remove methods (only adds) for safety
-- Interface needs manual deletion before pull
-- Package version mismatch
+This means a method from a previous version is still present. This shouldn't happen with the fixed branch switching implementation, but if it does:
+- The branch switching may not have worked correctly
+- Check the abapGit logs for errors
 
 **Solution:** Manually delete `ZIF_SIMPLE_TEST` in SE24/SE80 and re-run the test.
 
@@ -174,11 +145,35 @@ This means the expected method is not in the activated interface. Possible cause
 - Git ref doesn't exist or is incorrect
 - Network/connectivity issue
 
-**Solution:** Check git ref exists and re-run pull command manually.
+**Solution:** Check git ref exists and re-run pull command manually:
+```bash
+cd /Users/i045696/Documents/code/project/abgagt-pull-test
+node ../abapgit-agent/bin/abapgit-agent pull --branch v0.1.0
+node ../abapgit-agent/bin/abapgit-agent view --objects ZIF_SIMPLE_TEST
+```
 
 ### Wrong Package/Repository
 
-If tests show wrong package, ensure you're running from the correct directory and `.abapGitAgent` points to the test repository.
+If tests show wrong package, ensure the test is using the correct repository URL and `.abapGitAgent` configuration.
+
+## Implementation Details
+
+### How Branch Switching Works
+
+The pull command now properly switches git references before deserializing:
+
+1. **Refresh with cache drop** - `refresh(iv_drop_cache = abap_true)` fetches latest remote branches/tags
+2. **Convert to full ref** - Converts short names (e.g., `v0.1.0`, `master`) to full git refs (`refs/tags/v0.1.0`, `refs/heads/master`)
+3. **Select branch** - Calls `select_branch()` on the online repository
+4. **Deserialize** - abapGit deserializes and activates the code from the selected ref
+
+### Git Reference Format
+
+abapGit expects full git reference names:
+- Branches: `refs/heads/master`, `refs/heads/feature/test-branch`
+- Tags: `refs/tags/v0.1.0`, `refs/tags/v1.0.0`
+
+The agent automatically converts short names to full refs.
 
 ## CI/CD Integration
 
@@ -186,26 +181,18 @@ To run these tests in CI:
 
 ```bash
 # In CI pipeline
-cd test-repo-directory
-npm run test:cmd:pull  # Basic tests
-node full-verification-script.js  # Full verification
+npm run test:cmd:pull
 ```
 
 ## Known Limitations
 
-1. **abapGit Merge Behavior**: abapGit's pull operation updates repository metadata but may not remove existing methods/code from active objects. This is by design to prevent accidental data loss.
-   - **Impact**: Pulling v0.1.0 after v1.0.0 will NOT remove the `validate_input` method
-   - **Workaround**: Delete the interface manually in SE24 before running verification tests
-   - **Why**: abapGit protects against accidental code deletion by not force-overwriting active objects
-
-2. **Directory Context**: Full verification requires running from test repo directory
-3. **Timing**: May need short delay between pull and view commands
-4. **Cleanup**: Test doesn't auto-cleanup; interface persists between test runs
+1. **Sequential Execution**: Tests run sequentially, each pull replaces the previous version
+2. **Test Repository Dependency**: Tests depend on the abgagt-pull-test repository structure
+3. **Network Dependency**: Requires connectivity to both GitHub and ABAP system
 
 ## Future Enhancements
 
-- [ ] Add auto-cleanup (delete interface before each test)
-- [ ] Support class verification (not just interfaces)
-- [ ] Add transport request verification
-- [ ] Test with multiple objects in one pull
 - [ ] Add performance timing metrics
+- [ ] Test with multiple objects in one pull
+- [ ] Add transport request verification
+- [ ] Support class verification (not just interfaces)

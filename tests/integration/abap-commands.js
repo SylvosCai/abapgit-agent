@@ -911,8 +911,7 @@ ENDCLASS.`;
     }
   },
   // Pull command tests - Tags and branches (test repo: abgagt-pull-test)
-  // NOTE: These tests verify that pull works with different git refs (tags/branches)
-  // Full verification with view commands requires running from test repo directory
+  // These tests verify that pull correctly switches git refs and activates the right version
   {
     command: 'pull',
     name: 'pull from tag v0.1.0',
@@ -923,6 +922,19 @@ ENDCLASS.`;
       const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
       const hasJobId = output.includes('Job ID:');
       return hasPull && hasActivated && hasJobId;
+    }
+  },
+  {
+    command: 'view',
+    name: 'verify v0.1.0 - has only get_message',
+    args: ['--objects', 'ZIF_SIMPLE_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasGetMessage = output.includes('get_message');
+      const hasValidateInput = output.includes('validate_input');
+      const hasCalculateSum = output.includes('calculate_sum');
+      // Should only have get_message, NOT the other methods
+      return hasGetMessage && !hasValidateInput && !hasCalculateSum;
     }
   },
   {
@@ -938,6 +950,19 @@ ENDCLASS.`;
     }
   },
   {
+    command: 'view',
+    name: 'verify v1.0.0 - has get_message and validate_input',
+    args: ['--objects', 'ZIF_SIMPLE_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasGetMessage = output.includes('get_message');
+      const hasValidateInput = output.includes('validate_input');
+      const hasCalculateSum = output.includes('calculate_sum');
+      // Should have both get_message and validate_input, NOT calculate_sum
+      return hasGetMessage && hasValidateInput && !hasCalculateSum;
+    }
+  },
+  {
     command: 'pull',
     name: 'pull from branch feature/test-branch',
     args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'feature/test-branch'],
@@ -950,6 +975,19 @@ ENDCLASS.`;
     }
   },
   {
+    command: 'view',
+    name: 'verify feature/test-branch - has get_message and calculate_sum',
+    args: ['--objects', 'ZIF_SIMPLE_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasGetMessage = output.includes('get_message');
+      const hasValidateInput = output.includes('validate_input');
+      const hasCalculateSum = output.includes('calculate_sum');
+      // Should have get_message and calculate_sum, NOT validate_input
+      return hasGetMessage && !hasValidateInput && hasCalculateSum;
+    }
+  },
+  {
     command: 'pull',
     name: 'pull from branch main',
     args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'main'],
@@ -959,6 +997,19 @@ ENDCLASS.`;
       const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
       const hasJobId = output.includes('Job ID:');
       return hasPull && hasActivated && hasJobId;
+    }
+  },
+  {
+    command: 'view',
+    name: 'verify main - has get_message and validate_input',
+    args: ['--objects', 'ZIF_SIMPLE_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasGetMessage = output.includes('get_message');
+      const hasValidateInput = output.includes('validate_input');
+      const hasCalculateSum = output.includes('calculate_sum');
+      // Should match v1.0.0: has get_message and validate_input, NOT calculate_sum
+      return hasGetMessage && hasValidateInput && !hasCalculateSum;
     }
   }
 ];
