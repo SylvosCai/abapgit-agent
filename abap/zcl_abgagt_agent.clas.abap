@@ -100,9 +100,24 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           " Switch branch/tag if specified and it's an online repository
           IF iv_branch IS NOT INITIAL.
             DATA: li_repo_online TYPE REF TO zif_abapgit_repo_online.
+            DATA: lv_git_ref TYPE string.
+
+            " Convert short branch/tag name to full git ref format
+            " abapGit expects: refs/heads/master or refs/tags/v1.0.0
+            IF iv_branch CS 'refs/'.
+              " Already a full ref
+              lv_git_ref = iv_branch.
+            ELSEIF iv_branch(1) = 'v' AND iv_branch CN ' '.
+              " Looks like a tag (starts with 'v' and no spaces)
+              lv_git_ref = |refs/tags/{ iv_branch }|.
+            ELSE.
+              " Assume it's a branch
+              lv_git_ref = |refs/heads/{ iv_branch }|.
+            ENDIF.
+
             TRY.
                 li_repo_online ?= mo_repo.
-                li_repo_online->select_branch( iv_branch ).
+                li_repo_online->select_branch( lv_git_ref ).
               CATCH cx_sy_move_cast_error.
                 " Not an online repository, skip branch selection
             ENDTRY.
