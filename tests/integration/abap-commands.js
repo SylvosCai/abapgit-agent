@@ -909,6 +909,57 @@ ENDCLASS.`;
         // Ignore cleanup errors
       }
     }
+  },
+  // Pull command tests - Tags and branches (test repo: abgagt-pull-test)
+  // NOTE: These tests verify that pull works with different git refs (tags/branches)
+  // Full verification with view commands requires running from test repo directory
+  {
+    command: 'pull',
+    name: 'pull from tag v0.1.0',
+    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'v0.1.0'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasPull = output.includes('Pull completed');
+      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
+      const hasJobId = output.includes('Job ID:');
+      return hasPull && hasActivated && hasJobId;
+    }
+  },
+  {
+    command: 'pull',
+    name: 'pull from tag v1.0.0',
+    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'v1.0.0'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasPull = output.includes('Pull completed');
+      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
+      const hasJobId = output.includes('Job ID:');
+      return hasPull && hasActivated && hasJobId;
+    }
+  },
+  {
+    command: 'pull',
+    name: 'pull from branch feature/test-branch',
+    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'feature/test-branch'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasPull = output.includes('Pull completed');
+      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
+      const hasJobId = output.includes('Job ID:');
+      return hasPull && hasActivated && hasJobId;
+    }
+  },
+  {
+    command: 'pull',
+    name: 'pull from branch main',
+    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'main'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasPull = output.includes('Pull completed');
+      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
+      const hasJobId = output.includes('Job ID:');
+      return hasPull && hasActivated && hasJobId;
+    }
   }
 ];
 module.exports = commandTestCases;
