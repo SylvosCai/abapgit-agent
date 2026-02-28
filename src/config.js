@@ -74,10 +74,25 @@ function isAbapIntegrationEnabled() {
   return fs.existsSync(repoConfigPath);
 }
 
+/**
+ * Get workflow configuration
+ * @returns {Object} Workflow config with mode ('branch' or 'trunk') and optional defaultBranch
+ */
+function getWorkflowConfig() {
+  const cfg = loadConfig();
+
+  // Default to trunk mode if not specified (backward compatible)
+  return {
+    mode: cfg.workflow?.mode || 'trunk',
+    defaultBranch: cfg.workflow?.defaultBranch || null  // null means auto-detect
+  };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
   getAgentConfig,
   getTransport,
-  isAbapIntegrationEnabled
+  isAbapIntegrationEnabled,
+  getWorkflowConfig
 };

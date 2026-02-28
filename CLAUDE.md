@@ -321,9 +321,46 @@ Create `.abapGitAgent` in repository root:
   "language": "EN",
   "gitUsername": "git-username",
   "gitPassword": "git-token",
-  "transport": "DEVK900001"
+  "transport": "DEVK900001",
+
+  "workflow": {
+    "mode": "branch"  // "branch" or "trunk" (default: trunk)
+  }
 }
 ```
+
+#### Workflow Configuration
+
+The `workflow` section controls git workflow behavior for AI coding tools:
+
+| Field | Values | Default | Description |
+|-------|--------|---------|-------------|
+| `mode` | `"branch"` or `"trunk"` | `"trunk"` | Workflow mode (see below) |
+| `defaultBranch` | String (e.g., `"main"`) | Auto-detected | Override auto-detected default branch |
+
+**Workflow Modes:**
+
+- **`"branch"`**: Feature branch workflow with rebase
+  - Create feature branches for new features
+  - Rebase to default branch before pull
+  - Create PRs with squash merge
+  - Prevents polluting main branch with WIP commits
+
+- **`"trunk"`**: Trunk-based development (default)
+  - Commit directly to default branch
+  - Simpler workflow for small teams
+  - No rebase or PRs required
+
+**Default Branch Detection:**
+
+The default branch (main/master/develop) is **auto-detected** using:
+1. Check `git symbolic-ref refs/remotes/origin/HEAD`
+2. Check for common branch names (main → master → develop)
+3. Fallback to `"main"`
+
+You only need to set `defaultBranch` if using a non-standard branch name.
+
+> **📖 For complete workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
 
 ### Environment Variables
 ```bash
