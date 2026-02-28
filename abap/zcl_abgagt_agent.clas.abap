@@ -94,7 +94,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         mo_repo = li_repo.
 
         IF mo_repo IS BOUND.
-          mo_repo->refresh( ).
+          " Refresh repository with cache drop to fetch latest remote branches/tags
+          mo_repo->refresh( iv_drop_cache = abap_true ).
 
           " Switch branch/tag if specified and it's an online repository
           IF iv_branch IS NOT INITIAL.
