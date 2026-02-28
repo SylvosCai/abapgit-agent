@@ -37,7 +37,7 @@ All available CLI commands for abapGit Agent.
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [status](status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](health-command.md) | ✅ | Health check |
-| [sync](sync-command.md) | 🚧 | Sync ABAP backend to match CLI version |
+| [upgrade](upgrade-command.md) | 🚧 | Upgrade CLI and/or ABAP backend |
 
 ### Offline Commands (No ABAP Connection Required)
 
