@@ -78,8 +78,37 @@ module.exports = {
   async execute(args, context) {
     const { gitUtils } = context;
 
+    // Show help if requested
+    const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
+    if (helpIndex !== -1) {
+      console.log(`
+Usage:
+  abapgit-agent init [options]
+
+Description:
+  Initialize local repository configuration.
+  Creates .abapGitAgent, .gitignore, CLAUDE.md, and guidelines folder.
+
+Options:
+  --package <PACKAGE>             ABAP package name (required)
+  --folder <FOLDER>               Starting folder (default: /src/)
+  --folder-logic <PREFIX|FULL>    Folder logic (default: PREFIX)
+                                  PREFIX: Subpackages derive folder names from parent prefix
+                                  FULL: Use full package name as folder name
+  --update                        Update CLAUDE.md and guidelines to latest version
+
+Examples:
+  abapgit-agent init --package \$MY_PACKAGE                    # Use defaults (/src/, PREFIX)
+  abapgit-agent init --package \$MY_PACKAGE --folder /abap/    # Custom folder
+  abapgit-agent init --package \$MY_PACKAGE --folder-logic FULL  # Custom folder logic
+  abapgit-agent init --update                                  # Update files only
+`);
+      return;
+    }
+
     const folderArgIndex = args.indexOf('--folder');
     const packageArgIndex = args.indexOf('--package');
+    const folderLogicArgIndex = args.indexOf('--folder-logic');
     const updateMode = args.includes('--update');
 
     // Get parameters
@@ -99,6 +128,16 @@ module.exports = {
     const packageName = packageArgIndex !== -1 && packageArgIndex + 1 < args.length
       ? args[packageArgIndex + 1]
       : null;
+
+    let folderLogic = folderLogicArgIndex !== -1 && folderLogicArgIndex + 1 < args.length
+      ? args[folderLogicArgIndex + 1]
+      : 'PREFIX';
+
+    // Validate folder logic
+    if (folderLogic !== 'PREFIX' && folderLogic !== 'FULL') {
+      console.error('Error: --folder-logic must be either PREFIX or FULL');
+      process.exit(1);
+    }
 
     // Validate package is required for non-update mode
     if (!updateMode && !packageName) {
@@ -160,6 +199,7 @@ module.exports = {
 
     console.log(`\n🚀 Initializing abapGit Agent for local repository`);
     console.log(`   Folder: ${folder}`);
+    console.log(`   Folder Logic: ${folderLogic}`);
     console.log(`   Package: ${packageName}`);
     console.log('');
 
@@ -186,12 +226,13 @@ module.exports = {
         console.log('📝 Updating existing .abapGitAgent configuration');
         console.log('');
         console.log('Current values:');
-        console.log(`   Package: ${currentConfig.package || '(not set)'}`);
-        console.log(`   Folder:  ${currentConfig.folder || '(not set)'}`);
-        console.log(`   Host:    ${currentConfig.host || '(not set)'}`);
+        console.log(`   Package:      ${currentConfig.package || '(not set)'}`);
+        console.log(`   Folder:       ${currentConfig.folder || '(not set)'}`);
+        console.log(`   Folder Logic: ${currentConfig.folderLogic || '(not set)'}`);
+        console.log(`   Host:         ${currentConfig.host || '(not set)'}`);
         console.log('');
 
-        // Merge: keep existing values, update package and folder
+        // Merge: keep existing values, update package, folder, and folderLogic
         config = currentConfig;
 
         // Track what changed
@@ -209,8 +250,14 @@ module.exports = {
           changes.push(`folder: ${oldValue} → ${folder}`);
         }
 
+        if (folderLogic && folderLogic !== currentConfig.folderLogic) {
+          const oldValue = currentConfig.folderLogic || '(not set)';
+          config.folderLogic = folderLogic;
+          changes.push(`folderLogic: ${oldValue} → ${folderLogic}`);
+        }
+
         if (changes.length === 0) {
-          console.log('⚠️  No changes needed - package and folder are already set correctly');
+          console.log('⚠️  No changes needed - package, folder, and folderLogic are already set correctly');
           console.log('');
           console.log('To change other settings, edit .abapGitAgent manually');
           // Don't exit - continue with other setup tasks (CLAUDE.md, guidelines, etc.)
@@ -239,11 +286,12 @@ module.exports = {
       }
 
       try {
-        // Read sample and update with package/folder
+        // Read sample and update with package/folder/folderLogic
         const sampleContent = fs.readFileSync(samplePath, 'utf8');
         config = JSON.parse(sampleContent);
         config.package = packageName;
         config.folder = folder;
+        config.folderLogic = folderLogic;
       } catch (error) {
         console.error(`Error reading .abapGitAgent.example: ${error.message}`);
         process.exit(1);

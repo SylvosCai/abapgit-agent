@@ -12,7 +12,7 @@ Initialize local configuration for an existing git repository.
 ## Command
 
 ```bash
-abapgit-agent init --folder /src/ --package ZMY_PACKAGE
+abapgit-agent init --package ZMY_PACKAGE [options]
 ```
 
 ## Prerequisite
@@ -24,8 +24,24 @@ abapgit-agent init --folder /src/ --package ZMY_PACKAGE
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `--folder` | No | `/src/` | Subfolder path for ABAP source files |
 | `--package` | Yes | - | Target ABAP package |
+| `--folder` | No | `/src/` | Subfolder path for ABAP source files |
+| `--folder-logic` | No | `PREFIX` | Folder logic: `PREFIX` or `FULL` (see below) |
+
+### Folder Logic Options
+
+| Value | Description | Example |
+|-------|-------------|---------|
+| `PREFIX` | Subpackages derive folder names from parent package prefix | Top: `Z_PROJ`, Sub: `Z_PROJ_CORE` → `/core/` |
+| `FULL` | Use full package name as folder name | Package: `Z_SOME_PKG` → `/z_some_pkg/` |
+
+**When to use FULL:**
+- Packages don't follow a common prefix naming convention
+- You get "PREFIX: Unexpected package naming" errors from abapGit
+
+**When to use PREFIX (recommended):**
+- Packages follow a naming convention (e.g., all start with `Z_MYPROJECT_`)
+- Cleaner folder structure with shorter names
 
 ## Tasks
 
@@ -41,12 +57,12 @@ git remote get-url origin
 
 **If `.abapGitAgent` does NOT exist:**
 - Copy from `.abapGitAgent.example` template
-- Set `package` and `folder` from CLI parameters
+- Set `package`, `folder`, and `folderLogic` from CLI parameters (or defaults)
 - Initialize with placeholder credentials
 
 **If `.abapGitAgent` already exists (UPDATE MODE):**
 - Read existing configuration
-- Update ONLY `package` and `folder` fields
+- Update ONLY `package`, `folder`, and `folderLogic` fields
 - Keep ALL other settings (host, credentials, workflow, etc.)
 - Show what changed
 
@@ -55,10 +71,10 @@ git remote get-url origin
 # Copy config from project A to project B
 cp ../project-a/.abapGitAgent .
 
-# Update package and folder for project B
-abapgit-agent init --folder /src/ --package $PROJECT_B_PACKAGE
+# Update package, folder, and folderLogic for project B
+abapgit-agent init --package $PROJECT_B_PACKAGE --folder /src/ --folder-logic FULL
 
-# Result: Credentials preserved, only package/folder updated
+# Result: Credentials preserved, only package/folder/folderLogic updated
 ```
 
 Configuration after update:
@@ -69,6 +85,7 @@ Configuration after update:
   "password": "mypassword",               // ← Preserved
   "package": "$PROJECT_B_PACKAGE",        // ← Updated
   "folder": "/src/",                      // ← Updated
+  "folderLogic": "FULL",                  // ← Updated
   "workflow": { "mode": "branch" }        // ← Preserved
 }
 ```
@@ -126,7 +143,8 @@ After `init` command, `.abapGitAgent` contains:
   "gitPassword": "github-token",
   "referenceFolder": "~/abap-reference",
   "package": "ZMY_PACKAGE",
-  "folder": "/src/"
+  "folder": "/src/",
+  "folderLogic": "PREFIX"
 }
 ```
 
@@ -190,13 +208,22 @@ export GIT_PASSWORD="ghp_your_token_here"
 ## Example
 
 ```bash
-# Initialize
-abapgit-agent init --folder /src/ --package ZMYPROJECT
+# Initialize with defaults (folder: /src/, folderLogic: PREFIX)
+abapgit-agent init --package ZMYPROJECT
+
+# Initialize with custom folder
+abapgit-agent init --package ZMYPROJECT --folder /abap/
+
+# Initialize with FULL folder logic
+abapgit-agent init --package ZMYPROJECT --folder-logic FULL
+
+# Initialize with all custom options
+abapgit-agent init --package ZMYPROJECT --folder /src/ --folder-logic PREFIX
 
 # Edit config
 vim .abapGitAgent
 
-# Create repo
+# Create repo (uses folderLogic from config)
 abapgit-agent create
 
 # Import objects to git

@@ -21,19 +21,24 @@ Usage:
 Description:
   Create abapGit online repository in ABAP system.
   Auto-detects URL from git remote and package from .abapGitAgent.
+  Uses folder and folderLogic settings from .abapGitAgent.
 
 Prerequisites:
   - Run "abapgit-agent init" first
   - Edit .abapGitAgent with credentials (host, user, password)
 
 Examples:
-  abapgit-agent create                    # Create repo in ABAP
+  abapgit-agent create                    # Create repo using config settings
 `);
       return;
     }
 
     // Get parameters from config
     const config = loadConfig();
+
+    // Get folder logic from config (default to PREFIX if not set)
+    const folderLogic = config.folderLogic || 'PREFIX';
+
     const repoUrl = gitUtils.getRemoteUrl();
 
     if (!repoUrl) {
@@ -55,6 +60,7 @@ Examples:
     console.log(`   URL: ${repoUrl}`);
     console.log(`   Package: ${config.package}`);
     console.log(`   Folder: ${config.folder || '/src/'}`);
+    console.log(`   Folder Logic: ${folderLogic}`);
     console.log(`   Name: ${repoName}`);
     console.log(`   Branch: ${branch}`);
 
@@ -66,7 +72,8 @@ Examples:
       package: config.package,
       name: repoName,
       branch: branch,
-      folder: config.folder || '/src/'
+      folder: config.folder || '/src/',
+      folder_logic: folderLogic
     };
 
     if (config.gitUsername) {
