@@ -172,50 +172,94 @@ module.exports = {
     }
     console.log(`📌 Git remote: ${gitUrl}`);
 
-    // Check if .abapGitAgent already exists
+    // Check if .abapGitAgent already exists - merge if it does
     const configPath = pathModule.join(process.cwd(), '.abapGitAgent');
+    let config = null;
+    let isUpdate = false;
+
     if (fs.existsSync(configPath)) {
+      isUpdate = true;
       try {
-        // Read and display current configuration
+        // Read existing configuration
         const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        console.error('Error: .abapGitAgent already exists with the following configuration:');
-        console.error('');
-        console.error(`   Package: ${currentConfig.package || '(not set)'}`);
-        console.error(`   Folder:  ${currentConfig.folder || '(not set)'}`);
-        console.error(`   Host:    ${currentConfig.host || '(not set)'}`);
-        console.error('');
-        console.error('Options:');
-        console.error('   1. Edit .abapGitAgent manually to update configuration');
-        console.error('   2. Delete .abapGitAgent and run init again to start fresh:');
-        console.error('      rm .abapGitAgent && abapgit-agent init --folder /src/ --package $MYPACKAGE');
-        console.error('   3. View current config: cat .abapGitAgent');
+
+        console.log('📝 Updating existing .abapGitAgent configuration');
+        console.log('');
+        console.log('Current values:');
+        console.log(`   Package: ${currentConfig.package || '(not set)'}`);
+        console.log(`   Folder:  ${currentConfig.folder || '(not set)'}`);
+        console.log(`   Host:    ${currentConfig.host || '(not set)'}`);
+        console.log('');
+
+        // Merge: keep existing values, update package and folder
+        config = currentConfig;
+
+        // Track what changed
+        const changes = [];
+
+        if (packageName && packageName !== currentConfig.package) {
+          const oldValue = currentConfig.package || '(not set)';
+          config.package = packageName;
+          changes.push(`package: ${oldValue} → ${packageName}`);
+        }
+
+        if (folder && folder !== currentConfig.folder) {
+          const oldValue = currentConfig.folder || '(not set)';
+          config.folder = folder;
+          changes.push(`folder: ${oldValue} → ${folder}`);
+        }
+
+        if (changes.length === 0) {
+          console.log('⚠️  No changes needed - package and folder are already set correctly');
+          console.log('');
+          console.log('To change other settings, edit .abapGitAgent manually');
+          // Don't exit - continue with other setup tasks (CLAUDE.md, guidelines, etc.)
+        } else {
+          console.log('Changes to be made:');
+          changes.forEach(change => console.log(`   ${change}`));
+          console.log('');
+          console.log('✅ Keeping all other settings (host, credentials, workflow, etc.)');
+          console.log('');
+        }
       } catch (error) {
-        console.error('Error: .abapGitAgent already exists (but could not read it).');
-        console.error('To reinitialize, delete the existing file first:');
-        console.error('   rm .abapGitAgent');
+        console.error('Error: .abapGitAgent exists but could not read it:');
+        console.error(`   ${error.message}`);
+        console.error('');
+        console.error('To fix:');
+        console.error('   1. Check if .abapGitAgent contains valid JSON');
+        console.error('   2. Or delete it: rm .abapGitAgent');
+        process.exit(1);
       }
-      process.exit(1);
+    } else {
+      // Create new config from template
+      const samplePath = pathModule.join(__dirname, '..', '..', '.abapGitAgent.example');
+      if (!fs.existsSync(samplePath)) {
+        console.error('Error: .abapGitAgent.example not found.');
+        process.exit(1);
+      }
+
+      try {
+        // Read sample and update with package/folder
+        const sampleContent = fs.readFileSync(samplePath, 'utf8');
+        config = JSON.parse(sampleContent);
+        config.package = packageName;
+        config.folder = folder;
+      } catch (error) {
+        console.error(`Error reading .abapGitAgent.example: ${error.message}`);
+        process.exit(1);
+      }
     }
 
-    // Copy .abapGitAgent.example to .abapGitAgent
-    const samplePath = pathModule.join(__dirname, '..', '..', '.abapGitAgent.example');
-    if (!fs.existsSync(samplePath)) {
-      console.error('Error: .abapGitAgent.example not found.');
-      process.exit(1);
-    }
-
+    // Write the config (either new or updated)
     try {
-      // Read sample and update with package/folder
-      const sampleContent = fs.readFileSync(samplePath, 'utf8');
-      const config = JSON.parse(sampleContent);
-      config.package = packageName;
-      config.folder = folder;
-
-      // Write updated config
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-      console.log(`✅ Created .abapGitAgent`);
+      if (isUpdate) {
+        console.log(`✅ Updated .abapGitAgent`);
+      } else {
+        console.log(`✅ Created .abapGitAgent`);
+      }
     } catch (error) {
-      console.error(`Error creating .abapGitAgent: ${error.message}`);
+      console.error(`Error writing .abapGitAgent: ${error.message}`);
       process.exit(1);
     }
 

@@ -37,24 +37,43 @@ git remote get-url origin
 
 - Fail if no remote configured
 
-### 2. Copy Configuration Template
+### 2. Create or Update Configuration
 
+**If `.abapGitAgent` does NOT exist:**
+- Copy from `.abapGitAgent.example` template
+- Set `package` and `folder` from CLI parameters
+- Initialize with placeholder credentials
+
+**If `.abapGitAgent` already exists (UPDATE MODE):**
+- Read existing configuration
+- Update ONLY `package` and `folder` fields
+- Keep ALL other settings (host, credentials, workflow, etc.)
+- Show what changed
+
+**Example: Copying config from another project**
 ```bash
-cp .abapGitAgent.example .abapGitAgent
+# Copy config from project A to project B
+cp ../project-a/.abapGitAgent .
+
+# Update package and folder for project B
+abapgit-agent init --folder /src/ --package $PROJECT_B_PACKAGE
+
+# Result: Credentials preserved, only package/folder updated
 ```
 
-### 3. Update Configuration
-
-Add to `.abapGitAgent`:
-
+Configuration after update:
 ```json
 {
-  "package": "ZMY_PACKAGE",
-  "folder": "/src/"
+  "host": "ldcigze.devsys.net.sap",      // ← Preserved
+  "user": "MYUSER",                       // ← Preserved
+  "password": "mypassword",               // ← Preserved
+  "package": "$PROJECT_B_PACKAGE",        // ← Updated
+  "folder": "/src/",                      // ← Updated
+  "workflow": { "mode": "branch" }        // ← Preserved
 }
 ```
 
-### 4. Create Folder
+### 3. Create Folder
 
 ```bash
 mkdir -p /src/
