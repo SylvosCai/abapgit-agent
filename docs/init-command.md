@@ -91,8 +91,9 @@ Add sensitive files to `.gitignore`:
 
 ```
 .abapGitAgent
-.abapgit_agent_cookies.txt
 ```
+
+**Note**: `.abapGitAgent` contains credentials and should never be committed.
 
 ### 6. Copy Documentation
 

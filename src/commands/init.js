@@ -265,7 +265,7 @@ module.exports = {
 
     // Update .gitignore
     const gitignorePath = pathModule.join(process.cwd(), '.gitignore');
-    const ignoreEntries = ['.abapGitAgent', '.abapgit_agent_cookies.txt'];
+    const ignoreEntries = ['.abapGitAgent'];
     let existingIgnore = '';
 
     if (fs.existsSync(gitignorePath)) {

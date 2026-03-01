@@ -121,22 +121,34 @@ describe('Init Command Integration', () => {
     }).toThrow();
   });
 
-  test('init fails if .abapGitAgent already exists', () => {
+  test('init merges with existing .abapGitAgent', () => {
     // Setup git repo
     execSync('git init', { cwd: testDir, stdio: 'pipe' });
     execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
 
-    // Create .abapGitAgent first
+    // Create .abapGitAgent with existing credentials
     const configPath = path.join(testDir, '.abapGitAgent');
-    fs.writeFileSync(configPath, '{"host": "test"}');
+    fs.writeFileSync(configPath, JSON.stringify({
+      host: "existing-host.com",
+      user: "MYUSER",
+      password: "mypassword",
+      package: "ZOLD_PACKAGE",
+      folder: "/old/"
+    }, null, 2));
 
     const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
-    expect(() => {
-      execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
-        cwd: testDir,
-        stdio: 'pipe'
-      });
-    }).toThrow();
+    execSync(`node "${binPath}" init --folder /src --package ZNEW_PACKAGE`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    // Verify config was merged (not replaced)
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config.host).toBe('existing-host.com'); // Preserved
+    expect(config.user).toBe('MYUSER'); // Preserved
+    expect(config.password).toBe('mypassword'); // Preserved
+    expect(config.package).toBe('ZNEW_PACKAGE'); // Updated
+    expect(config.folder).toBe('/src/'); // Updated
   });
 
   test('init creates .gitignore with sensitive files', () => {
@@ -157,7 +169,6 @@ describe('Init Command Integration', () => {
 
     const content = fs.readFileSync(gitignorePath, 'utf8');
     expect(content).toContain('.abapGitAgent');
-    expect(content).toContain('.abapgit_agent_cookies.txt');
   });
 
   test('init updates existing .gitignore with sensitive files', () => {
@@ -180,6 +191,5 @@ describe('Init Command Integration', () => {
     const content = fs.readFileSync(gitignorePath, 'utf8');
     expect(content).toContain('node_modules/');
     expect(content).toContain('.abapGitAgent');
-    expect(content).toContain('.abapgit_agent_cookies.txt');
   });
 });
