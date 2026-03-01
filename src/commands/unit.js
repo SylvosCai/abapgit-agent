@@ -8,8 +8,10 @@ const fs = require('fs');
 /**
  * Run unit test for a single file
  */
-async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http) {
-  console.log(`  Running unit test for: ${sourceFile}`);
+async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput = false) {
+  if (!jsonOutput) {
+    console.log(`  Running unit test for: ${sourceFile}`);
+  }
 
   try {
     // Read file content
@@ -60,33 +62,35 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http)
     // Handle coverage data
     const coverageStats = result.COVERAGE_STATS || result.coverage_stats;
 
-    if (testCount === 0) {
-      console.log(`  ➖ ${objName} - No unit tests`);
-    } else if (success === 'X' || success === true) {
-      console.log(`  ✅ ${objName} - All tests passed`);
-    } else {
-      console.log(`  ❌ ${objName} - Tests failed`);
-    }
+    if (!jsonOutput) {
+      if (testCount === 0) {
+        console.log(`  ➖ ${objName} - No unit tests`);
+      } else if (success === 'X' || success === true) {
+        console.log(`  ✅ ${objName} - All tests passed`);
+      } else {
+        console.log(`  ❌ ${objName} - Tests failed`);
+      }
 
-    console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
+      console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
 
-    // Display coverage if available
-    if (coverage && coverageStats) {
-      const totalLines = coverageStats.TOTAL_LINES || coverageStats.total_lines || 0;
-      const coveredLines = coverageStats.COVERED_LINES || coverageStats.covered_lines || 0;
-      const coverageRate = coverageStats.COVERAGE_RATE || coverageStats.coverage_rate || 0;
+      // Display coverage if available
+      if (coverage && coverageStats) {
+        const totalLines = coverageStats.TOTAL_LINES || coverageStats.total_lines || 0;
+        const coveredLines = coverageStats.COVERED_LINES || coverageStats.covered_lines || 0;
+        const coverageRate = coverageStats.COVERAGE_RATE || coverageStats.coverage_rate || 0;
 
-      console.log(`     📊 Coverage: ${coverageRate}%`);
-      console.log(`        Total Lines: ${totalLines}`);
-      console.log(`        Covered Lines: ${coveredLines}`);
-    }
+        console.log(`     📊 Coverage: ${coverageRate}%`);
+        console.log(`        Total Lines: ${totalLines}`);
+        console.log(`        Covered Lines: ${coveredLines}`);
+      }
 
-    if (failedCount > 0 && errors.length > 0) {
-      for (const err of errors) {
-        const className = err.CLASS_NAME || err.class_name || '?';
-        const methodName = err.METHOD_NAME || err.method_name || '?';
-        const errorText = err.ERROR_TEXT || err.error_text || 'Unknown error';
-        console.log(`     ✗ ${className}=>${methodName}: ${errorText}`);
+      if (failedCount > 0 && errors.length > 0) {
+        for (const err of errors) {
+          const className = err.CLASS_NAME || err.class_name || '?';
+          const methodName = err.METHOD_NAME || err.method_name || '?';
+          const errorText = err.ERROR_TEXT || err.error_text || 'Unknown error';
+          console.log(`     ✗ ${className}=>${methodName}: ${errorText}`);
+        }
       }
     }
 
@@ -105,12 +109,14 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    const jsonOutput = args.includes('--json');
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
-      console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage]');
+      console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage] [--json]');
       console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap');
       console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap --coverage');
+      console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.abap --json');
       process.exit(1);
     }
 
@@ -119,15 +125,28 @@ module.exports = {
     // Check for coverage option
     const coverage = args.includes('--coverage');
 
-    console.log(`\n  Running unit tests for ${files.length} file(s)${coverage ? ' (with coverage)' : ''}`);
-    console.log('');
+    if (!jsonOutput) {
+      console.log(`\n  Running unit tests for ${files.length} file(s)${coverage ? ' (with coverage)' : ''}`);
+      console.log('');
+    }
 
     const config = loadConfig();
     const http = new AbapHttp(config);
     const csrfToken = await http.fetchCsrfToken();
 
+    // Collect results for JSON output
+    const results = [];
+
     for (const sourceFile of files) {
-      await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http);
+      const result = await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput);
+      if (result) {
+        results.push(result);
+      }
+    }
+
+    // JSON output mode
+    if (jsonOutput) {
+      console.log(JSON.stringify(results, null, 2));
     }
   }
 };

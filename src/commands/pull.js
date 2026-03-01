@@ -15,6 +15,7 @@ module.exports = {
     const branchArgIndex = args.indexOf('--branch');
     const filesArgIndex = args.indexOf('--files');
     const transportArgIndex = args.indexOf('--transport');
+    const jsonOutput = args.includes('--json');
 
     // Auto-detect git remote URL if not provided
     let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
@@ -42,22 +43,26 @@ module.exports = {
         console.error('Either run from a git repo, or specify --url <git-url>');
         process.exit(1);
       }
-      console.log(`📌 Auto-detected git remote: ${gitUrl}`);
+      if (!jsonOutput) {
+        console.log(`📌 Auto-detected git remote: ${gitUrl}`);
+      }
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false) {
     const TERM_WIDTH = process.stdout.columns || 80;
 
-    console.log(`\n🚀 Starting pull for: ${gitUrl}`);
-    console.log(`   Branch: ${branch}`);
-    if (files && files.length > 0) {
-      console.log(`   Files: ${files.join(', ')}`);
-    }
-    if (transportRequest) {
-      console.log(`   Transport Request: ${transportRequest}`);
+    if (!jsonOutput) {
+      console.log(`\n🚀 Starting pull for: ${gitUrl}`);
+      console.log(`   Branch: ${branch}`);
+      if (files && files.length > 0) {
+        console.log(`   Files: ${files.join(', ')}`);
+      }
+      if (transportRequest) {
+        console.log(`   Transport Request: ${transportRequest}`);
+      }
     }
 
     try {
@@ -86,6 +91,12 @@ module.exports = {
       }
 
       const result = await http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
+
+      // JSON output mode
+      if (jsonOutput) {
+        console.log(JSON.stringify(result, null, 2));
+        return result;
+      }
 
       console.log('\n');
 

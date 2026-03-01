@@ -208,4 +208,94 @@ describe('Unit Command - CLI Output Format', () => {
     expect(output).toMatch(/No unit tests/);
     expect(output).toMatch(/Tests: 0/);
   });
+
+  test('JSON output mode suppresses progress messages', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          TEST_COUNT: 5,
+          PASSED_COUNT: 5,
+          FAILED_COUNT: 0,
+          MESSAGE: '5 tests passed',
+          ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap', '--json'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // JSON mode should NOT show progress messages
+    expect(output).not.toMatch(/Running unit tests/i);
+    expect(output).not.toMatch(/✅/);
+
+    // Should only contain JSON array
+    expect(() => JSON.parse(output)).not.toThrow();
+    const parsed = JSON.parse(output);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed[0].SUCCESS).toBe('X');
+  });
+
+  test('JSON output mode returns complete result array', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockResult = {
+      SUCCESS: 'X',
+      TEST_COUNT: 10,
+      PASSED_COUNT: 8,
+      FAILED_COUNT: 2,
+      MESSAGE: '8 passed, 2 failed',
+      ERRORS: [
+        {
+          CLASS_NAME: 'ZCL_TEST',
+          METHOD_NAME: 'TEST_FAIL_1',
+          ERROR_KIND: 'FAILURE',
+          ERROR_TEXT: 'Assertion failed: expected 5 but got 3'
+        },
+        {
+          CLASS_NAME: 'ZCL_TEST',
+          METHOD_NAME: 'TEST_FAIL_2',
+          ERROR_KIND: 'FAILURE',
+          ERROR_TEXT: 'Expected exception not raised'
+        }
+      ],
+      COVERAGE_STATS: {
+        TOTAL_LINES: 100,
+        COVERED_LINES: 85,
+        COVERAGE_RATE: 85
+      }
+    };
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue(mockResult)
+      }))
+    };
+
+    await unitCommand.execute(['--files', 'zcl_test.clas.testclasses.abap', '--json', '--coverage'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+
+    // Verify structure
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(1);
+
+    const result = parsed[0];
+    expect(result.SUCCESS).toBe('X');
+    expect(result.TEST_COUNT).toBe(10);
+    expect(result.PASSED_COUNT).toBe(8);
+    expect(result.FAILED_COUNT).toBe(2);
+    expect(result.ERRORS).toHaveLength(2);
+    expect(result.COVERAGE_STATS.COVERAGE_RATE).toBe(85);
+  });
 });
+

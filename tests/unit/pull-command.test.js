@@ -368,4 +368,90 @@ describe('Pull Command - CLI Output Format', () => {
     expect(output).toMatch(/Job ID:/i);
     expect(output).toMatch(/Starting pull/i);
   });
+
+  test('JSON output mode suppresses progress messages', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          JOB_ID: 'CAIS20260301120000',
+          MESSAGE: 'Pull completed successfully',
+          ACTIVATED_COUNT: 1,
+          FAILED_COUNT: 0,
+          ACTIVATED_OBJECTS: [
+            { OBJ_TYPE: 'CLAS', OBJ_NAME: 'ZCL_MY_CLASS' }
+          ]
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(['--files', 'zcl_my_class.clas.abap', '--json'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // JSON mode should NOT show progress messages
+    expect(output).not.toMatch(/🚀/);
+    expect(output).not.toMatch(/Starting pull/i);
+    expect(output).not.toMatch(/Branch:/i);
+
+    // Should only contain JSON
+    expect(() => JSON.parse(output)).not.toThrow();
+    const parsed = JSON.parse(output);
+    expect(parsed.SUCCESS).toBe('X');
+    expect(parsed.JOB_ID).toBe('CAIS20260301120000');
+  });
+
+  test('JSON output mode returns complete result object', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockResult = {
+      SUCCESS: 'X',
+      JOB_ID: 'CAIS20260301120000',
+      MESSAGE: 'Pull completed successfully',
+      ACTIVATED_COUNT: 2,
+      FAILED_COUNT: 0,
+      ACTIVATED_OBJECTS: [
+        { OBJ_TYPE: 'CLAS', OBJ_NAME: 'ZCL_CLASS1' },
+        { OBJ_TYPE: 'INTF', OBJ_NAME: 'ZIF_INTERFACE' }
+      ],
+      LOG_MESSAGES: [
+        { TYPE: 'S', OBJ_TYPE: 'CLAS', OBJ_NAME: 'ZCL_CLASS1', TEXT: 'Activated' },
+        { TYPE: 'S', OBJ_TYPE: 'INTF', OBJ_NAME: 'ZIF_INTERFACE', TEXT: 'Activated' }
+      ]
+    };
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue(mockResult)
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(['--files', 'zcl_class1.clas.abap', '--json'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+
+    // Verify all expected fields are present
+    expect(parsed.SUCCESS).toBe('X');
+    expect(parsed.ACTIVATED_COUNT).toBe(2);
+    expect(parsed.FAILED_COUNT).toBe(0);
+    expect(parsed.ACTIVATED_OBJECTS).toHaveLength(2);
+    expect(parsed.LOG_MESSAGES).toHaveLength(2);
+  });
 });

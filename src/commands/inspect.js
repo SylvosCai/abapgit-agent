@@ -148,12 +148,14 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    const jsonOutput = args.includes('--json');
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
-      console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>]');
+      console.error('Usage: abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>] [--json]');
       console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap');
       console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS');
+      console.error('Example: abapgit-agent inspect --files src/zcl_my_class.clas.abap --json');
       process.exit(1);
     }
 
@@ -163,11 +165,13 @@ module.exports = {
     const variantArgIndex = args.indexOf('--variant');
     const variant = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
 
-    console.log(`\n  Inspect for ${filesSyntaxCheck.length} file(s)`);
-    if (variant) {
-      console.log(`  Using variant: ${variant}`);
+    if (!jsonOutput) {
+      console.log(`\n  Inspect for ${filesSyntaxCheck.length} file(s)`);
+      if (variant) {
+        console.log(`  Using variant: ${variant}`);
+      }
+      console.log('');
     }
-    console.log('');
 
     const config = loadConfig();
     const http = new AbapHttp(config);
@@ -175,6 +179,12 @@ module.exports = {
 
     // Send all files in one request
     const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http);
+
+    // JSON output mode
+    if (jsonOutput) {
+      console.log(JSON.stringify(results, null, 2));
+      return;
+    }
 
     // Process results
     for (const result of results) {
