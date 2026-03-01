@@ -205,6 +205,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " Parse file path to extract obj_type and obj_name
     " Example: "zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
     " Example: "src/zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
+    " Example: "zc_my_view.ddls.asddls" -> DDLS, ZC_MY_VIEW
 
     DATA lv_upper TYPE string.
     lv_upper = iv_file.
@@ -220,9 +221,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Last part should be 'ABAP' for verification
+    " Check file extension - support both .abap and .asddls
     READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP'.
+    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS'.
       RETURN.
     ENDIF.
 
