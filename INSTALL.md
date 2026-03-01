@@ -19,8 +19,9 @@ This guide covers how to set up abapgit-agent to enable AI assistants (like Clau
 npm install -g abapgit-agent
 
 # 3. Initialize your ABAP project (run from git repo root)
-abapgit-agent init --folder /src --package ZMY_PACKAGE
+abapgit-agent init --package ZMY_PACKAGE
 # This copies CLAUDE.md, guidelines, and creates .abapGitAgent
+# Defaults: --folder /src/ --folder-logic PREFIX
 
 # 4. Edit .abapGitAgent with your SAP system details
 
@@ -90,8 +91,12 @@ npm link
 Run this from your ABAP git repository root:
 
 ```bash
-abapgit-agent init --folder /src --package ZMY_PACKAGE
+abapgit-agent init --package ZMY_PACKAGE
 ```
+
+**Optional parameters:**
+- `--folder /src/` (default: `/src/`)
+- `--folder-logic PREFIX` (default: `PREFIX`, or use `FULL`)
 
 This command:
 - Creates `.abapGitAgent` config file

@@ -26,8 +26,9 @@ abapgit-agent create
 1. **Detect git remote** - Gets URL from `git remote get-url origin`
 2. **Get package** - Reads from `.abapGitAgent`
 3. **Get folder** - Reads from `.abapGitAgent` (default: `/src/`)
-4. **Create repository** - Calls ABAP REST API to create online repository
-5. **Set starting folder** - Configures the folder path in repository settings
+4. **Get folder logic** - Reads from `.abapGitAgent` (default: `PREFIX`)
+5. **Create repository** - Calls ABAP REST API to create online repository with folder logic setting
+6. **Set starting folder** - Configures the folder path in repository settings
 
 ## Parameters
 
@@ -44,6 +45,7 @@ None. The command auto-detects all settings from:
    URL: https://github.com/org/repo.git
    Package: AUD_TAG
    Folder: /abap/
+   Folder Logic: PREFIX
    Name: abgagt-import
    Branch: main
 

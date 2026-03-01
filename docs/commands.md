@@ -53,7 +53,7 @@ All available CLI commands for abapGit Agent.
 
 ```bash
 # 1. Initialize local configuration
-abapgit-agent init --folder /src/ --package ZMY_PACKAGE
+abapgit-agent init --package ZMY_PACKAGE
 
 # 2. Edit .abapGitAgent with credentials
 vim .abapGitAgent

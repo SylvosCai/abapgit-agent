@@ -411,4 +411,95 @@ describe('Inspect Command - CLI Output Format', () => {
     expect(output).toMatch(/Column.*12/);
     expect(output).toMatch(/Syntax error/);
   });
+
+  test('JSON output mode suppresses progress messages', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([
+          {
+            OBJECT_TYPE: 'CLAS',
+            OBJECT_NAME: 'ZCL_MY_CLASS',
+            SUCCESS: true,
+            ERROR_COUNT: 0,
+            ERRORS: [],
+            WARNINGS: []
+          }
+        ])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap', '--json'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // JSON mode should NOT show progress messages
+    expect(output).not.toMatch(/Inspect for/i);
+    expect(output).not.toMatch(/✅/);
+
+    // Should only contain JSON
+    expect(() => JSON.parse(output)).not.toThrow();
+    const parsed = JSON.parse(output);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed[0].OBJECT_TYPE).toBe('CLAS');
+  });
+
+  test('JSON output mode returns complete result array', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockResult = [
+      {
+        OBJECT_TYPE: 'CLAS',
+        OBJECT_NAME: 'ZCL_CLASS1',
+        SUCCESS: false,
+        ERROR_COUNT: 2,
+        ERRORS: [
+          { LINE: '10', COLUMN: '5', TEXT: 'Variable not defined', METHOD_NAME: 'METHOD1' },
+          { LINE: '25', COLUMN: '12', TEXT: 'Type mismatch', METHOD_NAME: 'METHOD2' }
+        ],
+        WARNINGS: [
+          { LINE: '15', MESSAGE: 'Obsolete statement' }
+        ]
+      },
+      {
+        OBJECT_TYPE: 'INTF',
+        OBJECT_NAME: 'ZIF_INTERFACE',
+        SUCCESS: true,
+        ERROR_COUNT: 0,
+        ERRORS: [],
+        WARNINGS: []
+      }
+    ];
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue(mockResult)
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_class1.clas.abap,zif_interface.intf.abap', '--json'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+
+    // Verify structure
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(2);
+
+    // Verify first result (with errors)
+    expect(parsed[0].OBJECT_TYPE).toBe('CLAS');
+    expect(parsed[0].ERROR_COUNT).toBe(2);
+    expect(parsed[0].ERRORS).toHaveLength(2);
+    expect(parsed[0].WARNINGS).toHaveLength(1);
+
+    // Verify second result (no errors)
+    expect(parsed[1].OBJECT_TYPE).toBe('INTF');
+    expect(parsed[1].ERROR_COUNT).toBe(0);
+  });
 });
+
