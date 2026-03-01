@@ -20,8 +20,15 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
       : pathModule.join(process.cwd(), sourceFile);
 
     if (!fs.existsSync(absolutePath)) {
-      console.error(`  ❌ File not found: ${absolutePath}`);
-      return;
+      const error = {
+        file: sourceFile,
+        error: 'File not found',
+        statusCode: 404
+      };
+      if (!jsonOutput) {
+        console.error(`  ❌ File not found: ${absolutePath}`);
+      }
+      return error;
     }
 
     // Extract object type and name from file path
@@ -29,8 +36,15 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
     const fileName = pathModule.basename(sourceFile).toUpperCase();
     const parts = fileName.split('.');
     if (parts.length < 3) {
-      console.error(`  ❌ Invalid file format: ${sourceFile}`);
-      return;
+      const error = {
+        file: sourceFile,
+        error: 'Invalid file format',
+        statusCode: 400
+      };
+      if (!jsonOutput) {
+        console.error(`  ❌ Invalid file format: ${sourceFile}`);
+      }
+      return error;
     }
 
     // obj_name is first part (may contain path), obj_type is second part
@@ -96,14 +110,31 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
 
     return result;
   } catch (error) {
-    if (!jsonOutput) {
-      console.error(`\n  Error: ${error.message}`);
-    }
-    // Return error object for JSON output
-    return {
-      raw: error.response || error.message,
-      error: error.message
+    // Build error response object
+    const errorResponse = {
+      file: sourceFile,
+      error: error.message || 'Unknown error',
+      statusCode: error.statusCode || 500
     };
+
+    // Add additional error details if available
+    if (error.body) {
+      errorResponse.body = error.body;
+    }
+
+    if (!jsonOutput) {
+      console.error(`\n  ❌ Error: ${error.message}`);
+      if (error.statusCode) {
+        console.error(`     Status Code: ${error.statusCode}`);
+      }
+      if (error.body && typeof error.body === 'string') {
+        // Show first 500 chars of error body
+        const preview = error.body.substring(0, 500);
+        console.error(`     Response: ${preview}${error.body.length > 500 ? '...' : ''}`);
+      }
+    }
+
+    return errorResponse;
   }
 }
 
@@ -143,17 +174,31 @@ module.exports = {
 
     // Collect results for JSON output
     const results = [];
+    let hasErrors = false;
 
     for (const sourceFile of files) {
       const result = await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput);
       if (result) {
         results.push(result);
+
+        // Check if this result contains an error
+        if (result.error || result.statusCode >= 400) {
+          hasErrors = true;
+        }
       }
     }
 
     // JSON output mode
     if (jsonOutput) {
       console.log(JSON.stringify(results, null, 2));
+    }
+
+    // Exit with error code if any tests failed or had errors
+    if (hasErrors) {
+      if (!jsonOutput) {
+        console.error('\n❌ Unit tests completed with errors');
+      }
+      process.exit(1);
     }
   }
 };

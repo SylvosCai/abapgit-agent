@@ -264,6 +264,20 @@ class AbapHttp {
           return;
         }
 
+        // Check for other HTTP errors (4xx, 5xx)
+        if (res.statusCode >= 400) {
+          let body = '';
+          res.on('data', chunk => body += chunk);
+          res.on('end', () => {
+            reject({
+              statusCode: res.statusCode,
+              message: `HTTP ${res.statusCode} error`,
+              body: body
+            });
+          });
+          return;
+        }
+
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
@@ -292,10 +306,22 @@ class AbapHttp {
                 const parsed = JSON.parse(jsonMatch[0].replace(/\n/g, '\\n'));
                 resolve(parsed);
               } catch (e2) {
-                resolve({ raw: body, error: e2.message });
+                // JSON parse failed - reject instead of resolve
+                reject({
+                  statusCode: res.statusCode,
+                  message: 'Failed to parse JSON response',
+                  body: body,
+                  error: e2.message
+                });
               }
             } else {
-              resolve({ raw: body, error: e.message });
+              // No JSON found in body - reject instead of resolve
+              reject({
+                statusCode: res.statusCode,
+                message: 'Invalid response format (not JSON)',
+                body: body,
+                error: e.message
+              });
             }
           }
         });

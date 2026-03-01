@@ -299,3 +299,233 @@ describe('Unit Command - CLI Output Format', () => {
   });
 });
 
+describe('Unit Command - Error Handling', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+    mockExit.mockClear();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('should exit with code 1 on HTTP 500 error', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockRejectedValue({
+          statusCode: 500,
+          message: 'HTTP 500 error',
+          body: '<html>Internal Server Error</html>'
+        })
+      }))
+    };
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Error/i);
+    expect(output).toMatch(/500/);
+  });
+
+  test('should exit with code 1 on JSON parse error', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockRejectedValue({
+          statusCode: 200,
+          message: 'Failed to parse JSON response',
+          body: 'Invalid JSON',
+          error: 'Unexpected token'
+        })
+      }))
+    };
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Error/i);
+  });
+
+  test('should collect all errors from multiple files and exit with code 1', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockPost = jest.fn()
+      // First file: success
+      .mockResolvedValueOnce({
+        SUCCESS: 'X',
+        TEST_COUNT: 3,
+        PASSED_COUNT: 3,
+        FAILED_COUNT: 0
+      })
+      // Second file: HTTP error
+      .mockRejectedValueOnce({
+        statusCode: 500,
+        message: 'HTTP 500 error',
+        body: '<html>Error</html>'
+      })
+      // Third file: success
+      .mockResolvedValueOnce({
+        SUCCESS: 'X',
+        TEST_COUNT: 2,
+        PASSED_COUNT: 2,
+        FAILED_COUNT: 0
+      });
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: mockPost
+      }))
+    };
+
+    const files = 'file1.clas.testclasses.abap,file2.clas.testclasses.abap,file3.clas.testclasses.abap';
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', files], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    // Should process all 3 files
+    expect(mockPost).toHaveBeenCalledTimes(3);
+
+    // Should exit with error code due to second file
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/completed with errors/i);
+  });
+
+  test('should output JSON with error details on backend error', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockRejectedValue({
+          statusCode: 500,
+          message: 'HTTP 500 error',
+          body: '<html>Internal Server Error</html>'
+        })
+      }))
+    };
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'zcl_test.clas.testclasses.abap', '--json'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    const output = consoleOutput.join('\n');
+
+    // Should output JSON
+    expect(() => JSON.parse(output)).not.toThrow();
+
+    const parsed = JSON.parse(output);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed[0].error).toBeDefined();
+    expect(parsed[0].statusCode).toBe(500);
+
+    // Should NOT show progress messages in JSON mode
+    expect(output).not.toMatch(/Running unit test/);
+  });
+
+  test('should handle file not found error', async () => {
+    const fs = require('fs');
+    const originalExistsSync = fs.existsSync;
+    fs.existsSync = jest.fn().mockReturnValue(false);
+
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn()
+      }))
+    };
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'nonexistent.clas.testclasses.abap'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/File not found/i);
+
+    // Restore
+    fs.existsSync = originalExistsSync;
+  });
+
+  test('should handle invalid file format error', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn()
+      }))
+    };
+
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'invalid.txt'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Invalid file format/i);
+  });
+
+  test('should NOT exit on successful run', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          TEST_COUNT: 5,
+          PASSED_COUNT: 5,
+          FAILED_COUNT: 0,
+          ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(['--files', 'zcl_test.clas.testclasses.abap'], mockContext);
+
+    // Should NOT exit
+    expect(mockExit).not.toHaveBeenCalled();
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/All tests passed/);
+    expect(output).not.toMatch(/completed with errors/i);
+  });
+});
+
