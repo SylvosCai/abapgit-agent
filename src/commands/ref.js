@@ -63,7 +63,7 @@ module.exports = {
     }
 
     // Pattern search (default)
-    const patternIndex = args.findIndex((arg, idx) => idx > 0 && !arg.startsWith('--'));
+    const patternIndex = args.findIndex(arg => !arg.startsWith('--'));
     if (patternIndex === -1) {
       console.error('Error: No pattern specified');
       console.error('');

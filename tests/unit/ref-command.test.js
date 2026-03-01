@@ -1,8 +1,74 @@
 /**
- * Unit tests for abap-reference.js
+ * Unit tests for ref command
  */
 
-describe('ABAP Reference', () => {
+// Mock console methods
+const originalError = console.error;
+const originalLog = console.log;
+let consoleErrorOutput = [];
+let consoleLogOutput = [];
+
+beforeEach(() => {
+  consoleErrorOutput = [];
+  consoleLogOutput = [];
+  console.error = jest.fn((...args) => consoleErrorOutput.push(args.join(' ')));
+  console.log = jest.fn((...args) => consoleLogOutput.push(args.join(' ')));
+});
+
+afterEach(() => {
+  console.error = originalError;
+  console.log = originalLog;
+});
+
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`);
+});
+
+describe('Ref Command - Argument Parsing', () => {
+  let refCommand;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Reset modules to ensure clean state
+    jest.resetModules();
+    refCommand = require('../../src/commands/ref');
+  });
+
+  test('executes pattern search with single pattern argument', async () => {
+    const mockContext = {};
+
+    // This should work without errors
+    await expect(refCommand.execute(['json'], mockContext)).resolves.not.toThrow();
+  });
+
+  test('executes pattern search with quoted pattern', async () => {
+    const mockContext = {};
+
+    await expect(refCommand.execute(['CORRESPONDING'], mockContext)).resolves.not.toThrow();
+  });
+
+  test('handles --topic argument correctly', async () => {
+    const mockContext = {};
+
+    await expect(refCommand.execute(['--topic', 'exceptions'], mockContext)).resolves.not.toThrow();
+  });
+
+  test('handles --list-topics flag correctly', async () => {
+    const mockContext = {};
+
+    await expect(refCommand.execute(['--list-topics'], mockContext)).resolves.not.toThrow();
+  });
+
+  test('shows error when no pattern or flags provided', async () => {
+    const mockContext = {};
+
+    await expect(refCommand.execute([], mockContext)).rejects.toThrow('process.exit(1)');
+    expect(consoleErrorOutput.join('\n')).toContain('No pattern specified');
+  });
+});
+
+describe('ABAP Reference Utility', () => {
   describe('listTopics', () => {
     test('returns object with topics array when reference folder exists', async () => {
       jest.resetModules();
