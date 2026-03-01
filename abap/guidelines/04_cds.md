@@ -11,11 +11,15 @@ grand_parent: ABAP Development
 **Searchable keywords**: CDS, DDL, DDLS, CDS view, @AbapCatalog, @AccessControl, association, projection, consumption
 
 ## TOPICS IN THIS FILE
-1. File Naming - line 7
-2. DDL Source (.ddls.asddls) - line 18
-3. Annotations - line 50
-4. Associations - line 75
-5. CDS Test Doubles - see 03_testing.md
+1. File Naming - line 96
+2. DDL Source (.ddls.asddls) - line 107
+3. Annotations - line 141
+4. Associations - line 164
+5. CDS Best Practices - line 194
+   - Key Field Ordering (STRICT RULE) - line 198
+   - Currency/Amount Field Aggregation - line 230
+   - Choosing Currency Fields for Aggregation - line 255
+6. CDS Test Doubles - see 03_testing.md
 
 ## Creating CDS Views (DDLS)
 
@@ -187,6 +191,110 @@ where devclass not like '$%'
 2. **Association cardinality**: `[0..1]`, `[1..1]`, `[0..n]`, `[1..n]`
 3. **Expose associations**: Add the association name at the end of the SELECT to expose it for OData navigation
 4. **Activation warnings**: Search help warnings are informational and don't block activation
+
+---
+
+## CDS Best Practices and Common Patterns
+
+### Key Field Ordering (STRICT RULE)
+
+CDS views enforce strict key field ordering that differs from regular SQL:
+
+❌ **WRONG - Non-key field between keys**:
+```abap
+{
+  key Flight.carrid as Carrid,
+      Airline.carrname as Carrname,  // ← breaks contiguity!
+  key Flight.connid as Connid,
+  key Flight.fldate as Fldate,
+  ...
+}
+```
+
+✅ **CORRECT - All keys first, then non-keys**:
+```abap
+{
+  key Flight.carrid as Carrid,
+  key Flight.connid as Connid,
+  key Flight.fldate as Fldate,
+      Airline.carrname as Carrname,  // ← after all keys
+  ...
+}
+```
+
+**Rules:**
+1. All key fields MUST be at the beginning of the field list
+2. Key fields MUST be contiguous (no non-key fields in between)
+3. Key fields must be declared before any non-key fields
+
+**Error message**: "Key must be contiguous and start at the first position"
+
+**Why this rule exists**: CDS views are not just SQL - they represent data models with strict structural requirements for consistency across the system.
+
+---
+
+### Currency/Amount Field Aggregation
+
+When aggregating currency or amount fields in CDS views, use semantic annotations instead of complex casting:
+
+❌ **WRONG - Complex casting (will fail)**:
+```abap
+cast(coalesce(sum(Booking.loccuram), 0) as abap.curr(15,2))
+// Error: Data type CURR is not supported at this position
+```
+
+✅ **CORRECT - Semantic annotation + simple aggregation**:
+```abap
+@Semantics.amount.currencyCode: 'Currency'
+sum(Booking.loccuram) as TotalRevenue,
+currency             as Currency
+```
+
+**Key points:**
+- Use `@Semantics.amount.currencyCode` to link amount to currency field
+- Let the framework handle data typing automatically
+- Don't over-engineer with casts or type conversions
+- Keep it simple: annotation + aggregation function
+
+**Reference**:
+```bash
+abapgit-agent ref "CDS aggregation"
+# Check: zdemo_abap_cds_ve_agg_exp.ddls.asddls for working examples
+```
+
+---
+
+### Choosing Currency Fields for Aggregation
+
+**Understand your data model before aggregating currency fields** - not all currency fields can be safely summed:
+
+❌ **Dangerous - Foreign currency (different keys per row)**:
+```abap
+sum(Booking.forcuram)  // FORCURAM has different FORCURKEY per booking!
+// Problem: Can't safely sum USD + EUR + GBP without conversion
+```
+
+✅ **Safe - Local currency (shared key per group)**:
+```abap
+sum(Booking.loccuram)  // LOCCURAM shares LOCCURKEY per airline
+// Safe: All bookings for one airline use the same currency
+```
+
+**Data Model Example (SBOOK table)**:
+```
+FORCURAM + FORCURKEY = Payment currency (USD, EUR, GBP - different per booking)
+LOCCURAM + LOCCURKEY = Airline currency (one currency per airline)
+```
+
+**Analysis Steps:**
+1. Identify all currency fields in source tables
+2. Check which currency code field each amount uses
+3. Verify currency code is constant within your aggregation groups
+4. Choose the field with consistent currency per group
+
+**Rule**: Only aggregate amounts that share the same currency code within your grouping (GROUP BY).
+
+---
 
 ## CDS Syntax Reference
 

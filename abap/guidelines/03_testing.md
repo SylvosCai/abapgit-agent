@@ -11,12 +11,13 @@ grand_parent: ABAP Development
 **Searchable keywords**: unit test, AUnit, test class, cl_abap_unit_assert, FOR TESTING, setup, teardown, RISK LEVEL, DURATION, CDS test double, CL_CDS_TEST_ENVIRONMENT
 
 ## TOPICS IN THIS FILE
-1. Local Test Classes - line 3
-2. File Structure - line 5
-3. Required Elements - line 16
-4. Naming Conventions - line 48
-5. CDS Test Doubles - line 94
-6. CDS with Aggregations - line 178
+1. Local Test Classes - line 22
+2. File Structure - line 24
+3. Required Elements - line 35
+4. Naming Conventions - line 67
+5. Common Mistake: DDLS Testing - line 133
+6. CDS Test Doubles - line 163
+7. CDS with Aggregations - line 247
 
 ## Unit Testing with Local Test Classes
 
@@ -121,6 +122,44 @@ cl_abap_unit_assert=>assert_true( act = lv_bool msg = 'Should be true' ).
 - ❌ Don't use `CLASS ... DEFINITION ...` without the special comment header
 - ❌ Don't reference `<TESTCLASS>` in XML - abapGit auto-detects `.testclasses.abap`
 - ❌ Don't use nested local classes inside the main class definition
+
+---
+
+### ⚠️ Common Mistake: CDS Views Don't Have `.testclasses.abap` Files
+
+**WRONG - Creating test file for DDLS**:
+```
+zc_my_view.ddls.asddls
+zc_my_view.ddls.testclasses.abap  ❌ This doesn't work!
+zc_my_view.ddls.xml
+```
+
+**Error you'll see**:
+```
+The REPORT/PROGRAM statement is missing, or the program type is INCLUDE.
+```
+
+**CORRECT - Test CDS views using separate CLAS test classes**:
+```
+zc_flight_revenue.ddls.asddls               ← CDS view definition
+zc_flight_revenue.ddls.xml                  ← CDS metadata
+
+zcl_test_flight_revenue.clas.abap           ← Test class definition
+zcl_test_flight_revenue.clas.testclasses.abap  ← Test implementation
+zcl_test_flight_revenue.clas.xml            ← Class metadata (WITH_UNIT_TESTS=X)
+```
+
+**Why**: Each ABAP object type has its own testing pattern:
+- **CLAS** (classes): Use `.clas.testclasses.abap` for the same class
+- **DDLS** (CDS views): Use separate CLAS test class with CDS Test Double Framework
+- **FUGR** (function groups): Use `.fugr.testclasses.abap`
+- **PROG** (programs): Use `.prog.testclasses.abap`
+
+**Don't assume patterns from one object type apply to another!**
+
+See "Unit Testing CDS Views" section below for the correct CDS testing approach.
+
+---
 
 ### Running Tests
 
