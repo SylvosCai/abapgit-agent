@@ -96,7 +96,14 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
 
     return result;
   } catch (error) {
-    console.error(`\n  Error: ${error.message}`);
+    if (!jsonOutput) {
+      console.error(`\n  Error: ${error.message}`);
+    }
+    // Return error object for JSON output
+    return {
+      raw: error.response || error.message,
+      error: error.message
+    };
   }
 }
 
