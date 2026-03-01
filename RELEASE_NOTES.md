@@ -2,6 +2,32 @@
 title: Release Notes
 ---
 
+## v1.8.3
+
+### New Features
+
+- Workflow configuration for branch vs trunk development
+- Init command now merges with existing config
+
+### Bug Fixes
+
+- Support DDLS files in pull --files filter
+- Fix ref command argument parsing
+- Fix branch/tag switching in pull command
+
+### Improvements
+
+- Better error messages in init command
+
+### Documentation
+
+- Add CDS view development guidelines
+
+---
+
+---
+
+
 ## v1.8.2
 
   New Features
