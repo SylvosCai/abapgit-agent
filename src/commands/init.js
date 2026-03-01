@@ -175,8 +175,25 @@ module.exports = {
     // Check if .abapGitAgent already exists
     const configPath = pathModule.join(process.cwd(), '.abapGitAgent');
     if (fs.existsSync(configPath)) {
-      console.error('Error: .abapGitAgent already exists.');
-      console.error('To reinitialize, delete the existing file first.');
+      try {
+        // Read and display current configuration
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        console.error('Error: .abapGitAgent already exists with the following configuration:');
+        console.error('');
+        console.error(`   Package: ${currentConfig.package || '(not set)'}`);
+        console.error(`   Folder:  ${currentConfig.folder || '(not set)'}`);
+        console.error(`   Host:    ${currentConfig.host || '(not set)'}`);
+        console.error('');
+        console.error('Options:');
+        console.error('   1. Edit .abapGitAgent manually to update configuration');
+        console.error('   2. Delete .abapGitAgent and run init again to start fresh:');
+        console.error('      rm .abapGitAgent && abapgit-agent init --folder /src/ --package $MYPACKAGE');
+        console.error('   3. View current config: cat .abapGitAgent');
+      } catch (error) {
+        console.error('Error: .abapGitAgent already exists (but could not read it).');
+        console.error('To reinitialize, delete the existing file first:');
+        console.error('   rm .abapGitAgent');
+      }
       process.exit(1);
     }
 
