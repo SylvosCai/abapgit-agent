@@ -5,7 +5,8 @@
  * 1. npm test (Jest) - JavaScript unit tests
  * 2. AUnit tests - ABAP test classes
  * 3. Command tests - CLI commands against real ABAP system
- * 4. Lifecycle tests - init, create, import, delete commands
+ * 4. Lifecycle tests - init, create, import, delete workflow
+ * 5. Pull tests - git ref switching (tags/branches) workflow
  *
  * Usage:
  *   npm run test:all        # Run all tests
@@ -14,6 +15,7 @@
  *   npm run test:cmd        # Command tests only
  *   npm run test:cmd --demo # Command tests in demo mode (shows command and output)
  *   npm run test:lifecycle  # Lifecycle tests only
+ *   npm run test:pull       # Pull workflow tests only
  */
 
 const { execSync, spawn } = require('child_process');
@@ -26,6 +28,7 @@ const repoRoot = path.join(__dirname, '..');
 // Import test runners from integration folder
 const { runAUnitTests } = require('./integration/aunit-runner');
 const { runLifecycleTests } = require('./integration/lifecycle-runner');
+const { runPullTests } = require('./integration/pull-runner');
 
 // Colors for output
 const colors = {
@@ -114,6 +117,20 @@ const commandTestCases = require('./integration/abap-commands');
  */
 function runLifecycleTestsWrapper() {
   return runLifecycleTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+/**
+ * Wrapper function for pull tests
+ */
+function runPullTestsWrapper() {
+  return runPullTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -397,6 +414,16 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       totalCount += lifecycleResults.totalCount || 0;
       printInfo(`  (Including ${lifecycleResults.passedCount || 0}/${lifecycleResults.totalCount || 0} lifecycle tests)`);
     }
+
+    // Run pull workflow tests (git ref switching with verification)
+    const pullResults = runPullTestsWrapper();
+    if (pullResults && !pullResults.skipped && pullResults.results) {
+      // Merge pull results into command test results
+      results.push(...pullResults.results);
+      passedCount += pullResults.passedCount || 0;
+      totalCount += pullResults.totalCount || 0;
+      printInfo(`  (Including ${pullResults.passedCount || 0}/${pullResults.totalCount || 0} pull workflow tests)`);
+    }
   }
 
   if (passedCount === totalCount) {
@@ -497,7 +524,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -506,34 +533,45 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle;
+  let runJest, runAunit, runCmd, runLifecycle, runPull;
 
   if (args.includes('--jest')) {
     runJest = true;
     runAunit = false;
     runCmd = false;
     runLifecycle = false;
+    runPull = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
     runCmd = false;
     runLifecycle = false;
+    runPull = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
     runCmd = true;
     runLifecycle = false;
+    runPull = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
     runCmd = false;
     runLifecycle = true;
+    runPull = false;
+  } else if (args.includes('--pull')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = true;
   } else {
     // Run all tests
     runJest = true;
     runAunit = true;
     runCmd = true;
     runLifecycle = false;  // Lifecycle tests run as part of cmd tests
+    runPull = false;  // Pull tests run as part of cmd tests
   }
 
   printHeader('UNIFIED TEST SUITE');
@@ -560,6 +598,13 @@ async function main() {
     printSubHeader('Running Lifecycle Tests Only');
     const lifecycleResults = runLifecycleTestsWrapper();
     results.lifecycle = lifecycleResults;
+  }
+
+  // Run Pull tests only
+  if (runPull) {
+    printSubHeader('Running Pull Tests Only');
+    const pullResults = runPullTestsWrapper();
+    results.pull = pullResults;
   }
 
   // Print summary and exit with appropriate code

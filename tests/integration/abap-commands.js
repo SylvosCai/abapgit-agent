@@ -1,19 +1,23 @@
 /**
  * Command test cases with specific assertions (runs against real ABAP system)
  *
+ * These are isolated command tests. For workflow tests (multi-step sequences),
+ * see pull-runner.js and lifecycle-runner.js.
+ *
  * Test Distribution:
  *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
- *   - view:    7 tests (class, interface, table, etc.)
- *   - pull:    5 tests (tags, branches, files)
- *   - where:   3 tests (class, interface, type filter)
+ *   - view:    3 tests (class, interface, table)
  *   - tree:    3 tests (package, depth, types)
- *   - ref:     3 tests (topics, repos, search)
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
+ *   - where:   3 tests (class, interface, type filter)
+ *   - ref:     3 tests (topics, repos, search)
+ *   - pull:    1 test  (--files)
  *   - unit:    1 test  (test class)
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
+ *   Total:    47 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -22,8 +26,9 @@
  */
 const commandTestCases = [
   // ===================================================================
-  // PULL COMMAND - 5 tests
-  // Purpose: Test pulling and activating code from git (tags/branches)
+  // PULL COMMAND - 1 test
+  // Purpose: Test pulling specific files
+  // Note: For git ref (tag/branch) tests, see pull-runner.js
   // ===================================================================
   {
     command: 'pull',
@@ -199,8 +204,9 @@ const commandTestCases = [
   },
 
   // ===================================================================
-  // VIEW COMMAND - 7 tests
-  // Purpose: View object definitions (class, interface, table, etc.)
+  // VIEW COMMAND - 3 tests
+  // Purpose: View object definitions (class, interface, table)
+  // Note: For view verification tests in pull workflow, see pull-runner.js
   // ===================================================================
   {
     command: 'view',
@@ -999,116 +1005,6 @@ ENDCLASS.`;
       } catch (e) {
         // Ignore cleanup errors
       }
-    }
-  },
-
-  // ===================================================================
-  // PULL COMMAND - Tag and Branch Tests (8 tests: 4 pull + 4 verify)
-  // Purpose: Test pulling from tags/branches and verifying activated content
-  // Test repo: https://github.tools.sap/I045696/abgagt-pull-test.git
-  //   - v0.1.0: only get_message method
-  //   - v1.0.0: get_message + validate_input methods
-  //   - feature/test-branch: get_message + calculate_sum methods
-  //   - main: same as v1.0.0
-  // ===================================================================
-  {
-    command: 'pull',
-    name: 'pull from tag v0.1.0',
-    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'v0.1.0'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasPull = output.includes('Pull completed');
-      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
-      const hasJobId = output.includes('Job ID:');
-      return hasPull && hasActivated && hasJobId;
-    }
-  },
-  {
-    command: 'view',
-    name: 'verify v0.1.0 - has only get_message',
-    args: ['--objects', 'ZIF_SIMPLE_TEST'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasGetMessage = output.includes('get_message');
-      const hasValidateInput = output.includes('validate_input');
-      const hasCalculateSum = output.includes('calculate_sum');
-      // Should only have get_message, NOT the other methods
-      return hasGetMessage && !hasValidateInput && !hasCalculateSum;
-    }
-  },
-  {
-    command: 'pull',
-    name: 'pull from tag v1.0.0',
-    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'v1.0.0'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasPull = output.includes('Pull completed');
-      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
-      const hasJobId = output.includes('Job ID:');
-      return hasPull && hasActivated && hasJobId;
-    }
-  },
-  {
-    command: 'view',
-    name: 'verify v1.0.0 - has get_message and validate_input',
-    args: ['--objects', 'ZIF_SIMPLE_TEST'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasGetMessage = output.includes('get_message');
-      const hasValidateInput = output.includes('validate_input');
-      const hasCalculateSum = output.includes('calculate_sum');
-      // Should have both get_message and validate_input, NOT calculate_sum
-      return hasGetMessage && hasValidateInput && !hasCalculateSum;
-    }
-  },
-  {
-    command: 'pull',
-    name: 'pull from branch feature/test-branch',
-    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'feature/test-branch'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasPull = output.includes('Pull completed');
-      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
-      const hasJobId = output.includes('Job ID:');
-      return hasPull && hasActivated && hasJobId;
-    }
-  },
-  {
-    command: 'view',
-    name: 'verify feature/test-branch - has get_message and calculate_sum',
-    args: ['--objects', 'ZIF_SIMPLE_TEST'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasGetMessage = output.includes('get_message');
-      const hasValidateInput = output.includes('validate_input');
-      const hasCalculateSum = output.includes('calculate_sum');
-      // Should have get_message and calculate_sum, NOT validate_input
-      return hasGetMessage && !hasValidateInput && hasCalculateSum;
-    }
-  },
-  {
-    command: 'pull',
-    name: 'pull from branch main',
-    args: ['--url', 'https://github.tools.sap/I045696/abgagt-pull-test.git', '--branch', 'main'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasPull = output.includes('Pull completed');
-      const hasActivated = output.includes('Activated') || output.includes('ZIF_SIMPLE_TEST');
-      const hasJobId = output.includes('Job ID:');
-      return hasPull && hasActivated && hasJobId;
-    }
-  },
-  {
-    command: 'view',
-    name: 'verify main - has get_message and validate_input',
-    args: ['--objects', 'ZIF_SIMPLE_TEST'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasGetMessage = output.includes('get_message');
-      const hasValidateInput = output.includes('validate_input');
-      const hasCalculateSum = output.includes('calculate_sum');
-      // Should match v1.0.0: has get_message and validate_input, NOT calculate_sum
-      return hasGetMessage && hasValidateInput && !hasCalculateSum;
     }
   }
 ];

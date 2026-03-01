@@ -34,6 +34,7 @@
     "test:cmd:preview": "node tests/run-all.js --cmd --command=preview",
     "test:cmd:tree": "node tests/run-all.js --cmd --command=tree",
     "test:lifecycle": "node tests/run-all.js --lifecycle",
+    "test:pull": "node tests/run-all.js --pull",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"
