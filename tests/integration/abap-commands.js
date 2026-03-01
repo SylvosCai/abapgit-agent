@@ -1,8 +1,30 @@
 /**
  * Command test cases with specific assertions (runs against real ABAP system)
+ *
+ * Test Distribution:
+ *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
+ *   - view:    7 tests (class, interface, table, etc.)
+ *   - pull:    5 tests (tags, branches, files)
+ *   - where:   3 tests (class, interface, type filter)
+ *   - tree:    3 tests (package, depth, types)
+ *   - ref:     3 tests (topics, repos, search)
+ *   - preview: 3 tests (table, limit, columns)
+ *   - list:    3 tests (package, type filter, name filter)
+ *   - unit:    1 test  (test class)
+ *   - status:  1 test  (config check)
+ *   - inspect: 1 test  (code inspector)
+ *   - health:  1 test  (system health)
+ *
+ * Run specific command tests:
+ *   npm run test:cmd:syntax
+ *   npm run test:cmd:pull
+ *   npm run test:cmd:view
  */
 const commandTestCases = [
-  // pull command tests
+  // ===================================================================
+  // PULL COMMAND - 5 tests
+  // Purpose: Test pulling and activating code from git (tags/branches)
+  // ===================================================================
   {
     command: 'pull',
     name: 'pull --files (specific file)',
@@ -18,6 +40,11 @@ const commandTestCases = [
       return hasResult && noCrash;
     }
   },
+
+  // ===================================================================
+  // INSPECT COMMAND - 1 test
+  // Purpose: Run Code Inspector checks on activated objects
+  // ===================================================================
   {
     command: 'inspect',
     name: 'inspect single file',
@@ -31,6 +58,11 @@ const commandTestCases = [
       return hasResult && hasObject;
     }
   },
+
+  // ===================================================================
+  // UNIT COMMAND - 1 test
+  // Purpose: Run ABAP unit tests
+  // ===================================================================
   {
     command: 'unit',
     name: 'unit test class',
@@ -44,6 +76,11 @@ const commandTestCases = [
       return hasResult && hasClass;
     }
   },
+
+  // ===================================================================
+  // TREE COMMAND - 3 tests
+  // Purpose: Display package hierarchy and structure
+  // ===================================================================
   {
     command: 'tree',
     name: 'tree package',
@@ -80,6 +117,11 @@ const commandTestCases = [
       return hasPackage;
     }
   },
+
+  // ===================================================================
+  // LIST COMMAND - 3 tests
+  // Purpose: List objects in a package with filtering
+  // ===================================================================
   {
     command: 'list',
     name: 'list package',
@@ -114,6 +156,11 @@ const commandTestCases = [
       return hasResult;
     }
   },
+
+  // ===================================================================
+  // PREVIEW COMMAND - 3 tests
+  // Purpose: Preview table data with pagination and column filtering
+  // ===================================================================
   {
     command: 'preview',
     name: 'preview table',
@@ -150,6 +197,11 @@ const commandTestCases = [
       return hasTable && hasColumns;
     }
   },
+
+  // ===================================================================
+  // VIEW COMMAND - 7 tests
+  // Purpose: View object definitions (class, interface, table, etc.)
+  // ===================================================================
   {
     command: 'view',
     name: 'view class',
@@ -186,6 +238,11 @@ const commandTestCases = [
       return hasTable && hasField;
     }
   },
+
+  // ===================================================================
+  // WHERE COMMAND - 3 tests
+  // Purpose: Find where-used list for objects
+  // ===================================================================
   {
     command: 'where',
     name: 'where class usage',
@@ -219,6 +276,11 @@ const commandTestCases = [
       return hasResult;
     }
   },
+
+  // ===================================================================
+  // HEALTH COMMAND - 1 test
+  // Purpose: Check ABAP backend health and version
+  // ===================================================================
   {
     command: 'health',
     name: 'health check',
@@ -231,6 +293,11 @@ const commandTestCases = [
       return hasStatus && hasVersion;
     }
   },
+
+  // ===================================================================
+  // STATUS COMMAND - 1 test
+  // Purpose: Check agent configuration status
+  // ===================================================================
   {
     command: 'status',
     name: 'status check',
@@ -242,7 +309,19 @@ const commandTestCases = [
       return hasResult;
     }
   },
-  // syntax command tests (source-based syntax check)
+
+  // ===================================================================
+  // SYNTAX COMMAND - 24 tests
+  // Purpose: Source-based syntax checking (pre-commit validation)
+  // Categories:
+  //   - Basic validation (5 tests)
+  //   - Error detection (4 tests)
+  //   - Auto-detection & includes (7 tests)
+  //   - DDLS/CDS views (6 tests)
+  //   - FIXPT flag handling (2 tests)
+  // ===================================================================
+
+  // Basic syntax validation
   {
     command: 'syntax',
     name: 'syntax check class file',
@@ -311,9 +390,10 @@ const commandTestCases = [
       }
     }
   },
+
+  // Error detection tests
   {
     command: 'syntax',
-    name: 'syntax check detects errors',
     args: ['--files', 'tests/fixtures/zcl_syntax_error.clas.abap'],
     expectSuccess: true,
     verify: (output) => {
@@ -367,7 +447,8 @@ const commandTestCases = [
       return hasMultipleErrors || (hasClassError && hasIntfError && hasProgError);
     }
   },
-  // syntax command - auto-detection and include field tests
+
+  // Auto-detection and include field tests
   {
     command: 'syntax',
     name: 'syntax check testclasses file with auto-detection',
@@ -490,7 +571,8 @@ const commandTestCases = [
       return hasFilename || hasReadableName;
     }
   },
-  // DDLS syntax tests (CDS View and CDS View Entity)
+
+  // DDLS/CDS View syntax tests
   {
     command: 'syntax',
     name: 'syntax check valid CDS view with annotations',
@@ -721,7 +803,12 @@ where carrid = $parameters.p_carrid
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
   },
-  // ref commands (local file search - no ABAP required)
+
+  // ===================================================================
+  // REF COMMAND - 3 tests
+  // Purpose: Search ABAP reference materials (cheat sheets, guidelines)
+  // Note: These tests don't require ABAP system connection
+  // ===================================================================
   {
     command: 'ref',
     name: 'ref --list-topics',
@@ -755,9 +842,13 @@ where carrid = $parameters.p_carrid
       return hasResult;
     }
   },
+
+  // ===================================================================
+  // SYNTAX COMMAND - FIXPT Flag Tests (2 tests)
+  // Purpose: Verify FIXPT=X flag handling for modern ABAP SQL
+  // ===================================================================
   {
     command: 'syntax',
-    name: 'syntax check class without FIXPT in XML should fail with modern SQL',
     setup: () => {
       const fs = require('fs');
       const path = require('path');
@@ -910,8 +1001,16 @@ ENDCLASS.`;
       }
     }
   },
-  // Pull command tests - Tags and branches (test repo: abgagt-pull-test)
-  // These tests verify that pull correctly switches git refs and activates the right version
+
+  // ===================================================================
+  // PULL COMMAND - Tag and Branch Tests (8 tests: 4 pull + 4 verify)
+  // Purpose: Test pulling from tags/branches and verifying activated content
+  // Test repo: https://github.tools.sap/I045696/abgagt-pull-test.git
+  //   - v0.1.0: only get_message method
+  //   - v1.0.0: get_message + validate_input methods
+  //   - feature/test-branch: get_message + calculate_sum methods
+  //   - main: same as v1.0.0
+  // ===================================================================
   {
     command: 'pull',
     name: 'pull from tag v0.1.0',
