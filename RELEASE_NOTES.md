@@ -2,6 +2,27 @@
 title: Release Notes
 ---
 
+## v1.8.4
+
+### New Features
+
+- JSON output support for pull, inspect, and unit commands
+- `folder-logic` parameter for init command
+
+### Bug Fixes
+
+- HTTP error and JSON parse failure handling
+- ABAP error handling in unit command JSON mode
+
+### Documentation
+
+- YouTube video embed in README
+
+---
+
+---
+
+
 ## v1.8.3
 
 ### New Features
