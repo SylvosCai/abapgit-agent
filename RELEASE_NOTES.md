@@ -2,6 +2,13 @@
 title: Release Notes
 ---
 
+## v1.8.7
+
+See commit history for changes.
+
+---
+
+
 ## v1.8.6
 
 ### New Features
