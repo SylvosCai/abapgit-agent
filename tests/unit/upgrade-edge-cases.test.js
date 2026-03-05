@@ -129,13 +129,80 @@ describe('Upgrade Command - Edge Cases', () => {
   });
 
   describe('Match Flag', () => {
-    test('--match targets ABAP with CLI version', () => {
-      const output = runCommand('upgrade --match --dry-run');
-      expect(output).toContain('Target versions:');
-      expect(output).toContain('ABAP:');
-      // In Target versions section, CLI should not appear (only ABAP is targeted)
-      const targetSection = output.split('Target versions:')[1].split('Would execute:')[0];
-      expect(targetSection).not.toContain('CLI:');
+    test('--match requires ABAP config (shows error without config)', () => {
+      const fs = require('fs');
+      const path = require('path');
+
+      // Temporarily rename config if it exists
+      const configPath = path.join(process.cwd(), '.abapGitAgent');
+      const tempPath = configPath + '.test-backup';
+      let configExisted = false;
+
+      try {
+        if (fs.existsSync(configPath)) {
+          fs.renameSync(configPath, tempPath);
+          configExisted = true;
+        }
+
+        // Test without config
+        const output = runCommand('upgrade --match --dry-run');
+        expect(output).toContain('.abapGitAgent config file not found');
+        expect(output).toContain('ABAP upgrade requires configuration');
+      } finally {
+        // Restore config if it existed
+        if (configExisted && fs.existsSync(tempPath)) {
+          fs.renameSync(tempPath, configPath);
+        }
+      }
+    });
+
+    test('--match targets ABAP with CLI version (with mocked config)', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const configPath = path.join(process.cwd(), '.abapGitAgent');
+      const mockConfigPath = configPath + '.test-mock';
+
+      // Create a minimal mock config for testing
+      const mockConfig = {
+        host: 'mock-host.example.com',
+        sapport: 443,
+        client: '100',
+        user: 'TEST_USER',
+        password: 'test_password',
+        language: 'EN',
+        gitUsername: 'test',
+        gitPassword: 'test'
+      };
+
+      let configExisted = false;
+      let originalConfig = null;
+
+      try {
+        // Backup existing config if present
+        if (fs.existsSync(configPath)) {
+          originalConfig = fs.readFileSync(configPath, 'utf8');
+          configExisted = true;
+        }
+
+        // Write mock config
+        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
+
+        // Test with mock config
+        const output = runCommand('upgrade --match --dry-run');
+        expect(output).toContain('Target versions:');
+        expect(output).toContain('ABAP:');
+
+        // In Target versions section, CLI should not appear (only ABAP is targeted)
+        const targetSection = output.split('Target versions:')[1].split('Would execute:')[0];
+        expect(targetSection).not.toContain('CLI:');
+      } finally {
+        // Restore original config or remove mock
+        if (configExisted && originalConfig) {
+          fs.writeFileSync(configPath, originalConfig);
+        } else if (fs.existsSync(configPath)) {
+          fs.unlinkSync(configPath);
+        }
+      }
     });
   });
 });
