@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.8.5
+
+### New Features
+
+- STOB viewer support for CDS-generated structured objects
+
+### Documentation
+
+- Add STOB viewer documentation
+
+---
+
+---
+
+
 ## v1.8.4
 
 ### New Features
