@@ -12,17 +12,19 @@
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
  *   - ref:     3 tests (topics, repos, search)
+ *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
  *   - pull:    1 test  (--files)
  *   - unit:    1 test  (test class)
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
- *   Total:    47 tests
+ *   Total:    51 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
  *   npm run test:cmd:pull
  *   npm run test:cmd:view
+ *   npm run test:cmd:upgrade
  */
 const commandTestCases = [
   // ===================================================================
@@ -1005,6 +1007,64 @@ ENDCLASS.`;
       } catch (e) {
         // Ignore cleanup errors
       }
+    }
+  },
+
+  // ===================================================================
+  // UPGRADE COMMAND - 4 tests
+  // Purpose: Test upgrade command (safe operations only)
+  // Note: CLI upgrade is NOT tested (would modify global npm installation)
+  // ===================================================================
+  {
+    command: 'upgrade',
+    name: 'upgrade --check (shows current and latest versions)',
+    args: ['--check'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show current versions for CLI and ABAP
+      const hasCurrentVersions = output.includes('Current versions:');
+      const hasCLI = output.includes('CLI:');
+      const hasLatest = output.includes('Latest available:') || output.includes('All components are up to date');
+      return hasCurrentVersions && hasCLI && hasLatest;
+    }
+  },
+  {
+    command: 'upgrade',
+    name: 'upgrade --dry-run (shows plan without changes)',
+    args: ['--dry-run'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show dry-run plan
+      const hasDryRun = output.includes('DRY RUN');
+      const hasCurrentVersions = output.includes('Current versions:');
+      const hasTargetVersions = output.includes('Target versions:');
+      const hasNoChanges = output.includes('No changes made');
+      return hasDryRun && hasCurrentVersions && hasTargetVersions && hasNoChanges;
+    }
+  },
+  {
+    command: 'upgrade',
+    name: 'upgrade --version (invalid version shows error)',
+    args: ['--version', '99.99.99', '--cli-only', '--dry-run'],
+    expectSuccess: false,
+    verify: (output) => {
+      // Should reject invalid version with helpful error
+      const hasError = output.includes('not found in npm registry');
+      const hasLink = output.includes('npmjs.com');
+      return hasError && hasLink;
+    }
+  },
+  {
+    command: 'upgrade',
+    name: 'upgrade --cli-only --check (works without ABAP config)',
+    args: ['--cli-only', '--check'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should work without ABAP config when using --cli-only
+      const hasCurrentVersions = output.includes('Current versions:');
+      const hasCLI = output.includes('CLI:');
+      const noAbapError = !output.includes('.abapGitAgent config file not found');
+      return hasCurrentVersions && hasCLI && noAbapError;
     }
   }
 ];

@@ -52,7 +52,8 @@ async function main() {
     where: require('../src/commands/where'),
     ref: require('../src/commands/ref'),
     init: require('../src/commands/init'),
-    pull: require('../src/commands/pull')
+    pull: require('../src/commands/pull'),
+    upgrade: require('../src/commands/upgrade')
   };
 
   // Check if this is a modular command
@@ -104,6 +105,11 @@ To enable integration:
 
     // Execute command
     await cmd.execute(args.slice(1), context);
+
+    // Show new version reminder (non-blocking, cached daily)
+    if (command !== 'upgrade') {
+      await versionCheck.showNewVersionReminder();
+    }
     return;
   }
 
