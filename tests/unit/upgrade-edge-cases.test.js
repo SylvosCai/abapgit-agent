@@ -66,15 +66,15 @@ describe('Upgrade Command - Edge Cases', () => {
   });
 
   describe('Dry-run Mode', () => {
-    test('dry-run shows plan without executing', () => {
-      const output = runCommand('upgrade --dry-run');
+    test('dry-run shows plan without executing (CLI-only, no config needed)', () => {
+      const output = runCommand('upgrade --cli-only --dry-run');
       expect(output).toContain('DRY RUN - No changes will be made');
       expect(output).toContain('Would execute:');
       expect(output).toContain('No changes made.');
     });
 
-    test('dry-run with --version shows specific version', () => {
-      const output = runCommand('upgrade --version 1.8.5 --dry-run');
+    test('dry-run with --version shows specific version (CLI-only, no config needed)', () => {
+      const output = runCommand('upgrade --version 1.8.5 --cli-only --dry-run');
       expect(output).toContain('Target versions:');
       expect(output).toContain('v1.8.5');
     }, 15000);
@@ -85,10 +85,41 @@ describe('Upgrade Command - Edge Cases', () => {
       expect(output).not.toContain('pull --branch');
     });
 
-    test('dry-run with --abap-only excludes CLI', () => {
-      const output = runCommand('upgrade --abap-only --dry-run');
-      expect(output).toContain('pull --branch');
-      expect(output).not.toContain('npm install');
+    test('dry-run with --abap-only excludes CLI (with mocked config)', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const configPath = path.join(process.cwd(), '.abapGitAgent');
+      const mockConfig = {
+        host: 'mock-host.example.com',
+        sapport: 443,
+        client: '100',
+        user: 'TEST_USER',
+        password: 'test_password',
+        language: 'EN',
+        gitUsername: 'test',
+        gitPassword: 'test'
+      };
+
+      let configExisted = false;
+      let originalConfig = null;
+
+      try {
+        if (fs.existsSync(configPath)) {
+          originalConfig = fs.readFileSync(configPath, 'utf8');
+          configExisted = true;
+        }
+        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
+
+        const output = runCommand('upgrade --abap-only --dry-run');
+        expect(output).toContain('pull --branch');
+        expect(output).not.toContain('npm install');
+      } finally {
+        if (configExisted && originalConfig) {
+          fs.writeFileSync(configPath, originalConfig);
+        } else if (fs.existsSync(configPath)) {
+          fs.unlinkSync(configPath);
+        }
+      }
     });
   });
 
@@ -107,22 +138,53 @@ describe('Upgrade Command - Edge Cases', () => {
   });
 
   describe('Transport Request', () => {
-    test('accepts transport request with --abap-only', () => {
-      const output = runCommand('upgrade --abap-only --transport DEVK900001 --dry-run');
-      expect(output).toContain('DRY RUN');
-      expect(output).toContain('pull --branch');
+    test('accepts transport request with --abap-only (with mocked config)', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const configPath = path.join(process.cwd(), '.abapGitAgent');
+      const mockConfig = {
+        host: 'mock-host.example.com',
+        sapport: 443,
+        client: '100',
+        user: 'TEST_USER',
+        password: 'test_password',
+        language: 'EN',
+        gitUsername: 'test',
+        gitPassword: 'test'
+      };
+
+      let configExisted = false;
+      let originalConfig = null;
+
+      try {
+        if (fs.existsSync(configPath)) {
+          originalConfig = fs.readFileSync(configPath, 'utf8');
+          configExisted = true;
+        }
+        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
+
+        const output = runCommand('upgrade --abap-only --transport DEVK900001 --dry-run');
+        expect(output).toContain('DRY RUN');
+        expect(output).toContain('pull --branch');
+      } finally {
+        if (configExisted && originalConfig) {
+          fs.writeFileSync(configPath, originalConfig);
+        } else if (fs.existsSync(configPath)) {
+          fs.unlinkSync(configPath);
+        }
+      }
     });
   });
 
   describe('Yes Flag', () => {
-    test('--yes skips confirmation prompt', () => {
-      const output = runCommand('upgrade --yes --dry-run');
+    test('--yes skips confirmation prompt (CLI-only, no config needed)', () => {
+      const output = runCommand('upgrade --yes --cli-only --dry-run');
       expect(output).not.toContain('Do you want to continue?');
       expect(output).toContain('DRY RUN');
     });
 
-    test('-y shorthand works', () => {
-      const output = runCommand('upgrade -y --dry-run');
+    test('-y shorthand works (CLI-only, no config needed)', () => {
+      const output = runCommand('upgrade -y --cli-only --dry-run');
       expect(output).not.toContain('Do you want to continue?');
       expect(output).toContain('DRY RUN');
     });
