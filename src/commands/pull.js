@@ -9,7 +9,21 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp, gitUtils, getTransport } = context;
+    const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards } = context;
+
+    // Check project-level safeguards
+    const safeguards = getSafeguards();
+
+    // SAFEGUARD 1: Check if pull is completely disabled
+    if (safeguards.disablePull) {
+      console.error('❌ Error: pull command is disabled for this project\n');
+      if (safeguards.reason) {
+        console.error(`Reason: ${safeguards.reason}\n`);
+      }
+      console.error('The pull command has been disabled in .abapgit-agent.json');
+      console.error('Please contact the project maintainer to enable it.');
+      process.exit(1);
+    }
 
     const urlArgIndex = args.indexOf('--url');
     const branchArgIndex = args.indexOf('--branch');
@@ -34,6 +48,18 @@ module.exports = {
 
     if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
       files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+    }
+
+    // SAFEGUARD 2: Check if files are required but not provided
+    if (safeguards.requireFilesForPull && !files) {
+      console.error('❌ Error: --files parameter is required for this project\n');
+      if (safeguards.reason) {
+        console.error(`Reason: ${safeguards.reason}\n`);
+      }
+      console.error('Usage: abapgit-agent pull --files <file1>,<file2>\n');
+      console.error('This safeguard is configured in .abapgit-agent.json');
+      console.error('Contact the project maintainer if you need to change this setting.');
+      process.exit(1);
     }
 
     if (!gitUrl) {

@@ -278,7 +278,8 @@ describe('Pull Command - CLI Output Format', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
@@ -319,7 +320,8 @@ describe('Pull Command - CLI Output Format', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
@@ -357,7 +359,8 @@ describe('Pull Command - CLI Output Format', () => {
         getBranch: jest.fn(() => 'develop'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
@@ -391,7 +394,8 @@ describe('Pull Command - CLI Output Format', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap', '--json'], mockContext);
@@ -439,7 +443,8 @@ describe('Pull Command - CLI Output Format', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_class1.clas.abap', '--json'], mockContext);
@@ -453,5 +458,168 @@ describe('Pull Command - CLI Output Format', () => {
     expect(parsed.FAILED_COUNT).toBe(0);
     expect(parsed.ACTIVATED_OBJECTS).toHaveLength(2);
     expect(parsed.LOG_MESSAGES).toHaveLength(2);
+  });
+});
+
+describe('Pull Command - Safeguard Validation', () => {
+  let consoleOutput = [];
+  let consoleErrorOutput = [];
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    consoleErrorOutput = [];
+    console.log = jest.fn((...args) => consoleOutput.push(args.join(' ')));
+    console.error = jest.fn((...args) => consoleErrorOutput.push(args.join(' ')));
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('rejects pull without --files when requireFilesForPull is true', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        requireFilesForPull: true,
+        disablePull: false,
+        reason: 'Large project with 500+ objects'
+      })),
+      AbapHttp: jest.fn(),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await expect(async () => {
+      await pullCommand.execute([], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    const errorOutput = consoleErrorOutput.join('\n');
+    expect(errorOutput).toMatch(/--files parameter is required/);
+    expect(errorOutput).toMatch(/Large project with 500\+ objects/);
+    expect(errorOutput).toMatch(/\.abapgit-agent\.json/);
+  });
+
+  test('allows pull with --files when requireFilesForPull is true', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        requireFilesForPull: true,
+        disablePull: false,
+        reason: null
+      })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: 'X',
+          message: 'Success'
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    // Should NOT throw
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], mockContext);
+
+    // Should have attempted to make the pull request
+    expect(mockContext.AbapHttp).toHaveBeenCalled();
+  });
+
+  test('rejects all pull commands when disablePull is true', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        requireFilesForPull: false,
+        disablePull: true,
+        reason: 'CI/CD only'
+      })),
+      AbapHttp: jest.fn(),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    // Should reject even with --files
+    await expect(async () => {
+      await pullCommand.execute(['--files', 'zcl_test.clas.abap'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    const errorOutput = consoleErrorOutput.join('\n');
+    expect(errorOutput).toMatch(/pull command is disabled/);
+    expect(errorOutput).toMatch(/CI\/CD only/);
+  });
+
+  test('allows pull when no safeguards are configured', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        requireFilesForPull: false,
+        disablePull: false,
+        reason: null
+      })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: 'X',
+          message: 'Success'
+        })
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    // Should work without --files when no safeguards
+    await pullCommand.execute([], mockContext);
+
+    expect(mockContext.AbapHttp).toHaveBeenCalled();
+  });
+
+  test('shows reason in error message when provided', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        requireFilesForPull: true,
+        disablePull: false,
+        reason: 'Project contains 100+ ABAP objects'
+      })),
+      AbapHttp: jest.fn(),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null)
+    };
+
+    await expect(async () => {
+      await pullCommand.execute([], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    const errorOutput = consoleErrorOutput.join('\n');
+    expect(errorOutput).toMatch(/Reason: Project contains 100\+ ABAP objects/);
   });
 });

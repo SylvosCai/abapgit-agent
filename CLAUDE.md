@@ -362,6 +362,67 @@ You only need to set `defaultBranch` if using a non-standard branch name.
 
 > **📖 For complete workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
 
+### Project-Level Configuration (.abapgit-agent.json)
+
+**Checked into repository** - applies to ALL developers
+
+Create `.abapgit-agent.json` in repository root for team-wide policies:
+
+```json
+{
+  "project": {
+    "name": "Project Name",
+    "description": "Optional project description"
+  },
+
+  "safeguards": {
+    "requireFilesForPull": true,
+    "disablePull": false,
+    "reason": "Large project with 500+ objects. Selective activation required."
+  }
+}
+```
+
+#### Safeguard Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `requireFilesForPull` | boolean | `false` | Requires `--files` parameter for pull command |
+| `disablePull` | boolean | `false` | Completely disables pull command |
+| `reason` | string | `null` | Optional explanation shown in error messages |
+
+#### Use Cases
+
+**Large Projects (100+ objects):**
+```json
+{
+  "safeguards": {
+    "requireFilesForPull": true,
+    "reason": "Large project. Use --files to avoid timeout."
+  }
+}
+```
+
+**CI/CD Only Activation:**
+```json
+{
+  "safeguards": {
+    "disablePull": true,
+    "reason": "All activations must go through CI/CD pipeline."
+  }
+}
+```
+
+#### Behavior
+
+**When `requireFilesForPull: true`:**
+- `abapgit-agent pull` → ❌ Error: --files is required
+- `abapgit-agent pull --files ...` → ✅ Works
+
+**When `disablePull: true`:**
+- All `pull` commands are disabled
+- Error message directs users to project maintainer
+
 ### Environment Variables
 ```bash
 export ABAP_HOST="your-sap-system.com"

@@ -1,0 +1,12 @@
+{
+  "project": {
+    "name": "abapgit-agent",
+    "description": "CLI tool for pulling and activating ABAP objects from git repositories"
+  },
+
+  "safeguards": {
+    "requireFilesForPull": false,
+    "disablePull": false,
+    "reason": null
+  }
+}

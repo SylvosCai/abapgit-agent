@@ -88,11 +88,67 @@ function getWorkflowConfig() {
   };
 }
 
+/**
+ * Load project-level configuration (.abapgit-agent.json)
+ * This file is checked into version control and contains project settings
+ * @returns {Object|null} Project config or null if not found
+ */
+function loadProjectConfig() {
+  const projectConfigPath = path.join(process.cwd(), '.abapgit-agent.json');
+
+  if (fs.existsSync(projectConfigPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(projectConfigPath, 'utf8'));
+    } catch (error) {
+      console.warn(`⚠️  Warning: Failed to parse .abapgit-agent.json: ${error.message}`);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get safeguard configuration from project-level config
+ * Project-level safeguards CANNOT be overridden by user config
+ * @returns {Object} Safeguards config with requireFilesForPull, disablePull, and reason
+ */
+function getSafeguards() {
+  const projectConfig = loadProjectConfig();
+
+  if (projectConfig?.safeguards) {
+    return {
+      requireFilesForPull: projectConfig.safeguards.requireFilesForPull === true,
+      disablePull: projectConfig.safeguards.disablePull === true,
+      reason: projectConfig.safeguards.reason || null
+    };
+  }
+
+  // Default: no safeguards (backward compatible)
+  return {
+    requireFilesForPull: false,
+    disablePull: false,
+    reason: null
+  };
+}
+
+/**
+ * Get project information from project-level config
+ * @returns {Object|null} Project info (name, description) or null
+ */
+function getProjectInfo() {
+  const projectConfig = loadProjectConfig();
+  return projectConfig?.project || null;
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
   getAgentConfig,
   getTransport,
   isAbapIntegrationEnabled,
-  getWorkflowConfig
+  getWorkflowConfig,
+  getSafeguards,
+  getProjectInfo,
+  loadProjectConfig
 };

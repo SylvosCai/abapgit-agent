@@ -42,6 +42,40 @@ abapgit-agent pull
 - Git remote is configured (unless `--url` specified)
 - `.abapGitAgent` exists with valid credentials
 
+## Project-Level Safeguards
+
+Project maintainers can configure safeguards in `.abapgit-agent.json` (checked into repository):
+
+```json
+{
+  "safeguards": {
+    "requireFilesForPull": true,
+    "disablePull": false,
+    "reason": "Large project with 500+ objects"
+  }
+}
+```
+
+**When `requireFilesForPull: true`:**
+- `abapgit-agent pull` → ❌ Error: --files is required
+- `abapgit-agent pull --files ...` → ✅ Works
+
+**When `disablePull: true`:**
+- All `pull` commands are disabled
+- Error message directs users to project maintainer
+
+**Example Error Message:**
+```
+❌ Error: --files parameter is required for this project
+
+Reason: Large project with 500+ objects
+
+Usage: abapgit-agent pull --files <file1>,<file2>
+
+This safeguard is configured in .abapgit-agent.json
+Contact the project maintainer if you need to change this setting.
+```
+
 ## Parameters
 
 | Parameter | Required | Description |
