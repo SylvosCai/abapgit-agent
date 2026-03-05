@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.8.6
+
+### New Features
+
+- Async import with background job execution and progress
+
+---
+
+---
+
+
 ## v1.8.5
 
 ### New Features
