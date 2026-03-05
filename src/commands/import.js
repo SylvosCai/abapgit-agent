@@ -2,6 +2,14 @@
  * Import command - Import existing objects from package to git repository
  */
 
+const {
+  startBackgroundJob,
+  pollForCompletion,
+  displayProgress,
+  formatTimestamp,
+  calculateTimeSpent
+} = require('../utils/backgroundJobPoller');
+
 module.exports = {
   name: 'import',
   description: 'Import existing objects from package to git repository',
@@ -9,9 +17,10 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, gitUtils, AbapHttp } = context;
+    try {
+      const { loadConfig, gitUtils, AbapHttp } = context;
 
-    // Show help if requested
+      // Show help if requested
     const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
     if (helpIndex !== -1) {
       console.log(`
@@ -21,6 +30,9 @@ Usage:
 Description:
   Import existing objects from package to git repository.
   Uses the git remote URL to find the abapGit online repository.
+
+  This command runs asynchronously using a background job and displays
+  real-time progress updates.
 
 Prerequisites:
   - Run "abapgit-agent create" first or create repository in abapGit UI
@@ -51,7 +63,7 @@ Examples:
       commitMessage = args[messageArgIndex + 1];
     }
 
-    console.log(`\n📦 Importing objects to git repository`);
+    console.log(`\n📦 Starting import job`);
     console.log(`   URL: ${repoUrl}`);
     if (commitMessage) {
       console.log(`   Message: ${commitMessage}`);
@@ -76,23 +88,69 @@ Examples:
       data.password = config.gitPassword;
     }
 
-    const result = await http.post('/sap/bc/z_abapgit_agent/import', data, { csrfToken });
+    // Step 1: Start the background job
+    const endpoint = '/sap/bc/z_abapgit_agent/import';
+    const jobInfo = await startBackgroundJob(http, endpoint, data, csrfToken);
 
+    console.log(`✅ Job started: ${jobInfo.jobNumber}`);
+    console.log('');
+
+    // Step 2: Poll for completion with progress updates
+    const finalResult = await pollForCompletion(http, endpoint, jobInfo.jobNumber, {
+      pollInterval: 2000,
+      maxAttempts: 300,
+      onProgress: (progress, message) => {
+        displayProgress(progress, message);
+      }
+    });
+
+    // Step 3: Show final result
     console.log('\n');
 
-    // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
-    const filesStaged = result.FILES_STAGED || result.files_staged;
-    const abapCommitMessage = result.COMMIT_MESSAGE || result.commit_message;
-    const error = result.ERROR || result.error;
+    if (finalResult.status === 'completed' && finalResult.result) {
+      // Parse result JSON string
+      let resultData;
+      try {
+        if (typeof finalResult.result === 'string') {
+          resultData = JSON.parse(finalResult.result);
+        } else {
+          resultData = finalResult.result;
+        }
+      } catch (e) {
+        resultData = { filesStaged: 'unknown', commitMessage: commitMessage };
+      }
 
-    if (success === 'X' || success === true) {
-      console.log(`✅ Objects imported successfully!`);
-      console.log(`   Files staged: ${filesStaged}`);
-      console.log(`   Commit: ${commitMessage || abapCommitMessage}`);
+      console.log(`✅ Import completed successfully!`);
+      console.log(`   Files staged: ${resultData.filesStaged || resultData.FILES_STAGED || 'unknown'}`);
+      console.log(`   Commit: ${resultData.commitMessage || resultData.COMMIT_MESSAGE || commitMessage || 'Initial import'}`);
+      console.log(``);
+
+      // Calculate time spent
+      if (finalResult.startedAt && finalResult.completedAt) {
+        const timeSpent = calculateTimeSpent(finalResult.startedAt, finalResult.completedAt);
+        console.log(`⏱️  Time spent: ${timeSpent}`);
+      }
+
+      console.log(`📈 Stats:`);
+      console.log(`   Job number: ${jobInfo.jobNumber}`);
+      if (finalResult.startedAt) {
+        console.log(`   Started: ${formatTimestamp(finalResult.startedAt)}`);
+      }
+      if (finalResult.completedAt) {
+        console.log(`   Completed: ${formatTimestamp(finalResult.completedAt)}`);
+      }
     } else {
       console.log(`❌ Import failed`);
-      console.log(`   Error: ${error || 'Unknown error'}`);
+      console.log(`   Status: ${finalResult.status}`);
+      process.exit(1);
+    }
+    } catch (error) {
+      console.error('\n❌ Error during import:');
+      console.error(`   ${error.message || error}`);
+      if (error.response) {
+        console.error(`   HTTP Status: ${error.response.status}`);
+        console.error(`   Response: ${JSON.stringify(error.response.data)}`);
+      }
       process.exit(1);
     }
   }

@@ -5,6 +5,7 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES zif_abgagt_command.
+    INTERFACES zif_abgagt_progressable.
 
     METHODS constructor
       IMPORTING
@@ -58,42 +59,62 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
     DATA: ls_params TYPE ty_import_params,
           li_repo TYPE REF TO zif_abapgit_repo,
           li_repo_online TYPE REF TO zif_abapgit_repo_online,
+          li_repo_srv TYPE REF TO zif_abapgit_repo_srv,
+          li_user TYPE REF TO zif_abapgit_persist_user,
           lo_stage TYPE REF TO zcl_abapgit_stage,
           lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt,
           lv_package TYPE devclass,
           lv_message TYPE string,
-          lv_files_staged TYPE i.
-
-    " Use injected dependencies
-    DATA: li_user TYPE REF TO zif_abapgit_persist_user,
+          lv_files_staged TYPE i,
           lv_committer_name TYPE string,
-          lv_committer_email TYPE string.
+          lv_committer_email TYPE string,
+          ls_comment TYPE zif_abapgit_git_definitions=>ty_comment.
 
     TRY.
+        " Stage 1: Parse and validate parameters (10%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'PARSE_PARAMS'
+            iv_message  = 'Parsing import parameters'
+            iv_progress = 10.
+
         IF is_param IS SUPPLIED.
-          ls_params = CORRESPONDING #( is_param ).
+          " Handle both structure and JSON string input
+          " When called from background job, is_param is a JSON string
+          " When called directly (e.g., in unit tests), is_param is a structure
+          DATA lv_param_type TYPE string.
+          DESCRIBE FIELD is_param TYPE lv_param_type.
+
+          IF lv_param_type = 'g' OR lv_param_type = 'C'.
+            " String type - deserialize JSON
+            DATA lv_json_string TYPE string.
+            lv_json_string = is_param.
+            /ui2/cl_json=>deserialize(
+              EXPORTING
+                json = lv_json_string
+              CHANGING
+                data = ls_params
+            ).
+          ELSE.
+            " Structure type - use CORRESPONDING
+            ls_params = CORRESPONDING #( is_param ).
+          ENDIF.
         ENDIF.
 
-        " Validate URL
         IF ls_params-url IS INITIAL.
           rv_result = '{"success":"","error":"URL is required"}'.
           RETURN.
         ENDIF.
 
-        " Configure credentials if provided
-        IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
-          get_user( )->set_repo_git_user_name(
-            iv_url = ls_params-url iv_username = ls_params-username ).
-          get_user( )->set_repo_login(
-            iv_url = ls_params-url iv_login = ls_params-username ).
-          zcl_abapgit_login_manager=>set_basic(
-            iv_uri      = ls_params-url
-            iv_username = ls_params-username
-            iv_password = ls_params-password ).
-        ENDIF.
+        " Stage 2: Find repository (20%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'FIND_REPO'
+            iv_message  = 'Finding repository'
+            iv_progress = 20.
 
-        " Find repository by URL - use injected dependency
-        get_repo_srv( )->get_repo_from_url(
+        li_repo_srv = get_repo_srv( ).
+        li_repo_srv->get_repo_from_url(
           EXPORTING iv_url = ls_params-url
           IMPORTING ei_repo = li_repo ).
 
@@ -102,67 +123,116 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-        " Cast to online repo for push operations
+        " Cast to online repo and configure credentials
         li_repo_online ?= li_repo.
 
-        " Get package from repository
-        lv_package = li_repo->get_package( ).
-
-        " Build commit message if not provided
-        IF ls_params-message IS INITIAL.
-          lv_message = |feat: initial import from ABAP package { lv_package }|.
-        ELSE.
-          lv_message = ls_params-message.
+        IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
+          li_user = get_user( ).
+          li_user->set_repo_git_user_name(
+            iv_url = ls_params-url
+            iv_username = ls_params-username ).
+          li_user->set_repo_login(
+            iv_url = ls_params-url
+            iv_login = ls_params-username ).
+          zcl_abapgit_login_manager=>set_basic(
+            iv_uri      = ls_params-url
+            iv_username = ls_params-username
+            iv_password = ls_params-password ).
         ENDIF.
 
-        " Refresh repository
+        lv_package = li_repo->get_package( ).
+
+        " Stage 3: Refresh repository (40%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'REFRESH_REPO'
+            iv_message  = 'Refreshing repository'
+            iv_progress = 40.
+
         li_repo->refresh( ).
 
-        " Get local files
-        lt_files = li_repo->get_files_local( ).
+        " Stage 4: Stage local files (60%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'STAGE_FILES'
+            iv_message  = 'Staging local files'
+            iv_progress = 60.
 
-        " Count files
+        lt_files = li_repo->get_files_local( ).
         lv_files_staged = lines( lt_files ).
 
-        " Check if there are files to import
         IF lv_files_staged = 0.
           rv_result = '{"success":"","error":"No objects found in package"}'.
           RETURN.
         ENDIF.
 
-        " Create stage
         CREATE OBJECT lo_stage.
+        DATA(lv_total_files) = lines( lt_files ).
 
-        " Add all files to stage
         LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_file>).
           lo_stage->add(
             iv_path     = <ls_file>-file-path
             iv_filename = <ls_file>-file-filename
             iv_data     = <ls_file>-file-data ).
+
+          " Update progress during staging (60-70%)
+          IF lv_total_files > 10.
+            DATA(lv_index) = sy-tabix.
+            IF lv_index MOD 10 = 0 OR lv_index = lv_total_files.
+              DATA(lv_file_progress) = 60 + ( lv_index * 10 / lv_total_files ).
+              RAISE EVENT zif_abgagt_progressable~progress_update
+                EXPORTING
+                  iv_stage    = 'STAGE_FILES'
+                  iv_message  = |Staging files ({ lv_index } of { lv_total_files })|
+                  iv_progress = lv_file_progress
+                  iv_current  = lv_index
+                  iv_total    = lv_total_files.
+            ENDIF.
+          ENDIF.
         ENDLOOP.
 
-        " Get user details for committer - use injected dependency
+        " Stage 5: Prepare commit (75%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'PREPARE_COMMIT'
+            iv_message  = 'Preparing commit'
+            iv_progress = 75.
+
         li_user = get_user( ).
         lv_committer_name = li_user->get_default_git_user_name( ).
         lv_committer_email = li_user->get_default_git_user_email( ).
 
-        " Prepare commit
-        DATA: ls_comment TYPE zif_abapgit_git_definitions=>ty_comment.
+        lv_message = |feat: initial import from ABAP package { lv_package }|.
+
         ls_comment-committer-name  = lv_committer_name.
         ls_comment-committer-email = lv_committer_email.
         ls_comment-comment         = lv_message.
 
-        " Commit and push
+        " Stage 6: Push to repository (90%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'PUSH'
+            iv_message  = 'Pushing to repository'
+            iv_progress = 90.
+
         li_repo_online->push(
           is_comment = ls_comment
           io_stage   = lo_stage ).
 
         COMMIT WORK.
 
-        rv_result = '{"success":"X","files_staged":"' && lv_files_staged && '","commit_message":"' && lv_message && '"}'.
+        " Complete (100%)
+        RAISE EVENT zif_abgagt_progressable~progress_update
+          EXPORTING
+            iv_stage    = 'COMPLETED'
+            iv_message  = 'Import completed successfully'
+            iv_progress = 100.
 
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
-        rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
+        rv_result = '{"success":"X","filesStaged":"' && lv_files_staged &&
+                    '","commitMessage":"' && lv_message && '"}'.
+
+      CATCH zcx_abapgit_exception INTO DATA(lx_abapgit).
+        rv_result = '{"success":"","error":"' && lx_abapgit->get_text( ) && '"}'.
       CATCH cx_root INTO DATA(lx_other).
         rv_result = '{"success":"","error":"' && lx_other->get_text( ) && '"}'.
     ENDTRY.

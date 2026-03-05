@@ -182,11 +182,15 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     const createPassed = output.includes('success') && output.includes('created');
     addResult('create repo', createPassed, output);
 
-    // Step 12: Run import command
-    printInfo('Importing objects...');
+    // Step 12: Run import command (async with polling)
+    printInfo('Importing objects (async job with polling)...');
     output = runCli('import', ['--message', 'test: initial import']);
-    const importPassed = output.includes('imported') || output.includes('No objects');
-    addResult('import objects', importPassed, output);
+    // Check for async job pattern: job started, polling, completed
+    const importPassed = (
+      (output.includes('Job started') || output.includes('job started')) &&
+      (output.includes('Import completed successfully') || output.includes('completed'))
+    ) || output.includes('No objects');
+    addResult('import objects (async)', importPassed, output);
 
     // Step 13: Git pull to see new commits
     printInfo('Git pull to check import...');

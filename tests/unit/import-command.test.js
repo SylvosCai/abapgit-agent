@@ -1,6 +1,6 @@
 /**
  * Unit tests for import command
- * Tests object import from package to git
+ * Tests async object import from package to git (background job + polling)
  */
 
 // Mock fs module
@@ -39,31 +39,97 @@ describe('Import Command - Logic Tests', () => {
   test('uses default message when not specified', () => {
     const args = ['import'];
     const msgIndex = args.indexOf('--message');
-    const message = msgIndex !== -1 ? args[msgIndex + 1] : 'Import from ABAP system';
+    const message = msgIndex !== -1 ? args[msgIndex + 1] : null;
 
-    expect(message).toBe('Import from ABAP system');
+    expect(message).toBe(null);
   });
 });
 
-describe('Import Command - CLI Output Format', () => {
+describe('Import Command - Async Job Pattern', () => {
   let consoleOutput;
   let originalConsoleLog;
   let originalConsoleError;
+  let originalStdoutWrite;
 
   beforeEach(() => {
     consoleOutput = [];
     originalConsoleLog = console.log;
     originalConsoleError = console.error;
+    originalStdoutWrite = process.stdout.write;
     console.log = (...args) => consoleOutput.push(args.join(' '));
     console.error = (...args) => consoleOutput.push(args.join(' '));
+    process.stdout.write = jest.fn(); // Mock progress bar output
   });
 
   afterEach(() => {
     console.log = originalConsoleLog;
     console.error = originalConsoleError;
+    process.stdout.write = originalStdoutWrite;
   });
 
-  test('output shows successful import', async () => {
+  test('output shows job started and polls for completion', async () => {
+    const importCommand = require('../../src/commands/import');
+
+    let pollCount = 0;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443, package: '$ZTEST' })),
+      gitUtils: {
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
+        getBranch: jest.fn(() => 'master')
+      },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          JOB_NUMBER: '12345678',
+          JOB_NAME: 'IMPORT_20260304120000'
+        }),
+        get: jest.fn().mockImplementation(() => {
+          pollCount++;
+          if (pollCount === 1) {
+            // First poll: starting
+            return Promise.resolve({
+              STATUS: 'running',
+              PROGRESS: 10,
+              MESSAGE: 'Finding repository...'
+            });
+          } else if (pollCount === 2) {
+            // Second poll: staging
+            return Promise.resolve({
+              STATUS: 'running',
+              PROGRESS: 50,
+              MESSAGE: 'Staging local files...'
+            });
+          } else {
+            // Final poll: completed
+            return Promise.resolve({
+              STATUS: 'completed',
+              PROGRESS: 100,
+              MESSAGE: 'Import completed successfully',
+              RESULT: '{"success":"X","filesStaged":"100","commitMessage":"test: initial import"}',
+              STARTED_AT: '20260304120000',
+              COMPLETED_AT: '20260304120030'
+            });
+          }
+        })
+      }))
+    };
+
+    await importCommand.execute(['--message', 'Test import'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Check job started message
+    expect(output).toMatch(/job started|✅/i);
+    expect(output).toMatch(/12345678/);
+
+    // Check completion message
+    expect(output).toMatch(/✅.*import completed successfully/i);
+    expect(output).toMatch(/files staged.*100/i);
+    expect(output).toMatch(/time spent/i);
+  });
+
+  test('output shows error when job fails', async () => {
     const importCommand = require('../../src/commands/import');
 
     const mockContext = {
@@ -76,25 +142,31 @@ describe('Import Command - CLI Output Format', () => {
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue({
           SUCCESS: 'X',
-          MESSAGE: 'Import completed successfully',
-          IMPORTED_COUNT: 10,
-          FILES: [
-            { NAME: 'zcl_my_class.clas.abap', STATUS: 'Created' },
-            { NAME: 'zif_my_intf.intf.abap', STATUS: 'Created' }
-          ]
+          JOB_NUMBER: '12345678',
+          JOB_NAME: 'IMPORT_20260304120000'
+        }),
+        get: jest.fn().mockResolvedValue({
+          STATUS: 'error',
+          PROGRESS: 50,
+          MESSAGE: 'Import failed',
+          ERROR_MESSAGE: 'Repository not found'
         })
       }))
     };
 
-    await importCommand.execute(['--message', 'Test import'], mockContext);
+    try {
+      await importCommand.execute([], mockContext);
+    } catch (e) {
+      // Expected to throw
+    }
 
     const output = consoleOutput.join('\n');
 
-    expect(output).toMatch(/✅|success|import/i);
-    expect(output).toMatch(/completed|success/i);
+    expect(output).toMatch(/error|failed|❌/i);
+    expect(output).toMatch(/repository not found/i);
   });
 
-  test('output shows error when import fails', async () => {
+  test('output shows error when job start fails', async () => {
     const importCommand = require('../../src/commands/import');
 
     const mockContext = {
@@ -107,8 +179,7 @@ describe('Import Command - CLI Output Format', () => {
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue({
           SUCCESS: '',
-          MESSAGE: 'Import failed',
-          ERROR: 'Package not found'
+          ERROR: 'Failed to create background job'
         })
       }))
     };
@@ -116,11 +187,11 @@ describe('Import Command - CLI Output Format', () => {
     try {
       await importCommand.execute([], mockContext);
     } catch (e) {
-      // May throw error
+      // Expected to throw
     }
 
     const output = consoleOutput.join('\n');
 
-    expect(output).toMatch(/error|failed|❌/i);
+    expect(output).toMatch(/failed.*start.*job|error/i);
   });
 });

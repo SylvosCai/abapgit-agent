@@ -22,6 +22,15 @@ abapgit-agent import --message "Your commit message"
 - Package has objects to import
 - GitHub credentials configured in `.abapGitAgent`
 
+## Behavior
+
+The import command runs **asynchronously** as a background job:
+
+- ✅ **No HTTP timeout** - Works for large packages with thousands of objects
+- ✅ **Real-time progress** - Shows progress bar with current stage
+- ✅ **Non-blocking** - Returns job number immediately
+- ✅ **Auto-polling** - Polls every 2 seconds until completion
+
 ## Parameters
 
 | Parameter | Required | Default | Description |
@@ -60,13 +69,22 @@ export GIT_PASSWORD="ghp_your_github_token"
 
 ## How It Works
 
-1. **Validate** - Check repository URL exists
-2. **Find Repo** - Locate abapGit repository by git URL
-3. **Configure Credentials** - Set git credentials from config
-4. **Refresh** - Get latest local files from package
-5. **Stage** - Create stage with all files
-6. **Commit** - Commit with message
-7. **Push** - Push to remote
+The import command runs **asynchronously** using a background job with real-time progress updates:
+
+1. **Start Background Job** - Creates ABAP background job
+2. **Poll for Status** - Polls every 2 seconds for progress
+3. **Display Progress** - Shows progress bar with current stage
+4. **Complete** - Shows final results (files staged, time spent)
+
+### Import Stages
+
+The background job progresses through 5 stages:
+
+1. **Find Repository** (10%) - Locate abapGit repository by git URL
+2. **Refresh Repository** (30%) - Get latest state from ABAP
+3. **Stage Files** (50-70%) - Create stage with all local files from package
+4. **Prepare Commit** (70%) - Build commit message and prepare metadata
+5. **Push** (90%) - Commit and push to remote repository
 
 ## Workflow
 
@@ -90,43 +108,100 @@ export GIT_PASSWORD="ghp_your_github_token"
 ### Success
 
 ```
-✅ Objects imported successfully!
-   Files staged: 27
-   Commit: feat: initial import from ABAP package AUD_TAG
+📦 Starting import job
+   URL: https://github.com/user/repo.git
+
+✅ Job started: 14334000
+
+[==============================] Import completed successfully
+
+✅ Import completed successfully!
+   Files staged: 3701
+   Commit: feat: initial import from ABAP package FRA_HOME_MAIN
+
+⏱️  Time spent: 20 seconds
+📈 Stats:
+   Job number: 14334000
+   Started: 2026-03-04 13:33:40
+   Completed: 2026-03-04 13:34:00
+```
+
+### Progress Display
+
+During import, a progress bar shows the current stage:
+
+```
+[===============               ] Staging local files...
+[===========================   ] Pushing to repository...
+[==============================] Import completed successfully
 ```
 
 ### With Custom Message
 
 ```
-✅ Objects imported successfully!
+📦 Starting import job
+   URL: https://github.com/user/repo.git
+
+✅ Job started: 14335000
+
+[==============================] Import completed successfully
+
+✅ Import completed successfully!
    Files staged: 15
    Commit: My custom import message
+
+⏱️  Time spent: 8 seconds
+📈 Stats:
+   Job number: 14335000
+   Started: 2026-03-04 14:20:10
+   Completed: 2026-03-04 14:20:18
 ```
 
 ### Error - Repository Not Found
 
 ```
-❌ Import failed
-   Error: Repository not found. Run "abapgit-agent create" or create in abapGit UI first.
+📦 Starting import job
+   URL: https://github.com/user/repo.git
+
+✅ Job started: 14336000
+
+[===============               ] Finding repository...
+
+❌ Import failed!
+   Error: Repository not found
 ```
 
 ### Error - No Objects Found
 
 ```
-❌ Import failed
-   Error: No objects found in package ZMY_PACKAGE
+📦 Starting import job
+   URL: https://github.com/user/repo.git
+
+✅ Job started: 14337000
+
+[===========================   ] Staging local files...
+
+❌ Import failed!
+   Error: No objects found in package
 ```
 
 ### Error - GitHub Credentials
 
 ```
-❌ Import failed
-   Error: Unauthorized access to resource (HTTP 401)
+📦 Starting import job
+   URL: https://github.com/user/repo.git
+
+✅ Job started: 14338000
+
+[===========================   ] Pushing to repository...
+
+❌ Import failed!
+   Error: Error during import (HTTP 403 Forbidden)
 ```
 
 ## Troubleshooting
 
-### HTTP 401 Unauthorized
+### HTTP 401/403 Unauthorized
 
 GitHub credentials not configured or invalid:
 
@@ -139,6 +214,8 @@ GitHub credentials not configured or invalid:
   "gitPassword": "ghp_your_token"
 }
 ```
+
+**Note**: The password must be passed exactly as-is (case-sensitive). The import command preserves case sensitivity.
 
 ### Repository Not Found
 
@@ -153,6 +230,23 @@ The package may be empty or objects not yet created:
 
 1. Verify package in SAP GUI: `SE21` → Display Package
 2. Ensure objects exist in the package
+
+### Job Stuck or Hangs
+
+If the import appears to hang:
+
+1. Check ABAP background job: `SM37` → Job name: `IMPORT_*`
+2. View job log for errors
+3. If job failed, error will be shown in CLI after timeout
+
+### Large Package Import
+
+For packages with thousands of objects:
+
+- Import runs asynchronously (no HTTP timeout)
+- Progress updates every 2 seconds
+- Typical speed: ~100-200 objects per second
+- 3700+ objects: ~20-30 seconds
 
 ## Full Workflow
 

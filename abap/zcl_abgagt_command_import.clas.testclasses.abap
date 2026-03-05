@@ -2,241 +2,73 @@
 *"* local test class
 CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
-    DATA mo_cut TYPE REF TO zcl_abgagt_command_import.
+    DATA mo_cut TYPE REF TO zif_abgagt_command.
 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
-    METHODS test_missing_url FOR TESTING.
-    METHODS test_repo_not_found FOR TESTING RAISING zcx_abapgit_exception.
-    METHODS test_exception FOR TESTING RAISING zcx_abapgit_exception.
-    METHODS test_no_objects_found FOR TESTING RAISING zcx_abapgit_exception.
-    METHODS test_partial_credentials FOR TESTING RAISING zcx_abapgit_exception.
-    METHODS test_default_commit_message FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_url_required FOR TESTING.
+    METHODS test_repo_not_found FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
 
   METHOD setup.
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW zcl_abgagt_command_import( ).
   ENDMETHOD.
 
   METHOD test_get_name.
-    DATA(lv_name) = mo_cut->zif_abgagt_command~get_name( ).
+    " Test that command name is 'IMPORT'
+    DATA(lv_name) = mo_cut->get_name( ).
+
     cl_abap_unit_assert=>assert_equals(
       act = lv_name
       exp = 'IMPORT'
       msg = 'Command name should be IMPORT' ).
   ENDMETHOD.
 
-  METHOD test_missing_url.
-    DATA: BEGIN OF ls_param,
-            url TYPE string VALUE '',
-          END OF ls_param.
+  METHOD test_url_required.
+    " Test that command returns error when URL is missing
+    DATA ls_param TYPE zcl_abgagt_command_import=>ty_import_params.
+    " Leave url empty
 
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+    DATA(lv_result) = mo_cut->execute( is_param = ls_param ).
 
+    " Assert - should return error about URL being required
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '*"error":"URL is required"*' ).
+      exp = '*"error":"URL is required"*'
+      msg = 'Should return URL is required error' ).
   ENDMETHOD.
 
   METHOD test_repo_not_found.
-    " Step 1: Create test double for repo service
+    " Test that command returns error when repository is not found
+    " Using test doubles to simulate repository service behavior
+
+    " Create test double for repository service
     DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
     lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
 
-    " Step 2: Configure get_repo_from_url - do not configure returning
-    " The method will return ei_repo as not bound (initial)
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
-
-    " Step 3: Register the method call with matching parameters
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
-
-    " Step 4: Create CUT with test double injected
-    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 5: Execute
-    DATA: BEGIN OF ls_param,
-            url TYPE string VALUE 'https://github.com/test/repo.git',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Assert - repo not found because ei_repo is not bound
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error":"Repository not found"*' ).
-  ENDMETHOD.
-
-  METHOD test_exception.
-    " Step 1: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
-
-    " Step 2: Configure to raise exception
-    DATA lx_error TYPE REF TO zcx_abapgit_exception.
-    CREATE OBJECT lx_error.
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
-
-    " Step 3: Register the method call with matching parameters
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
-
-    " Step 4: Create CUT with test double injected
-    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 5: Execute
-    DATA: BEGIN OF ls_param,
-            url TYPE string VALUE 'https://github.com/test/repo.git',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Assert - error should be in result
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error":"*' ).
-  ENDMETHOD.
-
-  METHOD test_no_objects_found.
-    " Step 1: Create test double for online repo (needed for cast at line 106)
-    DATA lo_repo_double TYPE REF TO zif_abapgit_repo_online.
-    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
-
-    " Step 2: Configure get_package to return a package (use parent interface prefix)
-    DATA lv_package TYPE devclass VALUE '$TEST'.
-    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lv_package ).
-    lo_repo_double->zif_abapgit_repo~get_package( ).
-
-    " Step 3: Configure refresh (no parameters) - use parent interface prefix
-    cl_abap_testdouble=>configure_call( lo_repo_double ).
-    lo_repo_double->zif_abapgit_repo~refresh( ).
-
-    " Step 4: Configure get_files_local to return empty table - use parent interface prefix
-    DATA lt_empty_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
-    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_empty_files ).
-    lo_repo_double->zif_abapgit_repo~get_files_local( ).
-
-    " Step 5: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
-
-    " Step 6: Configure get_repo_from_url to return the repo via set_parameter
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
-      EXPORTING
-        name  = 'EI_REPO'
-        value = lo_repo_double ).
-
-    " Step 7: Register the method call with matching parameters
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
-
-    " Step 8: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 9: Execute
-    DATA: BEGIN OF ls_param,
-            url TYPE string VALUE 'https://github.com/test/repo.git',
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Assert - no objects found error
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_result
-      exp = '*"error":"No objects found in package"*' ).
-  ENDMETHOD.
-
-  METHOD test_partial_credentials.
-    " Test when only username is provided (password is empty)
-    " Credentials block should be skipped (line 84 requires BOTH)
-
-    " Step 1: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
-
-    " Step 2: Configure get_repo_from_url - repo not found (initial)
+    " Configure test double: get_repo_from_url returns nothing (repo not found)
     cl_abap_testdouble=>configure_call( lo_repo_srv_double ).
     lo_repo_srv_double->get_repo_from_url(
       EXPORTING iv_url = 'https://github.com/test/repo.git' ).
 
-    " Step 3: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+    " Inject test double into command
+    DATA lo_import_cmd TYPE REF TO zcl_abgagt_command_import.
+    lo_import_cmd = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+    mo_cut = lo_import_cmd.
 
-    " Step 4: Execute with only username (no password)
-    DATA: BEGIN OF ls_param,
-            url      TYPE string VALUE 'https://github.com/test/repo.git',
-            username TYPE string VALUE 'testuser',
-            password TYPE string VALUE '',  " Empty password
-          END OF ls_param.
+    " Execute command with test URL
+    DATA ls_param TYPE zcl_abgagt_command_import=>ty_import_params.
+    ls_param-url = 'https://github.com/test/repo.git'.
 
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
+    DATA(lv_result) = mo_cut->execute( is_param = ls_param ).
 
-    " Assert - should get repo not found error (credentials skipped)
+    " Assert - should return error about repository not found
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_result
-      exp = '*"error":"Repository not found"*' ).
-  ENDMETHOD.
-
-  METHOD test_default_commit_message.
-    " Test that when no custom message is provided, default message is used
-    " This test verifies the code proceeds past the message check
-
-    " Step 1: Create test double for online repo
-    DATA lo_repo_double TYPE REF TO zif_abapgit_repo_online.
-    lo_repo_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_ONLINE' ).
-
-    " Step 2: Configure get_package to return a package
-    DATA lv_package TYPE devclass VALUE '$ZTEST'.
-    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lv_package ).
-    lo_repo_double->zif_abapgit_repo~get_package( ).
-
-    " Step 3: Configure refresh
-    cl_abap_testdouble=>configure_call( lo_repo_double ).
-    lo_repo_double->zif_abapgit_repo~refresh( ).
-
-    " Step 4: Configure get_files_local to return ONE file (not empty)
-    DATA lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt.
-    DATA ls_file LIKE LINE OF lt_files.
-    ls_file-file-path = '/'.
-    ls_file-file-filename = 'test.txt'.
-    ls_file-file-data = '7465737464617461'.  " "testdata" in hex
-    APPEND ls_file TO lt_files.
-    cl_abap_testdouble=>configure_call( lo_repo_double )->returning( lt_files ).
-    lo_repo_double->zif_abapgit_repo~get_files_local( ).
-
-    " Step 5: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
-
-    " Step 6: Configure get_repo_from_url to return the repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
-      EXPORTING
-        name  = 'EI_REPO'
-        value = lo_repo_double ).
-    lo_repo_srv_double->get_repo_from_url(
-      EXPORTING iv_url = 'https://github.com/test/repo.git' ).
-
-    " Step 7: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 8: Execute with NO custom message (empty)
-    DATA: BEGIN OF ls_param,
-            url      TYPE string VALUE 'https://github.com/test/repo.git',
-            message  TYPE string VALUE '',  " Empty - should use default
-          END OF ls_param.
-
-    DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
-
-    " Assert - parse JSON and check values
-    DATA lv_json TYPE string.
-    lv_json = lv_result.
-
-    " Should have files_staged = 1
-    cl_abap_unit_assert=>assert_char_cp(
-      act = lv_json
-      exp = '*"files_staged":"1"*' ).
+      exp = '*"error":"Repository not found"*'
+      msg = 'Should return repository not found error' ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -17,6 +17,8 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/pull` | Pull and activate repository |
 | POST | `/create` | Create abapGit online repository |
 | POST | `/delete` | Delete abapGit repository from ABAP |
+| POST | `/import` | **Import objects from package to git (async)** |
+| GET | `/import?jobNumber=X` | **Poll import job status** |
 | POST | `/status` | Check if repo exists in ABAP system |
 | POST | `/syntax` | **Pre-commit syntax check (CLAS, INTF, PROG, DDLS)** |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
@@ -219,6 +221,240 @@ Delete an abapGit online repository from the ABAP system.
   "success": "",
   "error": "No suitable repository found"
 }
+```
+
+## POST /import (Async)
+
+Import objects from an ABAP package into git. This endpoint runs **asynchronously** as a background job to handle large packages without HTTP timeouts.
+
+### Workflow
+
+```
+1. POST /import → Returns HTTP 202 Accepted with jobNumber
+2. GET /import?jobNumber=X → Poll every 2 seconds for status
+3. Job completes → Final status with result
+```
+
+### Request
+
+```bash
+# 1. Get CSRF token
+curl -c cookies.txt -D headers.txt -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/health" \
+  -u USER:PASSWORD \
+  -H "sap-client: 100" \
+  -H "X-CSRF-Token: fetch"
+
+CSRF=$(grep -i "x-csrf-token" headers.txt | awk '{print $2}' | tr -d '\r')
+
+# 2. Start import job
+curl -X POST "https://your-system:44300/sap/bc/z_abapgit_agent/import" \
+  -H "Content-Type: application/json" \
+  -H "sap-client: 100" \
+  -H "X-CSRF-Token: $CSRF" \
+  -b cookies.txt \
+  -u USER:PASSWORD \
+  -d '{
+    "url": "https://github.com/user/repo.git",
+    "branch": "main",
+    "package": "$MY_PACKAGE",
+    "message": "feat: initial import from ABAP",
+    "username": "git-username",
+    "password": "ghp_token"
+  }'
+
+# 3. Poll for status (repeat until status is "completed" or "error")
+JOB_NUMBER="12345678"
+curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=$JOB_NUMBER" \
+  -H "sap-client: 100" \
+  -b cookies.txt \
+  -u USER:PASSWORD
+```
+
+### Request Body
+
+```json
+{
+  "url": "https://github.com/user/repo.git",
+  "branch": "main",
+  "package": "$MY_PACKAGE",
+  "message": "feat: initial import from ABAP",
+  "username": "git-username",
+  "password": "ghp_token"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | String | Yes | Git repository URL |
+| `branch` | String | No | Branch name (default: main) |
+| `package` | String | No | ABAP package (auto-detected from repo if omitted) |
+| `message` | String | No | Commit message (default: "feat: initial import from ABAP package \<package\>") |
+| `username` | String | No | Git username (can also use credentials from `.abapGitAgent`) |
+| `password` | String | No | Git token/password |
+
+### Response: Job Scheduled (HTTP 202 Accepted)
+
+```json
+{
+  "success": true,
+  "command": "import",
+  "status": "accepted",
+  "jobName": "IMPORT_20260305103045",
+  "jobNumber": "12345678",
+  "message": "Command scheduled for background execution"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Always `true` when job is scheduled |
+| `command` | String | Command type ("import") |
+| `status` | String | Always "accepted" for initial response |
+| `jobName` | String | Background job name |
+| `jobNumber` | String | Job number for polling (8 digits with leading zeros) |
+| `message` | String | Status message |
+
+---
+
+## GET /import?jobNumber=X
+
+Poll the status of a running import job.
+
+### Request
+
+```bash
+curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=12345678" \
+  -H "sap-client: 100" \
+  -b cookies.txt \
+  -u USER:PASSWORD
+```
+
+### Response: Job Running
+
+```json
+{
+  "job_name": "IMPORT_20260305103045",
+  "job_number": "12345678",
+  "status": "running",
+  "stage": "STAGE_FILES",
+  "message": "Staging files (1250 of 3701)",
+  "progress": 65,
+  "current": 1250,
+  "total": 3701,
+  "started_at": "20260305103045",
+  "updated_at": "20260305103112"
+}
+```
+
+### Response: Job Completed (Success)
+
+```json
+{
+  "job_name": "IMPORT_20260305103045",
+  "job_number": "12345678",
+  "status": "completed",
+  "stage": "FINISHED",
+  "message": "Import completed successfully",
+  "progress": 100,
+  "result": "{\"success\":\"X\",\"filesStaged\":\"3701\",\"commitMessage\":\"feat: initial import from ABAP package $MY_PACKAGE\"}",
+  "started_at": "20260305103045",
+  "updated_at": "20260305103520",
+  "completed_at": "20260305103520"
+}
+```
+
+### Response: Job Failed
+
+```json
+{
+  "job_name": "IMPORT_20260305103045",
+  "job_number": "12345678",
+  "status": "error",
+  "stage": "FAILED",
+  "message": "Error during import",
+  "error_message": "Repository not found",
+  "progress": 30,
+  "started_at": "20260305103045",
+  "updated_at": "20260305103112",
+  "completed_at": "20260305103112"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `job_name` | String | Background job name |
+| `job_number` | String | Job number (8 digits) |
+| `status` | String | `scheduled`, `running`, `completed`, or `error` |
+| `stage` | String | Current stage: `INITIALIZATION`, `EXECUTION`, `FIND_REPOSITORY`, `REFRESH_REPOSITORY`, `STAGE_FILES`, `PREPARE_COMMIT`, `PUSH`, `FINISHED`, `FAILED` |
+| `message` | String | Human-readable status message |
+| `progress` | Integer | Progress percentage (0-100) |
+| `current` | Integer | Current item (for staging files) |
+| `total` | Integer | Total items (for staging files) |
+| `result` | String | JSON string with final result (when status is "completed") |
+| `error_message` | String | Error details (when status is "error") |
+| `started_at` | String | Timestamp when job started (YYYYMMDDHHmmss) |
+| `updated_at` | String | Timestamp of last status update |
+| `completed_at` | String | Timestamp when job finished (present when status is "completed" or "error") |
+
+### Import Stages
+
+The import job progresses through these stages:
+
+| Stage | Progress | Description |
+|-------|----------|-------------|
+| `INITIALIZATION` | 0% | Job scheduled, waiting to start |
+| `FIND_REPOSITORY` | 10% | Locating abapGit repository by URL |
+| `REFRESH_REPOSITORY` | 30% | Refreshing repository state from ABAP |
+| `STAGE_FILES` | 50-70% | Staging local files from package (shows file count) |
+| `PREPARE_COMMIT` | 70% | Building commit message and metadata |
+| `PUSH` | 90% | Committing and pushing to remote repository |
+| `FINISHED` | 100% | Import completed successfully |
+| `FAILED` | - | Error occurred (check `error_message`) |
+
+### Polling Recommendations
+
+- **Poll interval**: 2 seconds
+- **Timeout**: 10 minutes (for very large packages)
+- **Error handling**: If GET request fails, retry up to 3 times before giving up
+- **Status check**: Continue polling while `status` is `scheduled` or `running`
+- **Completion**: Stop polling when `status` is `completed` or `error`
+
+### Example Polling Script
+
+```bash
+#!/bin/bash
+
+JOB_NUMBER="$1"
+MAX_ATTEMPTS=300  # 10 minutes with 2-second intervals
+
+for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+  RESPONSE=$(curl -s -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=$JOB_NUMBER" \
+    -H "sap-client: 100" \
+    -b cookies.txt \
+    -u USER:PASSWORD)
+
+  STATUS=$(echo "$RESPONSE" | jq -r '.status')
+  MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
+  PROGRESS=$(echo "$RESPONSE" | jq -r '.progress')
+
+  echo "[$i] Status: $STATUS | Progress: $PROGRESS% | $MESSAGE"
+
+  if [ "$STATUS" = "completed" ]; then
+    echo "✅ Import completed successfully"
+    exit 0
+  elif [ "$STATUS" = "error" ]; then
+    ERROR=$(echo "$RESPONSE" | jq -r '.error_message')
+    echo "❌ Import failed: $ERROR"
+    exit 1
+  fi
+
+  sleep 2
+done
+
+echo "⏱️ Timeout: Import did not complete within 10 minutes"
+exit 1
 ```
 
 ## POST /status
