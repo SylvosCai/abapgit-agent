@@ -304,10 +304,14 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
   METHOD zif_abgagt_util~get_object_info_from_tadir.
     " Get object info from TADIR by object name
+    DATA lv_obj_name TYPE tadir-obj_name.
+    lv_obj_name = iv_obj_name.
+    TRANSLATE lv_obj_name TO UPPER CASE.
+
     SELECT SINGLE object obj_name devclass FROM tadir
       INTO (rs_info-obj_type, rs_info-obj_name, rs_info-devclass)
-      WHERE obj_name = iv_obj_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG').
+      WHERE obj_name = lv_obj_name
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG', 'STOB').
 
     CASE rs_info-obj_type.
       WHEN 'CLAS'. rs_info-type_text = 'Class'.
@@ -318,6 +322,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       WHEN 'TTYP'. rs_info-type_text = 'Table Type'.
       WHEN 'DDLS'. rs_info-type_text = 'CDS View'.
       WHEN 'PROG'. rs_info-type_text = 'Program'.
+      WHEN 'STOB'. rs_info-type_text = 'Structured Object'.
     ENDCASE.
   ENDMETHOD.
 ENDCLASS.

@@ -105,7 +105,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           lo_viewer = lo_factory->get_viewer( lv_type ).
           ls_info = lo_viewer->get_info( lv_object ).
         CATCH cx_sy_create_object_error.
-          " Viewer not found - set not found flag
+          " Viewer class not found - set not found flag
+          ls_info-name = lv_object.
+          ls_info-type = lv_type.
+          ls_info-not_found = abap_true.
+        CATCH cx_root.
+          " Any other error (e.g. cx_dd_ddl_read) - set not found flag
+          ls_info-name = lv_object.
+          ls_info-type = lv_type.
           ls_info-not_found = abap_true.
       ENDTRY.
 

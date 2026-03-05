@@ -71,7 +71,11 @@ module.exports = {
         // Check if object was not found
         if (notFound) {
           console.log(`  ❌ ${objName} (${objTypeText})`);
-          console.log(`     Object not found: ${objName}`);
+          if (description) {
+            console.log(`     ${description}`);
+          } else {
+            console.log(`     Object not found: ${objName}`);
+          }
           continue;
         }
 
@@ -80,9 +84,9 @@ module.exports = {
           console.log(`     ${description}`);
         }
 
-        // Display source code for classes, interfaces, CDS views, and programs/source includes
+        // Display source code for classes, interfaces, CDS views, programs/source includes, and STOB
         const source = obj.SOURCE || obj.source || '';
-        if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'PROG' || objType === 'Program')) {
+        if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'PROG' || objType === 'Program' || objType === 'STOB' || objType === 'Structured Object')) {
           console.log('');
           // Replace escaped newlines with actual newlines and display
           const displaySource = source.replace(/\\n/g, '\n');
