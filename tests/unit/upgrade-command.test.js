@@ -145,39 +145,28 @@ describe('Upgrade Command', () => {
   });
 
   describe('upgradeAbapBackend - URL resolution', () => {
-    it('uses agentRepoUrl from config when present', async () => {
-      const capturedArgs = [];
-      const mockPull = { execute: jest.fn(async (args) => { capturedArgs.push(...args); }) };
-      jest.mock('../../src/commands/pull', () => mockPull, { virtual: true });
-
+    it('uses agentRepoUrl from config when present', () => {
       const context = {
         loadConfig: jest.fn(() => ({
           agentRepoUrl: 'https://github.com/myorg/abapgit-agent.git'
-        })),
-        gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/myorg/bis.abap.git') }
+        }))
       };
 
-      // Directly test the URL resolution logic
       const config = context.loadConfig();
-      const agentRepoUrl = config.agentRepoUrl || context.gitUtils.getRemoteUrl();
+      const agentRepoUrl = config.agentRepoUrl || 'https://github.com/SylvosCai/abapgit-agent.git';
 
       expect(agentRepoUrl).toBe('https://github.com/myorg/abapgit-agent.git');
-      expect(context.gitUtils.getRemoteUrl).not.toHaveBeenCalled();
     });
 
-    it('falls back to current git remote when agentRepoUrl not configured', () => {
+    it('falls back to canonical URL when agentRepoUrl not configured', () => {
       const context = {
-        loadConfig: jest.fn(() => ({
-          // no agentRepoUrl
-        })),
-        gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/myorg/abapgit-agent.git') }
+        loadConfig: jest.fn(() => ({}))
       };
 
       const config = context.loadConfig();
-      const agentRepoUrl = config.agentRepoUrl || context.gitUtils.getRemoteUrl();
+      const agentRepoUrl = config.agentRepoUrl || 'https://github.com/SylvosCai/abapgit-agent.git';
 
-      expect(agentRepoUrl).toBe('https://github.com/myorg/abapgit-agent.git');
-      expect(context.gitUtils.getRemoteUrl).toHaveBeenCalled();
+      expect(agentRepoUrl).toBe('https://github.com/SylvosCai/abapgit-agent.git');
     });
 
     it('pull args include --url when upgrading ABAP', () => {

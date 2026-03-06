@@ -387,21 +387,14 @@ module.exports = {
     console.log('');
 
     try {
-      const { loadConfig, gitUtils } = context;
+      const { loadConfig } = context;
 
       // Determine the abapgit-agent repository URL.
       // Priority:
-      //   1. agentRepoUrl from .abapGitAgent config
-      //   2. Current directory git remote (only valid when run from abapgit-agent repo itself)
+      //   1. agentRepoUrl from .abapGitAgent config (for forks/mirrors)
+      //   2. Default canonical repository
       const config = loadConfig();
-      const agentRepoUrl = config.agentRepoUrl || gitUtils.getRemoteUrl();
-
-      if (!agentRepoUrl) {
-        console.error('❌ Error: Cannot determine abapgit-agent repository URL.');
-        console.error('   Add "agentRepoUrl" to your .abapGitAgent config:');
-        console.error('   { "agentRepoUrl": "https://github.com/.../abapgit-agent.git" }');
-        process.exit(1);
-      }
+      const agentRepoUrl = config.agentRepoUrl || 'https://github.com/SylvosCai/abapgit-agent.git';
 
       // Build pull command args — always pass --url explicitly so the pull
       // command does not fall back to the current directory's git remote.
