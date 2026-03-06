@@ -111,7 +111,8 @@ describe('Upgrade Command - Edge Cases', () => {
         fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
 
         const output = runCommand('upgrade --abap-only --dry-run');
-        expect(output).toContain('pull --branch');
+        expect(output).toContain('pull --url');
+        expect(output).toContain('--branch');
         expect(output).not.toContain('npm install');
       } finally {
         if (configExisted && originalConfig) {
@@ -165,7 +166,8 @@ describe('Upgrade Command - Edge Cases', () => {
 
         const output = runCommand('upgrade --abap-only --transport DEVK900001 --dry-run');
         expect(output).toContain('DRY RUN');
-        expect(output).toContain('pull --branch');
+        expect(output).toContain('pull --url');
+        expect(output).toContain('--branch');
       } finally {
         if (configExisted && originalConfig) {
           fs.writeFileSync(configPath, originalConfig);

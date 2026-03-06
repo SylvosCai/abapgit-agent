@@ -260,8 +260,8 @@ module.exports = {
       step++;
     }
     if (targets.abapTarget) {
-      console.log(`  ${step}. abapgit-agent pull --branch v${targets.abapTarget}`);
-      console.log('     (via existing abapGit repository)');
+      console.log(`  ${step}. abapgit-agent pull --url <agentRepoUrl> --branch v${targets.abapTarget}`);
+      console.log('     (agentRepoUrl from .abapGitAgent config or current git remote)');
       step++;
     }
     console.log(`  ${step}. Verify versions match`);
@@ -387,8 +387,25 @@ module.exports = {
     console.log('');
 
     try {
-      // Build pull command args
-      const pullArgs = ['--branch', `v${version}`];
+      const { loadConfig, gitUtils } = context;
+
+      // Determine the abapgit-agent repository URL.
+      // Priority:
+      //   1. agentRepoUrl from .abapGitAgent config
+      //   2. Current directory git remote (only valid when run from abapgit-agent repo itself)
+      const config = loadConfig();
+      const agentRepoUrl = config.agentRepoUrl || gitUtils.getRemoteUrl();
+
+      if (!agentRepoUrl) {
+        console.error('❌ Error: Cannot determine abapgit-agent repository URL.');
+        console.error('   Add "agentRepoUrl" to your .abapGitAgent config:');
+        console.error('   { "agentRepoUrl": "https://github.com/.../abapgit-agent.git" }');
+        process.exit(1);
+      }
+
+      // Build pull command args — always pass --url explicitly so the pull
+      // command does not fall back to the current directory's git remote.
+      const pullArgs = ['--url', agentRepoUrl, '--branch', `v${version}`];
       if (transport) {
         pullArgs.push('--transport', transport);
       }

@@ -7,5 +7,6 @@
   "language": "EN",
   "gitUsername": "github-username",
   "gitPassword": "github-token",
-  "referenceFolder": "~/abap-reference"
+  "referenceFolder": "~/abap-reference",
+  "agentRepoUrl": "https://github.com/your-org/abapgit-agent.git"
 }

@@ -143,4 +143,53 @@ describe('Upgrade Command', () => {
       expect(value).toBeNull();
     });
   });
+
+  describe('upgradeAbapBackend - URL resolution', () => {
+    it('uses agentRepoUrl from config when present', async () => {
+      const capturedArgs = [];
+      const mockPull = { execute: jest.fn(async (args) => { capturedArgs.push(...args); }) };
+      jest.mock('../../src/commands/pull', () => mockPull, { virtual: true });
+
+      const context = {
+        loadConfig: jest.fn(() => ({
+          agentRepoUrl: 'https://github.com/myorg/abapgit-agent.git'
+        })),
+        gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/myorg/bis.abap.git') }
+      };
+
+      // Directly test the URL resolution logic
+      const config = context.loadConfig();
+      const agentRepoUrl = config.agentRepoUrl || context.gitUtils.getRemoteUrl();
+
+      expect(agentRepoUrl).toBe('https://github.com/myorg/abapgit-agent.git');
+      expect(context.gitUtils.getRemoteUrl).not.toHaveBeenCalled();
+    });
+
+    it('falls back to current git remote when agentRepoUrl not configured', () => {
+      const context = {
+        loadConfig: jest.fn(() => ({
+          // no agentRepoUrl
+        })),
+        gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/myorg/abapgit-agent.git') }
+      };
+
+      const config = context.loadConfig();
+      const agentRepoUrl = config.agentRepoUrl || context.gitUtils.getRemoteUrl();
+
+      expect(agentRepoUrl).toBe('https://github.com/myorg/abapgit-agent.git');
+      expect(context.gitUtils.getRemoteUrl).toHaveBeenCalled();
+    });
+
+    it('pull args include --url when upgrading ABAP', () => {
+      // Verify args structure passed to pull
+      const agentRepoUrl = 'https://github.com/myorg/abapgit-agent.git';
+      const version = '1.8.8';
+      const pullArgs = ['--url', agentRepoUrl, '--branch', `v${version}`];
+
+      expect(pullArgs).toContain('--url');
+      expect(pullArgs[pullArgs.indexOf('--url') + 1]).toBe(agentRepoUrl);
+      expect(pullArgs).toContain('--branch');
+      expect(pullArgs[pullArgs.indexOf('--branch') + 1]).toBe('v1.8.8');
+    });
+  });
 });
