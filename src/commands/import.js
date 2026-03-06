@@ -120,9 +120,15 @@ Examples:
         resultData = { filesStaged: 'unknown', commitMessage: commitMessage };
       }
 
+      if (resultData.success !== 'X' && resultData.success !== true) {
+        const errorMsg = resultData.error || resultData.ERROR || 'Unknown error';
+        console.log(`❌ Import failed: ${errorMsg}`);
+        process.exit(1);
+      }
+
       console.log(`✅ Import completed successfully!`);
-      console.log(`   Files staged: ${resultData.filesStaged || resultData.FILES_STAGED || 'unknown'}`);
-      console.log(`   Commit: ${resultData.commitMessage || resultData.COMMIT_MESSAGE || commitMessage || 'Initial import'}`);
+      console.log(`   Files staged: ${resultData.filesStaged || resultData.FILES_STAGED || resultData.files_staged || 'unknown'}`);
+      console.log(`   Commit: ${resultData.commitMessage || resultData.COMMIT_MESSAGE || resultData.commit_message || commitMessage || 'Initial import'}`);
       console.log(``);
 
       // Calculate time spent

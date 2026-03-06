@@ -166,6 +166,84 @@ describe('Import Command - Async Job Pattern', () => {
     expect(output).toMatch(/repository not found/i);
   });
 
+  test('output shows correct stats with snake_case result keys from ABAP', async () => {
+    const importCommand = require('../../src/commands/import');
+
+    let pollCount = 0;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      gitUtils: {
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
+        getBranch: jest.fn(() => 'master')
+      },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          JOB_NUMBER: '99887766',
+          JOB_NAME: 'IMPORT_20260306120000'
+        }),
+        get: jest.fn().mockImplementation(() => {
+          pollCount++;
+          if (pollCount < 3) {
+            return Promise.resolve({ STATUS: 'running', PROGRESS: 50, MESSAGE: 'Staging...' });
+          }
+          return Promise.resolve({
+            STATUS: 'completed',
+            PROGRESS: 100,
+            RESULT: '{"success":"X","files_staged":13796,"commit_message":"Initial import"}',
+            STARTED_AT: '20260306120000',
+            COMPLETED_AT: '20260306120430'
+          });
+        })
+      }))
+    };
+
+    await importCommand.execute([], mockContext);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/✅.*import completed successfully/i);
+    expect(output).toMatch(/files staged.*13796/i);
+    expect(output).toMatch(/initial import/i);
+  });
+
+  test('shows error when ABAP push fails (success is empty in result)', async () => {
+    const importCommand = require('../../src/commands/import');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      gitUtils: {
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
+        getBranch: jest.fn(() => 'master')
+      },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          JOB_NUMBER: '11223344',
+          JOB_NAME: 'IMPORT_20260306120000'
+        }),
+        get: jest.fn().mockResolvedValue({
+          STATUS: 'completed',
+          PROGRESS: 100,
+          RESULT: '{"success":"","error":"Repository not found for URL"}',
+          STARTED_AT: '20260306120000',
+          COMPLETED_AT: '20260306120010'
+        })
+      }))
+    };
+
+    try {
+      await importCommand.execute([], mockContext);
+    } catch (e) {
+      // Expected to throw via process.exit
+    }
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/❌.*import failed/i);
+    expect(output).toMatch(/repository not found for URL/i);
+  });
+
   test('output shows error when job start fails', async () => {
     const importCommand = require('../../src/commands/import');
 

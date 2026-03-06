@@ -202,7 +202,11 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
         lv_committer_name = li_user->get_default_git_user_name( ).
         lv_committer_email = li_user->get_default_git_user_email( ).
 
-        lv_message = |feat: initial import from ABAP package { lv_package }|.
+        IF ls_params-message IS NOT INITIAL.
+          lv_message = ls_params-message.
+        ELSE.
+          lv_message = |feat: initial import from ABAP package { lv_package }|.
+        ENDIF.
 
         ls_comment-committer-name  = lv_committer_name.
         ls_comment-committer-email = lv_committer_email.
@@ -228,13 +232,45 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_message  = 'Import completed successfully'
             iv_progress = 100.
 
-        rv_result = '{"success":"X","filesStaged":"' && lv_files_staged &&
-                    '","commitMessage":"' && lv_message && '"}'.
+        DATA: BEGIN OF ls_result,
+                success        TYPE string,
+                files_staged   TYPE i,
+                commit_message TYPE string,
+              END OF ls_result.
+        ls_result-success        = 'X'.
+        ls_result-files_staged   = lv_files_staged.
+        ls_result-commit_message = lv_message.
+        /ui2/cl_json=>serialize(
+          EXPORTING
+            data        = ls_result
+            pretty_name = /ui2/cl_json=>pretty_mode-low_case
+          RECEIVING
+            r_json      = rv_result ).
 
       CATCH zcx_abapgit_exception INTO DATA(lx_abapgit).
-        rv_result = '{"success":"","error":"' && lx_abapgit->get_text( ) && '"}'.
+        DATA: BEGIN OF ls_error,
+                success TYPE string,
+                error   TYPE string,
+              END OF ls_error.
+        ls_error-error = lx_abapgit->get_text( ).
+        /ui2/cl_json=>serialize(
+          EXPORTING
+            data        = ls_error
+            pretty_name = /ui2/cl_json=>pretty_mode-low_case
+          RECEIVING
+            r_json      = rv_result ).
       CATCH cx_root INTO DATA(lx_other).
-        rv_result = '{"success":"","error":"' && lx_other->get_text( ) && '"}'.
+        DATA: BEGIN OF ls_error2,
+                success TYPE string,
+                error   TYPE string,
+              END OF ls_error2.
+        ls_error2-error = lx_other->get_text( ).
+        /ui2/cl_json=>serialize(
+          EXPORTING
+            data        = ls_error2
+            pretty_name = /ui2/cl_json=>pretty_mode-low_case
+          RECEIVING
+            r_json      = rv_result ).
     ENDTRY.
   ENDMETHOD.
 

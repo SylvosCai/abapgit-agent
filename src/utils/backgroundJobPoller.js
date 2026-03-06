@@ -58,7 +58,7 @@ async function pollForCompletion(http, endpoint, jobNumber, options = {}) {
   let lastProgress = -1;
   let pollCount = 0;
 
-  while (status === 'running' || status === 'scheduled') {
+  while (status === 'running' || status === 'scheduled' || status === 'STARTING') {
     // Wait before polling (except first time)
     if (pollCount > 0) {
       await sleep(pollInterval);
