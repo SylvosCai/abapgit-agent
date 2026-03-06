@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.8.8
+
+### Bug Fixes
+
+- Fix import command failures for large repositories
+
+---
+
+---
+
+
 ## v1.8.7
 
 ### New Features
