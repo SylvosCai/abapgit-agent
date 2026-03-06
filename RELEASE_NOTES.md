@@ -4,7 +4,15 @@ title: Release Notes
 
 ## v1.8.7
 
-See commit history for changes.
+### New Features
+
+- `upgrade` command with automatic version check
+- Project-level safeguards configuration (`requireFilesForPull`, `disablePull`)
+
+### Bug Fixes
+
+- Fix mocked config for `--match` flag tests
+- Add CLI-only and mocked config to all failing upgrade tests
 
 ---
 
