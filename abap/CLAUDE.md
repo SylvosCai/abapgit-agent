@@ -256,6 +256,110 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 ---
 
+### 9. Use `dump` Command to Investigate Runtime Errors (ST22)
+
+**When a user reports an ABAP runtime error, OR when any command returns HTTP 500 / an unexpected ABAP error, proactively check for short dumps.**
+
+```
+❌ WRONG: Ask user to open ST22 transaction manually
+❌ WRONG: Give up after an HTTP 500 without checking what caused it
+✅ CORRECT: Use abapgit-agent dump to query short dumps and find the root cause
+```
+
+#### When to Use `dump`
+
+| Scenario | Action |
+|----------|--------|
+| User reports "there was a dump in production" | `dump --user <user> --date TODAY` |
+| Any command returns HTTP 500 or unexpected error | `dump --date TODAY` (check for recent dumps) |
+| `pull` or `inspect` fails with internal ABAP error | `dump --date TODAY` |
+| Test run fails with runtime error | `dump --program <program> --date TODAY` |
+| Investigating TIME_OUT or other specific error | `dump --error TIME_OUT` |
+| Finding all errors from a specific user | `dump --user DEVELOPER` |
+| Full error analysis with source location | `dump --detail 1` (after listing) |
+
+#### Typical Investigation Workflow
+
+```bash
+# Step 1: List recent dumps (last 7 days by default)
+abapgit-agent dump
+
+# Step 2: Narrow by program or user if known
+abapgit-agent dump --program ZMY_PROGRAM --date TODAY
+
+# Step 3: View full details of the first result
+abapgit-agent dump --program ZMY_PROGRAM --date TODAY --detail 1
+```
+
+The `--detail` output includes:
+- **What happened** — high-level error description
+- **Error analysis** — detailed SAP explanation
+- **Call stack** — method-by-method trace with line numbers
+- **Source with `>>>>>` marker** — exact line where the dump occurred
+
+#### Reading Detail Output
+
+```
+  Short Dump Detail
+
+  Error       MESSAGE_TYPE_X
+  Date        2024-01-15 (Europe/Berlin)
+  Time        09:26:53
+  User        DEVELOPER
+  Program     ZMY_PROGRAM
+
+  What happened:
+  -------------------------------------------------------
+  A RAISE statement raised the exception "MESSAGE_TYPE_X".
+
+  Call stack:
+  -------------------------------------------------------
+    1  ZCL_MY_CLASS->DO_SOMETHING (line 42)
+    2  ZMY_PROGRAM START-OF-SELECTION (line 5)
+
+  Source (ZCL_MY_CLASS=============CM003, line 42):
+  -------------------------------------------------------
+        METHOD do_something.
+          DATA lv_val TYPE i.
+>>>>>     RAISE EXCEPTION TYPE cx_my_error.    ← error here
+          lv_val = lv_val + 1.
+        ENDMETHOD.
+```
+
+**After identifying the error location**, use `view` to understand the class context:
+
+```bash
+# View the class/method where the dump occurred
+abapgit-agent view --objects ZCL_MY_CLASS
+```
+
+#### Filters Reference
+
+```bash
+# Filter by user
+abapgit-agent dump --user DEVELOPER
+
+# Filter by date (system timezone)
+abapgit-agent dump --date TODAY
+abapgit-agent dump --date YESTERDAY
+abapgit-agent dump --date 2024-01-01..2024-01-31
+
+# Filter by program
+abapgit-agent dump --program ZMY_PROGRAM
+
+# Filter by error type
+abapgit-agent dump --error TIME_OUT
+abapgit-agent dump --error MESSAGE_TYPE_X
+
+# Show full detail for result #N (combine with same filters)
+abapgit-agent dump --user DEVELOPER --date TODAY --detail 1
+
+# Use explicit timezone (e.g., for distributed teams)
+abapgit-agent dump --date TODAY --timezone Europe/Berlin
+```
+
+---
+
 ## Development Workflow
 
 This project's workflow mode is configured in `.abapGitAgent` under `workflow.mode`.
@@ -672,6 +776,13 @@ abapgit-agent view --objects ZTABLE --type TABL
 
 # Display package tree
 abapgit-agent tree --package \$MY_PACKAGE
+
+# Investigate runtime errors (ST22 short dumps)
+abapgit-agent dump                                          # Last 7 days
+abapgit-agent dump --user DEVELOPER --date TODAY           # Today's dumps for a user
+abapgit-agent dump --program ZMY_PROGRAM                   # Dumps from a specific program
+abapgit-agent dump --error TIME_OUT                        # Dumps by error type
+abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
 ```
 
 ---

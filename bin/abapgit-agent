@@ -50,6 +50,7 @@ async function main() {
     view: require('../src/commands/view'),
     preview: require('../src/commands/preview'),
     where: require('../src/commands/where'),
+    dump: require('../src/commands/dump'),
     ref: require('../src/commands/ref'),
     init: require('../src/commands/init'),
     pull: require('../src/commands/pull'),

@@ -58,6 +58,9 @@ Commands:
   where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]
     Find where-used list for ABAP objects (classes, interfaces, programs)
 
+  dump [--user <user>] [--date <date>] [--time <HH:MM..HH:MM>] [--timezone <tz>] [--program <prog>] [--error <error>] [--limit <n>] [--detail <n>] [--json]
+    Query short dumps (ST22) from ABAP system. Use --detail <n> to view full details.
+
   ref <pattern> [--json]
     Search ABAP reference repositories for patterns. Requires referenceFolder in .abapGitAgent.
 
@@ -100,12 +103,14 @@ Examples:
   abapgit-agent list --package $MY_PACKAGE --type CLAS,INTF  # List classes & interfaces
   abapgit-agent view --objects ZCL_MY_CLASS                  # View class definition
   abapgit-agent where --objects ZCL_MY_CLASS                 # Find where class is used
+  abapgit-agent dump --date TODAY                            # Recent short dumps
+  abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
   abapgit-agent ref "CORRESPONDING"                          # Search for pattern
   abapgit-agent ref --topic exceptions                       # View exceptions topic
   abapgit-agent health                                       # Health check
   abapgit-agent status                                       # Configuration status
 
-For more info: https://github.tools.sap/I045696/abapgit-agent
+For more info: https://github.com/SylvosCai/abapgit-agent
 `);
   }
 };

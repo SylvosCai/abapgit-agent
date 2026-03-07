@@ -33,6 +33,7 @@
     "test:cmd:view": "node tests/run-all.js --cmd --command=view",
     "test:cmd:preview": "node tests/run-all.js --cmd --command=preview",
     "test:cmd:tree": "node tests/run-all.js --cmd --command=tree",
+    "test:cmd:dump": "node tests/run-all.js --cmd --command=dump",
     "test:cmd:upgrade": "node tests/run-all.js --cmd --command=upgrade",
     "test:lifecycle": "node tests/run-all.js --lifecycle",
     "test:pull": "node tests/run-all.js --pull",

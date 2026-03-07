@@ -11,6 +11,7 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
+ *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
  *   - pull:    1 test  (--files)
@@ -18,12 +19,13 @@
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
- *   Total:    51 tests
+ *   Total:    55 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
  *   npm run test:cmd:pull
  *   npm run test:cmd:view
+ *   npm run test:cmd:dump
  *   npm run test:cmd:upgrade
  */
 const commandTestCases = [
@@ -809,6 +811,61 @@ where carrid = $parameters.p_carrid
       const path = require('path');
       const filePath = path.join(__dirname, '../fixtures/ddls/zc_entity_param.ddls.asddls');
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+
+  // ===================================================================
+  // DUMP COMMAND - 4 tests
+  // Purpose: Query short dumps (ST22) from ABAP system
+  // ===================================================================
+  {
+    command: 'dump',
+    name: 'dump basic list',
+    args: [],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show dump list header (even if no dumps found)
+      const hasHeader = output.includes('Short Dumps') || output.includes('No short dumps found');
+      return hasHeader;
+    }
+  },
+  {
+    command: 'dump',
+    name: 'dump with user filter',
+    args: ['--user', 'DEVELOPER', '--limit', '5'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show list header with result count
+      const hasHeader = output.includes('Short Dumps') || output.includes('No short dumps found');
+      return hasHeader;
+    }
+  },
+  {
+    command: 'dump',
+    name: 'dump with date TODAY',
+    args: ['--date', 'TODAY', '--limit', '10'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should show list filtered to today's date
+      const hasHeader = output.includes('Short Dumps') || output.includes('No short dumps found');
+      return hasHeader;
+    }
+  },
+  {
+    command: 'dump',
+    name: 'dump JSON output',
+    args: ['--json', '--limit', '5'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should return valid JSON with expected structure
+      try {
+        const json = JSON.parse(output);
+        const hasSuccess = json.SUCCESS === true || json.success === true;
+        const hasDumps = Array.isArray(json.DUMPS) || Array.isArray(json.dumps);
+        return hasSuccess && hasDumps;
+      } catch (e) {
+        return false;
+      }
     }
   },
 

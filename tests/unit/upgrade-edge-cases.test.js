@@ -4,9 +4,44 @@
  */
 
 const { execSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const CLI_PATH = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+
+const MOCK_CONFIG = {
+  host: 'mock-host.example.com',
+  sapport: 443,
+  client: '100',
+  user: 'TEST_USER',
+  password: 'test_password',
+  language: 'EN',
+  gitUsername: 'test',
+  gitPassword: 'test'
+};
+
+/**
+ * Creates a temp directory with a mock .abapGitAgent and runs the CLI from there.
+ * Never touches the real project's .abapGitAgent.
+ */
+const runCommandWithMockConfig = (args) => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abapgit-agent-test-'));
+  try {
+    fs.writeFileSync(path.join(tmpDir, '.abapGitAgent'), JSON.stringify(MOCK_CONFIG, null, 2));
+    try {
+      return execSync(`node ${CLI_PATH} ${args}`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: tmpDir
+      });
+    } catch (e) {
+      return e.stdout || e.stderr || e.message;
+    }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+};
 
 describe('Upgrade Command - Edge Cases', () => {
   // Helper to run CLI command
@@ -86,41 +121,10 @@ describe('Upgrade Command - Edge Cases', () => {
     });
 
     test('dry-run with --abap-only excludes CLI (with mocked config)', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const configPath = path.join(process.cwd(), '.abapGitAgent');
-      const mockConfig = {
-        host: 'mock-host.example.com',
-        sapport: 443,
-        client: '100',
-        user: 'TEST_USER',
-        password: 'test_password',
-        language: 'EN',
-        gitUsername: 'test',
-        gitPassword: 'test'
-      };
-
-      let configExisted = false;
-      let originalConfig = null;
-
-      try {
-        if (fs.existsSync(configPath)) {
-          originalConfig = fs.readFileSync(configPath, 'utf8');
-          configExisted = true;
-        }
-        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
-
-        const output = runCommand('upgrade --abap-only --dry-run');
-        expect(output).toContain('pull --url');
-        expect(output).toContain('--branch');
-        expect(output).not.toContain('npm install');
-      } finally {
-        if (configExisted && originalConfig) {
-          fs.writeFileSync(configPath, originalConfig);
-        } else if (fs.existsSync(configPath)) {
-          fs.unlinkSync(configPath);
-        }
-      }
+      const output = runCommandWithMockConfig('upgrade --abap-only --dry-run');
+      expect(output).toContain('pull --url');
+      expect(output).toContain('--branch');
+      expect(output).not.toContain('npm install');
     });
   });
 
@@ -140,41 +144,10 @@ describe('Upgrade Command - Edge Cases', () => {
 
   describe('Transport Request', () => {
     test('accepts transport request with --abap-only (with mocked config)', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const configPath = path.join(process.cwd(), '.abapGitAgent');
-      const mockConfig = {
-        host: 'mock-host.example.com',
-        sapport: 443,
-        client: '100',
-        user: 'TEST_USER',
-        password: 'test_password',
-        language: 'EN',
-        gitUsername: 'test',
-        gitPassword: 'test'
-      };
-
-      let configExisted = false;
-      let originalConfig = null;
-
-      try {
-        if (fs.existsSync(configPath)) {
-          originalConfig = fs.readFileSync(configPath, 'utf8');
-          configExisted = true;
-        }
-        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
-
-        const output = runCommand('upgrade --abap-only --transport DEVK900001 --dry-run');
-        expect(output).toContain('DRY RUN');
-        expect(output).toContain('pull --url');
-        expect(output).toContain('--branch');
-      } finally {
-        if (configExisted && originalConfig) {
-          fs.writeFileSync(configPath, originalConfig);
-        } else if (fs.existsSync(configPath)) {
-          fs.unlinkSync(configPath);
-        }
-      }
+      const output = runCommandWithMockConfig('upgrade --abap-only --transport DEVK900001 --dry-run');
+      expect(output).toContain('DRY RUN');
+      expect(output).toContain('pull --url');
+      expect(output).toContain('--branch');
     });
   });
 
@@ -194,79 +167,34 @@ describe('Upgrade Command - Edge Cases', () => {
 
   describe('Match Flag', () => {
     test('--match requires ABAP config (shows error without config)', () => {
-      const fs = require('fs');
-      const path = require('path');
-
-      // Temporarily rename config if it exists
-      const configPath = path.join(process.cwd(), '.abapGitAgent');
-      const tempPath = configPath + '.test-backup';
-      let configExisted = false;
-
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abapgit-agent-test-'));
       try {
-        if (fs.existsSync(configPath)) {
-          fs.renameSync(configPath, tempPath);
-          configExisted = true;
-        }
-
-        // Test without config
-        const output = runCommand('upgrade --match --dry-run');
+        const output = (() => {
+          try {
+            return execSync(`node ${CLI_PATH} upgrade --match --dry-run`, {
+              encoding: 'utf8',
+              stdio: ['pipe', 'pipe', 'pipe'],
+              cwd: tmpDir
+            });
+          } catch (e) {
+            return e.stdout || e.stderr || e.message;
+          }
+        })();
         expect(output).toContain('.abapGitAgent config file not found');
         expect(output).toContain('ABAP upgrade requires configuration');
       } finally {
-        // Restore config if it existed
-        if (configExisted && fs.existsSync(tempPath)) {
-          fs.renameSync(tempPath, configPath);
-        }
+        fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
 
     test('--match targets ABAP with CLI version (with mocked config)', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const configPath = path.join(process.cwd(), '.abapGitAgent');
-      const mockConfigPath = configPath + '.test-mock';
+      const output = runCommandWithMockConfig('upgrade --match --dry-run');
+      expect(output).toContain('Target versions:');
+      expect(output).toContain('ABAP:');
 
-      // Create a minimal mock config for testing
-      const mockConfig = {
-        host: 'mock-host.example.com',
-        sapport: 443,
-        client: '100',
-        user: 'TEST_USER',
-        password: 'test_password',
-        language: 'EN',
-        gitUsername: 'test',
-        gitPassword: 'test'
-      };
-
-      let configExisted = false;
-      let originalConfig = null;
-
-      try {
-        // Backup existing config if present
-        if (fs.existsSync(configPath)) {
-          originalConfig = fs.readFileSync(configPath, 'utf8');
-          configExisted = true;
-        }
-
-        // Write mock config
-        fs.writeFileSync(configPath, JSON.stringify(mockConfig, null, 2));
-
-        // Test with mock config
-        const output = runCommand('upgrade --match --dry-run');
-        expect(output).toContain('Target versions:');
-        expect(output).toContain('ABAP:');
-
-        // In Target versions section, CLI should not appear (only ABAP is targeted)
-        const targetSection = output.split('Target versions:')[1].split('Would execute:')[0];
-        expect(targetSection).not.toContain('CLI:');
-      } finally {
-        // Restore original config or remove mock
-        if (configExisted && originalConfig) {
-          fs.writeFileSync(configPath, originalConfig);
-        } else if (fs.existsSync(configPath)) {
-          fs.unlinkSync(configPath);
-        }
-      }
+      // In Target versions section, CLI should not appear (only ABAP is targeted)
+      const targetSection = output.split('Target versions:')[1].split('Would execute:')[0];
+      expect(targetSection).not.toContain('CLI:');
     });
   });
 });
