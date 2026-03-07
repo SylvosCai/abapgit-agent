@@ -2,6 +2,23 @@
 title: Release Notes
 ---
 
+## v1.8.9
+
+### Bug Fixes
+
+- Fix upgrade HTTP 401 and false pull success detection
+- Fix upgrade pulling from wrong git remote
+- Handle ABAP system unavailable during upgrade
+
+### Improvements
+
+- Write version warnings to stderr instead of stdout
+
+---
+
+---
+
+
 ## v1.8.8
 
 ### Bug Fixes
