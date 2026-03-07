@@ -77,7 +77,7 @@ module.exports = {
     await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined) {
     const TERM_WIDTH = process.stdout.columns || 80;
 
     if (!jsonOutput) {
@@ -99,11 +99,15 @@ module.exports = {
       const csrfToken = await http.fetchCsrfToken();
 
       // Prepare request data with git credentials
+      // gitCredentials=null means no credentials (public repo); undefined means use config defaults
+      const resolvedCredentials = gitCredentials === undefined
+        ? { username: config.gitUsername, password: config.gitPassword }
+        : gitCredentials;
+
       const data = {
         url: gitUrl,
         branch: branch,
-        username: config.gitUsername,
-        password: config.gitPassword
+        ...(resolvedCredentials ? { username: resolvedCredentials.username, password: resolvedCredentials.password } : {})
       };
 
       // Add files array if specified
@@ -198,9 +202,9 @@ module.exports = {
         console.log(`   Job ID: ${jobId || 'N/A'}`);
         console.log(`   Message: ${message || 'N/A'}`);
       } else {
-        console.log(`❌ Pull completed with errors!`);
-        console.log(`   Job ID: ${jobId || 'N/A'}`);
-        console.log(`   Message: ${message || 'N/A'}`);
+        console.error(`❌ Pull completed with errors!`);
+        console.error(`   Job ID: ${jobId || 'N/A'}`);
+        console.error(`   Message: ${message || 'N/A'}`);
       }
 
       // Display error detail if available
@@ -306,8 +310,18 @@ module.exports = {
         console.log(`\n❌ Failed Objects Log (${failedCount})`);
       }
 
+      // Throw if pull was not successful so callers (e.g. upgrade) can detect failure
+      if (success !== 'X' && success !== true) {
+        const err = new Error(message || 'Pull completed with errors');
+        err._isPullError = true;
+        throw err;
+      }
+
       return result;
     } catch (error) {
+      if (error._isPullError) {
+        throw error;
+      }
       console.error(`\n❌ Error: ${error.message}`);
       process.exit(1);
     }

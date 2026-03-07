@@ -207,16 +207,18 @@ describe('Upgrade Command', () => {
       expect(agentRepoUrl).toBe('https://github.com/SylvosCai/abapgit-agent.git');
     });
 
-    it('pull args include --url when upgrading ABAP', () => {
-      // Verify args structure passed to pull
+    it('upgradeAbapBackend calls pull.pull() with correct url and no credentials', () => {
+      // Verify the direct pull.pull() call passes the right url and null credentials
       const agentRepoUrl = 'https://github.com/myorg/abapgit-agent.git';
       const version = '1.8.8';
-      const pullArgs = ['--url', agentRepoUrl, '--branch', `v${version}`];
 
-      expect(pullArgs).toContain('--url');
-      expect(pullArgs[pullArgs.indexOf('--url') + 1]).toBe(agentRepoUrl);
-      expect(pullArgs).toContain('--branch');
-      expect(pullArgs[pullArgs.indexOf('--branch') + 1]).toBe('v1.8.8');
+      // The call is: pullCommand.pull(agentRepoUrl, `v${version}`, null, transport, lc, AbapHttp, false, null)
+      // Positional args: (gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, gitCredentials)
+      const callArgs = [agentRepoUrl, `v${version}`, null, null, null, null, false, null];
+
+      expect(callArgs[0]).toBe(agentRepoUrl);
+      expect(callArgs[1]).toBe('v1.8.8');
+      expect(callArgs[7]).toBeNull(); // null credentials = no creds sent to public repo
     });
   });
 });

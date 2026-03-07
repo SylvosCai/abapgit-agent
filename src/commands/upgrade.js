@@ -432,16 +432,11 @@ module.exports = {
       const config = loadConfig();
       const agentRepoUrl = config.agentRepoUrl || 'https://github.com/SylvosCai/abapgit-agent.git';
 
-      // Build pull command args — always pass --url explicitly so the pull
-      // command does not fall back to the current directory's git remote.
-      const pullArgs = ['--url', agentRepoUrl, '--branch', `v${version}`];
-      if (transport) {
-        pullArgs.push('--transport', transport);
-      }
-
-      // Execute pull command
+      // Execute pull command — pass null credentials so the canonical
+      // public GitHub repo is not sent the project's SAP internal git credentials.
       const pullCommand = require('./pull');
-      await pullCommand.execute(pullArgs, context);
+      const { loadConfig: lc, AbapHttp } = context;
+      await pullCommand.pull(agentRepoUrl, `v${version}`, null, transport || null, lc, AbapHttp, false, null);
 
       console.log('');
       console.log(`✅ ABAP backend upgraded to v${version}`);

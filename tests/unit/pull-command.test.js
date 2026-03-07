@@ -324,7 +324,9 @@ describe('Pull Command - CLI Output Format', () => {
       getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
     };
 
-    await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
+    await expect(
+      pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext)
+    ).rejects.toThrow('1 object(s) failed activation');
 
     const output = consoleOutput.join('\n');
 
