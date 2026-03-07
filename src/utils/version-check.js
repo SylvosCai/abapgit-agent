@@ -75,9 +75,9 @@ async function checkCompatibility(config) {
             const apiVersion = result.version || '1.0.0';
 
             if (cliVersion !== apiVersion) {
-              console.log(`\n⚠️  Version mismatch: CLI ${cliVersion}, ABAP API ${apiVersion}`);
-              console.log('   Some commands may not work correctly.');
-              console.log('   Update ABAP code: abapgit-agent pull\n');
+              console.error(`\n⚠️  Version mismatch: CLI ${cliVersion}, ABAP API ${apiVersion}`);
+              console.error('   Some commands may not work correctly.');
+              console.error('   Update ABAP code: abapgit-agent upgrade --match\n');
             }
             resolve({ cliVersion, apiVersion, compatible: cliVersion === apiVersion });
           } catch (e) {
@@ -242,9 +242,9 @@ async function showNewVersionReminder() {
     const { hasNewVersion, latestVersion, currentVersion } = await checkForNewVersion();
 
     if (hasNewVersion) {
-      console.log('');
-      console.log(`💡 New version available: ${latestVersion} (current: ${currentVersion})`);
-      console.log(`   Run: abapgit-agent upgrade`);
+      console.error('');
+      console.error(`💡 New version available: ${latestVersion} (current: ${currentVersion})`);
+      console.error(`   Run: abapgit-agent upgrade`);
     }
   } catch (e) {
     // Silent - don't interrupt user's workflow
