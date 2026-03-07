@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.9.0
+
+### New Features
+
+- Add `dump` command to query ST22 short dumps
+
+---
+
+---
+
+
 ## v1.8.9
 
 ### Bug Fixes
