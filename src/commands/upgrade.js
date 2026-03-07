@@ -46,8 +46,27 @@ module.exports = {
         const { apiVersion } = await versionCheck.checkCompatibility(config);
         abapVersion = apiVersion;
       } catch (e) {
-        console.error(`⚠️  Could not fetch ABAP version: ${e.message}`);
+        console.error(`⚠️  Could not reach ABAP system: ${e.message}`);
       }
+    }
+
+    // If ABAP is unreachable and we need to upgrade it, warn and ask whether to continue CLI-only
+    if (needsAbapConfig && abapVersion === null && !flags.cliOnly && !flags.abapOnly && !flags.match) {
+      console.error('');
+      console.error('⚠️  ABAP system is unreachable. Cannot upgrade ABAP backend.');
+      if (flags.yes) {
+        console.log('   --yes flag set: upgrading CLI only.');
+        flags.cliOnly = true;
+      } else {
+        const proceed = await this.confirmCliOnlyFallback();
+        if (!proceed) {
+          console.log('Upgrade cancelled.');
+          return;
+        }
+        flags.cliOnly = true;
+      }
+      console.log('   Run "abapgit-agent upgrade --abap-only" once the system is back.');
+      console.log('');
     }
 
     // Get latest version from npm
@@ -379,7 +398,24 @@ module.exports = {
   },
 
   /**
-   * Upgrade ABAP backend via pull command
+   * Confirm CLI-only fallback when ABAP system is unreachable
+   */
+  async confirmCliOnlyFallback() {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      rl.question('   Continue with CLI upgrade only? [Y/n] ', (answer) => {
+        rl.close();
+        const normalized = answer.trim().toLowerCase();
+        resolve(normalized === '' || normalized === 'y' || normalized === 'yes');
+      });
+    });
+  },
+
+  /**
    */
   async upgradeAbapBackend(version, transport, context) {
     console.log(`📦 Upgrading ABAP backend to v${version}...`);
@@ -414,9 +450,13 @@ module.exports = {
       console.error(`❌ Failed to upgrade ABAP backend: ${error.message}`);
       console.error('');
       console.error('This may be due to:');
+      console.error('  - ABAP system is unavailable');
       console.error('  - Git tag not found in repository');
       console.error('  - ABAP activation errors');
       console.error('  - Connection issues with ABAP system');
+      console.error('');
+      console.error('To retry once the system is available:');
+      console.error(`  abapgit-agent upgrade --abap-only --version ${version}`);
       process.exit(1);
     }
   },

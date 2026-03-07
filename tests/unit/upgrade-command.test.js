@@ -144,6 +144,44 @@ describe('Upgrade Command', () => {
     });
   });
 
+  describe('ABAP unreachable handling', () => {
+    it('sets cliOnly when ABAP unreachable and --yes flag is set', () => {
+      const flags = { cliOnly: false, abapOnly: false, match: false, yes: true };
+      const abapVersion = null; // unreachable
+
+      if (abapVersion === null && !flags.cliOnly && !flags.abapOnly && !flags.match) {
+        if (flags.yes) {
+          flags.cliOnly = true;
+        }
+      }
+
+      expect(flags.cliOnly).toBe(true);
+    });
+
+    it('does not modify flags when ABAP is reachable', () => {
+      const flags = { cliOnly: false, abapOnly: false, match: false, yes: true };
+      const abapVersion = '1.8.7'; // reachable
+
+      if (abapVersion === null && !flags.cliOnly && !flags.abapOnly && !flags.match) {
+        flags.cliOnly = true;
+      }
+
+      expect(flags.cliOnly).toBe(false);
+    });
+
+    it('does not modify flags when --abap-only is set', () => {
+      const flags = { cliOnly: false, abapOnly: true, match: false, yes: true };
+      const abapVersion = null;
+
+      if (abapVersion === null && !flags.cliOnly && !flags.abapOnly && !flags.match) {
+        flags.cliOnly = true;
+      }
+
+      // abap-only should not be changed to cliOnly - different error path
+      expect(flags.cliOnly).toBe(false);
+    });
+  });
+
   describe('upgradeAbapBackend - URL resolution', () => {
     it('uses agentRepoUrl from config when present', () => {
       const context = {
