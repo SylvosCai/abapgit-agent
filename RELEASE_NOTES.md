@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.10.0
+
+### New Features
+
+- Add `debug` command for interactive ABAP debugging via ADT REST API
+
+---
+
+---
+
+
 ## v1.9.0
 
 ### New Features
