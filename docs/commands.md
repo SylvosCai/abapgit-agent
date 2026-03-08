@@ -36,6 +36,7 @@ All available CLI commands for abapGit Agent.
 | [where](where-command.md) | ✅ | Where-used list - find object references |
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [dump](dump-command.md) | ✅ | Query short dumps (ST22) from ABAP system |
+| [debug](debug-command.md) | ✅ | Interactive ABAP debugger via ADT REST API |
 | [status](status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](health-command.md) | ✅ | Health check |
 | [upgrade](upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |
@@ -126,6 +127,15 @@ abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
 # Query short dumps (ST22) - investigate runtime errors
 abapgit-agent dump --date TODAY
 abapgit-agent dump --user DEVELOPER --date TODAY --detail 1
+
+# Debug ABAP code interactively via ADT
+abapgit-agent debug set --files abap/zcl_my_class.clas.abap:42
+abapgit-agent debug attach                    # human REPL mode
+abapgit-agent debug attach --json             # scripted AI mode (emits JSON, starts daemon)
+abapgit-agent debug stack --json
+abapgit-agent debug vars --json
+abapgit-agent debug step --type over --json
+abapgit-agent debug step --type continue --json
 
 # Check configuration
 abapgit-agent status

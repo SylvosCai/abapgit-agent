@@ -7,15 +7,17 @@
  * 3. Command tests - CLI commands against real ABAP system
  * 4. Lifecycle tests - init, create, import, delete workflow
  * 5. Pull tests - git ref switching (tags/branches) workflow
+ * 6. Debug scenarios - REPL and scripted AI (--json) session tests
  *
  * Usage:
- *   npm run test:all        # Run all tests
- *   npm run test:jest       # Jest only
- *   npm run test:aunit      # AUnit only
- *   npm run test:cmd        # Command tests only
- *   npm run test:cmd --demo # Command tests in demo mode (shows command and output)
- *   npm run test:lifecycle  # Lifecycle tests only
- *   npm run test:pull       # Pull workflow tests only
+ *   npm run test:all              # Run all tests
+ *   npm run test:jest             # Jest only
+ *   npm run test:aunit            # AUnit only
+ *   npm run test:cmd              # Command tests only
+ *   npm run test:cmd --demo       # Command tests in demo mode (shows command and output)
+ *   npm run test:lifecycle        # Lifecycle tests only
+ *   npm run test:pull             # Pull workflow tests only
+ *   npm run test:debug:scenarios  # Debug scenarios only (REPL + scripted AI)
  */
 
 const { execSync, spawn } = require('child_process');
@@ -449,6 +451,53 @@ function runCommandTests(demoMode = false, commandFilter = null) {
 }
 
 /**
+ * Run debug scenario tests (bash script — REPL and scripted AI/--json modes)
+ */
+function runDebugScenarios() {
+  printSubHeader('Running Debug Scenarios (REPL + Scripted AI mode)');
+
+  const scriptPath = path.join(__dirname, 'integration', 'debug-scenarios.sh');
+  if (!fs.existsSync(scriptPath)) {
+    printWarning('debug-scenarios.sh not found — skipping');
+    return { success: true, skipped: true, duration: '0.0', passedCount: 0, totalCount: 0 };
+  }
+
+  const resultsFile = `${process.env.TMPDIR || '/tmp'}/debug_scenarios_result`;
+  if (fs.existsSync(resultsFile)) fs.unlinkSync(resultsFile);
+
+  const startTime = Date.now();
+
+  // Use spawnSync with stdio: 'inherit' so scenario output streams live to the
+  // terminal instead of buffering until the script finishes (~60s).
+  const result = require('child_process').spawnSync('bash', [scriptPath], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    timeout: 300000  // 5 minutes — scenarios involve real ABAP round-trips
+  });
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const success = result.status === 0;
+
+  // Read pass/fail counts written by the bash script's cleanup trap
+  let passedCount = 0;
+  let totalCount = 0;
+  if (fs.existsSync(resultsFile)) {
+    const [p, f] = fs.readFileSync(resultsFile, 'utf8').trim().split(' ').map(Number);
+    passedCount = p || 0;
+    totalCount = (p || 0) + (f || 0);
+    fs.unlinkSync(resultsFile);
+  }
+
+  if (success) {
+    printSuccess(`Debug Scenarios: ${passedCount}/${totalCount} passed (${duration}s)`);
+  } else {
+    printError(`Debug Scenarios: ${passedCount}/${totalCount} passed (${duration}s)`);
+  }
+
+  return { success, duration, passedCount, totalCount };
+}
+
+/**
  * Print final summary
  */
 function printSummary(results) {
@@ -505,6 +554,21 @@ function printSummary(results) {
     }
   }
 
+  // Debug scenario tests
+  if (results.debug) {
+    if (results.debug.skipped) {
+      printWarning('Debug Scenarios: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.debug.duration);
+      if (results.debug.success) {
+        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
+      } else {
+        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   console.log('\n' + '='.repeat(70));
   if (allPassed) {
     console.log(colorize('bright', colorize('green', `  ✅ ALL TESTS PASSED (Total: ${totalDuration.toFixed(1)}s)`)));
@@ -533,7 +597,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runDebug;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -541,37 +605,50 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runDebug = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runDebug = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
     runCmd = true;
     runLifecycle = false;
     runPull = false;
+    runDebug = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
     runCmd = false;
     runLifecycle = true;
     runPull = false;
+    runDebug = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
     runCmd = false;
     runLifecycle = false;
     runPull = true;
+    runDebug = false;
+  } else if (args.includes('--debug-scenarios')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runDebug = true;
   } else {
     // Run all tests
     runJest = true;
     runAunit = true;
     runCmd = true;
     runLifecycle = false;  // Lifecycle tests run as part of cmd tests
-    runPull = false;  // Pull tests run as part of cmd tests
+    runPull = false;       // Pull tests run as part of cmd tests
+    runDebug = true;
   }
 
   printHeader('UNIFIED TEST SUITE');
@@ -605,6 +682,11 @@ async function main() {
     printSubHeader('Running Pull Tests Only');
     const pullResults = runPullTestsWrapper();
     results.pull = pullResults;
+  }
+
+  // Run Debug scenario tests (REPL + scripted AI/--json)
+  if (runDebug) {
+    results.debug = runDebugScenarios();
   }
 
   // Print summary and exit with appropriate code

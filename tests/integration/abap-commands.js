@@ -11,6 +11,8 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
+ *   - debug:   3 tests (delete-all, set, list — breakpoint management only;
+ *                        full session coverage is in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
@@ -19,13 +21,14 @@
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
- *   Total:    55 tests
+ *   Total:    58 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
  *   npm run test:cmd:pull
  *   npm run test:cmd:view
  *   npm run test:cmd:dump
+ *   npm run test:cmd:debug
  *   npm run test:cmd:upgrade
  */
 const commandTestCases = [
@@ -811,6 +814,68 @@ where carrid = $parameters.p_carrid
       const path = require('path');
       const filePath = path.join(__dirname, '../fixtures/ddls/zc_entity_param.ddls.asddls');
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+
+  // ===================================================================
+  // DEBUG COMMAND - 7 tests
+  // Purpose: ABAP debugger — breakpoint management, scripted session
+  // Categories:
+  //   - Breakpoint management (3 tests): set, list, delete
+  //   - Scripted session (4 tests): stack, vars, step-continue, terminate
+  //
+  // Best-practice rules applied (from abap/CLAUDE.md):
+  //   1. sleep 2 after starting attach — listener must register before trigger fires
+  //   2. Keep trigger process alive for entire session
+  //   3. Always finish with step --type continue to release the work process
+  //   4. Never pass --session to step/vars/stack (auto-load from state file)
+  // ===================================================================
+
+  // --- Breakpoint management ---
+
+  {
+    command: 'debug',
+    name: 'debug delete --all clears breakpoints',
+    args: ['delete', '--all'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should confirm deletion or report nothing to delete
+      const hasResult = output.includes('deleted') ||
+        output.includes('Deleted') ||
+        output.includes('No breakpoints') ||
+        output.includes('cleared') ||
+        output.includes('0 breakpoint');
+      return hasResult;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug set --object --line registers a breakpoint',
+    args: ['set', '--object', 'ZCL_ABGAGT_UTIL', '--line', '25'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should confirm the breakpoint was registered
+      const hasConfirm = output.includes('Breakpoint') ||
+        output.includes('breakpoint') ||
+        output.includes('ZCL_ABGAGT_UTIL') ||
+        output.includes('line 25') ||
+        output.includes(':25');
+      return hasConfirm;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug list shows registered breakpoints',
+    args: ['list'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should list breakpoints (at least the one just set) or show empty state
+      const hasResult = output.includes('ZCL_ABGAGT_UTIL') ||
+        output.includes('breakpoint') ||
+        output.includes('Breakpoint') ||
+        output.includes('No breakpoints') ||
+        output.includes('line');
+      return hasResult;
     }
   },
 

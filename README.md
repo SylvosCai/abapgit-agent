@@ -150,6 +150,27 @@ abapgit-agent dump --date TODAY
 abapgit-agent dump --user DEVELOPER --date TODAY --detail 1
 ```
 
+### Debug Commands
+
+```bash
+# Set a breakpoint
+abapgit-agent debug set --files abap/zcl_my_class.clas.abap:42
+
+# Attach and debug interactively (human REPL)
+abapgit-agent debug attach
+
+# Attach in scripted AI mode — emits JSON on hit, starts background daemon
+abapgit-agent debug attach --json
+
+# Step, inspect variables, call stack (no --session needed)
+abapgit-agent debug step --type over --json
+abapgit-agent debug vars --json
+abapgit-agent debug stack --json
+
+# Always release the frozen work process when done
+abapgit-agent debug step --type continue --json
+```
+
 ### Utility Commands
 
 ```bash
@@ -193,6 +214,7 @@ npm run pull -- --url <git-url> --branch main
 | preview Command | [docs/preview-command.md](docs/preview-command.md) |
 | where Command | [docs/where-command.md](docs/where-command.md) |
 | dump Command | [docs/dump-command.md](docs/dump-command.md) |
+| debug Command | [docs/debug-command.md](docs/debug-command.md) |
 | ref Command | [docs/ref-command.md](docs/ref-command.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |

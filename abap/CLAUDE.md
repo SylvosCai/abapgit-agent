@@ -256,106 +256,138 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 ---
 
-### 9. Use `dump` Command to Investigate Runtime Errors (ST22)
+### 9. Troubleshooting ABAP Issues
 
-**When a user reports an ABAP runtime error, OR when any command returns HTTP 500 / an unexpected ABAP error, proactively check for short dumps.**
+Two commands are available for investigating bugs at runtime:
 
-```
-❌ WRONG: Ask user to open ST22 transaction manually
-❌ WRONG: Give up after an HTTP 500 without checking what caused it
-✅ CORRECT: Use abapgit-agent dump to query short dumps and find the root cause
-```
+| Command | Use when | What it gives you |
+|---------|----------|-------------------|
+| `dump`  | Error already occurred (ST22 crash) | Error type, call stack, exact source line |
+| `debug` | Need to trace logic step-by-step | Live variable values, step into/over, expand structures |
 
-#### When to Use `dump`
+#### When Something Goes Wrong — Start with `dump`
 
-| Scenario | Action |
-|----------|--------|
-| User reports "there was a dump in production" | `dump --user <user> --date TODAY` |
-| Any command returns HTTP 500 or unexpected error | `dump --date TODAY` (check for recent dumps) |
-| `pull` or `inspect` fails with internal ABAP error | `dump --date TODAY` |
-| Test run fails with runtime error | `dump --program <program> --date TODAY` |
-| Investigating TIME_OUT or other specific error | `dump --error TIME_OUT` |
-| Finding all errors from a specific user | `dump --user DEVELOPER` |
-| Full error analysis with source location | `dump --detail 1` (after listing) |
-
-#### Typical Investigation Workflow
+**First reflex** for any HTTP 500, runtime error, or user-reported crash:
 
 ```bash
-# Step 1: List recent dumps (last 7 days by default)
-abapgit-agent dump
-
-# Step 2: Narrow by program or user if known
-abapgit-agent dump --program ZMY_PROGRAM --date TODAY
-
-# Step 3: View full details of the first result
-abapgit-agent dump --program ZMY_PROGRAM --date TODAY --detail 1
+abapgit-agent dump --date TODAY           # list today's dumps
+abapgit-agent dump --date TODAY --detail 1  # full detail: call stack + source
 ```
 
-The `--detail` output includes:
-- **What happened** — high-level error description
-- **Error analysis** — detailed SAP explanation
-- **Call stack** — method-by-method trace with line numbers
-- **Source with `>>>>>` marker** — exact line where the dump occurred
+The `--detail` output shows the exact failing line (`>>>>>` marker), call stack,
+and SAP's error analysis. Use it before asking the user to open ST22.
 
-#### Reading Detail Output
-
-```
-  Short Dump Detail
-
-  Error       MESSAGE_TYPE_X
-  Date        2024-01-15 (Europe/Berlin)
-  Time        09:26:53
-  User        DEVELOPER
-  Program     ZMY_PROGRAM
-
-  What happened:
-  -------------------------------------------------------
-  A RAISE statement raised the exception "MESSAGE_TYPE_X".
-
-  Call stack:
-  -------------------------------------------------------
-    1  ZCL_MY_CLASS->DO_SOMETHING (line 42)
-    2  ZMY_PROGRAM START-OF-SELECTION (line 5)
-
-  Source (ZCL_MY_CLASS=============CM003, line 42):
-  -------------------------------------------------------
-        METHOD do_something.
-          DATA lv_val TYPE i.
->>>>>     RAISE EXCEPTION TYPE cx_my_error.    ← error here
-          lv_val = lv_val + 1.
-        ENDMETHOD.
-```
-
-**After identifying the error location**, use `view` to understand the class context:
-
+Common filters:
 ```bash
-# View the class/method where the dump occurred
+abapgit-agent dump --user DEVELOPER --date TODAY        # specific user
+abapgit-agent dump --error TIME_OUT                     # specific error type
+abapgit-agent dump --program ZMY_PROGRAM --detail 1     # specific program, full detail
+```
+
+After identifying the failing class/method, use `view` for broader context:
+```bash
 abapgit-agent view --objects ZCL_MY_CLASS
 ```
 
-#### Filters Reference
+#### When There Is No Dump — Use `debug`
+
+Use `debug` when:
+- The bug is a logic error (wrong output, no crash)
+- You need to inspect variable values mid-execution
+- You want to verify which branch of code runs
+
+**Step 1 — set a breakpoint** on the first executable statement you want to inspect:
+```bash
+abapgit-agent debug set --files src/zcl_my_class.clas.abap:42   # from local file
+abapgit-agent debug set --objects ZCL_MY_CLASS:42                # by name (no local file needed)
+abapgit-agent debug list    # confirm it was registered
+```
+
+> **Line number must point to an executable statement** — not a comment, blank line,
+> `DATA` declaration, or `METHOD`/`ENDMETHOD`. Use `view --objects` to find valid lines.
+
+**Step 2 — attach and trigger**
+
+Two modes depending on context:
+
+*Interactive (human in a terminal):*
+```bash
+# Terminal 1 — attach (blocks waiting for breakpoint, opens REPL on hit)
+abapgit-agent debug attach
+
+# Terminal 2 — trigger (any command that calls the backend)
+abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
+```
+
+*Scripted (AI / automation) — best practice: individual sequential calls:*
+
+Once the daemon is running and the session is saved to the state file, each
+`vars/stack/step` command is a plain standalone call — no bash script needed.
 
 ```bash
-# Filter by user
-abapgit-agent dump --user DEVELOPER
+# Step 1: start attach listener in background (spawns a daemon, saves session to state file)
+abapgit-agent debug attach --json > /tmp/attach.json 2>&1 &
+sleep 2
 
-# Filter by date (system timezone)
-abapgit-agent dump --date TODAY
-abapgit-agent dump --date YESTERDAY
-abapgit-agent dump --date 2024-01-01..2024-01-31
+# Step 2: trigger in background — MUST stay alive for the whole session
+abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap > /tmp/trigger.json 2>&1 &
 
-# Filter by program
-abapgit-agent dump --program ZMY_PROGRAM
+# Step 3: poll until breakpoint fires and session JSON appears in attach output
+SESSION=""
+for i in $(seq 1 30); do
+  sleep 0.5
+  SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach.json 2>/dev/null | head -1 | cut -d'"' -f4)
+  [ -n "$SESSION" ] && break
+done
 
-# Filter by error type
-abapgit-agent dump --error TIME_OUT
-abapgit-agent dump --error MESSAGE_TYPE_X
+# Step 4: inspect and step — each is an individual call, no --session needed
+abapgit-agent debug stack --json
+abapgit-agent debug vars  --json
+abapgit-agent debug vars  --expand LS_OBJECT --json
+abapgit-agent debug step  --type over --json
+abapgit-agent debug vars  --json
 
-# Show full detail for result #N (combine with same filters)
-abapgit-agent dump --user DEVELOPER --date TODAY --detail 1
+# Step 5: ALWAYS release the ABAP work process before finishing
+abapgit-agent debug step --type continue --json
 
-# Use explicit timezone (e.g., for distributed teams)
-abapgit-agent dump --date TODAY --timezone Europe/Berlin
+# Step 6: check trigger result
+cat /tmp/trigger.json
+rm -f /tmp/attach.json /tmp/trigger.json
+```
+
+> **Four rules for scripted mode:**
+> 1. `sleep 2` after starting attach — the listener must register on the server before the trigger fires
+> 2. Keep the trigger process alive in the background for the entire session — if it exits, the ABAP work process is released and the session ends
+> 3. Always finish with `step --type continue` — this releases the frozen work process so the trigger can complete normally
+> 4. **Never pass `--session` to `step/vars/stack`** — it bypasses the daemon IPC and causes `noSessionAttached`. Omit it and let commands auto-load from the saved state file.
+
+**Step 3 — step through and inspect**
+
+*Interactive REPL commands (after `attach` without `--json`):*
+```
+  debug> v          — show all variables
+  debug> x LT_DATA  — expand a table or structure
+  debug> n          — step over
+  debug> s          — step into
+  debug> bt         — call stack
+  debug> q          — detach (program continues); kill — hard abort
+```
+
+*Scripted commands (after `attach --json`) — omit `--session`, commands auto-load from state file:*
+```bash
+abapgit-agent debug vars   --json                        # all variables
+abapgit-agent debug vars   --name LV_RESULT --json       # one variable
+abapgit-agent debug vars   --expand LT_DATA --json       # drill into table/structure
+abapgit-agent debug step   --type over --json            # step over
+abapgit-agent debug step   --type into --json            # step into
+abapgit-agent debug step   --type continue --json        # continue to next breakpoint / finish
+abapgit-agent debug stack  --json                        # call stack (shows which test method is active)
+```
+
+**Clean up** when done:
+```bash
+abapgit-agent debug delete --all
 ```
 
 ---
