@@ -3,6 +3,7 @@ layout: default
 title: pull - Pull & Activate
 nav_order: 1
 parent: Development Commands
+has_children: true
 ---
 
 # pull Command Requirements
@@ -84,6 +85,7 @@ Contact the project maintainer if you need to change this setting.
 | `--branch` | No | Branch name (default: current branch) |
 | `--files` | No | Comma-separated list of files to pull |
 | `--transport` | No | Transport request (config/env takes priority if not specified) |
+| `--conflict-mode` | No | `abort` (default) or `ignore` — see [Conflict Detection](pull-conflict-detection.md) |
 
 ## Transport Request Precedence
 
@@ -136,7 +138,8 @@ GET /health (with X-CSRF-Token: fetch)
   "username": "git-user",
   "password": "git-token",
   "files": ["zcl_my_class.clas.abap"],
-  "transport_request": "DEVK900001"
+  "transport_request": "DEVK900001",
+  "conflict_mode": "abort"
 }
 ```
 
@@ -215,7 +218,9 @@ Files are parsed to extract `(obj_type, obj_name)`:
   "failed_objects": [
     { "obj_type": "CLAS", "obj_name": "ZCL_OTHER", "text": "Error message" }
   ],
-  "log_messages": [...]
+  "log_messages": [...],
+  "conflict_report": "",
+  "conflict_count": 0
 }
 ```
 
@@ -226,6 +231,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 1. **Activated Objects** - Only includes objects that completed successfully (no errors in log)
 2. **Failed Objects Log** - Shows all error messages (duplicates allowed for multiple errors per object)
 3. **Error Details** - When errors occur, displays error detail section at the top
+4. **Conflict Detection** - Enabled by default (`abort` mode); aborts pull if local ADT edits or branch divergence detected — see [Conflict Detection](pull-conflict-detection.md)
 
 ---
 
@@ -240,4 +246,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 
 # With transport
 abapgit-agent pull --files src/zcl_my_class.clas.abap --transport DEVK900001
+
+# Force pull through a conflict (e.g. deliberate branch switch)
+abapgit-agent pull --files src/zcl_my_class.clas.abap --conflict-mode ignore
 ```

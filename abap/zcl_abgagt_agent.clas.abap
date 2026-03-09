@@ -48,6 +48,14 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rv_has_error) TYPE abap_bool.
 
+    METHODS build_file_entries_from_remote
+      IMPORTING
+        it_files        TYPE string_table OPTIONAL
+      RETURNING
+        VALUE(rt_entries) TYPE zif_abgagt_conflict_detector=>ty_file_entries
+      RAISING
+        zcx_abapgit_exception.
+
     METHODS get_log_detail
       RETURNING
         VALUE(rv_detail) TYPE string.
@@ -123,6 +131,25 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             ENDTRY.
           ENDIF.
 
+          " --- Conflict detection (before deserialize) ---
+          " Always build file entries and detector — needed for store_pull_metadata after pull.
+          DATA(lt_file_entries) = build_file_entries_from_remote( it_files ).
+          DATA(lo_detector)     = zcl_abgagt_conflict_detector=>get_instance( ).
+
+          IF iv_conflict_mode <> 'ignore' AND lt_file_entries IS NOT INITIAL.
+            DATA(lt_conflicts) = lo_detector->check_conflicts(
+              it_files  = lt_file_entries
+              iv_branch = iv_branch ).
+
+            IF lt_conflicts IS NOT INITIAL.
+              rs_result-conflict_count  = lines( lt_conflicts ).
+              rs_result-conflict_report = lo_detector->get_conflict_report( lt_conflicts ).
+              rs_result-message = |Pull aborted — { rs_result-conflict_count } conflict(s) detected|.
+              GET TIME STAMP FIELD rs_result-finished_at.
+              RETURN.
+            ENDIF.
+          ENDIF.
+
           DATA(ls_checks) = prepare_deserialize_checks(
             it_files = it_files
             iv_transport_request = iv_transport_request ).
@@ -156,6 +183,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           ELSE.
             rs_result-success = abap_true.
             rs_result-message = 'Pull completed successfully'.
+
+            " --- Store pull metadata after successful pull ---
+            IF lt_file_entries IS NOT INITIAL.
+              lo_detector->store_pull_metadata(
+                it_files  = lt_file_entries
+                iv_branch = iv_branch ).
+            ENDIF.
           ENDIF.
         ELSE.
           rs_result-message = |Repository not found: { iv_url }|.
@@ -443,6 +477,144 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
   METHOD get_version.
     rv_version = '1.0.0'.
+  ENDMETHOD.
+
+  " ---------------------------------------------------------------------------
+  " build_file_entries_from_remote
+  " Fetches remote git files and builds ty_file_entries for conflict detection.
+  " Only .abap/.asddls files are included; filtered to it_files if provided.
+  " ---------------------------------------------------------------------------
+  METHOD build_file_entries_from_remote.
+    DATA lt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
+
+    TRY.
+        lt_remote = mo_repo->get_files_remote( ).
+      CATCH zcx_abapgit_exception.
+        " Cannot read remote files — skip conflict check
+        RETURN.
+    ENDTRY.
+
+    " Build lookup of requested files (obj_type + obj_name)
+    DATA lt_filter TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
+    IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+      LOOP AT it_files INTO DATA(lv_req_file).
+        DATA lv_fn TYPE string.
+        DATA lv_ot TYPE string.
+        DATA lv_on TYPE string.
+        " Extract just the filename (strip path)
+        DATA(lv_pos) = find( val = reverse( lv_req_file ) sub = '/' ).
+        IF lv_pos > 0.
+          DATA(lv_offs) = strlen( lv_req_file ) - lv_pos.
+          lv_fn = lv_req_file+lv_offs.
+        ELSE.
+          lv_fn = lv_req_file.
+        ENDIF.
+        TRANSLATE lv_fn TO UPPER CASE.
+        INSERT lv_fn INTO TABLE lt_filter.
+      ENDLOOP.
+    ENDIF.
+
+    LOOP AT lt_remote INTO DATA(ls_remote_file).
+      DATA(lv_filename) = ls_remote_file-filename.
+
+      " Only process ABAP source files
+      DATA(lv_ext) = to_upper( lv_filename ).
+      IF NOT ( lv_ext CS '.ABAP' OR lv_ext CS '.ASDDLS' ).
+        CONTINUE.
+      ENDIF.
+
+      " Skip test class files — not standalone objects
+      IF lv_ext CS '.TESTCLASSES.' OR lv_ext CS '.LOCALS_DEF.' OR lv_ext CS '.LOCALS_IMP.'.
+        CONTINUE.
+      ENDIF.
+
+      " Filter to requested files if specified
+      IF lines( lt_filter ) > 0.
+        DATA(lv_upper_fn) = to_upper( lv_filename ).
+        READ TABLE lt_filter WITH TABLE KEY table_line = lv_upper_fn TRANSPORTING NO FIELDS.
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
+      " Parse filename → obj_type + obj_name
+      DATA lv_obj_type TYPE string.
+      DATA lv_obj_name TYPE string.
+      parse_file_to_object(
+        EXPORTING iv_file = lv_filename
+        IMPORTING ev_obj_type = lv_obj_type
+                  ev_obj_name = lv_obj_name ).
+
+      IF lv_obj_type IS INITIAL OR lv_obj_name IS INITIAL.
+        CONTINUE.
+      ENDIF.
+
+      " Convert xstring content to string (UTF-8)
+      DATA lv_content TYPE string.
+      TRY.
+          lv_content = cl_abap_codepage=>convert_from(
+            source   = ls_remote_file-data
+            codepage = 'UTF-8' ).
+        CATCH cx_root.
+          CONTINUE.
+      ENDTRY.
+
+      DATA ls_entry TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+      ls_entry-obj_type = lv_obj_type.
+      ls_entry-obj_name = lv_obj_name.
+      ls_entry-content  = lv_content.
+      APPEND ls_entry TO rt_entries.
+    ENDLOOP.
+
+    " Read local ABAP system files to enable content-based change detection.
+    " This replaces VRSD timestamp approach (which does not work for local packages).
+    DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    TRY.
+        lt_local = mo_repo->get_files_local( ).
+      CATCH zcx_abapgit_exception.
+        " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
+        RETURN.
+    ENDTRY.
+
+    " Build lookup: obj_type + obj_name → local file content (main source only)
+    DATA lt_local_idx TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
+                      WITH UNIQUE KEY obj_type obj_name.
+
+    LOOP AT lt_local INTO DATA(ls_local_item).
+      DATA(lv_local_fn) = to_upper( ls_local_item-file-filename ).
+      IF NOT ( lv_local_fn CS '.ABAP' OR lv_local_fn CS '.ASDDLS' ).
+        CONTINUE.
+      ENDIF.
+      IF lv_local_fn CS '.TESTCLASSES.' OR lv_local_fn CS '.LOCALS_DEF.' OR lv_local_fn CS '.LOCALS_IMP.'.
+        CONTINUE.
+      ENDIF.
+
+      DATA lv_local_content TYPE string.
+      TRY.
+          lv_local_content = cl_abap_codepage=>convert_from(
+            source   = ls_local_item-file-data
+            codepage = 'UTF-8' ).
+        CATCH cx_root.
+          CONTINUE.
+      ENDTRY.
+
+      DATA ls_local_idx TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+      ls_local_idx-obj_type     = ls_local_item-item-obj_type.
+      ls_local_idx-obj_name     = ls_local_item-item-obj_name.
+      ls_local_idx-local_content = lv_local_content.
+      INSERT ls_local_idx INTO TABLE lt_local_idx.
+    ENDLOOP.
+
+    " Populate local_content in rt_entries from lookup
+    LOOP AT rt_entries ASSIGNING FIELD-SYMBOL(<ls_entry>).
+      READ TABLE lt_local_idx WITH TABLE KEY
+        obj_type = <ls_entry>-obj_type
+        obj_name = <ls_entry>-obj_name
+      INTO DATA(ls_idx).
+      IF sy-subrc = 0.
+        <ls_entry>-local_content = ls_idx-local_content.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.

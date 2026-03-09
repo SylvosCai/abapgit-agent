@@ -12,6 +12,7 @@ CLASS zcl_abgagt_command_pull DEFINITION PUBLIC FINAL CREATE PUBLIC.
              password TYPE string,
              transport_request TYPE string,
              files TYPE string_table,
+             conflict_mode TYPE string,
            END OF ty_pull_params.
 
 ENDCLASS.
@@ -33,17 +34,23 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
       ls_params = CORRESPONDING #( is_param ).
     ENDIF.
 
+    " Default conflict_mode to 'abort' if not provided
+    IF ls_params-conflict_mode IS INITIAL.
+      ls_params-conflict_mode = 'abort'.
+    ENDIF.
+
     " Get agent instance and execute pull
     lo_agent = NEW zcl_abgagt_agent( ).
 
     TRY.
         ls_pull_result = lo_agent->zif_abgagt_agent~pull(
-          iv_url            = ls_params-url
-          iv_branch         = ls_params-branch
-          iv_username       = ls_params-username
-          iv_password       = ls_params-password
+          iv_url               = ls_params-url
+          iv_branch            = ls_params-branch
+          iv_username          = ls_params-username
+          iv_password          = ls_params-password
           iv_transport_request = ls_params-transport_request
-          it_files          = ls_params-files ).
+          it_files             = ls_params-files
+          iv_conflict_mode     = ls_params-conflict_mode ).
       CATCH zcx_abapgit_exception INTO lx_error.
         ls_pull_result-success = abap_false.
         ls_pull_result-message = lx_error->get_text( ).
@@ -61,6 +68,8 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
             log_messages TYPE zif_abgagt_agent=>ty_object_list,
             activated_objects TYPE zif_abgagt_agent=>ty_object_list,
             failed_objects TYPE zif_abgagt_agent=>ty_object_list,
+            conflict_report TYPE string,
+            conflict_count TYPE i,
           END OF ls_response.
 
     ls_response-success = COND string( WHEN ls_pull_result-success = abap_true THEN 'X' ELSE '' ).
@@ -73,6 +82,8 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
     ls_response-log_messages = ls_pull_result-log_messages.
     ls_response-activated_objects = ls_pull_result-activated_objects.
     ls_response-failed_objects = ls_pull_result-failed_objects.
+    ls_response-conflict_report = ls_pull_result-conflict_report.
+    ls_response-conflict_count = ls_pull_result-conflict_count.
 
     rv_result = /ui2/cl_json=>serialize( data = ls_response ).
   ENDMETHOD.

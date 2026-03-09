@@ -94,6 +94,9 @@ abapgit-agent pull
 # Pull specific files only (faster for small changes)
 abapgit-agent pull --files src/zcl_my_class.clas.abap
 
+# Force pull through a conflict (e.g. deliberate branch switch)
+abapgit-agent pull --files src/zcl_my_class.clas.abap --conflict-mode ignore
+
 # Syntax check LOCAL source BEFORE commit (fast, no pull needed)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 

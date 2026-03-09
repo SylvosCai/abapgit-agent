@@ -29,6 +29,8 @@ INTERFACE zif_abgagt_agent PUBLIC.
     failed_objects TYPE ty_object_list,
     started_at TYPE timestampl,
     finished_at TYPE timestampl,
+    conflict_report TYPE string,
+    conflict_count TYPE i,
   END OF ty_result.
 
   METHODS pull
@@ -39,6 +41,7 @@ INTERFACE zif_abgagt_agent PUBLIC.
       iv_password TYPE string OPTIONAL
       iv_transport_request TYPE string OPTIONAL
       it_files TYPE string_table OPTIONAL
+      iv_conflict_mode TYPE string DEFAULT 'abort'
     RETURNING
       VALUE(rs_result) TYPE ty_result
     RAISING

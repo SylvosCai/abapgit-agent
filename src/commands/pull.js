@@ -29,12 +29,14 @@ module.exports = {
     const branchArgIndex = args.indexOf('--branch');
     const filesArgIndex = args.indexOf('--files');
     const transportArgIndex = args.indexOf('--transport');
+    const conflictModeArgIndex = args.indexOf('--conflict-mode');
     const jsonOutput = args.includes('--json');
 
     // Auto-detect git remote URL if not provided
     let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
     let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : gitUtils.getBranch();
     let files = null;
+    let conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : 'abort';
 
     // Transport: CLI arg takes priority, then config/environment, then null
     let transportRequest = null;
@@ -74,10 +76,10 @@ module.exports = {
       }
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort') {
     const TERM_WIDTH = process.stdout.columns || 80;
 
     if (!jsonOutput) {
@@ -107,6 +109,7 @@ module.exports = {
       const data = {
         url: gitUrl,
         branch: branch,
+        conflict_mode: conflictMode,
         ...(resolvedCredentials ? { username: resolvedCredentials.username, password: resolvedCredentials.password } : {})
       };
 
@@ -140,12 +143,23 @@ module.exports = {
       const jobId = result.JOB_ID || result.job_id;
       const message = result.MESSAGE || result.message;
       const errorDetail = result.ERROR_DETAIL || result.error_detail;
-      const transportRequestUsed = result.TRANSPORT_REQUEST || result.transport_request;
       const activatedCount = result.ACTIVATED_COUNT || result.activated_count || 0;
       const failedCount = result.FAILED_COUNT || result.failed_count || 0;
       const logMessages = result.LOG_MESSAGES || result.log_messages || [];
       const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
       const failedObjects = result.FAILED_OBJECTS || result.failed_objects || [];
+      const conflictReport = result.CONFLICT_REPORT || result.conflict_report || '';
+      const conflictCount = result.CONFLICT_COUNT || result.conflict_count || 0;
+
+      // --- Conflict report (pull was aborted) ---
+      if (conflictCount > 0 && conflictReport) {
+        console.error(`⚠️  Pull aborted — ${conflictCount} conflict(s) detected\n`);
+        console.error('─'.repeat(TERM_WIDTH));
+        console.error(conflictReport.replace(/\\n/g, '\n'));
+        const err = new Error(message || `Pull aborted — ${conflictCount} conflict(s) detected`);
+        err._isPullError = true;
+        throw err;
+      }
 
       // Icon mapping for message types
       const getIcon = (type) => {

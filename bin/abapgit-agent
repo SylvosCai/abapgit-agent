@@ -121,4 +121,11 @@ To enable integration:
   process.exit(1);
 }
 
-main();
+main().catch((err) => {
+  // Known CLI errors (e.g. pull conflict) already printed their own output — skip re-printing.
+  // For all other unexpected errors, print the message without the stack trace.
+  if (!err._isPullError) {
+    console.error(err.message || err);
+  }
+  process.exit(1);
+});

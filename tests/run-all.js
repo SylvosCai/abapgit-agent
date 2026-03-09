@@ -31,6 +31,7 @@ const repoRoot = path.join(__dirname, '..');
 const { runAUnitTests } = require('./integration/aunit-runner');
 const { runLifecycleTests } = require('./integration/lifecycle-runner');
 const { runPullTests } = require('./integration/pull-runner');
+const { runConflictTests } = require('./integration/conflict-runner');
 
 // Colors for output
 const colors = {
@@ -133,6 +134,17 @@ function runLifecycleTestsWrapper() {
  */
 function runPullTestsWrapper() {
   return runPullTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+function runConflictTestsWrapper() {
+  return runConflictTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -554,6 +566,17 @@ function printSummary(results) {
     }
   }
 
+  // Conflict detection tests
+  if (results.conflict) {
+    totalDuration += parseFloat(results.conflict.duration);
+    if (results.conflict.success) {
+      printSuccess(`Conflict Detection Tests: ${results.conflict.passedCount}/${results.conflict.totalCount} PASSED (${results.conflict.duration}s)`);
+    } else {
+      printError(`Conflict Detection Tests: ${results.conflict.passedCount}/${results.conflict.totalCount} FAILED (${results.conflict.duration}s)`);
+      allPassed = false;
+    }
+  }
+
   // Debug scenario tests
   if (results.debug) {
     if (results.debug.skipped) {
@@ -588,7 +611,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--conflict'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -597,7 +620,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runDebug;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runConflict, runDebug;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -605,6 +628,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runConflict = false;
     runDebug = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
@@ -612,6 +636,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runConflict = false;
     runDebug = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
@@ -619,6 +644,7 @@ async function main() {
     runCmd = true;
     runLifecycle = false;
     runPull = false;
+    runConflict = false;
     runDebug = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
@@ -626,6 +652,7 @@ async function main() {
     runCmd = false;
     runLifecycle = true;
     runPull = false;
+    runConflict = false;
     runDebug = false;
   } else if (args.includes('--pull')) {
     runJest = false;
@@ -633,6 +660,15 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = true;
+    runConflict = false;
+    runDebug = false;
+  } else if (args.includes('--conflict')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runConflict = true;
     runDebug = false;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
@@ -640,6 +676,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runConflict = false;
     runDebug = true;
   } else {
     // Run all tests
@@ -648,6 +685,7 @@ async function main() {
     runCmd = true;
     runLifecycle = false;  // Lifecycle tests run as part of cmd tests
     runPull = false;       // Pull tests run as part of cmd tests
+    runConflict = false;   // Conflict tests run standalone (stateful, sequential)
     runDebug = true;
   }
 
@@ -682,6 +720,13 @@ async function main() {
     printSubHeader('Running Pull Tests Only');
     const pullResults = runPullTestsWrapper();
     results.pull = pullResults;
+  }
+
+  // Run Conflict detection tests only
+  if (runConflict) {
+    printSubHeader('Running Conflict Detection Tests Only');
+    const conflictResults = runConflictTestsWrapper();
+    results.conflict = conflictResults;
   }
 
   // Run Debug scenario tests (REPL + scripted AI/--json)

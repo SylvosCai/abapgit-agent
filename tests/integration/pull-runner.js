@@ -1,209 +1,239 @@
 /**
  * Pull Command Test Runner
- * Tests pull command with different git refs (tags, branches) and verifies activated content
- *
- * These tests verify that:
- * 1. Pull command correctly switches between git refs (tags and branches)
- * 2. Objects are activated with correct content from each ref
- * 3. View command can verify the activated content
+ * Tests pull command with different git refs (tags, branches), verifies activated
+ * content, and validates conflict detection when switching between refs.
  *
  * Test Repository: https://github.tools.sap/I045696/abgagt-pull-test.git
- *   - v0.1.0: Interface with only get_message method
- *   - v1.0.0: Interface with get_message + validate_input methods
- *   - feature/test-branch: Interface with get_message + calculate_sum methods
- *   - main: Same as v1.0.0 (get_message + validate_input)
+ *   - v0.1.0:              get_message only
+ *   - v1.0.0:              get_message + validate_input
+ *   - feature/test-branch: get_message + calculate_sum
+ *   - main:                get_message + validate_input (same as v1.0.0)
+ *
+ * Test sequence (all steps depend on ABAP system state from the previous step):
+ *
+ *   Reset:   pull v0.1.0 --conflict-mode ignore  → idempotent baseline
+ *   Step 1:  pull v0.1.0 (no flag)               → no conflict (same ref)
+ *            verify: only get_message
+ *   Step 2:  pull v1.0.0 (no flag)               → BRANCH_SWITCH conflict
+ *   Step 3:  pull v1.0.0 --conflict-mode ignore  → succeeds
+ *            verify: get_message + validate_input
+ *   Step 4:  pull feature/test-branch (no flag)  → BRANCH_SWITCH conflict
+ *   Step 5:  pull feature/test-branch --conflict-mode ignore → succeeds
+ *            verify: get_message + calculate_sum
+ *   Step 6:  pull main (no flag)                 → BRANCH_SWITCH conflict
+ *   Step 7:  pull main --conflict-mode ignore    → succeeds
+ *            verify: get_message + validate_input
  */
 
 const { execSync } = require('child_process');
 const path = require('path');
 
-// Test repository configuration
 const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
-const TEST_OBJECT = 'ZIF_SIMPLE_TEST';
+const TEST_OBJECT   = 'ZIF_SIMPLE_TEST';
+const TEST_FILE     = 'src/zif_simple_test.intf.abap';
 
-/**
- * Pull test cases - each test pulls from a specific ref and verifies content
- */
-const pullTestCases = [
-  // Tag v0.1.0 - only get_message method
-  {
-    ref: 'v0.1.0',
-    type: 'tag',
-    pullTest: {
-      name: 'pull from tag v0.1.0',
-      args: ['--url', TEST_REPO_URL, '--branch', 'v0.1.0'],
-      verify: (output) => {
-        const hasPull = output.includes('Pull completed');
-        const hasActivated = output.includes('Activated') || output.includes(TEST_OBJECT);
-        const hasJobId = output.includes('Job ID:');
-        return hasPull && hasActivated && hasJobId;
-      }
-    },
-    verifyTest: {
-      name: 'verify v0.1.0 - has only get_message',
-      expectedMethods: ['get_message'],
-      unexpectedMethods: ['validate_input', 'calculate_sum']
-    }
-  },
+function runPull(repoRoot, branch, extraArgs = []) {
+  const cmd = [
+    'node', path.join(repoRoot, 'bin', 'abapgit-agent'),
+    'pull',
+    '--url', TEST_REPO_URL,
+    '--branch', branch,
+    '--files', TEST_FILE,
+    ...extraArgs
+  ].join(' ');
 
-  // Tag v1.0.0 - get_message + validate_input methods
-  {
-    ref: 'v1.0.0',
-    type: 'tag',
-    pullTest: {
-      name: 'pull from tag v1.0.0',
-      args: ['--url', TEST_REPO_URL, '--branch', 'v1.0.0'],
-      verify: (output) => {
-        const hasPull = output.includes('Pull completed');
-        const hasActivated = output.includes('Activated') || output.includes(TEST_OBJECT);
-        const hasJobId = output.includes('Job ID:');
-        return hasPull && hasActivated && hasJobId;
-      }
-    },
-    verifyTest: {
-      name: 'verify v1.0.0 - has get_message and validate_input',
-      expectedMethods: ['get_message', 'validate_input'],
-      unexpectedMethods: ['calculate_sum']
-    }
-  },
-
-  // Branch feature/test-branch - get_message + calculate_sum methods
-  {
-    ref: 'feature/test-branch',
-    type: 'branch',
-    pullTest: {
-      name: 'pull from branch feature/test-branch',
-      args: ['--url', TEST_REPO_URL, '--branch', 'feature/test-branch'],
-      verify: (output) => {
-        const hasPull = output.includes('Pull completed');
-        const hasActivated = output.includes('Activated') || output.includes(TEST_OBJECT);
-        const hasJobId = output.includes('Job ID:');
-        return hasPull && hasActivated && hasJobId;
-      }
-    },
-    verifyTest: {
-      name: 'verify feature/test-branch - has get_message and calculate_sum',
-      expectedMethods: ['get_message', 'calculate_sum'],
-      unexpectedMethods: ['validate_input']
-    }
-  },
-
-  // Branch main - same as v1.0.0
-  {
-    ref: 'main',
-    type: 'branch',
-    pullTest: {
-      name: 'pull from branch main',
-      args: ['--url', TEST_REPO_URL, '--branch', 'main'],
-      verify: (output) => {
-        const hasPull = output.includes('Pull completed');
-        const hasActivated = output.includes('Activated') || output.includes(TEST_OBJECT);
-        const hasJobId = output.includes('Job ID:');
-        return hasPull && hasActivated && hasJobId;
-      }
-    },
-    verifyTest: {
-      name: 'verify main - has get_message and validate_input',
-      expectedMethods: ['get_message', 'validate_input'],
-      unexpectedMethods: ['calculate_sum']
-    }
+  try {
+    const output = execSync(cmd, { cwd: repoRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    return { output, exitCode: 0 };
+  } catch (err) {
+    return { output: (err.stdout || '') + (err.stderr || ''), exitCode: err.status || 1 };
   }
-];
+}
 
-/**
- * Run pull tests with git ref switching and verification
- * @param {string} repoRoot - Repository root path
- * @param {Object} printFunctions - Print helper functions
- * @returns {Object} Test results with success, results, duration, passedCount, totalCount
- */
-function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, printError, colorize, colors }) {
+function runView(repoRoot) {
+  const cmd = [
+    'node', path.join(repoRoot, 'bin', 'abapgit-agent'),
+    'view', '--objects', TEST_OBJECT
+  ].join(' ');
+
+  try {
+    return execSync(cmd, { cwd: repoRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    return (err.stdout || '') + (err.stderr || '');
+  }
+}
+
+function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, printError, colorize }) {
   printSubHeader('Running Pull Command Tests (Git Refs with Verification)');
 
   const startTime = Date.now();
-  const results = [];
+  const results   = [];
 
   printInfo(`Test repository: ${TEST_REPO_URL}`);
-  printInfo(`Test object: ${TEST_OBJECT}`);
+  printInfo(`Test object:     ${TEST_OBJECT}`);
   printInfo('');
 
-  // Run each pull test case
-  for (const testCase of pullTestCases) {
-    const { ref, type, pullTest, verifyTest } = testCase;
-
-    printInfo(colorize('cyan', `Testing ${type}: ${ref}`));
-
-    // Step 1: Pull from git ref
-    try {
-      const pullCmd = `node ${path.join(repoRoot, 'bin', 'abapgit-agent')} pull ${pullTest.args.join(' ')}`;
-      const pullOutput = execSync(pullCmd, {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      const pullPassed = pullTest.verify(pullOutput);
-      if (pullPassed) {
-        printSuccess(`✓ ${pullTest.name}`);
-        results.push({ name: pullTest.name, passed: true });
-      } else {
-        printError(`✗ ${pullTest.name}`);
-        printError(`  Output did not match expected pattern`);
-        results.push({ name: pullTest.name, passed: false, error: 'Verification failed' });
-        continue; // Skip verify test if pull failed
-      }
-    } catch (error) {
-      printError(`✗ ${pullTest.name}`);
-      printError(`  ${error.message}`);
-      results.push({ name: pullTest.name, passed: false, error: error.message });
-      continue; // Skip verify test if pull failed
+  // ─── Reset: establish known baseline on v0.1.0 ─────────────────────────────
+  printInfo(colorize('cyan', 'Reset: establish baseline on v0.1.0 (--conflict-mode ignore)'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'v0.1.0', ['--conflict-mode', 'ignore']);
+    if (exitCode === 0 && output.includes('Pull completed')) {
+      printSuccess('✓ baseline reset to v0.1.0');
+    } else {
+      printError('✗ baseline reset failed — cannot continue');
+      printError(`  ${output.split('\n').find(l => l.includes('Error') || l.includes('failed')) || ''}`);
+      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 11 };
     }
+  }
+  printInfo('');
 
-    // Step 2: Verify activated content using view command
-    try {
-      const viewCmd = `node ${path.join(repoRoot, 'bin', 'abapgit-agent')} view --objects ${TEST_OBJECT}`;
-      const viewOutput = execSync(viewCmd, {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      // Check expected methods are present
-      const hasExpected = verifyTest.expectedMethods.every(method => viewOutput.includes(method));
-      // Check unexpected methods are NOT present
-      const noUnexpected = verifyTest.unexpectedMethods.every(method => !viewOutput.includes(method));
-
-      const verifyPassed = hasExpected && noUnexpected;
-      if (verifyPassed) {
-        printSuccess(`✓ ${verifyTest.name}`);
-        results.push({ name: verifyTest.name, passed: true });
-      } else {
-        printError(`✗ ${verifyTest.name}`);
-        if (!hasExpected) {
-          printError(`  Missing expected methods: ${verifyTest.expectedMethods.filter(m => !viewOutput.includes(m)).join(', ')}`);
-        }
-        if (!noUnexpected) {
-          printError(`  Found unexpected methods: ${verifyTest.unexpectedMethods.filter(m => viewOutput.includes(m)).join(', ')}`);
-        }
-        results.push({ name: verifyTest.name, passed: false, error: 'Content verification failed' });
-      }
-    } catch (error) {
-      printError(`✗ ${verifyTest.name}`);
-      printError(`  ${error.message}`);
-      results.push({ name: verifyTest.name, passed: false, error: error.message });
-    }
-
-    printInfo('');
+  // ─── Step 1: no conflict on same ref ────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 1: no conflict — pull v0.1.0 again (same ref)'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'v0.1.0');
+    const passed = exitCode === 0 && output.includes('Pull completed');
+    passed
+      ? printSuccess('✓ pull v0.1.0 succeeded without conflict')
+      : printError(`✗ expected no conflict on same ref\n  ${output.split('\n').find(l => l.trim()) || ''}`);
+    results.push({ name: 'no conflict on same ref (v0.1.0)', passed });
   }
 
-  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  // verify content: get_message only
+  {
+    const viewOutput = runView(repoRoot);
+    const passed = viewOutput.includes('get_message') &&
+                   !viewOutput.includes('validate_input') &&
+                   !viewOutput.includes('calculate_sum');
+    passed
+      ? printSuccess('✓ v0.1.0 content correct (get_message only)')
+      : printError('✗ v0.1.0 content unexpected');
+    results.push({ name: 'verify v0.1.0 content', passed });
+  }
+  printInfo('');
+
+  // ─── Steps 2–3: v1.0.0 ──────────────────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 2: BRANCH_SWITCH conflict — pull v1.0.0 without override'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
+    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
+    passed
+      ? printSuccess('✓ BRANCH_SWITCH conflict detected for v1.0.0')
+      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
+    results.push({ name: 'BRANCH_SWITCH conflict for v1.0.0', passed });
+  }
+  printInfo('');
+
+  printInfo(colorize('cyan', 'Step 3: pull v1.0.0 --conflict-mode ignore'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'v1.0.0', ['--conflict-mode', 'ignore']);
+    const passed = exitCode === 0 && output.includes('Pull completed');
+    passed
+      ? printSuccess('✓ pull v1.0.0 succeeded with --conflict-mode ignore')
+      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull v1.0.0 with --conflict-mode ignore', passed });
+  }
+
+  // verify content: get_message + validate_input
+  {
+    const viewOutput = runView(repoRoot);
+    const passed = viewOutput.includes('get_message') &&
+                   viewOutput.includes('validate_input') &&
+                   !viewOutput.includes('calculate_sum');
+    passed
+      ? printSuccess('✓ v1.0.0 content correct (get_message + validate_input)')
+      : printError('✗ v1.0.0 content unexpected');
+    results.push({ name: 'verify v1.0.0 content', passed });
+  }
+  printInfo('');
+
+  // ─── Steps 4–5: feature/test-branch ─────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 4: BRANCH_SWITCH conflict — pull feature/test-branch without override'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'feature/test-branch');
+    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
+    passed
+      ? printSuccess('✓ BRANCH_SWITCH conflict detected for feature/test-branch')
+      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
+    results.push({ name: 'BRANCH_SWITCH conflict for feature/test-branch', passed });
+  }
+  printInfo('');
+
+  printInfo(colorize('cyan', 'Step 5: pull feature/test-branch --conflict-mode ignore'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'feature/test-branch', ['--conflict-mode', 'ignore']);
+    const passed = exitCode === 0 && output.includes('Pull completed');
+    passed
+      ? printSuccess('✓ pull feature/test-branch succeeded with --conflict-mode ignore')
+      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull feature/test-branch with --conflict-mode ignore', passed });
+  }
+
+  // verify content: get_message + calculate_sum
+  {
+    const viewOutput = runView(repoRoot);
+    const passed = viewOutput.includes('get_message') &&
+                   viewOutput.includes('calculate_sum') &&
+                   !viewOutput.includes('validate_input');
+    passed
+      ? printSuccess('✓ feature/test-branch content correct (get_message + calculate_sum)')
+      : printError('✗ feature/test-branch content unexpected');
+    results.push({ name: 'verify feature/test-branch content', passed });
+  }
+  printInfo('');
+
+  // ─── Steps 6–7: main ─────────────────────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 6: BRANCH_SWITCH conflict — pull main without override'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'main');
+    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
+    passed
+      ? printSuccess('✓ BRANCH_SWITCH conflict detected for main')
+      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
+    results.push({ name: 'BRANCH_SWITCH conflict for main', passed });
+  }
+  printInfo('');
+
+  printInfo(colorize('cyan', 'Step 7: pull main --conflict-mode ignore'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'main', ['--conflict-mode', 'ignore']);
+    const passed = exitCode === 0 && output.includes('Pull completed');
+    passed
+      ? printSuccess('✓ pull main succeeded with --conflict-mode ignore')
+      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull main with --conflict-mode ignore', passed });
+  }
+
+  // verify content: get_message + validate_input
+  {
+    const viewOutput = runView(repoRoot);
+    const passed = viewOutput.includes('get_message') &&
+                   viewOutput.includes('validate_input') &&
+                   !viewOutput.includes('calculate_sum');
+    passed
+      ? printSuccess('✓ main content correct (get_message + validate_input)')
+      : printError('✗ main content unexpected');
+    results.push({ name: 'verify main content', passed });
+  }
+  // ─── Step 8: branch switch with identical content → no conflict ─────────────
+  // main and v1.0.0 have the same content for ZIF_SIMPLE_TEST.
+  // Branch switches with git_changed=false must NOT trigger BRANCH_SWITCH.
+  printInfo(colorize('cyan', 'Step 8: no conflict — pull v1.0.0 after main (same content, different ref)'));
+  {
+    const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
+    const passed = exitCode === 0 && output.includes('Pull completed');
+    passed
+      ? printSuccess('✓ branch switch with identical content succeeded without conflict')
+      : printError(`✗ expected no conflict when content is identical across refs\n  ${output.split('\n').find(l => l.trim()) || ''}`);
+    results.push({ name: 'no conflict on branch switch with identical content', passed });
+  }
+  printInfo('');
+
+  const duration    = ((Date.now() - startTime) / 1000).toFixed(1);
   const passedCount = results.filter(r => r.passed).length;
-  const totalCount = results.length;
-  const success = passedCount === totalCount;
+  const totalCount  = results.length;
+  const success     = passedCount === totalCount;
 
   return { success, results, duration, passedCount, totalCount };
 }
 
-module.exports = {
-  runPullTests,
-  pullTestCases
-};
+module.exports = { runPullTests };
