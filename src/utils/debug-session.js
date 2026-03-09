@@ -25,6 +25,37 @@ const { AdtHttp } = require('./adt-http');
 // Header required to pin all requests to the same ABAP work process.
 const STATEFUL_HEADER = { 'X-sap-adt-sessiontype': 'stateful' };
 
+/**
+ * Retry a debug ADT call up to maxRetries times on transient ICM errors.
+ *
+ * The SAP ICM (load balancer) returns HTTP 400 with an HTML "Service cannot
+ * be reached" body when the target ABAP work process is momentarily unavailable
+ * (e.g. finishing a previous step, or briefly between requests).  This is a
+ * transient condition that resolves within a second or two — retrying is safe
+ * for all debug read/navigation operations.
+ *
+ * @param {function} fn         - Async function to retry (takes no args)
+ * @param {number}   maxRetries - Max additional attempts after the first (default 3)
+ * @param {number}   delayMs    - Wait between retries in ms (default 1000)
+ */
+async function retryOnIcmError(fn, maxRetries = 3, delayMs = 1000) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isIcmError = err && err.statusCode === 400 &&
+        err.body && err.body.includes('Service cannot be reached');
+      if (!isIcmError) throw err;
+      lastErr = err;
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 class DebugSession {
   /**
    * @param {AdtHttp} adtHttp   - ADT HTTP client instance (carries session cookie)
@@ -94,30 +125,33 @@ class DebugSession {
     // completion.  When the program runs to completion ADT returns HTTP 500
     // (no suspended session left).  Treat both 200 and 500 as "continued".
     if (method === 'stepContinue') {
-      try {
-        await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
-          contentType: 'application/vnd.sap.as+xml',
-          headers: STATEFUL_HEADER
-        });
-        // 200: program hit another breakpoint (or is still running).
-        // Position query is not meaningful until a new breakpoint fires via
-        // the listener, so return the sentinel and let the caller re-attach.
-        return { position: { continued: true }, source: [] };
-      } catch (err) {
-        // 500: debuggee ran to completion, session ended normally.
-        if (err && err.statusCode === 500) {
-          return { position: { continued: true, finished: true }, source: [] };
+      return retryOnIcmError(async () => {
+        try {
+          await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
+            contentType: 'application/vnd.sap.as+xml',
+            headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+          });
+          // 200: program hit another breakpoint (or is still running).
+          // Position query is not meaningful until a new breakpoint fires via
+          // the listener, so return the sentinel and let the caller re-attach.
+          return { position: { continued: true }, source: [] };
+        } catch (err) {
+          // 500: debuggee ran to completion, session ended normally.
+          if (err && err.statusCode === 500) {
+            return { position: { continued: true, finished: true }, source: [] };
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
     }
 
-    await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
-      contentType: 'application/vnd.sap.as+xml',
-      headers: STATEFUL_HEADER
+    return retryOnIcmError(async () => {
+      await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
+        contentType: 'application/vnd.sap.as+xml',
+        headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+      });
+      return this.getPosition();
     });
-
-    return this.getPosition();
   }
 
   /**
@@ -337,13 +371,31 @@ class DebugSession {
    * @returns {Promise<Array<{ frame: number, class: string, method: string, line: number }>>}
    */
   async getStack() {
-    const { body } = await this.http.post(
-      '/sap/bc/adt/debugger?method=getStack&emode=_&semanticURIs=true', '', {
-        contentType: 'application/vnd.sap.as+xml',
-        headers: STATEFUL_HEADER
+    return retryOnIcmError(async () => {
+      // Try newer dedicated stack endpoint first (abap-adt-api v7+ approach)
+      try {
+        const { body } = await this.http.get(
+          '/sap/bc/adt/debugger/stack?emode=_&semanticURIs=true', {
+            accept: 'application/xml',
+            headers: STATEFUL_HEADER
+          }
+        );
+        const frames = parseStack(body);
+        if (frames.length > 0) return frames;
+      } catch (e) {
+        // Re-throw ICM errors so the outer retryOnIcmError can catch them
+        if (e && e.statusCode === 400 && e.body && e.body.includes('Service cannot be reached')) throw e;
+        // Otherwise fall through to POST approach
       }
-    );
-    return parseStack(body);
+      // Fallback: POST approach (older ADT versions)
+      const { body } = await this.http.post(
+        '/sap/bc/adt/debugger?method=getStack&emode=_&semanticURIs=true', '', {
+          contentType: 'application/vnd.sap.as+xml',
+          headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+        }
+      );
+      return parseStack(body);
+    });
   }
 
   /**

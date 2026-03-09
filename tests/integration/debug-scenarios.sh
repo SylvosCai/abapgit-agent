@@ -67,6 +67,8 @@ open_stdin_pipe() {
 }
 
 ensure_breakpoint() {
+  log "Clearing stale session state and daemon ..."
+  $AGENT debug terminate >/dev/null 2>&1 || true   # clears state file + kills daemon if running
   log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
   $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 || true
@@ -271,7 +273,7 @@ scenario3() {
   log "Attach (--json) PID=$ATTACH1_PID"
 
   # Rule 1: give the listener POST time to register on ADT before the trigger fires
-  sleep 2
+  sleep 4
 
   # ── Step 2: start trigger in background — MUST stay alive for the whole session (rule 2)
   $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_trigger.out 2>&1 &
@@ -365,7 +367,7 @@ case "$SCENARIO" in
   1)    scenario1 ;;
   2)    scenario2 ;;
   3)    scenario3 ;;
-  all)  scenario1; scenario2; scenario3 ;;
+  all)  scenario1; sleep 5; scenario2; sleep 5; scenario3 ;;
   *)    echo "Usage: $0 [1|2|3|all]"; exit 1 ;;
 esac
 

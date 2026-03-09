@@ -170,7 +170,8 @@ async function _handleLine(socket, line, session, cleanupAndExit, resetIdle) {
     _send(socket, {
       ok: false,
       error: err.message || JSON.stringify(err),
-      statusCode: err.statusCode
+      statusCode: err.statusCode,
+      body: err.body || null
     });
   }
 }

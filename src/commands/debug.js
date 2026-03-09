@@ -806,7 +806,7 @@ async function cmdStep(args, config, adt) {
       process.exit(1);
     }
     if (!resp.ok) {
-      console.error(`\n  Error: ${resp.error}${resp.statusCode ? ` (HTTP ${resp.statusCode})` : ''}\n`);
+      console.error(`\n  Error: ${resp.error}${resp.statusCode ? ` (HTTP ${resp.statusCode})` : ''}${resp.body ? '\n  Body: ' + resp.body.substring(0, 400) : ''}\n`);
       process.exit(1);
     }
     // continued+finished (or empty position) means the program ran to completion
@@ -1074,7 +1074,7 @@ async function cmdStack(args, config, adt) {
       process.exit(1);
     }
     if (!resp.ok) {
-      console.error(`\n  Error: ${resp.error}${resp.statusCode ? ` (HTTP ${resp.statusCode})` : ''}\n`);
+      console.error(`\n  Error: ${resp.error}${resp.statusCode ? ` (HTTP ${resp.statusCode})` : ''}${resp.body ? '\n  Body: ' + resp.body.substring(0, 400) : ''}\n`);
       process.exit(1);
     }
     const frames = resp.frames;

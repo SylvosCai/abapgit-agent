@@ -1,3 +1,10 @@
+---
+layout: default
+title: "Debug Findings: Pull File Selection"
+nav_order: 1
+parent: Reference
+---
+
 # Debug Findings: How abapGit Decides Which Files to Pull
 
 **Date:** 2026-03-08
