@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.10.1
+
+### New Features
+
+- Detect conflicts during pull operations
+
+### Bug Fixes
+
+- Fix stale SAP_SESSIONID from duplicate cookies
+
+---
+
+---
+
+
 ## v1.10.0
 
 ### New Features
