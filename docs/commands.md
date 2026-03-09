@@ -37,6 +37,7 @@ All available CLI commands for abapGit Agent.
 | [preview](preview-command.md) | ✅ | Preview table/CDS view data |
 | [dump](dump-command.md) | ✅ | Query short dumps (ST22) from ABAP system |
 | [debug](debug-command.md) | ✅ | Interactive ABAP debugger via ADT REST API |
+| [transport](transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
 | [status](status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](health-command.md) | ✅ | Health check |
 | [upgrade](upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |

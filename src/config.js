@@ -166,6 +166,37 @@ function getConflictSettings() {
   return { mode: 'abort', reason: null };
 }
 
+/**
+ * Get transport hook configuration from project-level config
+ * @returns {{ hook: string|null, description: string|null }}
+ */
+function getTransportHookConfig() {
+  const projectConfig = loadProjectConfig();
+  if (projectConfig?.transportRequest) {
+    return {
+      hook: projectConfig.transportRequest.hook || null,
+      description: projectConfig.transportRequest.description || null
+    };
+  }
+  return { hook: null, description: null };
+}
+
+/**
+ * Get transport operation settings from project-level config
+ * @returns {{ allowCreate: boolean, allowRelease: boolean, reason: string|null }}
+ */
+function getTransportSettings() {
+  const projectConfig = loadProjectConfig();
+  if (projectConfig?.transports) {
+    return {
+      allowCreate:  projectConfig.transports.allowCreate  !== false,
+      allowRelease: projectConfig.transports.allowRelease !== false,
+      reason:       projectConfig.transports.reason || null
+    };
+  }
+  return { allowCreate: true, allowRelease: true, reason: null };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -176,5 +207,7 @@ module.exports = {
   getSafeguards,
   getProjectInfo,
   getConflictSettings,
-  loadProjectConfig
+  loadProjectConfig,
+  getTransportHookConfig,
+  getTransportSettings
 };

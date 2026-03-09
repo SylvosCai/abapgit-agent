@@ -38,7 +38,7 @@ module.exports = {
     let files = null;
     let conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : getConflictSettings().mode;
 
-    // Transport: CLI arg takes priority, then config/environment, then null
+    // Transport: CLI arg takes priority, then config/environment, then selector
     let transportRequest = null;
     if (transportArgIndex !== -1 && transportArgIndex + 1 < args.length) {
       // Explicit --transport argument
@@ -46,6 +46,14 @@ module.exports = {
     } else {
       // Fall back to config or environment variable
       transportRequest = getTransport();
+    }
+
+    // Auto-select transport when none configured and not in JSON mode
+    if (!transportRequest && !jsonOutput) {
+      const { selectTransport } = require('../utils/transport-selector');
+      const config = loadConfig();
+      const http = new AbapHttp(config);
+      transportRequest = await selectTransport(config, http);
     }
 
     if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {

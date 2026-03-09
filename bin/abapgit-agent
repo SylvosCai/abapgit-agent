@@ -24,7 +24,7 @@ const gitUtils = require('../src/utils/git-utils');
 const versionCheck = require('../src/utils/version-check');
 const validators = require('../src/utils/validators');
 const { AbapHttp } = require('../src/utils/abap-http');
-const { loadConfig, getTransport, isAbapIntegrationEnabled, getSafeguards, getConflictSettings } = require('../src/config');
+const { loadConfig, getTransport, isAbapIntegrationEnabled, getSafeguards, getConflictSettings, getTransportSettings } = require('../src/config');
 
 // Get terminal width for responsive table
 const getTermWidth = () => process.stdout.columns || 80;
@@ -55,7 +55,8 @@ async function main() {
     ref: require('../src/commands/ref'),
     init: require('../src/commands/init'),
     pull: require('../src/commands/pull'),
-    upgrade: require('../src/commands/upgrade')
+    upgrade: require('../src/commands/upgrade'),
+    transport: require('../src/commands/transport')
   };
 
   // Check if this is a modular command
@@ -103,7 +104,8 @@ To enable integration:
       AbapHttp,
       getTransport,
       getSafeguards,
-      getConflictSettings
+      getConflictSettings,
+      getTransportSettings
     };
 
     // Execute command
@@ -125,7 +127,7 @@ To enable integration:
 main().catch((err) => {
   // Known CLI errors (e.g. pull conflict) already printed their own output — skip re-printing.
   // For all other unexpected errors, print the message without the stack trace.
-  if (!err._isPullError) {
+  if (!err._isPullError && !err._isTransportError) {
     console.error(err.message || err);
   }
   process.exit(1);

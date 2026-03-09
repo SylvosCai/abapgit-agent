@@ -405,6 +405,8 @@ Checked into the repository — applies to all developers. **Read this file at t
 | `safeguards.requireFilesForPull` | `true`/`false` | `false` | Requires `--files` on every pull |
 | `safeguards.disablePull` | `true`/`false` | `false` | Disables pull entirely (CI/CD-only projects) |
 | `conflictDetection.mode` | `"abort"`/`"ignore"` | `"abort"` | Whether to abort pull on conflict |
+| `transports.allowCreate` | `true`/`false` | `true` | When `false`, `transport create` is blocked |
+| `transports.allowRelease` | `true`/`false` | `true` | When `false`, `transport release` is blocked |
 
 CLI `--conflict-mode` always overrides the project config for a single run.
 
@@ -607,6 +609,14 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 1. ✓ Conflict detection is active — pull aborts if ABAP system was edited since last pull
 2. ✓ If pull is aborted with conflict error, inform user and suggest `--conflict-mode ignore` to override for that run
 3. ✗ Don't silently add `--conflict-mode ignore` — always tell the user about the conflict
+
+**When `transports.allowCreate = false`:**
+1. ✗ Do not run `abapgit-agent transport create`
+2. ✓ Inform the user that transport creation is disabled for this project
+
+**When `transports.allowRelease = false`:**
+1. ✗ Do not run `abapgit-agent transport release`
+2. ✓ Inform the user that transport release is disabled for this project
 
 ---
 

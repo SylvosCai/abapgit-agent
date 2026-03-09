@@ -384,6 +384,12 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
   "conflictDetection": {
     "mode": "abort",
     "reason": "Multi-developer project — prevent accidental overwrites"
+  },
+
+  "transports": {
+    "allowCreate": false,
+    "allowRelease": false,
+    "reason": "Transport requests are managed by the release manager."
   }
 }
 ```
@@ -404,6 +410,14 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
 | `reason` | string | `null` | Optional explanation |
 
 CLI `--conflict-mode` flag always takes precedence over project config.
+
+#### Transport Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `allowCreate` | boolean | `true` | When `false`, `transport create` is blocked |
+| `allowRelease` | boolean | `true` | When `false`, `transport release` is blocked |
+| `reason` | string | `null` | Optional explanation shown in error messages |
 
 #### Use Cases
 
