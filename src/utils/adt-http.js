@@ -199,12 +199,37 @@ class AdtHttp {
           return;
         }
 
-        // Update cookies from any response that sets them
+        // Update cookies from any response that sets them.
+        // Merge by name so that updated values (e.g. SAP_SESSIONID) replace
+        // their old counterparts rather than accumulating duplicates.
+        // Duplicate SAP_SESSIONID cookies would cause the ICM to route requests
+        // to a stale work process ("Service cannot be reached").
         if (res.headers['set-cookie']) {
-          const newCookies = Array.isArray(res.headers['set-cookie'])
-            ? res.headers['set-cookie'].map(c => c.split(';')[0]).join('; ')
-            : res.headers['set-cookie'].split(';')[0];
-          this.cookies = this.cookies ? this.cookies + '; ' + newCookies : newCookies;
+          const incoming = Array.isArray(res.headers['set-cookie'])
+            ? res.headers['set-cookie'].map(c => c.split(';')[0])
+            : [res.headers['set-cookie'].split(';')[0]];
+          // Parse existing cookies into a Map (preserves insertion order)
+          const jar = new Map();
+          if (this.cookies) {
+            this.cookies.split(';').forEach(pair => {
+              const trimmed = pair.trim();
+              if (trimmed) {
+                const eq = trimmed.indexOf('=');
+                const k = eq === -1 ? trimmed : trimmed.slice(0, eq);
+                jar.set(k.trim(), trimmed);
+              }
+            });
+          }
+          // Overwrite with incoming cookies
+          incoming.forEach(pair => {
+            const trimmed = pair.trim();
+            if (trimmed) {
+              const eq = trimmed.indexOf('=');
+              const k = eq === -1 ? trimmed : trimmed.slice(0, eq);
+              jar.set(k.trim(), trimmed);
+            }
+          });
+          this.cookies = [...jar.values()].join('; ');
         }
 
         let respBody = '';
