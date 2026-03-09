@@ -8,5 +8,10 @@
     "requireFilesForPull": false,
     "disablePull": false,
     "reason": null
+  },
+
+  "conflictDetection": {
+    "mode": "abort",
+    "reason": null
   }
 }

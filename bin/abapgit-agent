@@ -24,7 +24,7 @@ const gitUtils = require('../src/utils/git-utils');
 const versionCheck = require('../src/utils/version-check');
 const validators = require('../src/utils/validators');
 const { AbapHttp } = require('../src/utils/abap-http');
-const { loadConfig, getTransport, isAbapIntegrationEnabled, getSafeguards } = require('../src/config');
+const { loadConfig, getTransport, isAbapIntegrationEnabled, getSafeguards, getConflictSettings } = require('../src/config');
 
 // Get terminal width for responsive table
 const getTermWidth = () => process.stdout.columns || 80;
@@ -102,7 +102,8 @@ To enable integration:
       loadConfig,
       AbapHttp,
       getTransport,
-      getSafeguards
+      getSafeguards,
+      getConflictSettings
     };
 
     // Execute command

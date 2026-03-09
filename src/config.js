@@ -141,6 +141,31 @@ function getProjectInfo() {
   return projectConfig?.project || null;
 }
 
+/**
+ * Get conflict detection configuration from project-level config
+ * Precedence: CLI flag > project config > default ('abort')
+ * @returns {Object} Conflict detection config with mode and reason
+ */
+function getConflictSettings() {
+  const projectConfig = loadProjectConfig();
+
+  if (projectConfig?.conflictDetection) {
+    const validModes = ['ignore', 'abort'];
+    const mode = projectConfig.conflictDetection.mode;
+    if (mode && !validModes.includes(mode)) {
+      console.warn(`⚠️  Warning: Invalid conflictDetection.mode '${mode}' in .abapgit-agent.json. Must be one of: ${validModes.join(', ')}. Falling back to 'abort'.`);
+      return { mode: 'abort', reason: null };
+    }
+    return {
+      mode: mode || 'abort',
+      reason: projectConfig.conflictDetection.reason || null
+    };
+  }
+
+  // Default: abort (conflict detection on by default)
+  return { mode: 'abort', reason: null };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -150,5 +175,6 @@ module.exports = {
   getWorkflowConfig,
   getSafeguards,
   getProjectInfo,
+  getConflictSettings,
   loadProjectConfig
 };

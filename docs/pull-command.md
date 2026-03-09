@@ -45,7 +45,7 @@ abapgit-agent pull
 
 ## Project-Level Safeguards
 
-Project maintainers can configure safeguards in `.abapgit-agent.json` (checked into repository):
+Project maintainers can configure safeguards and conflict detection defaults in `.abapgit-agent.json` (checked into repository):
 
 ```json
 {
@@ -53,6 +53,11 @@ Project maintainers can configure safeguards in `.abapgit-agent.json` (checked i
     "requireFilesForPull": true,
     "disablePull": false,
     "reason": "Large project with 500+ objects"
+  },
+
+  "conflictDetection": {
+    "mode": "ignore",
+    "reason": "Single-developer project"
   }
 }
 ```
@@ -64,6 +69,12 @@ Project maintainers can configure safeguards in `.abapgit-agent.json` (checked i
 **When `disablePull: true`:**
 - All `pull` commands are disabled
 - Error message directs users to project maintainer
+
+**`conflictDetection.mode`:**
+- `"abort"` (default) — pull aborts when conflicts are detected
+- `"ignore"` — conflict detection disabled project-wide
+
+CLI `--conflict-mode` flag always takes precedence over project config.
 
 **Example Error Message:**
 ```

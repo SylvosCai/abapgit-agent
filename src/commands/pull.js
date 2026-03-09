@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards } = context;
+    const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings } = context;
 
     // Check project-level safeguards
     const safeguards = getSafeguards();
@@ -36,7 +36,7 @@ module.exports = {
     let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
     let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : gitUtils.getBranch();
     let files = null;
-    let conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : 'abort';
+    let conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : getConflictSettings().mode;
 
     // Transport: CLI arg takes priority, then config/environment, then null
     let transportRequest = null;

@@ -177,9 +177,44 @@ Pull proceeds as normal — no additional output. Baseline is silently updated a
 
 ---
 
+## Configuration
+
+### CLI Flag (highest priority)
+
+```bash
+abapgit-agent pull --conflict-mode ignore   # bypass for this run
+abapgit-agent pull --conflict-mode abort    # force on for this run
+```
+
+### Project Config (`.abapgit-agent.json`)
+
+Set the default mode for all developers on a project:
+
+```json
+{
+  "conflictDetection": {
+    "mode": "ignore",
+    "reason": "Single-developer project — conflict detection not needed"
+  }
+}
+```
+
+| Field | Values | Default | Description |
+|-------|--------|---------|-------------|
+| `mode` | `"abort"`, `"ignore"` | `"abort"` | Default conflict detection behaviour |
+| `reason` | string | `null` | Optional explanation (not currently shown in output) |
+
+### Precedence
+
+```
+CLI --conflict-mode flag  >  .abapgit-agent.json conflictDetection.mode  >  "abort"
+```
+
+---
+
 ## Key Behaviors
 
-1. **Always on by default** — `abort` is the default; use `--conflict-mode ignore` to bypass
+1. **Always on by default** — `abort` is the default; use `--conflict-mode ignore` or project config to bypass
 2. **First pull always succeeds** — no baseline yet, detection skipped
 3. **Per-object tracking** — each object has its own baseline
 4. **Content SHA, not timestamps** — works for all package types including local `$` packages

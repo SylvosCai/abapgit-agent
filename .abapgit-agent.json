@@ -1,0 +1,12 @@
+{
+  "safeguards": {
+    "requireFilesForPull": true,
+    "disablePull": false,
+    "reason": null
+  },
+
+  "conflictDetection": {
+    "mode": "ignore",
+    "reason": null
+  }
+}

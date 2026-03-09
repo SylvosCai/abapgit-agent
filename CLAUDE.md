@@ -379,6 +379,11 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
     "requireFilesForPull": true,
     "disablePull": false,
     "reason": "Large project with 500+ objects. Selective activation required."
+  },
+
+  "conflictDetection": {
+    "mode": "abort",
+    "reason": "Multi-developer project — prevent accidental overwrites"
   }
 }
 ```
@@ -390,6 +395,15 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
 | `requireFilesForPull` | boolean | `false` | Requires `--files` parameter for pull command |
 | `disablePull` | boolean | `false` | Completely disables pull command |
 | `reason` | string | `null` | Optional explanation shown in error messages |
+
+#### Conflict Detection Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `mode` | string | `"abort"` | `"abort"` — abort on conflict; `"ignore"` — disable detection |
+| `reason` | string | `null` | Optional explanation |
+
+CLI `--conflict-mode` flag always takes precedence over project config.
 
 #### Use Cases
 
@@ -409,6 +423,15 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
   "safeguards": {
     "disablePull": true,
     "reason": "All activations must go through CI/CD pipeline."
+  }
+}
+```
+
+**Solo Developer (disable conflict detection):**
+```json
+{
+  "conflictDetection": {
+    "mode": "ignore"
   }
 }
 ```

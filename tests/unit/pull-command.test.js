@@ -279,7 +279,8 @@ describe('Pull Command - CLI Output Format', () => {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
       getTransport: jest.fn(() => null),
-      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap,zif_my_interface.intf.abap'], mockContext);
@@ -321,7 +322,8 @@ describe('Pull Command - CLI Output Format', () => {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
       getTransport: jest.fn(() => null),
-      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await expect(
@@ -362,7 +364,8 @@ describe('Pull Command - CLI Output Format', () => {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
       getTransport: jest.fn(() => null),
-      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
@@ -397,7 +400,8 @@ describe('Pull Command - CLI Output Format', () => {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
       getTransport: jest.fn(() => null),
-      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_my_class.clas.abap', '--json'], mockContext);
@@ -446,7 +450,8 @@ describe('Pull Command - CLI Output Format', () => {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
       getTransport: jest.fn(() => null),
-      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null }))
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await pullCommand.execute(['--files', 'zcl_class1.clas.abap', '--json'], mockContext);
@@ -497,7 +502,8 @@ describe('Pull Command - Safeguard Validation', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await expect(async () => {
@@ -531,7 +537,8 @@ describe('Pull Command - Safeguard Validation', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     // Should NOT throw
@@ -556,7 +563,8 @@ describe('Pull Command - Safeguard Validation', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     // Should reject even with --files
@@ -590,7 +598,8 @@ describe('Pull Command - Safeguard Validation', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     // Should work without --files when no safeguards
@@ -614,7 +623,8 @@ describe('Pull Command - Safeguard Validation', () => {
         getBranch: jest.fn(() => 'master'),
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
       },
-      getTransport: jest.fn(() => null)
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
     };
 
     await expect(async () => {

@@ -396,6 +396,20 @@ abapgit-agent debug delete --all
 
 This project's workflow mode is configured in `.abapGitAgent` under `workflow.mode`.
 
+### Project-Level Config (`.abapgit-agent.json`)
+
+Checked into the repository — applies to all developers. **Read this file at the start of every session.**
+
+| Setting | Values | Default | Effect |
+|---------|--------|---------|--------|
+| `safeguards.requireFilesForPull` | `true`/`false` | `false` | Requires `--files` on every pull |
+| `safeguards.disablePull` | `true`/`false` | `false` | Disables pull entirely (CI/CD-only projects) |
+| `conflictDetection.mode` | `"abort"`/`"ignore"` | `"abort"` | Whether to abort pull on conflict |
+
+CLI `--conflict-mode` always overrides the project config for a single run.
+
+See **AI Tool Guidelines** below for how to react to each setting.
+
 ### Workflow Modes
 
 | Mode | Branch Strategy | Rebase Before Pull | Create PR |
@@ -571,6 +585,29 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 3. ✓ `git pull origin <default>` before push
 4. ✗ Don't create feature branches
 
+**Read `.abapgit-agent.json` to determine project safeguards and conflict detection:**
+
+**When `safeguards.requireFilesForPull = true`:**
+1. ✓ Always include `--files` in every `pull` command
+2. ✓ Never run `abapgit-agent pull` without `--files`
+3. ✗ Don't suggest or run a full pull without specifying files
+
+**When `safeguards.requireFilesForPull = false` or not set:**
+1. ✓ `--files` is optional — use it for speed, omit for full pull
+
+**When `safeguards.disablePull = true`:**
+1. ✗ Do not run `abapgit-agent pull` at all
+2. ✓ Inform the user that pull is disabled for this project (CI/CD only)
+
+**When `conflictDetection.mode = "ignore"` or not set:**
+1. ✓ Run `pull` normally — no conflict flags needed
+2. ✗ Don't add `--conflict-mode` unless user explicitly asks
+
+**When `conflictDetection.mode = "abort"`:**
+1. ✓ Conflict detection is active — pull aborts if ABAP system was edited since last pull
+2. ✓ If pull is aborted with conflict error, inform user and suggest `--conflict-mode ignore` to override for that run
+3. ✗ Don't silently add `--conflict-mode ignore` — always tell the user about the conflict
+
 ---
 
 ## Development Workflow (Detailed)
@@ -600,6 +637,7 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
        │
        ▼
 6. Activate → abapgit-agent pull --files src/file.clas.abap
+       │         (behaviour depends on .abapgit-agent.json — see AI Tool Guidelines)
        │
        ▼
 7. Verify → Check pull output
@@ -790,6 +828,9 @@ abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap,sr
 
 # 2. Pull/activate AFTER pushing to git
 abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
+
+# Override conflict detection for a single pull (e.g. deliberate branch switch)
+abapgit-agent pull --files src/zcl_class1.clas.abap --conflict-mode ignore
 
 # 3. Inspect AFTER pull (for errors or unsupported types)
 abapgit-agent inspect --files src/zcl_class1.clas.abap
