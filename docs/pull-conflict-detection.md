@@ -58,12 +58,20 @@ Pull (baseline SHA recorded)
 
 ### BRANCH\_SWITCH
 
-Switching to a branch whose content differs from what was last pulled.
+Switching to a branch whose content differs from what was last pulled, **and** a different user performed the last pull. Only fires when another developer's pull is at risk of being silently overridden.
 
 ```
-Pull branch b1 (baseline: branch=b1, sha=abc)
-  → Pull branch b2 where same object has sha=xyz
-  → BRANCH_SWITCH conflict
+Developer A pulls branch b1 (baseline: branch=b1, sha=abc, last_pulled_by=A)
+  → Developer B pulls branch b2 where same object has sha=xyz
+  → BRANCH_SWITCH conflict (last_pulled_by=A ≠ sy-uname=B)
+```
+
+Same-user branch switches are always safe — if you pulled branch b1 and now want to pull b2, it passes through:
+
+```
+You pull branch b1 (baseline: branch=b1, sha=abc, last_pulled_by=YOU)
+  → You pull branch b2 (different content)
+  → No conflict — intentional branch switch by same user
 ```
 
 ---
@@ -96,15 +104,21 @@ local_sha       = SHA-1( current ABAP system content, via get_files_local() )
 git_changed     = current_sha ≠ last_git_sha      (git changed since last pull)
 sys_changed     = local_sha   ≠ last_git_sha       (system changed since last pull)
 branch_switched = current_branch ≠ last_branch
+different_user  = last_pulled_by ≠ sy-uname
+
+Idempotent exit (checked first):
+  local_sha = current_sha → system already has the incoming content → skip all checks
 
 SYSTEM_EDIT:    git_changed AND sys_changed
-BRANCH_SWITCH:  git_changed AND branch_switched (and not sys_changed)
+BRANCH_SWITCH:  git_changed AND branch_switched AND different_user
 LOCAL_EDIT:     sys_changed AND NOT git_changed
 
 Safe (no conflict):
-  - git changed only, same branch      → fast-forward update
-  - branch switched, same SHA          → branches have identical content
-  - no baseline (first pull)           → skipped, baseline created after pull
+  - git changed only, same branch           → fast-forward update
+  - branch switched, same SHA              → branches have identical content
+  - branch switched, same user             → intentional switch, safe
+  - local_sha = current_sha (any scenario) → idempotent pull, system already up to date
+  - no baseline (first pull)               → skipped, baseline created after pull
 ```
 
 ### Why Content SHA (Not Timestamps)
@@ -152,7 +166,7 @@ Object:        CLAS ZCL_MY_CLASS
 Conflict type: BRANCH_SWITCH
 Branch:        main → feature/my-branch
 Git changed:   abc1234... → xyz9876...
-Last pull by DEVELOPER1
+Last pull by DEVELOPER1 (different user) — unexpected branch state
 ```
 
 ### No Conflicts
@@ -168,7 +182,7 @@ Pull proceeds as normal — no additional output. Baseline is silently updated a
 | `abap/zabgagt_obj_meta.tabl.xml` | Metadata tracking table |
 | `abap/zif_abgagt_conflict_detector.intf.abap` | Conflict detector interface |
 | `abap/zcl_abgagt_conflict_detector.clas.abap` | Core detection logic |
-| `abap/zcl_abgagt_conflict_detector.clas.testclasses.abap` | ABAP unit tests (16 tests) |
+| `abap/zcl_abgagt_conflict_detector.clas.testclasses.abap` | ABAP unit tests (19 tests) |
 | `abap/zif_abgagt_agent.intf.abap` | `iv_conflict_mode` added to `pull()` |
 | `abap/zcl_abgagt_agent.clas.abap` | Conflict check + metadata store in `pull()` |
 | `abap/zcl_abgagt_command_pull.clas.abap` | `conflict_mode` in params struct |
@@ -220,3 +234,5 @@ CLI --conflict-mode flag  >  .abapgit-agent.json conflictDetection.mode  >  "abo
 4. **Content SHA, not timestamps** — works for all package types including local `$` packages
 5. **Store after success only** — baseline never updated when pull fails or is aborted
 6. **DEVCLASS auto-refreshed** — `devclass` is read from TADIR on every pull; package moves are handled automatically
+7. **Idempotent pulls are safe** — if the system already has the incoming content (`local_sha = current_sha`), all conflict checks are skipped. This handles "edit in ADT → export to git → commit → pull" without false positives.
+8. **BRANCH_SWITCH is user-aware** — only fires when a *different* user last pulled from another branch (unexpected shared-system state). Same user switching branches intentionally always passes through.
