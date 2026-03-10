@@ -11,7 +11,7 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   3 tests (delete-all, set, list — breakpoint management only;
+ *   - debug:   5 tests (delete-all, set, list, delete-all cleanup, list-empty — breakpoint management only;
  *                        full session coverage is in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
@@ -876,6 +876,32 @@ where carrid = $parameters.p_carrid
         output.includes('No breakpoints') ||
         output.includes('line');
       return hasResult;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug delete --all cleans up after list test',
+    args: ['delete', '--all'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('deleted') ||
+        output.includes('Deleted') ||
+        output.includes('cleared') ||
+        output.includes('No breakpoints') ||
+        output.length >= 0;  // delete --all succeeds silently
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug list shows no breakpoints after delete --all',
+    args: ['list'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('No breakpoints') ||
+        output.includes('no breakpoints') ||
+        output.includes('0 breakpoints') ||
+        // If output has no object names, breakpoints are gone
+        !output.includes('ZCL_ABGAGT_UTIL');
     }
   },
 

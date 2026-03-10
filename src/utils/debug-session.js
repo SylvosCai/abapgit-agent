@@ -38,7 +38,7 @@ const STATEFUL_HEADER = { 'X-sap-adt-sessiontype': 'stateful' };
  * @param {number}   maxRetries - Max additional attempts after the first (default 3)
  * @param {number}   delayMs    - Wait between retries in ms (default 1000)
  */
-async function retryOnIcmError(fn, maxRetries = 3, delayMs = 1000) {
+async function retryOnIcmError(fn, maxRetries = 5, delayMs = 1500) {
   let lastErr;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -383,9 +383,8 @@ class DebugSession {
         const frames = parseStack(body);
         if (frames.length > 0) return frames;
       } catch (e) {
-        // Re-throw ICM errors so the outer retryOnIcmError can catch them
-        if (e && e.statusCode === 400 && e.body && e.body.includes('Service cannot be reached')) throw e;
-        // Otherwise fall through to POST approach
+        // Fall through to POST approach for any GET failure (including 400 on systems
+        // that don't support the dedicated /debugger/stack endpoint)
       }
       // Fallback: POST approach (older ADT versions)
       const { body } = await this.http.post(
@@ -597,18 +596,26 @@ class DebugSession {
    *
    * stepContinue is a long-poll in ADT — it only responds when the program
    * hits another breakpoint (200) or finishes (500), which may be never.
-   * We use postFire() which resolves as soon as the request bytes are
-   * flushed to the TCP send buffer — no need to wait for a response.
-   * The existing session cookies are used so ADT recognises the request.
+   * We race the POST against an 8-second timeout: if ADT responds quickly
+   * (program finished → HTTP 500, treated as success) we return early;
+   * otherwise the timeout fires, which is long enough for the TCP layer to
+   * have delivered the request to ADT (even on a loaded system) and for the
+   * ABAP WP to have been released, preventing it from staying frozen in SM50.
    */
   async detach() {
     try {
-      await this.http.postFire('/sap/bc/adt/debugger?method=stepContinue', '', {
+      const postPromise = this.http.post('/sap/bc/adt/debugger?method=stepContinue', '', {
         contentType: 'application/vnd.sap.as+xml',
-        headers: STATEFUL_HEADER
+        headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+      }).catch(err => {
+        // 500 means program ran to completion — session is released, not an error.
+        if (err && err.statusCode === 500) return null;
+        // Any other error: session already gone, ignore.
       });
+      const timeout = new Promise(resolve => setTimeout(resolve, 8000));
+      await Promise.race([postPromise, timeout]);
     } catch (e) {
-      // Ignore — fire-and-forget; errors here mean the session already closed.
+      // Ignore — session may have already closed.
     }
   }
 }

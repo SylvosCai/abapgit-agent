@@ -213,7 +213,22 @@ async function startRepl(session, initialState, onBeforeExit) {
   });
 
   rl.on('close', async () => {
+    // stdin closed (EOF or Ctrl+D) without an explicit 'q' or 'kill' command.
+    // Detach so the ABAP work process is released — without this the WP stays
+    // frozen in SM50 (e.g. when attach is started with </dev/null stdin and
+    // readline gets immediate EOF before the user can type a command).
+    if (!exitCleanupDone) {
+      try { await session.detach(); } catch (e) { /* ignore */ }
+    }
     await runExitCleanup();
+    // Drain stdout/stderr before exiting so the OS TCP stack has flushed the
+    // outbound stepContinue request bytes. process.exit() tears down file
+    // descriptors immediately — without this the WP can stay frozen if the
+    // socket buffer hasn't been written to the NIC yet.
+    await new Promise(resolve => {
+      if (process.stdout.writableEnded) return resolve();
+      process.stdout.write('', resolve);
+    });
     process.exit(0);
   });
 

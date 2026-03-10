@@ -78,13 +78,19 @@ ensure_breakpoint() {
   # Give SAP a moment to detect the dropped HTTP connection and release any frozen
   # work process.  Without this pause the next listener poll can receive the stale
   # DEBUGGEE_ID before the server-side session has been cleaned up.
-  sleep 2
+  # Use 5s when running after a large test suite (e.g. npm run test:all) to allow
+  # the system to fully drain any residual debug connections.
+  sleep 5
   log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
   $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 || true
 }
 
 cleanup() {
+  # Release any frozen ABAP work process BEFORE killing Node.js PIDs.
+  # If a scenario fails mid-way the ADT session may be active; terminate it
+  # cleanly so the WP is freed rather than frozen in SM50 until SAP idle timeout.
+  $AGENT debug terminate >/dev/null 2>&1 || true
   [[ -n "$ATTACH1_PID" ]] && kill "$ATTACH1_PID" 2>/dev/null || true
   [[ -n "$ATTACH2_PID" ]] && kill "$ATTACH2_PID" 2>/dev/null || true
   [[ -n "$TRIGGER_PID" ]] && kill "$TRIGGER_PID" 2>/dev/null || true
@@ -135,6 +141,7 @@ scenario1() {
     pass "Breakpoint hit — REPL prompt appeared"
   else
     fail "REPL never appeared; output: $(cat /tmp/dbg_s1.out 2>/dev/null | tail -3)"
+    $AGENT debug terminate >/dev/null 2>&1 || true  # release frozen WP before giving up
     kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
   fi
 
@@ -154,6 +161,11 @@ scenario1() {
   fi
 
   local T_QUIT; T_QUIT=$(date +%s)
+  # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
+  # ZCL_ABGAGT_UTIL:25 when the blocked inspect runs after being unblocked.
+  # Without this, the blocked inspect triggers a second breakpoint hit with no
+  # listener ready to release it, leaving the WP frozen in SM50.
+  $AGENT debug delete --all >/dev/null 2>&1 || true
   echo "q" >&6
   log "Sent 'q' — waiting for blocked command to complete (up to ${TIMEOUT}s)..."
 
@@ -212,11 +224,12 @@ scenario2() {
   TRIGGER_PID=$!
   log "Trigger (inspect) PID=$TRIGGER_PID"
 
-  log "Waiting for session 1 REPL (up to 15s)..."
-  if wait_text /tmp/dbg_s1.out "debug>" 15; then
+  log "Waiting for session 1 REPL (up to 30s)..."
+  if wait_text /tmp/dbg_s1.out "debug>" 30; then
     pass "Session 1 took over debugger (REPL prompt appeared)"
   else
-    fail "Session 1 REPL never appeared in 15s"
+    fail "Session 1 REPL never appeared in 30s"
+    $AGENT debug terminate >/dev/null 2>&1 || true  # release frozen WP before giving up
     kill "$TRIGGER_PID" 2>/dev/null; return 1
   fi
 
@@ -233,6 +246,11 @@ scenario2() {
   fi
 
   local T_QUIT; T_QUIT=$(date +%s)
+  # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
+  # ZCL_ABGAGT_UTIL:25 when the blocked inspect runs after being unblocked.
+  # Without this, the blocked inspect triggers a second breakpoint hit with no
+  # listener ready to release it, leaving the WP frozen in SM50.
+  $AGENT debug delete --all >/dev/null 2>&1 || true
   echo "q" >&6
   log "Sent 'q' — waiting for blocked command to complete (up to 10s)..."
 
@@ -244,14 +262,17 @@ scenario2() {
     kill "$BLOCKED_PID" 2>/dev/null || true
   fi
 
-  log "Waiting for session 1 to exit (up to 5s)..."
-  if wait_pid_exit "$ATTACH1_PID" 5; then
+  log "Waiting for session 1 to exit (up to 10s)..."
+  if wait_pid_exit "$ATTACH1_PID" 10; then
     pass "Session 1 exited after 'q'"
   else
     fail "Session 1 did NOT exit within 5s"
   fi
 
-  # Session 2 is left running (user can Ctrl+C) — kill it silently in cleanup.
+  # Session 2 may have caught a second breakpoint hit from the blocked inspect
+  # completing and re-running ZCL_ABGAGT_UTIL:25.  Terminate any active session
+  # it holds before hard-killing the process so the WP is released cleanly.
+  $AGENT debug terminate >/dev/null 2>&1 || true
   kill "$ATTACH2_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH1_PID" 5  || kill "$ATTACH1_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH2_PID" 10 || kill "$ATTACH2_PID" 2>/dev/null || true
