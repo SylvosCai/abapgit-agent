@@ -19,6 +19,14 @@ jest.mock('path', () => ({
   basename: jest.fn((p) => p.split('/').pop())
 }));
 
+// Mock transport-selector for transport_required tests
+jest.mock('../../src/utils/transport-selector', () => ({
+  selectTransport: jest.fn(),
+  isNonInteractive: jest.fn(() => false),
+  _getTransportHookConfig: jest.fn(() => null),
+  interactivePicker: jest.fn(() => Promise.resolve(null))
+}));
+
 // Mock process.exit
 const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
   throw new Error(`process.exit(${code})`);
@@ -55,6 +63,66 @@ describe('Pull Command - Logic Tests', () => {
       expect(files.length).toBe(2);
       expect(files[0]).toBe('src/zcl_class1.clas.abap');
       expect(files[1]).toBe('src/zcl_class2.clas.abap');
+    });
+  });
+
+  // Helper that mirrors the --files validation in pull.js
+  function findNonSourceFiles(files) {
+    const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+    return files.filter(f => {
+      const base = f.split('/').pop();
+      const parts = base.split('.');
+      const ext = parts[parts.length - 1].toLowerCase();
+      return parts.length < 3 || !ABAP_SOURCE_EXTS.has(ext);
+    });
+  }
+
+  describe('Non-source file rejection', () => {
+    test('accepts .clas.abap files', () => {
+      expect(findNonSourceFiles(['src/zcl_my_class.clas.abap'])).toHaveLength(0);
+    });
+
+    test('accepts .intf.abap files', () => {
+      expect(findNonSourceFiles(['zif_my_intf.intf.abap'])).toHaveLength(0);
+    });
+
+    test('accepts .ddls.asddls files', () => {
+      expect(findNonSourceFiles(['zc_my_view.ddls.asddls'])).toHaveLength(0);
+    });
+
+    test('accepts .testclasses.abap files', () => {
+      expect(findNonSourceFiles(['zcl_foo.clas.testclasses.abap'])).toHaveLength(0);
+    });
+
+    test('rejects .clas.xml files', () => {
+      const bad = findNonSourceFiles(['abap/zcl_abgagt_agent.clas.xml']);
+      expect(bad).toHaveLength(1);
+      expect(bad[0]).toBe('abap/zcl_abgagt_agent.clas.xml');
+    });
+
+    test('rejects .intf.xml files', () => {
+      expect(findNonSourceFiles(['zif_foo.intf.xml'])).toHaveLength(1);
+    });
+
+    test('rejects files with only one dot-segment', () => {
+      expect(findNonSourceFiles(['zcl_foo.abap'])).toHaveLength(1);
+    });
+
+    test('rejects mixed list — flags only the invalid file', () => {
+      const bad = findNonSourceFiles([
+        'src/zcl_good.clas.abap',
+        'abap/zcl_abgagt_agent.clas.xml',
+      ]);
+      expect(bad).toHaveLength(1);
+      expect(bad[0]).toBe('abap/zcl_abgagt_agent.clas.xml');
+    });
+
+    test('accepts a list where every file is a valid source file', () => {
+      expect(findNonSourceFiles([
+        'src/zcl_a.clas.abap',
+        'src/zif_b.intf.abap',
+        'src/zc_c.ddls.asddls',
+      ])).toHaveLength(0);
     });
   });
 
@@ -633,5 +701,144 @@ describe('Pull Command - Safeguard Validation', () => {
 
     const errorOutput = consoleErrorOutput.join('\n');
     expect(errorOutput).toMatch(/Reason: Project contains 100\+ ABAP objects/);
+  });
+});
+
+describe('Pull Command - Transport Required Detection', () => {
+  let consoleOutput = [];
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    console.log = jest.fn((...args) => consoleOutput.push(args.join(' ')));
+    console.error = jest.fn((...args) => consoleOutput.push(args.join(' ')));
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  const makeMockHttp = (statusResult, pullResult) => ({
+    fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+    post: jest.fn().mockImplementation((url) => {
+      if (url.includes('/status')) return Promise.resolve(statusResult);
+      return Promise.resolve(pullResult);
+    })
+  });
+
+  const baseContext = (mockHttp) => ({
+    loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+    getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false })),
+    AbapHttp: jest.fn().mockImplementation(() => mockHttp),
+    gitUtils: {
+      getBranch: jest.fn(() => 'main'),
+      getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+    },
+    getTransport: jest.fn(() => null),
+    getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
+  });
+
+  const successPull = { success: 'X', job_id: 'JOB1', message: 'Done', log_messages: [], activated_objects: [] };
+
+  test('skips transport selector when transport_required is false', async () => {
+    const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue(null);
+
+    const mockHttp = makeMockHttp(
+      { success: true, status: 'Found', transport_required: false },
+      successPull
+    );
+    const pullCommand = require('../../src/commands/pull');
+    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+
+    expect(selectTransport).not.toHaveBeenCalled();
+  });
+
+  test('skips transport selector when transport_required is string "false"', async () => {
+    const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue(null);
+
+    const mockHttp = makeMockHttp(
+      { success: true, status: 'Found', transport_required: 'false' },
+      successPull
+    );
+    const pullCommand = require('../../src/commands/pull');
+    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+
+    expect(selectTransport).not.toHaveBeenCalled();
+  });
+
+  test('runs transport selector when transport_required is true', async () => {
+    const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue('DEVK123456');
+
+    const mockHttp = makeMockHttp(
+      { success: true, status: 'Found', transport_required: true },
+      successPull
+    );
+    const pullCommand = require('../../src/commands/pull');
+    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+
+    expect(selectTransport).toHaveBeenCalled();
+  });
+
+  test('runs transport selector as safe default when status check throws', async () => {
+    const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue('DEVK999999');
+
+    const mockHttp = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+      post: jest.fn().mockImplementation((url) => {
+        if (url.includes('/status')) return Promise.reject(new Error('Connection failed'));
+        return Promise.resolve(successPull);
+      })
+    };
+    const pullCommand = require('../../src/commands/pull');
+    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+
+    expect(selectTransport).toHaveBeenCalled();
+  });
+
+  test('fails with error when hook is configured but returns no transport', async () => {
+    const { selectTransport, isNonInteractive, _getTransportHookConfig } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue(null);
+    isNonInteractive.mockReturnValue(true);
+    _getTransportHookConfig.mockReturnValue({ hook: './scripts/get-transport.js', description: 'Sprint transport' });
+
+    const mockHttp = makeMockHttp(
+      { success: true, status: 'Found', transport_required: true },
+      successPull
+    );
+    const pullCommand = require('../../src/commands/pull');
+
+    await expect(
+      pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp))
+    ).rejects.toThrow('process.exit(1)');
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/transport hook returned no transport request/);
+    expect(output).toMatch(/scripts\/get-transport\.js/);
+  });
+
+  test('warns and falls through to picker when hook returns null in interactive (TTY) mode', async () => {
+    const { selectTransport, isNonInteractive, _getTransportHookConfig, interactivePicker } = jest.requireMock('../../src/utils/transport-selector');
+    selectTransport.mockResolvedValue(null);
+    isNonInteractive.mockReturnValue(false);  // TTY / manual mode
+    _getTransportHookConfig.mockReturnValue({ hook: './scripts/get-transport.js' });
+    interactivePicker.mockResolvedValue('DEVK900001');
+
+    const mockHttp = makeMockHttp(
+      { success: true, status: 'Found', transport_required: true },
+      successPull
+    );
+    const pullCommand = require('../../src/commands/pull');
+
+    // Should not throw — falls through to picker
+    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+    expect(mockExit).not.toHaveBeenCalled();
+    expect(interactivePicker).toHaveBeenCalled();
   });
 });

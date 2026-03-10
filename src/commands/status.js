@@ -32,7 +32,9 @@ module.exports = {
             console.log('   Repository: ✅ Created');
             const pkg = result.package || result.PACKAGE || 'N/A';
             const key = result.key || result.KEY || result.REPO_KEY || result.repo_key || 'N/A';
+            const transportRequired = result.transport_required === true || result.transport_required === 'true';
             console.log(`      Package: ${pkg}`);
+            console.log(`      Transport required: ${transportRequired ? 'Yes' : 'No'}`);
             console.log(`      URL: ${repoUrl}`);
             console.log(`      Key: ${key}`);
           } else {

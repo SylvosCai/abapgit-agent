@@ -53,7 +53,11 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       DATA(lv_branch_switched) = xsdbool( iv_branch <> ls_baseline-last_branch ).
 
       " Type 1: git changed AND system changed → SYSTEM_EDIT
-      IF lv_git_changed = abap_true AND lv_sys_changed = abap_true.
+      " Guard: skip when git SHA == local SHA (already in sync, e.g. right after
+      " import which pushed the current system state to git — stale pull metadata
+      " would otherwise trigger a spurious conflict).
+      IF lv_git_changed = abap_true AND lv_sys_changed = abap_true
+         AND lv_current_sha <> lv_local_sha.
         DATA ls_conflict TYPE zif_abgagt_conflict_detector=>ty_conflict.
         GET TIME STAMP FIELD ls_conflict-sys_changed_at.
         ls_conflict-obj_type       = ls_file-obj_type.

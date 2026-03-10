@@ -172,10 +172,10 @@ function getConflictSettings() {
  */
 function getTransportHookConfig() {
   const projectConfig = loadProjectConfig();
-  if (projectConfig?.transportRequest) {
+  if (projectConfig?.transports?.hook) {
     return {
-      hook: projectConfig.transportRequest.hook || null,
-      description: projectConfig.transportRequest.description || null
+      hook: projectConfig.transports.hook.path || null,
+      description: projectConfig.transports.hook.description || null
     };
   }
   return { hook: null, description: null };

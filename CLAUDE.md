@@ -387,6 +387,10 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
   },
 
   "transports": {
+    "hook": {
+      "path": "./scripts/get-transport.js",
+      "description": "Earliest open transport request owned by me"
+    },
     "allowCreate": false,
     "allowRelease": false,
     "reason": "Transport requests are managed by the release manager."

@@ -49,8 +49,24 @@ CLASS zcl_abgagt_command_status IMPLEMENTATION.
           DATA(lv_repo_key) = li_repo->get_key( ).
           DATA(lv_package) = li_repo->get_package( ).
 
+          " Check if package requires transport (TDEVC-KORRFLAG = 'X')
+          DATA(lv_transport_required) = abap_false.
+          IF lv_package IS NOT INITIAL.
+            SELECT SINGLE korrflag FROM tdevc
+              WHERE devclass = @lv_package
+              INTO @DATA(lv_korrflag).
+            IF sy-subrc = 0 AND lv_korrflag = abap_true.
+              lv_transport_required = abap_true.
+            ENDIF.
+          ENDIF.
+
+          DATA(lv_tr_required_str) = COND string(
+            WHEN lv_transport_required = abap_true THEN 'true'
+            ELSE 'false' ).
+
           rv_result = '{"success":true,"url":"' && ls_params-url && '","status":"Found",' &&
-                      '"repo_key":"' && lv_repo_key && '","package":"' && lv_package && '"}'.
+                      '"repo_key":"' && lv_repo_key && '","package":"' && lv_package && '",' &&
+                      '"transport_required":' && lv_tr_required_str && '}'.
         CATCH zcx_abapgit_exception.
           rv_result = '{"success":true,"url":"' && ls_params-url && '","status":"Found"}'.
       ENDTRY.

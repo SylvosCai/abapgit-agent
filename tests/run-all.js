@@ -31,6 +31,7 @@ const repoRoot = path.join(__dirname, '..');
 const { runAUnitTests } = require('./integration/aunit-runner');
 const { runLifecycleTests } = require('./integration/lifecycle-runner');
 const { runPullTests } = require('./integration/pull-runner');
+const { runFullPullTests } = require('./integration/pull-full-runner');
 const { runConflictTests } = require('./integration/conflict-runner');
 
 // Colors for output
@@ -134,6 +135,20 @@ function runLifecycleTestsWrapper() {
  */
 function runPullTestsWrapper() {
   return runPullTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+/**
+ * Wrapper function for full pull tests (no --files)
+ */
+function runFullPullTestsWrapper() {
+  return runFullPullTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -438,6 +453,15 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       totalCount += pullResults.totalCount || 0;
       printInfo(`  (Including ${pullResults.passedCount || 0}/${pullResults.totalCount || 0} pull workflow tests)`);
     }
+
+    // Run full pull tests (no --files — exercises full-pull path + conflict detection)
+    const fullPullResults = runFullPullTestsWrapper();
+    if (fullPullResults && !fullPullResults.skipped && fullPullResults.results) {
+      results.push(...fullPullResults.results);
+      passedCount += fullPullResults.passedCount || 0;
+      totalCount += fullPullResults.totalCount || 0;
+      printInfo(`  (Including ${fullPullResults.passedCount || 0}/${fullPullResults.totalCount || 0} full pull tests)`);
+    }
   }
 
   if (passedCount === totalCount) {
@@ -577,6 +601,17 @@ function printSummary(results) {
     }
   }
 
+  // Full pull tests (no --files)
+  if (results.fullPull) {
+    totalDuration += parseFloat(results.fullPull.duration);
+    if (results.fullPull.success) {
+      printSuccess(`Full Pull Tests: ${results.fullPull.passedCount}/${results.fullPull.totalCount} PASSED (${results.fullPull.duration}s)`);
+    } else {
+      printError(`Full Pull Tests: ${results.fullPull.passedCount}/${results.fullPull.totalCount} FAILED (${results.fullPull.duration}s)`);
+      allPassed = false;
+    }
+  }
+
   // Debug scenario tests
   if (results.debug) {
     if (results.debug.skipped) {
@@ -611,7 +646,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--conflict'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -620,7 +655,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runConflict, runDebug;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -628,6 +663,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runFullPull = false;
     runConflict = false;
     runDebug = false;
   } else if (args.includes('--aunit')) {
@@ -636,6 +672,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runFullPull = false;
     runConflict = false;
     runDebug = false;
   } else if (args.includes('--cmd')) {
@@ -644,6 +681,7 @@ async function main() {
     runCmd = true;
     runLifecycle = false;
     runPull = false;
+    runFullPull = false;
     runConflict = false;
     runDebug = false;
   } else if (args.includes('--lifecycle')) {
@@ -652,6 +690,7 @@ async function main() {
     runCmd = false;
     runLifecycle = true;
     runPull = false;
+    runFullPull = false;
     runConflict = false;
     runDebug = false;
   } else if (args.includes('--pull')) {
@@ -660,6 +699,16 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = true;
+    runFullPull = false;
+    runConflict = false;
+    runDebug = false;
+  } else if (args.includes('--full-pull')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = true;
     runConflict = false;
     runDebug = false;
   } else if (args.includes('--conflict')) {
@@ -668,6 +717,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runFullPull = false;
     runConflict = true;
     runDebug = false;
   } else if (args.includes('--debug-scenarios')) {
@@ -676,6 +726,7 @@ async function main() {
     runCmd = false;
     runLifecycle = false;
     runPull = false;
+    runFullPull = false;
     runConflict = false;
     runDebug = true;
   } else {
@@ -685,6 +736,7 @@ async function main() {
     runCmd = true;
     runLifecycle = false;  // Lifecycle tests run as part of cmd tests
     runPull = false;       // Pull tests run as part of cmd tests
+    runFullPull = false;   // Full pull tests run as part of cmd tests
     runConflict = false;   // Conflict tests run standalone (stateful, sequential)
     runDebug = true;
   }
@@ -720,6 +772,13 @@ async function main() {
     printSubHeader('Running Pull Tests Only');
     const pullResults = runPullTestsWrapper();
     results.pull = pullResults;
+  }
+
+  // Run Full Pull tests only (no --files)
+  if (runFullPull) {
+    printSubHeader('Running Full Pull Tests Only (no --files)');
+    const fullPullResults = runFullPullTestsWrapper();
+    results.fullPull = fullPullResults;
   }
 
   // Run Conflict detection tests only

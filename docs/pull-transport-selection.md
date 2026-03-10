@@ -19,10 +19,13 @@ The pull command resolves a transport request in four tiers, each acting as a fa
 4. Automatic selection (this feature)  ← fires only when 1–3 all return null
 ```
 
-When tiers 1–3 yield nothing, behaviour depends on the execution context:
+When tiers 1–3 yield nothing, behaviour depends on whether a hook is configured and the execution context:
 
-- **Manual mode** (interactive TTY): shows a numbered picker of open transport requests — reusing the [`transport` command's](transport-command.md) REST API internally
-- **AI mode** (non-TTY, e.g. CI, piped, AI coding tool): runs a project-configured shell hook that can call ABAP APIs and returns a transport number; if no hook is configured, proceeds without a transport
+- **Hook configured, returns transport**: uses the returned transport regardless of TTY context
+- **Hook configured, returns null, non-interactive** (CI, pipe, AI tool): fails with an error
+- **Hook configured, returns null, interactive** (TTY): warns the user, then shows the numbered picker
+- **No hook, manual mode** (interactive TTY): shows a numbered picker of open transport requests
+- **No hook, AI mode** (non-TTY, e.g. CI, piped, AI coding tool): proceeds without a transport
 
 ---
 
@@ -64,7 +67,7 @@ Enter number or option:
 
 When running non-interactively (no TTY, e.g. GitHub Actions, pipe, AI coding tool subprocess), the CLI checks for a project-level hook configured in `.abapgit-agent.json`.
 
-The hook is a **Node.js module that lives in the same ABAP project repository**. Because it is `require()`d by abapgit-agent, it has access to the full agent context — including a pre-configured `AbapHttp` instance ready to call any ABAP endpoint without needing to handle credentials separately.
+The hook is a **Node.js module that lives in the same ABAP project repository**. It receives a `run(command)` helper that calls any CLI command programmatically and returns parsed JSON — no raw HTTP or credentials handling needed.
 
 ### Project Layout
 
@@ -84,17 +87,19 @@ my-abap-project/               ← ABAP project git repo
 
 ```json
 {
-  "transportRequest": {
-    "hook": "./scripts/get-transport.js",
-    "description": "Sprint-based central transport"
+  "transports": {
+    "hook": {
+      "path": "./scripts/get-transport.js",
+      "description": "Sprint-based central transport"
+    }
   }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `hook` | string | Path to JS module, relative to the repository root (where `abapgit-agent` is run) |
-| `description` | string | Optional — shown to users as context |
+| `hook.path` | string | Path to JS module, relative to the repository root (where `abapgit-agent` is run) |
+| `hook.description` | string | Optional — shown to users as context |
 
 ### Hook Contract
 
@@ -102,12 +107,14 @@ The module must export an async function with the following signature:
 
 ```javascript
 /**
- * @param {object} context
- * @param {object} context.config    — loaded ABAP config (host, user, password, etc.)
- * @param {object} context.http      — configured AbapHttp instance (ready to call ABAP)
- * @returns {Promise<string|null>}   — transport number, or null to proceed without one
+ * @param {object}   context
+ * @param {object}   context.config    — loaded ABAP config (host, user, password, etc.)
+ * @param {object}   context.http      — configured AbapHttp instance (ready to call ABAP)
+ * @param {Function} context.run       — call any CLI command as a string, returns parsed JSON
+ *                                        e.g. run('transport list --scope task')
+ * @returns {Promise<string|null>}     — transport number, or null to proceed without one
  */
-module.exports = async function getTransport({ config, http }) {
+module.exports = async function getTransport({ config, http, run }) {
   // ...
   return 'DEVK900001';  // or null
 };
@@ -116,8 +123,16 @@ module.exports = async function getTransport({ config, http }) {
 The hook receives:
 - `config` — the full `.abapGitAgent` config object (credentials, host, etc.)
 - `http` — a pre-built `AbapHttp` instance already authenticated to the ABAP system
+- `run(command)` — accepts a full CLI command string (e.g. `'transport list --scope task'`), always uses `--json` mode, and returns the parsed response object. Use this instead of raw `http` calls for readability.
 
-It should return a transport number string on success, or `null` to proceed without a transport. Throwing an error is treated as `null` (silent fallback).
+It should return a transport number string on success, or `null` when no transport could be determined. Throwing an error is treated as `null` (silent fallback).
+
+**What happens when the hook returns `null`** depends on context:
+
+| Context | Hook returns `null` | Result |
+|---------|---------------------|--------|
+| Non-interactive (AI/CI mode) | null | ❌ Pull fails with error |
+| Interactive (TTY) | null | ⚠️ Warning printed, interactive picker shown |
 
 ### Example Hooks
 
@@ -134,7 +149,7 @@ module.exports = async function getTransport({ config }) {
 
 ---
 
-**Example 2 — Sprint transport (calls ABAP `transport list`)**
+**Example 2 — Sprint transport (calls `transport list`)**
 
 Finds the current sprint's central transport by searching the list of open transports where the user has a task:
 
@@ -142,17 +157,16 @@ Finds the current sprint's central transport by searching the list of open trans
 // scripts/get-transport.js
 // Returns the current sprint's central transport request
 
-module.exports = async function getTransport({ http }) {
-  const result = await http.get('/sap/bc/z_abapgit_agent/transport?scope=task');
-
-  if (!result || !result.transports) return null;
+module.exports = async function getTransport({ run }) {
+  const result = await run('transport list --scope task');
+  const transports = result.TRANSPORTS || result.transports || [];
 
   // Find the first transport containing 'Sprint' in description
-  const sprint = result.transports.find(t =>
-    t.description && t.description.toLowerCase().includes('sprint')
+  const sprint = transports.find(t =>
+    (t.DESCRIPTION || t.description || '').toLowerCase().includes('sprint')
   );
 
-  return sprint ? sprint.number : null;
+  return sprint ? (sprint.NUMBER || sprint.number) : null;
 };
 ```
 
@@ -178,31 +192,52 @@ More advanced: list open transports, and if there is none from today, create a n
 
 ```javascript
 // scripts/get-transport.js
-module.exports = async function getTransport({ http }) {
+module.exports = async function getTransport({ run }) {
   const today = new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
 
-  const list = await http.get('/sap/bc/z_abapgit_agent/transport?scope=mine');
-  const todaysTransport = (list?.transports || []).find(t => t.date === today);
+  const list = await run('transport list --scope mine');
+  const transports = list.TRANSPORTS || list.transports || [];
+  const todaysTransport = transports.find(t => (t.DATE || t.date) === today);
 
-  if (todaysTransport) return todaysTransport.number;
+  if (todaysTransport) return todaysTransport.NUMBER || todaysTransport.number;
 
   // None today — create a new one
-  const created = await http.post('/sap/bc/z_abapgit_agent/transport', {
-    action: 'CREATE',
-    description: `Daily transport ${today}`
-  });
-
-  return created?.number || null;
+  const created = await run(`transport create --description "Daily transport ${today}"`);
+  return created?.NUMBER || created?.number || null;
 };
 ```
 
 ---
 
-Because the hook has full access to `AbapHttp`, it can call any ABAP endpoint — including `transport list`, `transport create`, or any custom endpoint your project exposes.
+Because the hook has access to `run()`, it can invoke any `abapgit-agent` command — including `transport list`, `transport create`, or any other command your project uses.
 
-### AI Mode Fallback
+### Hook returns null — Non-interactive mode
 
-If no hook is configured, or the hook throws/returns `null`, the pull proceeds without a transport request. No error is raised.
+If a hook **is** configured but returns `null` while running non-interactively (CI, pipe, AI coding tool), the pull **fails with an error**:
+
+```
+❌ Error: transport hook returned no transport request.
+   Hook: ./scripts/get-transport.js
+   Sprint-based central transport
+```
+
+This ensures a misconfigured or failing hook does not silently activate objects without a transport in environments where one is required.
+
+### Hook returns null — Interactive mode
+
+If a hook returns `null` while running in a terminal, the pull **warns the user and falls through to the interactive picker**:
+
+```
+⚠️  Transport hook returned no transport request (./scripts/get-transport.js).
+   Please select one manually:
+
+Select a transport request (showing: my transports):
+
+  1. DEVK900001  Feature X transport  (DEVELOPER, 2026-03-09)
+  ...
+```
+
+This lets a developer continue working even when the hook (e.g. a sprint-based selector) finds no matching transport.
 
 ---
 
@@ -215,14 +250,18 @@ If no hook is configured, or the hook throws/returns `null`, the pull proceeds w
   ↓ if not set
 ABAP_TRANSPORT env var                  ← environment
   ↓ if not set
-isNonInteractive()?
-  YES (AI mode)
-    hook configured?
-      YES → require(hook) → call async fn({ config, http }) → transport number
-      NO  → null (proceed without transport)
-  NO (Manual mode)
-    → interactive picker                   ← user selects or creates
-      → skip selected → null
+hook configured in .abapgit-agent.json?
+  YES → require(hook) → call async fn({ config, http, run }) → transport number
+        null returned
+          isNonInteractive()?
+            YES (AI/CI mode) → fail with error
+            NO  (TTY)        → warn + interactive picker ← user selects or creates
+                                 → skip selected → null
+  NO
+    isNonInteractive()?
+      YES (AI/CI mode) → null (proceed without transport)
+      NO  (TTY)        → interactive picker ← user selects or creates
+                           → skip selected → null
 ```
 
 ---
@@ -244,10 +283,10 @@ Follows the `getConflictSettings()` pattern:
 ```javascript
 function getTransportHookConfig() {
   const projectConfig = loadProjectConfig();
-  if (projectConfig?.transportRequest) {
+  if (projectConfig?.transports?.hook) {
     return {
-      hook: projectConfig.transportRequest.hook || null,
-      description: projectConfig.transportRequest.description || null
+      hook: projectConfig.transports.hook.path || null,
+      description: projectConfig.transports.hook.description || null
     };
   }
   return { hook: null, description: null };
@@ -260,12 +299,13 @@ Key functions:
 
 | Function | Description |
 |----------|-------------|
+| `buildRun(config, http, loadConfig, AbapHttp, getTransportSettings)` | Builds the `run(command)` helper closure passed to hooks |
 | `isNonInteractive()` | `!stdout.isTTY \|\| !stdin.isTTY \|\| NO_TTY=1` |
-| `runHook(hookPath, context)` | `require(resolved path)` then call exported async fn with `{ config, http }` |
+| `runHook(hookPath, context)` | `require(resolved path)` then call exported async fn with `{ config, http, run }` |
 | `fetchTransports(http)` | `GET /transport?scope=...`, normalises ABAP uppercase keys |
 | `createTransport(http, desc)` | `POST /transport { action:'CREATE', description }` |
 | `interactivePicker(transports, http)` | readline on stdin/stderr; supports scope switching (mine/task/all), create, skip |
-| `selectTransport(config, http)` | Main export — branches on TTY detection |
+| `selectTransport(config, http, loadConfig?, AbapHttp?, getTransportSettings?)` | Main export — branches on TTY detection |
 
 ### `src/commands/pull.js`
 
@@ -276,7 +316,7 @@ if (!transportRequest && !jsonOutput) {
   const { selectTransport } = require('../utils/transport-selector');
   const config = loadConfig();
   const http = new AbapHttp(config);
-  transportRequest = await selectTransport(config, http);
+  transportRequest = await selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings);
 }
 ```
 
@@ -287,8 +327,6 @@ The inner `pull()` method is unchanged; `null` transport omits `transport_reques
 
 The selector calls `GET /transport` and `POST /transport` — the same endpoint used by `abapgit-agent transport`. The `transport` ABAP command and resource must be activated **before** the Node.js selector goes live. See [transport-command.md](transport-command.md) for the full spec.
 
-The `fetchTransports()` and `createTransport()` helpers in `transport-selector.js` mirror the REST calls that `src/commands/transport.js` makes — consider extracting a shared `src/utils/transport-api.js` to avoid duplication.
-
 ---
 
 ## Edge Cases
@@ -296,9 +334,11 @@ The `fetchTransports()` and `createTransport()` helpers in `transport-selector.j
 | Scenario | Behaviour |
 |----------|-----------|
 | ABAP system unreachable when fetching transport list | Picker shows "Create new" and "Skip" only; user warned |
-| Hook file not found | Logs warning if `DEBUG=1`; proceeds without transport |
-| Hook module throws an error | Silent catch; proceeds without transport |
-| Hook returns `null` or non-string | Proceeds without transport |
+| Hook file not found | `selectTransport` catches error → treated as null → non-TTY: fail; TTY: picker shown |
+| Hook module throws an error | Same as above |
+| Hook returns `null`, non-interactive | Pull fails with "transport hook returned no transport request" |
+| Hook returns `null`, interactive (TTY) | Warning printed, interactive picker shown |
+| No hook configured, no transport | Non-TTY: proceeds without transport; TTY: interactive picker shown |
 | `--json` flag | Selector never invoked |
 | `upgrade` command (calls `pull.pull()` directly) | Selector not triggered — upgrade has its own transport handling |
 
@@ -307,15 +347,24 @@ The `fetchTransports()` and `createTransport()` helpers in `transport-selector.j
 ## Testing
 
 ```bash
-# Manual mode — interactive picker
+# Manual mode — interactive picker (no hook configured)
 abapgit-agent pull   # No --transport set, TTY attached → shows picker
 
-# AI mode with hook
+# Hook mode — hook returns a transport
 cat > /tmp/get-transport.js << 'EOF'
-module.exports = async function({ http }) { return 'DEVK900001'; };
+module.exports = async function() { return 'DEVK900001'; };
 EOF
-# Add to .abapgit-agent.json: "transportRequest": { "hook": "/tmp/get-transport.js" }
-NO_TTY=1 abapgit-agent pull   # Should use DEVK900001 without prompting
+# Add to .abapgit-agent.json: "transports": { "hook": { "path": "/tmp/get-transport.js" } }
+abapgit-agent pull   # Uses DEVK900001
+
+# Hook mode — hook returns null, interactive (TTY): warns + shows picker
+cat > /tmp/get-transport.js << 'EOF'
+module.exports = async function() { return null; };
+EOF
+abapgit-agent pull   # Prints warning, then shows transport picker
+
+# Hook mode — hook returns null, non-interactive: fails with error
+NO_TTY=1 abapgit-agent pull   # ❌ Error: transport hook returned no transport request
 
 # AI mode without hook
 NO_TTY=1 abapgit-agent pull   # no hook → proceeds without transport

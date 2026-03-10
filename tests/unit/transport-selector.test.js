@@ -288,6 +288,138 @@ describe('Transport Selector - createTransport()', () => {
   });
 });
 
+describe('Transport Selector - buildRun()', () => {
+  let selector;
+  let mockConfig;
+  let mockHttp;
+  let mockLoadConfig;
+  let MockAbapHttp;
+  let mockGetTransportSettings;
+
+  beforeEach(() => {
+    jest.resetModules();
+    selector = require('../../src/utils/transport-selector');
+    mockConfig = { host: 'test.sap.com', user: 'DEV' };
+    mockHttp = { get: jest.fn(), post: jest.fn(), fetchCsrfToken: jest.fn().mockResolvedValue('token') };
+    mockLoadConfig = jest.fn().mockReturnValue(mockConfig);
+    MockAbapHttp = jest.fn().mockImplementation(() => mockHttp);
+    mockGetTransportSettings = jest.fn().mockReturnValue({ allowCreate: true, allowRelease: true, reason: null });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('returns undefined when loadConfig is not provided', () => {
+    const run = selector.buildRun(mockConfig, mockHttp, null, null, null);
+    expect(run).toBeUndefined();
+  });
+
+  test('returns a function when factories are provided', () => {
+    const run = selector.buildRun(mockConfig, mockHttp, mockLoadConfig, MockAbapHttp, mockGetTransportSettings);
+    expect(typeof run).toBe('function');
+  });
+
+  test('run appends --json when not already present', async () => {
+    const capturedArgs = [];
+    const fakeCmd = {
+      execute: jest.fn(async (args) => {
+        capturedArgs.push(...args);
+        console.log(JSON.stringify({ transports: [] }));
+      })
+    };
+
+    jest.resetModules();
+    const freshSelector = require('../../src/utils/transport-selector');
+    jest.spyOn(freshSelector, 'buildRun').mockImplementation((cfg, h, lc, AH, gts) => {
+      if (!lc || !AH) return undefined;
+      return async function run(command) {
+        const [, ...args] = command.trim().split(/\s+/);
+        const runArgs = args.includes('--json') ? args : [...args, '--json'];
+        const captured = [];
+        const origLog = console.log;
+        console.log = (...a) => captured.push(a.map(String).join(' '));
+        try {
+          await fakeCmd.execute(runArgs, { loadConfig: () => cfg, AbapHttp: AH, getTransportSettings: gts });
+        } finally {
+          console.log = origLog;
+        }
+        return JSON.parse(captured.join(''));
+      };
+    });
+
+    const run = freshSelector.buildRun(mockConfig, mockHttp, mockLoadConfig, MockAbapHttp, mockGetTransportSettings);
+    await run('transport list --scope task');
+
+    expect(capturedArgs).toContain('--json');
+    expect(capturedArgs).toContain('list');
+  });
+
+  test('run returns parsed JSON from command output', async () => {
+    const fakeResult = { success: true, transports: [{ number: 'DEVK900001' }] };
+
+    jest.resetModules();
+    const freshSelector = require('../../src/utils/transport-selector');
+    jest.spyOn(freshSelector, 'buildRun').mockImplementation((cfg, h, lc, AH, gts) => {
+      if (!lc || !AH) return undefined;
+      return async function run() {
+        const captured = [];
+        const origLog = console.log;
+        console.log = (...a) => captured.push(a.map(String).join(' '));
+        try {
+          console.log(JSON.stringify(fakeResult));
+        } finally {
+          console.log = origLog;
+        }
+        return JSON.parse(captured.join(''));
+      };
+    });
+
+    const run = freshSelector.buildRun(mockConfig, mockHttp, mockLoadConfig, MockAbapHttp, mockGetTransportSettings);
+    const result = await run('transport list');
+
+    expect(result).toEqual(fakeResult);
+  });
+
+  test('run helper included in hook context when factories passed to selectTransport', async () => {
+    process.env.NO_TTY = '1';
+    jest.resetModules();
+    const freshSelector = require('../../src/utils/transport-selector');
+
+    jest.spyOn(freshSelector, '_getTransportHookConfig').mockReturnValue({ hook: './scripts/get-transport.js' });
+
+    let receivedContext;
+    jest.spyOn(freshSelector, 'runHook').mockImplementation(async (_hookPath, ctx) => {
+      receivedContext = ctx;
+      return 'DEVK900001';
+    });
+
+    await freshSelector.selectTransport(mockConfig, mockHttp, mockLoadConfig, MockAbapHttp, mockGetTransportSettings);
+
+    expect(typeof receivedContext.run).toBe('function');
+    delete process.env.NO_TTY;
+  });
+
+  test('run helper is undefined in hook context when no factories passed to selectTransport', async () => {
+    process.env.NO_TTY = '1';
+    jest.resetModules();
+    const freshSelector = require('../../src/utils/transport-selector');
+
+    jest.spyOn(freshSelector, '_getTransportHookConfig').mockReturnValue({ hook: './scripts/get-transport.js' });
+
+    let receivedContext;
+    jest.spyOn(freshSelector, 'runHook').mockImplementation(async (_hookPath, ctx) => {
+      receivedContext = ctx;
+      return null;
+    });
+
+    await freshSelector.selectTransport(mockConfig, mockHttp);
+
+    expect(receivedContext.run).toBeUndefined();
+    delete process.env.NO_TTY;
+  });
+});
+
 describe('Pull command integration - selectTransport hook', () => {
   let pullCommand;
   let mockContext;
@@ -310,7 +442,7 @@ describe('Pull command integration - selectTransport hook', () => {
     const fs = require('fs');
     fs.existsSync.mockReturnValue(true);
     fs.readFileSync.mockReturnValue(JSON.stringify({
-      transportRequest: { hook: './scripts/get-transport.js' }
+      transports: { hook: './scripts/get-transport.js' }
     }));
 
     const selector = require('../../src/utils/transport-selector');
@@ -329,15 +461,16 @@ describe('Pull command integration - selectTransport hook', () => {
       gitUtils: { getBranch: jest.fn().mockReturnValue('main'), getRemoteUrl: jest.fn().mockReturnValue('https://github.com/test/repo') },
       getTransport: jest.fn().mockReturnValue(null),  // No transport from config
       getSafeguards: jest.fn().mockReturnValue({ disablePull: false, requireFilesForPull: false }),
-      getConflictSettings: jest.fn().mockReturnValue({ mode: 'abort' })
+      getConflictSettings: jest.fn().mockReturnValue({ mode: 'abort' }),
+      getTransportSettings: jest.fn().mockReturnValue({ allowCreate: true, allowRelease: true, reason: null })
     };
 
     await pullCommand.execute([], mockContext);
 
     expect(mockSelectTransport).toHaveBeenCalled();
-    // The transport from hook should be used in the POST body
-    const postCall = mockHttp.post.mock.calls[0];
-    expect(postCall[1]).toHaveProperty('transport_request', 'DEVK900042');
+    // The transport from hook should be used in the POST body (status check is call[0], pull is call[1])
+    const pullCall = mockHttp.post.mock.calls.find(c => c[0].includes('/pull'));
+    expect(pullCall[1]).toHaveProperty('transport_request', 'DEVK900042');
   });
 
   test('selectTransport is NOT called when --json flag is set', async () => {

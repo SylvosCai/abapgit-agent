@@ -165,26 +165,87 @@ async function interactivePicker(http) {
 }
 
 /**
+ * Build the `run` helper that is passed to hooks in AI mode.
+ *
+ * run(command) — accepts a full CLI command string, e.g.:
+ *   run('transport list --scope task')
+ *   run('transport create --description "My transport"')
+ *
+ * Splits on whitespace, forces --json, captures output, returns parsed JSON.
+ *
+ * @param {object}   config               - Loaded ABAP config
+ * @param {object}   http                 - Pre-built AbapHttp instance
+ * @param {Function} loadConfig           - Config factory (from pull context)
+ * @param {Function} AbapHttp             - AbapHttp constructor (from pull context)
+ * @param {Function} getTransportSettings - Transport settings getter (from pull context)
+ * @returns {Function|undefined}          - The run helper, or undefined if factories are missing
+ */
+function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings) {
+  if (!loadConfig || !AbapHttp) return undefined;
+
+  return async function run(command) {
+    const [commandName, ...args] = command.trim().split(/\s+/);
+    const cmdModule = require(`../commands/${commandName}`);
+
+    // Always force --json so output is parseable
+    const runArgs = args.includes('--json') ? args : [...args, '--json'];
+
+    // Reuse the already-authenticated http instance
+    const MockAbapHttp = function MockAbapHttp() { return http; };
+
+    const runContext = {
+      loadConfig: () => config,
+      AbapHttp: MockAbapHttp,
+      getTransportSettings: getTransportSettings || (() => ({ allowCreate: true, allowRelease: true, reason: null }))
+    };
+
+    // Capture console.log output; override process.exit to throw instead of exit
+    const captured = [];
+    const origLog = console.log;
+    const origExit = process.exit;
+    console.log = (...a) => captured.push(a.map(String).join(' '));
+    process.exit = (code) => { throw new Error(`process.exit(${code})`); };
+
+    try {
+      await cmdModule.execute(runArgs, runContext);
+    } finally {
+      console.log = origLog;
+      process.exit = origExit;
+    }
+
+    const output = captured.join('');
+    if (!output) throw new Error(`run("${command}") produced no output`);
+    return JSON.parse(output);
+  };
+}
+
+/**
  * Main export — selects a transport request for use in the pull command.
  * Returns the transport number, or null to proceed without one.
  *
- * @param {object} config - Loaded ABAP config
- * @param {object} http   - Pre-built AbapHttp instance
+ * @param {object}   config               - Loaded ABAP config
+ * @param {object}   http                 - Pre-built AbapHttp instance
+ * @param {Function} [loadConfig]         - Config factory (enables run helper in hook context)
+ * @param {Function} [AbapHttp]           - AbapHttp constructor (enables run helper in hook context)
+ * @param {Function} [getTransportSettings] - Transport settings getter
  * @returns {Promise<string|null>}
  */
-async function selectTransport(config, http) {
-  if (isNonInteractive()) {
-    // AI mode: look for project-configured hook
-    const hookConfig = module.exports._getTransportHookConfig();
-    if (!hookConfig || !hookConfig.hook) return null;
-
-    // Resolve hook path relative to cwd
+async function selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings) {
+  // Hook takes precedence over the interactive picker — runs in both TTY and non-TTY mode
+  const hookConfig = module.exports._getTransportHookConfig();
+  if (hookConfig && hookConfig.hook) {
     const hookPath = path.resolve(process.cwd(), hookConfig.hook);
+    const run = buildRun(config, http, loadConfig, AbapHttp, getTransportSettings);
     try {
-      return await module.exports.runHook(hookPath, { config, http });
+      return await module.exports.runHook(hookPath, { config, http, run });
     } catch {
       return null;
     }
+  }
+
+  // No hook configured — fall back based on context
+  if (isNonInteractive()) {
+    return null;  // AI/CI mode: proceed without transport
   }
 
   // Manual mode: interactive picker
@@ -192,7 +253,7 @@ async function selectTransport(config, http) {
 }
 
 /**
- * Read transportRequest hook config from .abapgit-agent.json
+ * Read transport hook config from .abapgit-agent.json
  * (mirrors getConflictSettings pattern in config.js)
  */
 function _getTransportHookConfig() {
@@ -203,10 +264,10 @@ function _getTransportHookConfig() {
 
   try {
     const projectConfig = JSON.parse(fs.readFileSync(projectConfigPath, 'utf8'));
-    if (projectConfig && projectConfig.transportRequest) {
+    if (projectConfig && projectConfig.transports?.hook) {
       return {
-        hook: projectConfig.transportRequest.hook || null,
-        description: projectConfig.transportRequest.description || null
+        hook: projectConfig.transports.hook.path || null,
+        description: projectConfig.transports.hook.description || null
       };
     }
   } catch {
@@ -223,5 +284,6 @@ module.exports = {
   createTransport,
   interactivePicker,
   selectTransport,
+  buildRun,
   _getTransportHookConfig
 };

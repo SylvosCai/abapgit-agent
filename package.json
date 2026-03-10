@@ -42,6 +42,7 @@
     "test:cmd:upgrade": "node tests/run-all.js --cmd --command=upgrade",
     "test:lifecycle": "node tests/run-all.js --lifecycle",
     "test:pull": "node tests/run-all.js --pull",
+    "test:full-pull": "node tests/run-all.js --full-pull",
     "test:conflict": "node tests/run-all.js --conflict",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",

@@ -405,6 +405,8 @@ Checked into the repository — applies to all developers. **Read this file at t
 | `safeguards.requireFilesForPull` | `true`/`false` | `false` | Requires `--files` on every pull |
 | `safeguards.disablePull` | `true`/`false` | `false` | Disables pull entirely (CI/CD-only projects) |
 | `conflictDetection.mode` | `"abort"`/`"ignore"` | `"abort"` | Whether to abort pull on conflict |
+| `transports.hook.path` | string | `null` | Path to JS module that auto-selects a transport for pull |
+| `transports.hook.description` | string | `null` | Optional label shown when the hook runs |
 | `transports.allowCreate` | `true`/`false` | `true` | When `false`, `transport create` is blocked |
 | `transports.allowRelease` | `true`/`false` | `true` | When `false`, `transport release` is blocked |
 

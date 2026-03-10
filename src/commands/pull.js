@@ -9,7 +9,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings } = context;
+    const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings, getTransportSettings } = context;
 
     // Check project-level safeguards
     const safeguards = getSafeguards();
@@ -48,16 +48,39 @@ module.exports = {
       transportRequest = getTransport();
     }
 
-    // Auto-select transport when none configured and not in JSON mode
-    if (!transportRequest && !jsonOutput) {
-      const { selectTransport } = require('../utils/transport-selector');
-      const config = loadConfig();
-      const http = new AbapHttp(config);
-      transportRequest = await selectTransport(config, http);
+    // Auto-detect URL early (needed for transport_required check)
+    if (!gitUrl) {
+      gitUrl = gitUtils.getRemoteUrl();
+      if (!gitUrl) {
+        console.error('Error: Not in a git repository or no remote configured.');
+        console.error('Either run from a git repo, or specify --url <git-url>');
+        process.exit(1);
+      }
+      if (!jsonOutput) {
+        console.log(`📌 Auto-detected git remote: ${gitUrl}`);
+      }
     }
 
     if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
       files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+
+      // Validate that every file has a recognised ABAP source extension
+      // (.abap or .asddls) — XML metadata files must NOT be passed here
+      const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+      const nonSourceFiles = files.filter(f => {
+        const base = f.split('/').pop(); // strip directory
+        const parts = base.split('.');
+        const ext = parts[parts.length - 1].toLowerCase();
+        return parts.length < 3 || !ABAP_SOURCE_EXTS.has(ext);
+      });
+      if (nonSourceFiles.length > 0) {
+        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls).');
+        console.error('   The following file(s) are not ABAP source files:');
+        nonSourceFiles.forEach(f => console.error(`     ${f}`));
+        console.error('   Tip: pass the source file, not the XML metadata file.');
+        console.error('   Example: --files src/zcl_my_class.clas.abap');
+        process.exit(1);
+      }
     }
 
     // SAFEGUARD 2: Check if files are required but not provided
@@ -72,15 +95,52 @@ module.exports = {
       process.exit(1);
     }
 
-    if (!gitUrl) {
-      gitUrl = gitUtils.getRemoteUrl();
-      if (!gitUrl) {
-        console.error('Error: Not in a git repository or no remote configured.');
-        console.error('Either run from a git repo, or specify --url <git-url>');
-        process.exit(1);
+    // Auto-select transport when none configured and not in JSON mode
+    if (!transportRequest && !jsonOutput) {
+      const { selectTransport, isNonInteractive, _getTransportHookConfig } = require('../utils/transport-selector');
+
+      // Check if this package requires a transport before showing the interactive
+      // picker. Skip the status round-trip in non-interactive mode — selectTransport
+      // already returns null there without prompting, so the extra HTTP call is wasted.
+      let transportRequired = true; // Safe default: assume transport needed
+      if (!isNonInteractive()) {
+        try {
+          const config = loadConfig();
+          const http = new AbapHttp(config);
+          const csrfToken = await http.fetchCsrfToken();
+          const statusResult = await http.post('/sap/bc/z_abapgit_agent/status', { url: gitUrl }, { csrfToken });
+          if (statusResult.transport_required === false || statusResult.transport_required === 'false') {
+            transportRequired = false;
+          }
+        } catch (e) {
+          // Status check failed — proceed with selector as safe default
+        }
       }
-      if (!jsonOutput) {
-        console.log(`📌 Auto-detected git remote: ${gitUrl}`);
+
+      if (transportRequired) {
+        const config = loadConfig();
+        const http = new AbapHttp(config);
+        transportRequest = await selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings);
+
+        // If a hook was configured but returned no transport, handle based on context
+        if (transportRequest === null) {
+          const hookConfig = _getTransportHookConfig();
+          if (hookConfig && hookConfig.hook) {
+            if (isNonInteractive()) {
+              // Non-interactive (AI/CI): fail — a configured hook must return a transport
+              console.error('❌ Error: transport hook returned no transport request.');
+              console.error(`   Hook: ${hookConfig.hook}`);
+              if (hookConfig.description) console.error(`   ${hookConfig.description}`);
+              process.exit(1);
+            } else {
+              // Interactive (TTY): warn and fall through to the picker
+              process.stderr.write(`⚠️  Transport hook returned no transport request (${hookConfig.hook}).\n`);
+              process.stderr.write('   Please select one manually:\n');
+              const { interactivePicker } = require('../utils/transport-selector');
+              transportRequest = await interactivePicker(http);
+            }
+          }
+        }
       }
     }
 

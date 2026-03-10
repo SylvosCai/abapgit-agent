@@ -251,7 +251,7 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
           END OF ls_param.
 
     ls_param-action = 'LIST'.
-    ls_param-scope  = 'tasks'.
+    ls_param-scope  = 'task'.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 

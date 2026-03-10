@@ -319,6 +319,8 @@ Checked into the repository in `.abapgit-agent.json`. Controls which transport o
 
 | Field | Type | Default | Effect |
 |-------|------|---------|--------|
+| `hook.path` | string | `null` | Path to a JS module that auto-selects a transport (see pull-transport-selection.md) |
+| `hook.description` | string | `null` | Optional label shown to users when the hook runs |
 | `allowCreate` | boolean | `true` | When `false`, `transport create` is blocked |
 | `allowRelease` | boolean | `true` | When `false`, `transport release` is blocked |
 | `reason` | string | `null` | Optional message shown alongside the error |

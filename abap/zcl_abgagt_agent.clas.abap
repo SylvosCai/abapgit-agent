@@ -10,6 +10,11 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES: zif_abgagt_agent.
 
+    METHODS constructor
+      IMPORTING
+        io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
+        io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL.
+
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
     METHODS: parse_file_to_object
       IMPORTING
@@ -27,7 +32,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
              devclass TYPE devclass,
            END OF ty_item_signature.
 
-    DATA: mo_repo TYPE REF TO zif_abapgit_repo.
+    DATA: mo_repo              TYPE REF TO zif_abapgit_repo.
+    DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
 
     METHODS configure_credentials
       IMPORTING
@@ -38,8 +44,10 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS prepare_deserialize_checks
       IMPORTING
-        it_files TYPE string_table OPTIONAL
+        it_files             TYPE string_table OPTIONAL
         iv_transport_request TYPE string OPTIONAL
+        ii_obj_filter        TYPE REF TO zif_abapgit_object_filter OPTIONAL
+        io_repo_desc         TYPE REF TO cl_abap_objectdescr OPTIONAL
       RETURNING
         VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
       RAISING zcx_abapgit_exception.
@@ -48,9 +56,19 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rv_has_error) TYPE abap_bool.
 
+    METHODS build_object_filter
+      IMPORTING
+        it_files          TYPE string_table OPTIONAL
+      RETURNING
+        VALUE(ro_filter)  TYPE REF TO zif_abapgit_object_filter
+      RAISING
+        zcx_abapgit_exception.
+
     METHODS build_file_entries_from_remote
       IMPORTING
-        it_files        TYPE string_table OPTIONAL
+        it_files               TYPE string_table OPTIONAL
+        ii_obj_filter          TYPE REF TO zif_abapgit_object_filter OPTIONAL
+        iv_has_local_filtered  TYPE abap_bool DEFAULT abap_false
       RETURNING
         VALUE(rt_entries) TYPE zif_abgagt_conflict_detector=>ty_file_entries
       RAISING
@@ -74,6 +92,17 @@ ENDCLASS.
 
 CLASS zcl_abgagt_agent IMPLEMENTATION.
 
+  METHOD constructor.
+    IF io_repo IS BOUND.
+      mo_repo = io_repo.
+    ENDIF.
+    IF io_conflict_detector IS BOUND.
+      mo_conflict_detector = io_conflict_detector.
+    ELSE.
+      mo_conflict_detector = zcl_abgagt_conflict_detector=>get_instance( ).
+    ENDIF.
+  ENDMETHOD.
+
   METHOD zif_abgagt_agent~pull.
     DATA: lv_job_id TYPE string.
     lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
@@ -96,14 +125,14 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         ENDIF.
 
         DATA: li_repo TYPE REF TO zif_abapgit_repo.
-        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-          EXPORTING iv_url = iv_url
-          IMPORTING ei_repo = li_repo ).
-        mo_repo = li_repo.
+        IF mo_repo IS NOT BOUND.
+          zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+            EXPORTING iv_url = iv_url
+            IMPORTING ei_repo = li_repo ).
+          mo_repo = li_repo.
+        ENDIF.
 
         IF mo_repo IS BOUND.
-          " Refresh repository with cache drop to fetch latest remote branches/tags
-          mo_repo->refresh( iv_drop_cache = abap_true ).
 
           " Switch branch/tag if specified and it's an online repository
           IF iv_branch IS NOT INITIAL.
@@ -131,19 +160,35 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             ENDTRY.
           ENDIF.
 
+          " Build filter once — used for both remote fetch and deserialize
+          DATA lo_obj_filter TYPE REF TO zif_abapgit_object_filter.
+          lo_obj_filter = build_object_filter( it_files ).
+
+          " Check once (RTTI) whether the repo supports get_files_local_filtered.
+          " Doing this here avoids a second expensive RTTI lookup inside build_file_entries_from_remote.
+          DATA(lo_repo_desc1)       = CAST cl_abap_objectdescr(
+                                        cl_abap_typedescr=>describe_by_object_ref( mo_repo ) ).
+          DATA(lv_has_local_filtered) = xsdbool(
+                                          line_exists( lo_repo_desc1->methods[
+                                            name = 'GET_FILES_LOCAL_FILTERED' ] )
+                                          AND lo_obj_filter IS BOUND ).
+
           " --- Conflict detection (before deserialize) ---
-          " Always build file entries and detector — needed for store_pull_metadata after pull.
-          DATA(lt_file_entries) = build_file_entries_from_remote( it_files ).
-          DATA(lo_detector)     = zcl_abgagt_conflict_detector=>get_instance( ).
+          " Build remote file entries and run conflict check before any activation.
+          " On success, the same entries are reused for store_pull_metadata after deserialize.
+          DATA(lt_file_entries) = build_file_entries_from_remote(
+            it_files              = it_files
+            ii_obj_filter         = lo_obj_filter
+            iv_has_local_filtered = lv_has_local_filtered ).
 
           IF iv_conflict_mode <> 'ignore' AND lt_file_entries IS NOT INITIAL.
-            DATA(lt_conflicts) = lo_detector->check_conflicts(
+            DATA(lt_conflicts) = mo_conflict_detector->check_conflicts(
               it_files  = lt_file_entries
               iv_branch = iv_branch ).
 
             IF lt_conflicts IS NOT INITIAL.
               rs_result-conflict_count  = lines( lt_conflicts ).
-              rs_result-conflict_report = lo_detector->get_conflict_report( lt_conflicts ).
+              rs_result-conflict_report = mo_conflict_detector->get_conflict_report( lt_conflicts ).
               rs_result-message = |Pull aborted — { rs_result-conflict_count } conflict(s) detected|.
               GET TIME STAMP FIELD rs_result-finished_at.
               RETURN.
@@ -151,14 +196,38 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           ENDIF.
 
           DATA(ls_checks) = prepare_deserialize_checks(
-            it_files = it_files
-            iv_transport_request = iv_transport_request ).
+            it_files             = it_files
+            iv_transport_request = iv_transport_request
+            ii_obj_filter        = lo_obj_filter
+            io_repo_desc         = lo_repo_desc1 ).
 
           mo_repo->create_new_log( ).
 
-          mo_repo->deserialize(
-            is_checks = ls_checks
-            ii_log   = mo_repo->get_log( ) ).
+          DATA(lo_repo_desc2) = lo_repo_desc1.
+          DATA(lv_deser_has_filter) = xsdbool(
+                                        line_exists( lo_repo_desc2->methods[ name = 'DESERIALIZE' ] )
+                                        AND line_exists(
+                                          lo_repo_desc2->methods[ name = 'DESERIALIZE' ]-parameters[
+                                            name = 'II_OBJ_FILTER' ] ) ).
+
+          IF lv_deser_has_filter = abap_true.
+            DATA(lo_log_ref) = mo_repo->get_log( ).
+            DATA(lt_ptab_deser) = VALUE abap_parmbind_tab(
+              ( name  = 'IS_CHECKS'
+                kind  = cl_abap_objectdescr=>exporting
+                value = REF #( ls_checks ) )
+              ( name  = 'II_LOG'
+                kind  = cl_abap_objectdescr=>exporting
+                value = REF #( lo_log_ref ) )
+              ( name  = 'II_OBJ_FILTER'
+                kind  = cl_abap_objectdescr=>exporting
+                value = REF #( lo_obj_filter ) ) ).
+            CALL METHOD mo_repo->('DESERIALIZE') PARAMETER-TABLE lt_ptab_deser.
+          ELSE.
+            mo_repo->deserialize(
+              is_checks = ls_checks
+              ii_log    = mo_repo->get_log( ) ).
+          ENDIF.
 
           " Check the abapGit log for errors and extract object lists
           DATA(lv_has_error) = check_log_for_errors( ).
@@ -184,12 +253,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             rs_result-success = abap_true.
             rs_result-message = 'Pull completed successfully'.
 
-            " --- Store pull metadata after successful pull ---
-            IF lt_file_entries IS NOT INITIAL.
-              lo_detector->store_pull_metadata(
-                it_files  = lt_file_entries
-                iv_branch = iv_branch ).
-            ENDIF.
+            " --- Post-pull conflict metadata (lt_file_entries built before deserialize) ---
+            mo_conflict_detector->store_pull_metadata(
+              it_files  = lt_file_entries
+              iv_branch = iv_branch ).
           ENDIF.
         ELSE.
           rs_result-message = |Repository not found: { iv_url }|.
@@ -208,20 +275,19 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
   METHOD zif_abgagt_agent~get_repo_status.
     DATA: li_repo TYPE REF TO zif_abapgit_repo.
-    TRY.
-        zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-          EXPORTING iv_url = iv_url
-          IMPORTING ei_repo = li_repo ).
-      CATCH zcx_abapgit_exception.
-        rv_status = 'Not found'.
-        RETURN.
-    ENDTRY.
-
-    IF li_repo IS BOUND.
-      rv_status = 'Found'.
+    IF mo_repo IS BOUND.
+      li_repo = mo_repo.
     ELSE.
-      rv_status = 'Not found'.
+      TRY.
+          zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+            EXPORTING iv_url = iv_url
+            IMPORTING ei_repo = li_repo ).
+        CATCH zcx_abapgit_exception.
+          rv_status = 'Not found'.
+          RETURN.
+      ENDTRY.
     ENDIF.
+    rv_status = COND #( WHEN li_repo IS BOUND THEN 'Found' ELSE 'Not found' ).
   ENDMETHOD.
 
   METHOD configure_credentials.
@@ -292,17 +358,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ev_obj_name = lv_obj_name.
   ENDMETHOD.
 
-  METHOD prepare_deserialize_checks.
-    rs_checks = mo_repo->deserialize_checks( ).
+  METHOD build_object_filter.
 
-    " Set transport request if provided
-    IF iv_transport_request IS NOT INITIAL.
-      rs_checks-transport-transport = iv_transport_request.
-    ENDIF.
+    DATA lt_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt.
 
-    " If specific files requested, build lookup table of (obj_type, obj_name)
-    DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
-                            WITH UNIQUE KEY obj_type obj_name.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
       LOOP AT it_files INTO DATA(lv_file).
         DATA lv_obj_type TYPE string.
@@ -311,30 +370,81 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
-
         IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
-          DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
-          ls_sig-obj_type = lv_obj_type.
-          ls_sig-obj_name = lv_obj_name.
-          INSERT ls_sig INTO TABLE lt_valid_files.
+          DATA ls_tadir TYPE zif_abapgit_definitions=>ty_tadir.
+          ls_tadir-object   = lv_obj_type.
+          ls_tadir-obj_name = lv_obj_name.
+          APPEND ls_tadir TO lt_tadir.
         ENDIF.
+      ENDLOOP.
+
+      IF lt_tadir IS NOT INITIAL.
+        CREATE OBJECT ro_filter TYPE zcl_abapgit_object_filter_obj
+          EXPORTING it_filter = lt_tadir.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD prepare_deserialize_checks.
+
+    " Build lookup table for DECISION loop from the filter
+    DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
+                            WITH UNIQUE KEY obj_type obj_name.
+
+    IF ii_obj_filter IS BOUND.
+      LOOP AT ii_obj_filter->get_filter( ) INTO DATA(ls_tadir).
+        DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
+        ls_sig-obj_type = ls_tadir-object.
+        ls_sig-obj_name = ls_tadir-obj_name.
+        INSERT ls_sig INTO TABLE lt_valid_files.
       ENDLOOP.
     ENDIF.
 
-    " Set decision for each file
+    " Use filtered call when filter is set — only processes requested objects.
+    " Older abapGit versions lack ii_obj_filter; detect at runtime via RTTI.
+    DATA(lo_obj_desc) = COND #(
+                          WHEN io_repo_desc IS BOUND THEN io_repo_desc
+                          ELSE CAST cl_abap_objectdescr(
+                                 cl_abap_typedescr=>describe_by_object_ref( mo_repo ) ) ).
+    DATA(lt_methods)  = lo_obj_desc->methods.
+    DATA(lv_has_filter) = xsdbool(
+                            line_exists( lt_methods[ name = 'DESERIALIZE_CHECKS' ] )
+                            AND line_exists(
+                              lt_methods[ name = 'DESERIALIZE_CHECKS' ]-parameters[
+                                name = 'II_OBJ_FILTER' ] ) ).
+
+    IF lv_has_filter = abap_true.
+      DATA ls_checks_ret TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+      DATA(lt_ptab_checks) = VALUE abap_parmbind_tab(
+        ( name  = 'II_OBJ_FILTER'
+          kind  = cl_abap_objectdescr=>exporting
+          value = REF #( ii_obj_filter ) )
+        ( name  = 'RS_CHECKS'
+          kind  = cl_abap_objectdescr=>returning
+          value = REF #( ls_checks_ret ) ) ).
+      CALL METHOD mo_repo->('DESERIALIZE_CHECKS') PARAMETER-TABLE lt_ptab_checks.
+      rs_checks = ls_checks_ret.
+    ELSE.
+      rs_checks = mo_repo->deserialize_checks( ).
+    ENDIF.
+
+    " Set transport request if provided
+    IF iv_transport_request IS NOT INITIAL.
+      rs_checks-transport-transport = iv_transport_request.
+    ENDIF.
+
+    " Set decision for each object in the overwrite table
     LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
-      IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-        " Check if file is in valid files list
+      IF lt_valid_files IS NOT INITIAL.
         READ TABLE lt_valid_files WITH TABLE KEY obj_type = ls_overwrite-obj_type
-                                             obj_name = ls_overwrite-obj_name
-                                     TRANSPORTING NO FIELDS.
-        IF sy-subrc = 0.
-          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
-        ELSE.
-          ls_overwrite-decision = zif_abapgit_definitions=>c_no.
-        ENDIF.
+                                                 obj_name = ls_overwrite-obj_name
+                                         TRANSPORTING NO FIELDS.
+        ls_overwrite-decision = COND #( WHEN sy-subrc = 0
+                                        THEN zif_abapgit_definitions=>c_yes
+                                        ELSE zif_abapgit_definitions=>c_no ).
       ELSE.
-        " No files specified - deserialize all
         ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
       ENDIF.
       MODIFY rs_checks-overwrite FROM ls_overwrite.
@@ -488,7 +598,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     DATA lt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
 
     TRY.
-        lt_remote = mo_repo->get_files_remote( ).
+        lt_remote = mo_repo->get_files_remote( ii_obj_filter = ii_obj_filter ).
       CATCH zcx_abapgit_exception.
         " Cannot read remote files — skip conflict check
         RETURN.
@@ -568,9 +678,21 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
     " Read local ABAP system files to enable content-based change detection.
     " This replaces VRSD timestamp approach (which does not work for local packages).
+    " Use filtered variant when the caller confirmed it exists and a filter is provided.
     DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
     TRY.
-        lt_local = mo_repo->get_files_local( ).
+        IF iv_has_local_filtered = abap_true.
+          DATA(lt_ptab_local) = VALUE abap_parmbind_tab(
+            ( name  = 'II_OBJ_FILTER'
+              kind  = cl_abap_objectdescr=>exporting
+              value = REF #( ii_obj_filter ) )
+            ( name  = 'RT_FILES'
+              kind  = cl_abap_objectdescr=>returning
+              value = REF #( lt_local ) ) ).
+          CALL METHOD mo_repo->('GET_FILES_LOCAL_FILTERED') PARAMETER-TABLE lt_ptab_local.
+        ELSE.
+          lt_local = mo_repo->get_files_local( ).
+        ENDIF.
       CATCH zcx_abapgit_exception.
         " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
         RETURN.
