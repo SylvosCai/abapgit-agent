@@ -9,10 +9,12 @@
  * All scenarios are driven by pull sequencing against one object:
  *
  *   1. no-conflict (same branch, same content)  → Pull completed
- *   2. BRANCH_SWITCH (different branch, different content) → Pull aborted
- *   3. conflict-mode ignore overrides conflict   → Pull completed
- *   4. no-conflict after baseline update         → Pull completed
- *   5. BRANCH_SWITCH switching back              → Pull aborted
+ *   2. BRANCH_SWITCH — same user switching branches → Pull completed (safe)
+ *      Note: BRANCH_SWITCH only aborts when a *different* user last pulled
+ *            from the other branch. Since integration tests run as one user,
+ *            this scenario cannot be triggered here; it is covered by AUnit.
+ *   3. conflict-mode ignore still works         → Pull completed
+ *   4. no-conflict after baseline update        → Pull completed
  *
  * Test repository: https://github.tools.sap/I045696/abgagt-pull-test.git
  */
@@ -104,27 +106,29 @@ function runConflictTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
   }
   printInfo('');
 
-  // ─── Step 3: BRANCH_SWITCH conflict ────────────────────────────────────────
-  printInfo(colorize('cyan', `Step 3: BRANCH_SWITCH — pull ${BRANCH_FEAT} (different content)`));
+  // ─── Step 3: same user switching branches → safe (no BRANCH_SWITCH) ──────
+  // BRANCH_SWITCH only aborts when a *different* user last pulled from the
+  // other branch.  Since this test runs as the same user who set the baseline
+  // in Step 1, switching to feature/test-branch must complete successfully.
+  printInfo(colorize('cyan', `Step 3: branch switch by same user — pull ${BRANCH_FEAT} (should succeed)`));
   {
     const { output, exitCode } = runPull(repoRoot, BRANCH_FEAT);
-    const hasBranchSwitch = output.includes('BRANCH_SWITCH');
-    const hasAborted      = output.includes('Pull aborted');
-    const passed = exitCode !== 0 && hasBranchSwitch && hasAborted;
+    const passed = exitCode === 0 && output.includes('Pull completed');
     if (passed) {
-      printSuccess(`✓ BRANCH_SWITCH conflict detected as expected`);
+      printSuccess(`✓ same-user branch switch allowed (no BRANCH_SWITCH conflict)`);
     } else {
-      printError(`✗ expected BRANCH_SWITCH conflict`);
-      printError(`  exitCode=${exitCode} hasBranchSwitch=${hasBranchSwitch} hasAborted=${hasAborted}`);
+      printError(`✗ expected pull to succeed for same-user branch switch`);
+      printError(`  exitCode=${exitCode}`);
+      printError(`  ${output.split('\n').find(l => l.trim()) || ''}`);
     }
-    results.push({ name: 'BRANCH_SWITCH conflict detected', passed });
+    results.push({ name: 'same-user branch switch is safe', passed });
   }
   printInfo('');
 
-  // ─── Step 4: conflict-mode ignore ──────────────────────────────────────────
-  printInfo(colorize('cyan', `Step 4: --conflict-mode ignore bypasses BRANCH_SWITCH`));
+  // ─── Step 4: conflict-mode ignore works regardless ─────────────────────────
+  printInfo(colorize('cyan', `Step 4: --conflict-mode ignore bypasses any conflict`));
   {
-    const { output, exitCode } = runPull(repoRoot, BRANCH_FEAT, ['--conflict-mode', 'ignore']);
+    const { output, exitCode } = runPull(repoRoot, BRANCH_MAIN, ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     if (passed) {
       printSuccess(`✓ pull with --conflict-mode ignore succeeded`);
@@ -137,10 +141,10 @@ function runConflictTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
   printInfo('');
 
   // ─── Step 5: no-conflict after baseline update ─────────────────────────────
-  // Step 4 wrote the feature branch baseline — pulling again should be clean.
-  printInfo(colorize('cyan', `Step 5: no conflict — pull ${BRANCH_FEAT} again after baseline updated`));
+  // Step 4 wrote the main branch baseline — pulling again should be clean.
+  printInfo(colorize('cyan', `Step 5: no conflict — pull ${BRANCH_MAIN} again after baseline updated`));
   {
-    const { output, exitCode } = runPull(repoRoot, BRANCH_FEAT);
+    const { output, exitCode } = runPull(repoRoot, BRANCH_MAIN);
     const passed = exitCode === 0 && output.includes('Pull completed');
     if (passed) {
       printSuccess(`✓ no conflict after baseline update`);

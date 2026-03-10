@@ -14,15 +14,18 @@
  *   Reset:   pull v0.1.0 --conflict-mode ignore  → idempotent baseline
  *   Step 1:  pull v0.1.0 (no flag)               → no conflict (same ref)
  *            verify: only get_message
- *   Step 2:  pull v1.0.0 (no flag)               → BRANCH_SWITCH conflict
- *   Step 3:  pull v1.0.0 --conflict-mode ignore  → succeeds
+ *   Step 2:  pull v1.0.0 (no flag)               → succeeds (same user branch switch)
  *            verify: get_message + validate_input
- *   Step 4:  pull feature/test-branch (no flag)  → BRANCH_SWITCH conflict
- *   Step 5:  pull feature/test-branch --conflict-mode ignore → succeeds
+ *   Step 3:  pull feature/test-branch (no flag)  → succeeds (same user branch switch)
  *            verify: get_message + calculate_sum
- *   Step 6:  pull main (no flag)                 → BRANCH_SWITCH conflict
- *   Step 7:  pull main --conflict-mode ignore    → succeeds
+ *   Step 4:  pull main (no flag)                 → succeeds (same user branch switch)
  *            verify: get_message + validate_input
+ *   Step 5:  pull v1.0.0 (no flag)               → no conflict (identical content to main)
+ *
+ * Note: BRANCH_SWITCH aborts only when a *different* user last pulled from the
+ * other branch. Since integration tests run as a single user, same-user branch
+ * switches always succeed. The different-user scenario is covered by AUnit
+ * (test_brsw_diff_user_abort).
  */
 
 const { execSync } = require('child_process');
@@ -82,7 +85,7 @@ function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     } else {
       printError('✗ baseline reset failed — cannot continue');
       printError(`  ${output.split('\n').find(l => l.includes('Error') || l.includes('failed')) || ''}`);
-      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 11 };
+      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 9 };
     }
   }
   printInfo('');
@@ -111,26 +114,16 @@ function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   }
   printInfo('');
 
-  // ─── Steps 2–3: v1.0.0 ──────────────────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 2: BRANCH_SWITCH conflict — pull v1.0.0 without override'));
+  // ─── Steps 2: v1.0.0 ────────────────────────────────────────────────────────
+  // Same user switching refs → always succeeds (no BRANCH_SWITCH).
+  printInfo(colorize('cyan', 'Step 2: pull v1.0.0 (same-user branch switch — should succeed)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for v1.0.0')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'BRANCH_SWITCH conflict for v1.0.0', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 3: pull v1.0.0 --conflict-mode ignore'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'v1.0.0', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ pull v1.0.0 succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'pull v1.0.0 with --conflict-mode ignore', passed });
+      ? printSuccess('✓ pull v1.0.0 succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull v1.0.0 (same-user branch switch)', passed });
   }
 
   // verify content: get_message + validate_input
@@ -146,26 +139,15 @@ function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   }
   printInfo('');
 
-  // ─── Steps 4–5: feature/test-branch ─────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 4: BRANCH_SWITCH conflict — pull feature/test-branch without override'));
+  // ─── Step 3: feature/test-branch ─────────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 3: pull feature/test-branch (same-user branch switch — should succeed)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'feature/test-branch');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for feature/test-branch')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'BRANCH_SWITCH conflict for feature/test-branch', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 5: pull feature/test-branch --conflict-mode ignore'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'feature/test-branch', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ pull feature/test-branch succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'pull feature/test-branch with --conflict-mode ignore', passed });
+      ? printSuccess('✓ pull feature/test-branch succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull feature/test-branch (same-user branch switch)', passed });
   }
 
   // verify content: get_message + calculate_sum
@@ -181,26 +163,15 @@ function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   }
   printInfo('');
 
-  // ─── Steps 6–7: main ─────────────────────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 6: BRANCH_SWITCH conflict — pull main without override'));
+  // ─── Step 4: main ─────────────────────────────────────────────────────────────
+  printInfo(colorize('cyan', 'Step 4: pull main (same-user branch switch — should succeed)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'main');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for main')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'BRANCH_SWITCH conflict for main', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 7: pull main --conflict-mode ignore'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'main', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ pull main succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'pull main with --conflict-mode ignore', passed });
+      ? printSuccess('✓ pull main succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'pull main (same-user branch switch)', passed });
   }
 
   // verify content: get_message + validate_input
@@ -214,10 +185,10 @@ function runPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
       : printError('✗ main content unexpected');
     results.push({ name: 'verify main content', passed });
   }
-  // ─── Step 8: branch switch with identical content → no conflict ─────────────
+  // ─── Step 5: branch switch with identical content → no conflict ─────────────
   // main and v1.0.0 have the same content for ZIF_SIMPLE_TEST.
   // Branch switches with git_changed=false must NOT trigger BRANCH_SWITCH.
-  printInfo(colorize('cyan', 'Step 8: no conflict — pull v1.0.0 after main (same content, different ref)'));
+  printInfo(colorize('cyan', 'Step 5: no conflict — pull v1.0.0 after main (same content, different ref)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
     const passed = exitCode === 0 && output.includes('Pull completed');

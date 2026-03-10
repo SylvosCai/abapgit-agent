@@ -47,6 +47,12 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         lv_local_sha = ls_baseline-last_git_sha.
       ENDIF.
 
+      " If system already has the incoming content, the pull is idempotent — no real conflict.
+      " This handles: edit in ADT → export to git → commit → pull the committed version.
+      IF lv_local_sha = lv_current_sha.
+        CONTINUE.
+      ENDIF.
+
       " Determine what changed
       DATA(lv_git_changed)     = xsdbool( lv_current_sha <> ls_baseline-last_git_sha ).
       DATA(lv_sys_changed)     = xsdbool( lv_local_sha <> ls_baseline-last_git_sha ).
@@ -72,8 +78,14 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " Type 2: git changed AND branch switched → BRANCH_SWITCH
+      " Type 2: git changed AND branch switched
+      " - Same person switching branches: intentional, safe → skip
+      " - Different person last pulled: unexpected branch state → abort (BRANCH_SWITCH)
       IF lv_git_changed = abap_true AND lv_branch_switched = abap_true.
+        IF ls_baseline-last_pulled_by = sy-uname.
+          CONTINUE.  " Same user switched branches deliberately
+        ENDIF.
+        " Different user last pulled — abort
         CLEAR ls_conflict.
         ls_conflict-obj_type       = ls_file-obj_type.
         ls_conflict-obj_name       = ls_file-obj_name.
@@ -184,7 +196,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
           rv_report = rv_report &&
             |Branch:        { ls_conflict-branch_old } → { ls_conflict-branch_new }\n| &&
             |Git changed:   { ls_conflict-git_sha_old } → { ls_conflict-git_sha_new }\n| &&
-            |Last pull by { ls_conflict-last_pulled_by }\n|.
+            |Last pull by { ls_conflict-last_pulled_by } (different user) — unexpected branch state\n|.
 
         WHEN 'LOCAL_EDIT'.
           rv_report = rv_report &&

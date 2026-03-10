@@ -17,6 +17,9 @@ CLASS ltcl_conflict_detector DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HA
     METHODS test_branch_switch_type2        FOR TESTING.
     METHODS test_branch_switch_same_sha     FOR TESTING.
     METHODS test_multiple_objects_mixed     FOR TESTING.
+    METHODS test_brsw_same_user_safe               FOR TESTING.
+    METHODS test_brsw_diff_user_abort              FOR TESTING.
+    METHODS test_sys_idempotent_safe               FOR TESTING.
 
     " --- store_pull_metadata / read back via check ---
     METHODS test_store_creates_baseline     FOR TESTING.
@@ -42,11 +45,12 @@ CLASS ltcl_conflict_detector DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HA
       RETURNING VALUE(rs_file) TYPE zif_abgagt_conflict_detector=>ty_file_entry.
 
     METHODS make_meta_row
-      IMPORTING iv_obj_type     TYPE tadir-object
-                iv_obj_name     TYPE tadir-obj_name
-                iv_git_sha      TYPE string
-                iv_branch       TYPE string
-                iv_sys_ts       TYPE timestampl
+      IMPORTING iv_obj_type      TYPE tadir-object
+                iv_obj_name      TYPE tadir-obj_name
+                iv_git_sha       TYPE string
+                iv_branch        TYPE string
+                iv_sys_ts        TYPE timestampl
+                iv_last_pulled_by TYPE syuname OPTIONAL
       RETURNING VALUE(rs_row)   TYPE zabgagt_obj_meta.
 
 ENDCLASS.
@@ -211,7 +215,8 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
   ENDMETHOD.
 
   "-------------------------------------------------------------------
-  " check_conflicts — git changed + branch switched → Type 2 BRANCH_SWITCH
+  " check_conflicts — git changed + branch switched, different user → BRANCH_SWITCH
+  " last_pulled_by is a different user → unexpected branch state, must abort
   " local_content SHA equals stored SHA → sys NOT changed (isolates branch switch)
   "-------------------------------------------------------------------
   METHOD test_branch_switch_type2.
@@ -228,11 +233,12 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
                       iv_local_content = lv_old_content ) TO lt_files.
 
     DATA lt_meta TYPE STANDARD TABLE OF zabgagt_obj_meta.
-    APPEND make_meta_row( iv_obj_type = 'CLAS'
-                          iv_obj_name = 'ZCL_TEST'
-                          iv_git_sha  = lv_sha_old
-                          iv_branch   = 'b1'
-                          iv_sys_ts   = lv_sys_ts ) TO lt_meta.
+    APPEND make_meta_row( iv_obj_type      = 'CLAS'
+                          iv_obj_name      = 'ZCL_TEST'
+                          iv_git_sha       = lv_sha_old
+                          iv_branch        = 'b1'
+                          iv_sys_ts        = lv_sys_ts
+                          iv_last_pulled_by = 'OTHER_USER' ) TO lt_meta.
     go_env->insert_test_data( i_data = lt_meta ).
 
     DATA(lt_conflicts) = mo_cut->check_conflicts(
@@ -241,7 +247,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
 
     cl_abap_unit_assert=>assert_equals(
       act = lines( lt_conflicts ) exp = 1
-      msg = 'Exactly 1 conflict expected for branch switch' ).
+      msg = 'Exactly 1 conflict expected for branch switch by a different user' ).
 
     DATA(ls_conflict) = lt_conflicts[ 1 ].
     cl_abap_unit_assert=>assert_equals(
@@ -544,6 +550,118 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
   ENDMETHOD.
 
   "-------------------------------------------------------------------
+  " check_conflicts — branch switched + git changed, same user → safe (no conflict)
+  " Same developer intentionally switched branches — must not abort.
+  "-------------------------------------------------------------------
+  METHOD test_brsw_same_user_safe.
+    DATA lt_files TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lv_new_content TYPE string VALUE 'content on feature branch'.
+    DATA lv_old_content TYPE string VALUE 'content on main branch'.
+    DATA(lv_sha_old)    = mo_cut->calculate_sha( lv_old_content ).
+    DATA(lv_sys_ts)     = CONV timestampl( '20260305103000.0000000' ).
+
+    " local_content = old content → system unchanged
+    APPEND make_file( iv_obj_type      = 'CLAS'
+                      iv_obj_name      = 'ZCL_TEST'
+                      iv_content       = lv_new_content
+                      iv_local_content = lv_old_content ) TO lt_files.
+
+    DATA lt_meta TYPE STANDARD TABLE OF zabgagt_obj_meta.
+    " last_pulled_by = sy-uname (same user who is now pulling)
+    APPEND make_meta_row( iv_obj_type       = 'CLAS'
+                          iv_obj_name       = 'ZCL_TEST'
+                          iv_git_sha        = lv_sha_old
+                          iv_branch         = 'main'
+                          iv_sys_ts         = lv_sys_ts
+                          iv_last_pulled_by = sy-uname ) TO lt_meta.
+    go_env->insert_test_data( i_data = lt_meta ).
+
+    DATA(lt_conflicts) = mo_cut->check_conflicts(
+      it_files  = lt_files
+      iv_branch = 'feature/my-work' ).
+
+    cl_abap_unit_assert=>assert_initial(
+      act = lt_conflicts
+      msg = 'Same user switching branches intentionally must not cause a conflict' ).
+  ENDMETHOD.
+
+  "-------------------------------------------------------------------
+  " check_conflicts — branch switched + git changed, different user → BRANCH_SWITCH
+  " A colleague last pulled from a different branch — unexpected state, must abort.
+  "-------------------------------------------------------------------
+  METHOD test_brsw_diff_user_abort.
+    DATA lt_files TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lv_new_content TYPE string VALUE 'content on feature branch'.
+    DATA lv_old_content TYPE string VALUE 'content on main branch'.
+    DATA(lv_sha_old)    = mo_cut->calculate_sha( lv_old_content ).
+    DATA(lv_sys_ts)     = CONV timestampl( '20260305103000.0000000' ).
+
+    APPEND make_file( iv_obj_type      = 'CLAS'
+                      iv_obj_name      = 'ZCL_TEST'
+                      iv_content       = lv_new_content
+                      iv_local_content = lv_old_content ) TO lt_files.
+
+    DATA lt_meta TYPE STANDARD TABLE OF zabgagt_obj_meta.
+    " last_pulled_by = a colleague, not the current user
+    APPEND make_meta_row( iv_obj_type       = 'CLAS'
+                          iv_obj_name       = 'ZCL_TEST'
+                          iv_git_sha        = lv_sha_old
+                          iv_branch         = 'main'
+                          iv_sys_ts         = lv_sys_ts
+                          iv_last_pulled_by = 'COLLEAGUE' ) TO lt_meta.
+    go_env->insert_test_data( i_data = lt_meta ).
+
+    DATA(lt_conflicts) = mo_cut->check_conflicts(
+      it_files  = lt_files
+      iv_branch = 'feature/my-work' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( lt_conflicts ) exp = 1
+      msg = 'Different user last pulled from another branch — must report BRANCH_SWITCH' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lt_conflicts[ 1 ]-conflict_type exp = 'BRANCH_SWITCH'
+      msg = 'Conflict type must be BRANCH_SWITCH' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lt_conflicts[ 1 ]-last_pulled_by exp = 'COLLEAGUE'
+      msg = 'Conflict must record who last pulled' ).
+  ENDMETHOD.
+
+  "-------------------------------------------------------------------
+  " check_conflicts — system already has incoming content → idempotent pull
+  " ADT edit → export to git → commit → pull: local_sha = current_sha → no conflict.
+  "-------------------------------------------------------------------
+  METHOD test_sys_idempotent_safe.
+    DATA lt_files TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lv_new_git_content   TYPE string VALUE 'new content committed to git'.
+    DATA lv_old_baseline_sha  TYPE string VALUE 'oldshavalue00000000000000000000000000000'.
+    DATA(lv_sys_ts)           = CONV timestampl( '20260305103000.0000000' ).
+
+    " local_content = new_git_content → system already has the incoming version
+    APPEND make_file( iv_obj_type      = 'CLAS'
+                      iv_obj_name      = 'ZCL_TEST'
+                      iv_content       = lv_new_git_content
+                      iv_local_content = lv_new_git_content ) TO lt_files.
+
+    " Baseline still points to old SHA → git changed, sys_changed also true
+    " but local_sha = current_sha → idempotent early exit fires
+    DATA lt_meta TYPE STANDARD TABLE OF zabgagt_obj_meta.
+    APPEND make_meta_row( iv_obj_type = 'CLAS'
+                          iv_obj_name = 'ZCL_TEST'
+                          iv_git_sha  = lv_old_baseline_sha
+                          iv_branch   = 'main'
+                          iv_sys_ts   = lv_sys_ts ) TO lt_meta.
+    go_env->insert_test_data( i_data = lt_meta ).
+
+    DATA(lt_conflicts) = mo_cut->check_conflicts(
+      it_files  = lt_files
+      iv_branch = 'main' ).
+
+    cl_abap_unit_assert=>assert_initial(
+      act = lt_conflicts
+      msg = 'System already has incoming content — pull is idempotent, no conflict' ).
+  ENDMETHOD.
+
+  "-------------------------------------------------------------------
   " Helpers
   "-------------------------------------------------------------------
   METHOD make_file.
@@ -554,11 +672,12 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD make_meta_row.
-    rs_row-obj_type       = iv_obj_type.
-    rs_row-obj_name       = iv_obj_name.
-    rs_row-last_git_sha   = iv_git_sha.
-    rs_row-last_branch    = iv_branch.
-    rs_row-sys_changed_at = iv_sys_ts.
+    rs_row-obj_type        = iv_obj_type.
+    rs_row-obj_name        = iv_obj_name.
+    rs_row-last_git_sha    = iv_git_sha.
+    rs_row-last_branch     = iv_branch.
+    rs_row-sys_changed_at  = iv_sys_ts.
+    rs_row-last_pulled_by  = iv_last_pulled_by.
   ENDMETHOD.
 
 ENDCLASS.
