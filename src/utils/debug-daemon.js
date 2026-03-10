@@ -85,6 +85,17 @@ async function startDaemon(config, sessionId, socketPath, snapshot) {
     process.exit(code || 0);
   }
 
+  // On SIGTERM (e.g. pkill from ensure_breakpoint cleanup), attempt to release
+  // the frozen ABAP work process before exiting.  Without this, killing the
+  // daemon leaves the work process paused at the breakpoint until SAP's own
+  // session-timeout fires (up to several minutes).
+  process.once('SIGTERM', async () => {
+    try {
+      await session.terminate();
+    } catch (e) { /* ignore — best effort */ }
+    cleanupAndExit(0);
+  });
+
   const server = net.createServer((socket) => {
     resetIdle();
     let buf = '';

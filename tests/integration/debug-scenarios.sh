@@ -69,6 +69,16 @@ open_stdin_pipe() {
 ensure_breakpoint() {
   log "Clearing stale session state and daemon ..."
   $AGENT debug terminate >/dev/null 2>&1 || true   # clears state file + kills daemon if running
+  # Kill any orphaned daemon processes left over from a previous failed run.
+  # The daemon is detached (spawned with detached:true) so its PID is not tracked
+  # by $ATTACH1_PID.  Without this kill, a frozen ABAP work process from a prior
+  # failed run persists until the 30-min idle timeout, causing subsequent runs to
+  # immediately re-attach to the same frozen session and fail.
+  pkill -f debug-daemon.js 2>/dev/null || true
+  # Give SAP a moment to detect the dropped HTTP connection and release any frozen
+  # work process.  Without this pause the next listener poll can receive the stale
+  # DEBUGGEE_ID before the server-side session has been cleaned up.
+  sleep 2
   log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
   $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 || true
@@ -80,6 +90,9 @@ cleanup() {
   [[ -n "$TRIGGER_PID" ]] && kill "$TRIGGER_PID" 2>/dev/null || true
   [[ -n "$BLOCKED_PID" ]] && kill "$BLOCKED_PID" 2>/dev/null || true
   exec 6>&- 2>/dev/null || true
+  # Kill any daemon that survived the scenario (e.g. after a step --type continue
+  # failure the daemon stays alive, keeping the ABAP work process frozen).
+  pkill -f debug-daemon.js 2>/dev/null || true
   rm -f /tmp/dbg_*.out /tmp/dbg_*.fifo
   $AGENT debug delete --all >/dev/null 2>&1 || true
   echo "$PASS $FAIL" > "$RESULTS_FILE"
