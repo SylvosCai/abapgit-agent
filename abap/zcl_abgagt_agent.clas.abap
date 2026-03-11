@@ -211,7 +211,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           " parameter list.  Checking the alias name always yields lv_deser_has_filter
           " = false, causing the unfiltered fallback to activate the entire repository.
           DATA(lv_deser_has_filter) = xsdbool(
-                                        line_exists(
+                                        line_exists( lo_repo_desc2->methods[
+                                          name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ] )
+                                        AND line_exists(
                                           lo_repo_desc2->methods[
                                             name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ]-parameters[
                                             name = 'II_OBJ_FILTER' ] ) ).
@@ -417,7 +419,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     DATA(lt_methods)  = lo_obj_desc->methods.
     " Same RTTI caveat as for DESERIALIZE: check the interface-prefixed name.
     DATA(lv_has_filter) = xsdbool(
-                            line_exists(
+                            line_exists( lt_methods[
+                              name = 'ZIF_ABAPGIT_REPO~DESERIALIZE_CHECKS' ] )
+                            AND line_exists(
                               lt_methods[
                                 name = 'ZIF_ABAPGIT_REPO~DESERIALIZE_CHECKS' ]-parameters[
                                 name = 'II_OBJ_FILTER' ] ) ).
