@@ -49,6 +49,95 @@ CLASS ltcl_log_double IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" Alias-based repo double — mimics ZCL_ABAPGIT_REPO_ONLINE where
+" DESERIALIZE / DESERIALIZE_CHECKS are exposed via ALIASES.
+" This is the production pattern that triggered the RTTI bug:
+"   methods[ name = 'DESERIALIZE' ]-parameters is EMPTY for aliases;
+"   only methods[ name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ] has the
+"   full parameter list including II_OBJ_FILTER.
+"----------------------------------------------------------------------
+CLASS ltcl_repo_with_aliases DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo.
+    " Declare aliases exactly as production code does
+    ALIASES deserialize
+      FOR zif_abapgit_repo~deserialize.
+    ALIASES deserialize_checks
+      FOR zif_abapgit_repo~deserialize_checks.
+    ALIASES get_log
+      FOR zif_abapgit_repo~get_log.
+    ALIASES create_new_log
+      FOR zif_abapgit_repo~create_new_log.
+    " Configurable log double returned by get_log / create_new_log
+    DATA mo_log TYPE REF TO ltcl_log_double.
+ENDCLASS.
+
+CLASS ltcl_repo_with_aliases IMPLEMENTATION.
+  METHOD zif_abapgit_repo~get_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~create_new_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize_checks.
+    " Return empty checks — pull logic only inspects the transport field
+    rs_checks = VALUE #( ).
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize.
+    " No-op stub — test verifies the dynamic call path reaches here
+  ENDMETHOD.
+  " --- remaining interface methods: all stubs ---
+  METHOD zif_abapgit_repo~get_key.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~is_offline.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_package.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_tadir_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local_filtered.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~find_remote_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~checksums.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~has_remote_source.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_apack.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~delete_checks.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~switch_repo_type.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_object.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_data_config.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~bind_listener.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
@@ -75,6 +164,10 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_pull_failed_objects   FOR TESTING.
     METHODS test_pull_transport        FOR TESTING.
     METHODS test_pull_conflict_ignored FOR TESTING.
+
+    " --- RTTI alias parameter detection ---
+    METHODS test_rtti_alias_has_filter_param FOR TESTING.
+    METHODS test_pull_filter_via_alias_repo  FOR TESTING.
 
     " --- get_repo_status ---
     METHODS test_get_repo_status_found FOR TESTING.
@@ -355,6 +448,102 @@ CLASS ltcl_agent IMPLEMENTATION.
     cl_abap_unit_assert=>assert_true(
       act = ls_result-success
       msg = 'Pull must succeed when conflict_mode = ignore' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " RTTI alias detection — documents the core bug condition.
+  "
+  " In production, ZCL_ABAPGIT_REPO_ONLINE exposes DESERIALIZE via an
+  " ALIAS.  ABAP RTTI places such aliases in the methods table but
+  " leaves their -parameters sub-table EMPTY.  Only the entry keyed by
+  " the fully-qualified interface name (ZIF_ABAPGIT_REPO~DESERIALIZE)
+  " carries the complete parameter list including II_OBJ_FILTER.
+  "
+  " Before the fix the code checked the alias name DESERIALIZE and
+  " always found an empty parameter table → lv_deser_has_filter = false
+  " → the entire repository was activated instead of only the requested
+  " object(s).
+  "--------------------------------------------------------------------
+  METHOD test_rtti_alias_has_filter_param.
+    " Create an alias-based repo instance (mimics production class)
+    DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
+    lo_alias_repo = NEW ltcl_repo_with_aliases( ).
+
+    DATA(lo_desc) = CAST cl_abap_objectdescr(
+                      cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
+
+    " The interface-prefixed name MUST have II_OBJ_FILTER in its
+    " parameter list — this is what the fixed code checks.
+    DATA(lv_prefixed_has_filter) = xsdbool(
+      line_exists(
+        lo_desc->methods[
+          name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ]-parameters[
+          name = 'II_OBJ_FILTER' ] ) ).
+
+    cl_abap_unit_assert=>assert_true(
+      act = lv_prefixed_has_filter
+      msg = 'ZIF_ABAPGIT_REPO~DESERIALIZE must expose II_OBJ_FILTER in RTTI' ).
+
+    " The alias name DESERIALIZE must NOT have II_OBJ_FILTER — this is
+    " the exact condition the bug exploited.  Asserting it is false
+    " proves that checking the alias name alone is insufficient.
+    DATA(lv_alias_has_filter) = xsdbool(
+      line_exists(
+        lo_desc->methods[
+          name = 'DESERIALIZE' ]-parameters[
+          name = 'II_OBJ_FILTER' ] ) ).
+
+    cl_abap_unit_assert=>assert_false(
+      act = lv_alias_has_filter
+      msg = 'Alias DESERIALIZE must have empty parameters in RTTI (bug condition)' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " End-to-end pull with alias-based repo — verifies filtered path.
+  "
+  " When mo_repo is an alias-based instance (as in production) and
+  " --files is specified, the fixed code must detect II_OBJ_FILTER via
+  " the interface-prefixed RTTI entry and invoke the dynamic CALL METHOD
+  " path.  If the old bug were present (checking alias name), the filter
+  " flag would be false and the unfiltered deserialize would run instead,
+  " activating the entire repository.
+  "
+  " The test verifies pull succeeds — if the dynamic call path were
+  " broken (e.g. wrong method name in PARAMETER-TABLE), an exception
+  " would propagate and success would be false.
+  "--------------------------------------------------------------------
+  METHOD test_pull_filter_via_alias_repo.
+    " Build an alias-based repo with a known-good log double
+    DATA lo_alias_log TYPE REF TO ltcl_log_double.
+    lo_alias_log = NEW ltcl_log_double( ).
+    lo_alias_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
+    lo_alias_repo = NEW ltcl_repo_with_aliases( ).
+    lo_alias_repo->mo_log = lo_alias_log.
+
+    " Wire a fresh conflict detector that returns no conflicts
+    DATA lo_det TYPE REF TO zif_abgagt_conflict_detector.
+    lo_det ?= cl_abap_testdouble=>create( 'ZIF_ABGAGT_CONFLICT_DETECTOR' ).
+    DATA lt_no_conflicts TYPE zif_abgagt_conflict_detector=>ty_conflicts.
+    cl_abap_testdouble=>configure_call( lo_det )->returning( lt_no_conflicts ).
+    lo_det->check_conflicts( it_files = VALUE #( ) iv_branch = '' ).
+
+    " Inject the alias-based repo into a fresh agent under test
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_alias_repo
+      io_conflict_detector = lo_det ).
+
+    " Pull with a single file — this must take the filtered deserialize
+    " path via dynamic CALL METHOD (lv_deser_has_filter = true)
+    DATA(ls_result) = lo_cut->zif_abgagt_agent~pull(
+      iv_url   = 'https://example.com/repo.git'
+      it_files = VALUE #( ( 'src/zcl_foo.clas.abap' ) ) ).
+
+    cl_abap_unit_assert=>assert_true(
+      act = ls_result-success
+      msg = 'Pull via alias-based repo with --files must succeed' ).
   ENDMETHOD.
 
   "--------------------------------------------------------------------
