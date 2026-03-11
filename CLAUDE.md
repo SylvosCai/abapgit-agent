@@ -322,6 +322,7 @@ Create `.abapGitAgent` in repository root:
   "gitUsername": "git-username",
   "gitPassword": "git-token",
   "transport": "DEVK900001",
+  "protocol": "https",
 
   "workflow": {
     "mode": "branch"  // "branch" or "trunk" (default: trunk)
@@ -472,6 +473,7 @@ export ABAP_CLIENT="100"
 export ABAP_USER="TECH_USER"
 export ABAP_PASSWORD="your-password"
 export ABAP_LANGUAGE="EN"
+export ABAP_PROTOCOL="https"
 export GIT_USERNAME="git-username"
 export GIT_PASSWORD="git-token"
 export ABAP_TRANSPORT="DEVK900001"

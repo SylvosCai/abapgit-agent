@@ -4,10 +4,14 @@
 
 const { AbapHttp } = require('../../src/utils/abap-http');
 const https = require('https');
+const http = require('http');
 const { EventEmitter } = require('events');
 
 // Mock https module
 jest.mock('https');
+jest.mock('http', () => ({
+  request: jest.fn()
+}));
 
 describe('AbapHttp Error Handling', () => {
   let abapHttp;
@@ -288,5 +292,60 @@ describe('AbapHttp Error Handling', () => {
         message: 'CSRF token or session error'
       });
     });
+  });
+});
+
+// ─── Protocol: HTTP support ───────────────────────────────────────────────────
+
+describe('AbapHttp HTTP protocol support', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    https.Agent = jest.fn().mockImplementation(() => ({}));
+    https.request = jest.fn();
+    http.request = jest.fn();
+  });
+
+  test('uses http.request and http:// URL when protocol is "http"', async () => {
+    const mockConfig = {
+      host: 'test.sap.com',
+      sapport: 8000,
+      client: '100',
+      user: 'TEST_USER',
+      password: 'test_password',
+      language: 'EN',
+      protocol: 'http'
+    };
+
+    const mockResponse = new EventEmitter();
+    mockResponse.statusCode = 200;
+    mockResponse.headers = {};
+
+    const mockRequest = new EventEmitter();
+    mockRequest.end = jest.fn();
+    mockRequest.write = jest.fn();
+
+    http.request = jest.fn((options, callback) => {
+      callback(mockResponse);
+      return mockRequest;
+    });
+
+    setImmediate(() => {
+      mockResponse.emit('data', '{"success": true}');
+      mockResponse.emit('end');
+    });
+
+    const client = new AbapHttp(mockConfig);
+    client.loadSession = jest.fn();
+    client.saveSession = jest.fn();
+    client.clearSession = jest.fn();
+    client.csrfToken = 'tok';
+    client.cookies = null;
+
+    const result = await client._makeRequest('GET', '/test');
+    expect(result).toEqual({ success: true });
+    expect(http.request).toHaveBeenCalled();
+    expect(https.request).not.toHaveBeenCalled();
+    const callOptions = http.request.mock.calls[0][0];
+    expect(callOptions.port).toBe('8000');
   });
 });

@@ -24,8 +24,13 @@ jest.mock('https', () => {
   return { Agent, request: jest.fn() };
 });
 
+jest.mock('http', () => ({
+  request: jest.fn()
+}));
+
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 const { AdtHttp } = require('../../src/utils/adt-http');
 
 function makeConfig() {
@@ -241,5 +246,46 @@ describe('AdtHttp._makeRequest error handling', () => {
     expect(result.statusCode).toBe(200);
     expect(result.body).toBe('<feed/>');
     expect(result.headers).toHaveProperty('content-type');
+  });
+});
+
+// ─── Protocol: HTTP support ───────────────────────────────────────────────────
+
+describe('AdtHttp HTTP protocol support', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fs.existsSync.mockReturnValue(false);
+  });
+
+  test('uses http:// base URL and http.request when protocol is "http"', async () => {
+    const EventEmitter = require('events');
+    const res = new EventEmitter();
+    res.statusCode = 200;
+    res.headers = { 'content-type': 'application/atom+xml' };
+
+    const req = new EventEmitter();
+    req.write = jest.fn();
+    req.end = jest.fn(() => {
+      process.nextTick(() => {
+        http.request.mock.calls[http.request.mock.calls.length - 1][1](res);
+        process.nextTick(() => {
+          res.emit('data', '<feed/>');
+          res.emit('end');
+        });
+      });
+    });
+    http.request.mockReturnValueOnce(req);
+
+    const config = { ...makeConfig(), sapport: 8000, protocol: 'http' };
+    const adt = new AdtHttp(config);
+    const result = await adt.get('/sap/bc/adt/discovery');
+
+    expect(result.statusCode).toBe(200);
+    // http.request should have been called (not https.request)
+    expect(http.request).toHaveBeenCalled();
+    expect(https.request).not.toHaveBeenCalled();
+    // Verify URL uses http://
+    const callArgs = http.request.mock.calls[0][0];
+    expect(callArgs.port).toBe('8000');
   });
 });

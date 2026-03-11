@@ -5,6 +5,7 @@ const pathModule = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
+const http = require('http');
 
 /**
  * Get cache directory for abapgit-agent
@@ -49,7 +50,7 @@ async function checkCompatibility(config) {
   const cliVersion = getCliVersion();
 
   try {
-    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${config.host}:${config.sapport}`);
+    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `${config.protocol || 'https'}://${config.host}:${config.sapport}`);
 
     return new Promise((resolve) => {
       const options = {
@@ -63,10 +64,10 @@ async function checkCompatibility(config) {
           'sap-language': config.language || 'EN',
           'Content-Type': 'application/json'
         },
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
-      const req = https.request(options, (res) => {
+      const req = (config.protocol === 'http' ? http : https).request(options, (res) => {
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {

@@ -231,7 +231,7 @@ abapgit-agent delete
 
 All commands read configuration from:
 - `.abapGitAgent` file in current directory
-- Environment variables (`ABAP_HOST`, `ABAP_USER`, etc.)
+- Environment variables (`ABAP_HOST`, `ABAP_USER`, `ABAP_PROTOCOL`, etc.)
 
 ### File Patterns
 

@@ -16,6 +16,7 @@ describe('Config', () => {
     delete process.env.ABAP_PASSWORD;
     delete process.env.ABAP_LANGUAGE;
     delete process.env.AGENT_PORT;
+    delete process.env.ABAP_PROTOCOL;
   });
 
   test('loads config from .abapGitAgent file', () => {
@@ -85,7 +86,8 @@ describe('Config', () => {
       password: 'pass',
       language: 'EN',
       gitUsername: 'git-user',
-      gitPassword: 'git-pass'
+      gitPassword: 'git-pass',
+      protocol: 'https'
     });
   });
 
@@ -120,5 +122,53 @@ describe('Config', () => {
     const agentConfig = getAgentConfig();
 
     expect(agentConfig).toBeUndefined();
+  });
+
+  test('getAbapConfig returns protocol from config file', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      host: 'test.com',
+      sapport: 8000,
+      client: '100',
+      user: 'user',
+      password: 'pass',
+      protocol: 'http'
+    }));
+
+    const { getAbapConfig } = require('../../src/config');
+    const abapConfig = getAbapConfig();
+
+    expect(abapConfig.protocol).toBe('http');
+  });
+
+  test('getAbapConfig reads protocol from ABAP_PROTOCOL env var', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(false);
+
+    process.env.ABAP_HOST = 'env-host.com';
+    process.env.ABAP_PROTOCOL = 'http';
+
+    const { getAbapConfig } = require('../../src/config');
+    const abapConfig = getAbapConfig();
+
+    expect(abapConfig.protocol).toBe('http');
+  });
+
+  test('getAbapConfig defaults protocol to https', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      host: 'test.com',
+      sapport: 443,
+      client: '100',
+      user: 'user',
+      password: 'pass'
+    }));
+
+    const { getAbapConfig } = require('../../src/config');
+    const abapConfig = getAbapConfig();
+
+    expect(abapConfig.protocol).toBe('https');
   });
 });

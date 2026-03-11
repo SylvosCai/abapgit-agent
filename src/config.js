@@ -34,7 +34,8 @@ function loadConfig() {
       language: process.env.ABAP_LANGUAGE || 'EN',
       gitUsername: process.env.GIT_USERNAME,
       gitPassword: process.env.GIT_PASSWORD,
-      transport: process.env.ABAP_TRANSPORT
+      transport: process.env.ABAP_TRANSPORT,
+      protocol: process.env.ABAP_PROTOCOL || 'https'
     };
   }
 
@@ -51,7 +52,8 @@ function getAbapConfig() {
     password: cfg.password,
     language: cfg.language || 'EN',
     gitUsername: cfg.gitUsername || process.env.GIT_USERNAME,
-    gitPassword: cfg.gitPassword || process.env.GIT_PASSWORD
+    gitPassword: cfg.gitPassword || process.env.GIT_PASSWORD,
+    protocol: cfg.protocol || process.env.ABAP_PROTOCOL || 'https'
   };
 }
 

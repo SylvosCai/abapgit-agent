@@ -75,7 +75,7 @@ class AdtHttp {
    */
   async fetchCsrfToken() {
     return new Promise((resolve, reject) => {
-      const url = new URL('/sap/bc/adt/discovery', `https://${this.config.host}:${this.config.sapport}`);
+      const url = new URL('/sap/bc/adt/discovery', `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
       const options = {
         hostname: url.hostname,
         port: url.port,
@@ -88,10 +88,10 @@ class AdtHttp {
           'X-CSRF-Token': 'fetch',
           'Accept': 'application/atomsvc+xml'
         },
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
-      const req = https.request(options, (res) => {
+      const req = (this.config.protocol === 'http' ? http : https).request(options, (res) => {
         const csrfToken = res.headers['x-csrf-token'];
         const setCookie = res.headers['set-cookie'];
         if (setCookie) {
@@ -140,7 +140,7 @@ class AdtHttp {
 
   async _makeRequest(method, urlPath, body = null, options = {}) {
     return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `https://${this.config.host}:${this.config.sapport}`);
+      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
 
       const headers = {
         'Content-Type': options.contentType || 'application/atom+xml',
@@ -169,7 +169,7 @@ class AdtHttp {
         path: url.pathname + url.search,
         method,
         headers,
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
       const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (res) => {
@@ -272,7 +272,7 @@ class AdtHttp {
    */
   async postFire(urlPath, body = null, options = {}) {
     return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `https://${this.config.host}:${this.config.sapport}`);
+      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
 
       const headers = {
         'Content-Type': options.contentType || 'application/atom+xml',
@@ -301,7 +301,7 @@ class AdtHttp {
         path: url.pathname + url.search,
         method: 'POST',
         headers,
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
       const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (_res) => {

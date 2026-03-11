@@ -68,6 +68,7 @@ Or configure in `.abapGitAgent`:
   "client": "100",
   "user": "TECH_USER",
   "password": "your-password",
+  "protocol": "https",
   "referenceFolder": "/path/to/abap-reference"
 }
 ```

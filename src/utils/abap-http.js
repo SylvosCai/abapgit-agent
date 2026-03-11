@@ -129,7 +129,7 @@ class AbapHttp {
    * @returns {Promise<string>} CSRF token
    */
   async fetchCsrfToken() {
-    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `https://${this.config.host}:${this.config.sapport}`);
+    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
 
     return new Promise((resolve, reject) => {
       const options = {
@@ -144,10 +144,10 @@ class AbapHttp {
           'X-CSRF-Token': 'fetch',
           'Content-Type': 'application/json'
         },
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
-      const req = https.request(options, (res) => {
+      const req = (this.config.protocol === 'http' ? http : https).request(options, (res) => {
         const csrfToken = res.headers['x-csrf-token'];
 
         // Save cookies from response
@@ -222,7 +222,7 @@ class AbapHttp {
    */
   async _makeRequest(method, urlPath, data = null, options = {}) {
     return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `https://${this.config.host}:${this.config.sapport}`);
+      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
 
       const headers = {
         'Content-Type': 'application/json',
@@ -250,7 +250,7 @@ class AbapHttp {
         path: url.pathname + url.search,
         method,
         headers,
-        agent: new https.Agent({ rejectUnauthorized: false })
+        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
       };
 
       const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (res) => {

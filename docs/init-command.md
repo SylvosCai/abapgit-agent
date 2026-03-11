@@ -139,6 +139,7 @@ After `init` command, `.abapGitAgent` contains:
   "user": "TECH_USER",
   "password": "your-password",
   "language": "EN",
+  "protocol": "https",
   "gitUsername": "github-username",
   "gitPassword": "github-token",
   "referenceFolder": "~/abap-reference",
