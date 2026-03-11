@@ -64,6 +64,33 @@ class DebugSession {
   constructor(adtHttp, sessionId) {
     this.http = adtHttp;
     this.sessionId = sessionId;
+    this.pinnedSessionId = null;
+  }
+
+  /**
+   * Restore the pinned SAP_SESSIONID into the HTTP client's cookie jar.
+   *
+   * SAP ADT debug sessions are bound to a specific frozen ABAP work process
+   * via the SAP_SESSIONID cookie.  AdtHttp updates this cookie automatically
+   * from every response's Set-Cookie header and replaces it on CSRF refresh
+   * (401/403 retry).  When the cookie rotates mid-session the next request
+   * routes to a different ABAP session that has no debug state, causing
+   * HTTP 400 "Service cannot be reached".
+   *
+   * This method reverts any rotation that occurred since attach() by replacing
+   * the current SAP_SESSIONID value with the one captured at attach time.
+   * It is a no-op when called before attach() (pinnedSessionId is null).
+   */
+  _restorePinnedSession() {
+    if (!this.pinnedSessionId || !this.http.cookies) return;
+
+    // Replace whatever SAP_SESSIONID= value is currently in the cookie jar
+    // with the pinned one.  The cookie jar is a semicolon-separated string,
+    // e.g. "SAP_SESSIONID=ABC123; sap-usercontext=xyz".
+    this.http.cookies = this.http.cookies.replace(
+      /SAP_SESSIONID=[^;]*/,
+      `SAP_SESSIONID=${this.pinnedSessionId}`
+    );
   }
 
   /**
@@ -95,6 +122,14 @@ class DebugSession {
       this.sessionId = debugSessionId;
     }
 
+    // Pin the SAP_SESSIONID cookie that was active when we attached.
+    // All subsequent stateful operations must present this exact cookie so
+    // that SAP routes them to the same frozen ABAP work process.
+    if (this.http.cookies) {
+      const match = this.http.cookies.match(/SAP_SESSIONID=([^;]*)/);
+      if (match) this.pinnedSessionId = match[1];
+    }
+
     return this.sessionId;
   }
 
@@ -104,6 +139,8 @@ class DebugSession {
    * @returns {Promise<{ position: object, source: string[] }>}
    */
   async step(type = 'stepOver') {
+    this._restorePinnedSession();
+
     // Map user-friendly names to ADT method names
     const methodMap = {
       stepInto: 'stepInto',
@@ -173,6 +210,8 @@ class DebugSession {
    * @returns {Promise<Array<{ name: string, type: string, value: string }>>}
    */
   async getVariables(name = null) {
+    this._restorePinnedSession();
+
     const CT_CHILD = 'application/vnd.sap.as+xml; charset=UTF-8; dataname=com.sap.adt.debugger.ChildVariables';
     const CT_VARS  = 'application/vnd.sap.as+xml; charset=UTF-8; dataname=com.sap.adt.debugger.Variables';
 
@@ -254,6 +293,8 @@ class DebugSession {
    * @returns {Promise<Array<{ id: string, name: string, type: string, value: string }>>}
    */
   async getVariableChildren(parentId, meta = {}) {
+    this._restorePinnedSession();
+
     const CT_VARS  = 'application/vnd.sap.as+xml; charset=UTF-8; dataname=com.sap.adt.debugger.Variables';
     const CT_CHILD = 'application/vnd.sap.as+xml; charset=UTF-8; dataname=com.sap.adt.debugger.ChildVariables';
 
@@ -371,6 +412,7 @@ class DebugSession {
    * @returns {Promise<Array<{ frame: number, class: string, method: string, line: number }>>}
    */
   async getStack() {
+    this._restorePinnedSession();
     return retryOnIcmError(async () => {
       // Try newer dedicated stack endpoint first (abap-adt-api v7+ approach)
       try {
@@ -586,6 +628,7 @@ class DebugSession {
    * released even when the system is under load (e.g. during test:all).
    */
   async terminate() {
+    this._restorePinnedSession();
     await retryOnIcmError(async () => {
       await this.http.post('/sap/bc/adt/debugger?method=terminateDebuggee', '', {
         contentType: 'application/vnd.sap.as+xml',
@@ -607,6 +650,8 @@ class DebugSession {
    * ABAP WP to have been released, preventing it from staying frozen in SM50.
    */
   async detach() {
+    this._restorePinnedSession();
+
     // stepContinue is a long-poll in ADT — it only responds when the program
     // hits another breakpoint (200) or finishes (500).
     //
