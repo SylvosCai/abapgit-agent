@@ -202,6 +202,8 @@ Response contains `debugSessionId="..."` — this is used for all subsequent cal
 
 **The `X-sap-adt-sessiontype: stateful` header is required on all session operations** (attach, step, getStack, getVariables, terminate). Without it, each request may land on a different ABAP work process, causing `noSessionAttached` (T100KEY-NO=530) errors.
 
+**SAP's ICM drops stateful session affinity after ~60 s of idle.** In human REPL mode, `startKeepalive()` is called automatically after the REPL appears; it fires a `getStack()` every 30 s to keep the session warm. `stopKeepalive()` is called before `detach()`/`terminate()` to prevent a race between the keepalive timer and the closing request. In daemon (AI) mode the daemon's own periodic IPC traffic keeps the session alive.
+
 ## Variables — Two-Step Protocol
 
 Getting variable values requires two POST calls:
@@ -259,6 +261,8 @@ Response contains `<stackEntry>` elements with `stackPosition`, `programName`, `
 When `attach --json` succeeds, both the `sessionId` and the daemon's Unix `socketPath` are saved to `/tmp/abapgit-debug-session-<hash>.json`. All AI-mode commands (`step`, `vars`, `stack`, `terminate`) load the socket path automatically and communicate with the daemon via IPC — they do **not** accept a `--session` flag.
 
 The daemon auto-exits after 30 minutes of idle time or when `terminate` is called.
+
+**`detach()` loop:** When the REPL sends `q` (or `kill`), `detach()` issues `stepContinue`. If the program hits another cached ADT breakpoint (HTTP 200 response) rather than running to completion (HTTP 500), `detach()` loops and sends another `stepContinue` — up to 3 times — until the program finishes or an error occurs.
 
 ## Files
 
