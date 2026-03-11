@@ -14,7 +14,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
         io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL
-        ii_rtti              TYPE REF TO lif_rtti_provider            OPTIONAL.
+        ii_rtti              TYPE REF TO zif_abgagt_rtti_provider       OPTIONAL.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
     METHODS: parse_file_to_object
@@ -35,7 +35,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     DATA: mo_repo              TYPE REF TO zif_abapgit_repo.
     DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
-    DATA: mi_rtti              TYPE REF TO lif_rtti_provider.
+    DATA: mi_rtti              TYPE REF TO zif_abgagt_rtti_provider.
 
     METHODS configure_credentials
       IMPORTING

@@ -144,12 +144,12 @@ ENDCLASS.
 "----------------------------------------------------------------------
 CLASS ltcl_rtti_mock DEFINITION FOR TESTING.
   PUBLIC SECTION.
-    INTERFACES lif_rtti_provider.
+    INTERFACES zif_abgagt_rtti_provider.
     DATA mo_desc TYPE REF TO cl_abap_objectdescr.
 ENDCLASS.
 
 CLASS ltcl_rtti_mock IMPLEMENTATION.
-  METHOD lif_rtti_provider~describe_object.
+  METHOD zif_abgagt_rtti_provider~describe_object.
     ro_desc = mo_desc.
   ENDMETHOD.
 ENDCLASS.
