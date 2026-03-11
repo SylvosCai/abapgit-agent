@@ -243,6 +243,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 2. **Failed Objects Log** - Shows all error messages (duplicates allowed for multiple errors per object)
 3. **Error Details** - When errors occur, displays error detail section at the top
 4. **Conflict Detection** - Enabled by default (`abort` mode); aborts pull if local ADT edits or branch divergence detected — see [Conflict Detection](pull-conflict-detection.md)
+5. **Partial Download** - `--files` performance depends on the abapGit version installed — see [Partial Download](pull-partial-download.md)
 
 ---
 
