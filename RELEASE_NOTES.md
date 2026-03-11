@@ -2,6 +2,34 @@
 title: Release Notes
 ---
 
+## v1.11.0
+
+### New Features
+
+- Transport command: list, create, check, release
+- Transport selector with hook support for pull
+- Conflict detection mode configurable via project config
+
+### Bug Fixes
+
+- Reliable ABAP work process release in debug sessions
+- Fix SYSTEM_EDIT false positive in conflict detector
+- BRANCH_SWITCH conflict check is now user-aware
+
+### Improvements
+
+- RTTI provider extracted as injectable global interface
+
+### Documentation
+
+- Document partial download behaviour (fork vs original abapGit)
+- Update conflict detection docs for idempotent pull
+
+---
+
+---
+
+
 ## v1.10.1
 
 ### New Features
