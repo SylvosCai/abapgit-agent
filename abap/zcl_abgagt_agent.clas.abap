@@ -204,10 +204,16 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           mo_repo->create_new_log( ).
 
           DATA(lo_repo_desc2) = lo_repo_desc1.
+          " RTTI: check on the interface-prefixed name, not the alias.
+          " Aliases (e.g. DESERIALIZE for zif_abapgit_repo~deserialize) appear in the
+          " methods table but their -parameters sub-table is empty in RTTI — only the
+          " interface-prefixed entry (ZIF_ABAPGIT_REPO~DESERIALIZE) carries the full
+          " parameter list.  Checking the alias name always yields lv_deser_has_filter
+          " = false, causing the unfiltered fallback to activate the entire repository.
           DATA(lv_deser_has_filter) = xsdbool(
-                                        line_exists( lo_repo_desc2->methods[ name = 'DESERIALIZE' ] )
-                                        AND line_exists(
-                                          lo_repo_desc2->methods[ name = 'DESERIALIZE' ]-parameters[
+                                        line_exists(
+                                          lo_repo_desc2->methods[
+                                            name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ]-parameters[
                                             name = 'II_OBJ_FILTER' ] ) ).
 
           IF lv_deser_has_filter = abap_true.
@@ -409,10 +415,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
                           ELSE CAST cl_abap_objectdescr(
                                  cl_abap_typedescr=>describe_by_object_ref( mo_repo ) ) ).
     DATA(lt_methods)  = lo_obj_desc->methods.
+    " Same RTTI caveat as for DESERIALIZE: check the interface-prefixed name.
     DATA(lv_has_filter) = xsdbool(
-                            line_exists( lt_methods[ name = 'DESERIALIZE_CHECKS' ] )
-                            AND line_exists(
-                              lt_methods[ name = 'DESERIALIZE_CHECKS' ]-parameters[
+                            line_exists(
+                              lt_methods[
+                                name = 'ZIF_ABAPGIT_REPO~DESERIALIZE_CHECKS' ]-parameters[
                                 name = 'II_OBJ_FILTER' ] ) ).
 
     IF lv_has_filter = abap_true.
