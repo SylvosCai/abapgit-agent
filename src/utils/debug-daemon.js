@@ -67,6 +67,17 @@ async function startDaemon(config, sessionId, socketPath, snapshot) {
 
   const session = new DebugSession(adt, sessionId);
 
+  // Pin the SAP_SESSIONID so _restorePinnedSession() works inside the daemon.
+  // DebugSession.attach() normally sets pinnedSessionId, but the daemon skips
+  // attach() and reconstructs the session from the snapshot.  Without this,
+  // any CSRF refresh that AdtHttp performs internally (401/403 retry → HEAD
+  // request → new Set-Cookie) silently overwrites the session cookie and routes
+  // subsequent IPC calls to the wrong ABAP work process → HTTP 400.
+  if (snapshot && snapshot.cookies) {
+    const m = snapshot.cookies.match(/SAP_SESSIONID=([^;]*)/);
+    if (m) session.pinnedSessionId = m[1];
+  }
+
   // Remove stale socket file from a previous crash
   try { fs.unlinkSync(socketPath); } catch (e) { /* ignore ENOENT */ }
 

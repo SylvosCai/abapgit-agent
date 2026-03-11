@@ -76,6 +76,11 @@ async function startRepl(session, initialState, onBeforeExit) {
 
   renderState(position, source, variables);
 
+  // Keep the ADT stateful session alive with periodic getStack() pings.
+  // SAP's ICM drops session affinity after ~60 s of idle, causing stepContinue
+  // to route to the wrong work process (HTTP 400) when the user eventually quits.
+  session.startKeepalive();
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -178,6 +183,7 @@ async function startRepl(session, initialState, onBeforeExit) {
 
       } else if (cmd === 'q' || cmd === 'quit') {
         console.log('\n  Detaching debugger — program will continue running...');
+        session.stopKeepalive();
         try {
           await session.detach();
         } catch (e) {
@@ -190,6 +196,7 @@ async function startRepl(session, initialState, onBeforeExit) {
 
       } else if (cmd === 'kill') {
         console.log('\n  Terminating program (hard abort)...');
+        session.stopKeepalive();
         try {
           await session.terminate();
         } catch (e) {
@@ -218,6 +225,7 @@ async function startRepl(session, initialState, onBeforeExit) {
     // frozen in SM50 (e.g. when attach is started with </dev/null stdin and
     // readline gets immediate EOF before the user can type a command).
     if (!exitCleanupDone) {
+      session.stopKeepalive();
       try { await session.detach(); } catch (e) { /* ignore */ }
     }
     await runExitCleanup();

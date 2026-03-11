@@ -65,6 +65,29 @@ class DebugSession {
     this.http = adtHttp;
     this.sessionId = sessionId;
     this.pinnedSessionId = null;
+    this._keepaliveTimer = null;
+  }
+
+  /**
+   * Start a periodic keepalive that pings ADT every 30 seconds.
+   * SAP's ICM drops stateful session affinity after ~60 s of idle, causing
+   * subsequent debug requests to route to the wrong work process (HTTP 400).
+   * Calling getStack() regularly keeps the connection warm.
+   * Call stopKeepalive() before detach/terminate to avoid racing the close.
+   */
+  startKeepalive() {
+    if (this._keepaliveTimer) return;
+    this._keepaliveTimer = setInterval(async () => {
+      try { await this.getStack(); } catch (e) { /* best-effort */ }
+    }, 30000);
+    if (this._keepaliveTimer.unref) this._keepaliveTimer.unref();
+  }
+
+  stopKeepalive() {
+    if (this._keepaliveTimer) {
+      clearInterval(this._keepaliveTimer);
+      this._keepaliveTimer = null;
+    }
   }
 
   /**
@@ -139,8 +162,6 @@ class DebugSession {
    * @returns {Promise<{ position: object, source: string[] }>}
    */
   async step(type = 'stepOver') {
-    this._restorePinnedSession();
-
     // Map user-friendly names to ADT method names
     const methodMap = {
       stepInto: 'stepInto',
@@ -163,6 +184,7 @@ class DebugSession {
     // (no suspended session left).  Treat both 200 and 500 as "continued".
     if (method === 'stepContinue') {
       return retryOnIcmError(async () => {
+        this._restorePinnedSession();
         try {
           await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
             contentType: 'application/vnd.sap.as+xml',
@@ -183,6 +205,7 @@ class DebugSession {
     }
 
     return retryOnIcmError(async () => {
+      this._restorePinnedSession();
       await this.http.post(`/sap/bc/adt/debugger?method=${method}`, '', {
         contentType: 'application/vnd.sap.as+xml',
         headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
@@ -412,8 +435,8 @@ class DebugSession {
    * @returns {Promise<Array<{ frame: number, class: string, method: string, line: number }>>}
    */
   async getStack() {
-    this._restorePinnedSession();
     return retryOnIcmError(async () => {
+      this._restorePinnedSession();
       // Try newer dedicated stack endpoint first (abap-adt-api v7+ approach)
       try {
         const { body } = await this.http.get(
@@ -628,8 +651,8 @@ class DebugSession {
    * released even when the system is under load (e.g. during test:all).
    */
   async terminate() {
-    this._restorePinnedSession();
     await retryOnIcmError(async () => {
+      this._restorePinnedSession();
       await this.http.post('/sap/bc/adt/debugger?method=terminateDebuggee', '', {
         contentType: 'application/vnd.sap.as+xml',
         headers: STATEFUL_HEADER
@@ -641,40 +664,18 @@ class DebugSession {
    * Detach from the debuggee without killing it.
    * Issues a stepContinue so the ABAP program resumes running.
    *
-   * stepContinue is a long-poll in ADT — it only responds when the program
-   * hits another breakpoint (200) or finishes (500), which may be never.
-   * We race the POST against an 8-second timeout: if ADT responds quickly
-   * (program finished → HTTP 500, treated as success) we return early;
-   * otherwise the timeout fires, which is long enough for the TCP layer to
-   * have delivered the request to ADT (even on a loaded system) and for the
-   * ABAP WP to have been released, preventing it from staying frozen in SM50.
+   * Loops up to MAX_LOOPS times in case a cached ADT breakpoint re-fires
+   * (HTTP 200): the WP would freeze again, so we send another stepContinue.
+   * Stops when the program finishes (HTTP 500 → finished:true) or on error.
    */
   async detach() {
-    this._restorePinnedSession();
-
-    // stepContinue is a long-poll in ADT — it only responds when the program
-    // hits another breakpoint (200) or finishes (500).
-    //
-    // Previous bug: the .catch() handler returned `undefined` on HTTP 400,
-    // making postPromise resolve immediately without retrying.  The WP stayed
-    // frozen because stepContinue never actually reached it.
-    //
-    // Fix: wrap in retryOnIcmError so transient ICM 400 errors are retried
-    // (12 × 2s = 24s budget).  The outer 30s timeout exceeds this budget so
-    // we always wait long enough for at least one retry to get through.
+    const MAX_LOOPS = 3;
     try {
-      const postPromise = retryOnIcmError(async () => {
-        await this.http.post('/sap/bc/adt/debugger?method=stepContinue', '', {
-          contentType: 'application/vnd.sap.as+xml',
-          headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
-        });
-      }).catch(err => {
-        // 500: program ran to completion — WP released normally.
-        // Retries exhausted or non-ICM error: best-effort, ignore.
-        if (err && err.statusCode !== 500) return;
-      });
-      const timeout = new Promise(resolve => setTimeout(resolve, 30000));
-      await Promise.race([postPromise, timeout]);
+      for (let i = 0; i < MAX_LOOPS; i++) {
+        const result = await this.step('stepContinue');
+        if (result && result.position && result.position.finished) return;
+        // HTTP 200: WP paused at another breakpoint — send stepContinue again
+      }
     } catch (e) {
       // Ignore — session may have already closed.
     }

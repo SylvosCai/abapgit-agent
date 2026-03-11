@@ -189,10 +189,10 @@ scenario1() {
   # "Blocked command completed" only proves SOME WP was free — the debug WP can
   # still be frozen if the blocked command ran on a different free WP.
   # Trigger completion means the frozen WP was actually released.
-  # Allow 40s: detach() may retry ICM 400 for up to 24s, then the ABAP inspect
-  # itself takes a few seconds to complete after the WP resumes.
-  log "Waiting for trigger to complete (confirms WP released, up to 40s)..."
-  if wait_pid_exit "$TRIGGER_PID" 40; then
+  # Allow 90s: after a full test:all run the SAP system is under load; the
+  # inspect command can take up to 60s to complete after the WP resumes.
+  log "Waiting for trigger to complete (confirms WP released, up to 90s)..."
+  if wait_pid_exit "$TRIGGER_PID" 90; then
     pass "Trigger completed — work process released"
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
@@ -294,8 +294,8 @@ scenario2() {
   fi
 
   # CRITICAL: verify the TRIGGER (the WP frozen at the breakpoint) also completes.
-  log "Waiting for trigger to complete (confirms WP released, up to 40s)..."
-  if wait_pid_exit "$TRIGGER_PID" 40; then
+  log "Waiting for trigger to complete (confirms WP released, up to 90s)..."
+  if wait_pid_exit "$TRIGGER_PID" 90; then
     pass "Trigger completed — work process released"
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
@@ -368,16 +368,17 @@ scenario3() {
   fi
 
   # ── Step 4: stack --json — no --session flag (rule 4)
-  # Retry up to 8 times with 3s delay: ADT stateful routing can return HTTP 400
+  # Retry up to 12 times with 5s delay: ADT stateful routing can return HTTP 400
   # transiently while the ICM connection pool recovers from previous test load.
+  # 12×5s = 60s max, which is enough for SAP to fully drain prior ICM sessions.
   STACK_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
+  for _i in 1 2 3 4 5 6 7 8 9 10 11 12; do
     STACK_OUT=$($AGENT debug stack --json 2>&1 || true)
     if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
       STACK_OK=1; break
     fi
-    log "stack returned error (attempt $_i/8) — waiting 3s for ICM to recover..."
-    sleep 3
+    log "stack returned error (attempt $_i/12) — waiting 5s for ICM to recover..."
+    sleep 5
   done
   if [ "$STACK_OK" -eq 1 ]; then
     pass "stack --json returned {\"frames\":[...]} (rule 4: no --session needed)"
@@ -471,7 +472,7 @@ case "$SCENARIO" in
   1)    scenario1 ;;
   2)    scenario2 ;;
   3)    scenario3 ;;
-  all)  scenario1; sleep 15; scenario2; sleep 15; scenario3 ;;
+  all)  scenario1; sleep 20; scenario2; sleep 20; scenario3 ;;
   *)    echo "Usage: $0 [1|2|3|all]"; exit 1 ;;
 esac
 
