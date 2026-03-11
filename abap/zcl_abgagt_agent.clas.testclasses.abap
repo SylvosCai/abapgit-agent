@@ -539,7 +539,7 @@ CLASS ltcl_agent IMPLEMENTATION.
     " path via dynamic CALL METHOD (lv_deser_has_filter = true)
     DATA(ls_result) = lo_cut->zif_abgagt_agent~pull(
       iv_url   = 'https://example.com/repo.git'
-      it_files = VALUE #( ( 'src/zcl_foo.clas.abap' ) ) ).
+      it_files = VALUE string_table( ( `src/zcl_foo.clas.abap` ) ) ).
 
     cl_abap_unit_assert=>assert_true(
       act = ls_result-success
