@@ -166,8 +166,8 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_pull_conflict_ignored FOR TESTING.
 
     " --- RTTI alias parameter detection ---
-    METHODS test_rtti_alias_has_filter_param FOR TESTING.
-    METHODS test_pull_filter_via_alias_repo  FOR TESTING.
+    METHODS test_rtti_alias_filter_param FOR TESTING.
+    METHODS test_pull_alias_repo_filter  FOR TESTING.
 
     " --- get_repo_status ---
     METHODS test_get_repo_status_found FOR TESTING.
@@ -464,7 +464,7 @@ CLASS ltcl_agent IMPLEMENTATION.
   " → the entire repository was activated instead of only the requested
   " object(s).
   "--------------------------------------------------------------------
-  METHOD test_rtti_alias_has_filter_param.
+  METHOD test_rtti_alias_filter_param.
     " Create an alias-based repo instance (mimics production class)
     DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
     lo_alias_repo = NEW ltcl_repo_with_aliases( ).
@@ -512,7 +512,7 @@ CLASS ltcl_agent IMPLEMENTATION.
   " broken (e.g. wrong method name in PARAMETER-TABLE), an exception
   " would propagate and success would be false.
   "--------------------------------------------------------------------
-  METHOD test_pull_filter_via_alias_repo.
+  METHOD test_pull_alias_repo_filter.
     " Build an alias-based repo with a known-good log double
     DATA lo_alias_log TYPE REF TO ltcl_log_double.
     lo_alias_log = NEW ltcl_log_double( ).
