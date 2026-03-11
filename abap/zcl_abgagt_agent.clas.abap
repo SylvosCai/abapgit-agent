@@ -13,7 +13,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS constructor
       IMPORTING
         io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
-        io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL.
+        io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL
+        ii_rtti              TYPE REF TO lif_rtti_provider            OPTIONAL.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
     METHODS: parse_file_to_object
@@ -34,6 +35,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     DATA: mo_repo              TYPE REF TO zif_abapgit_repo.
     DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
+    DATA: mi_rtti              TYPE REF TO lif_rtti_provider.
 
     METHODS configure_credentials
       IMPORTING
@@ -101,6 +103,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ELSE.
       mo_conflict_detector = zcl_abgagt_conflict_detector=>get_instance( ).
     ENDIF.
+    mi_rtti = COND #( WHEN ii_rtti IS BOUND THEN ii_rtti
+                      ELSE NEW lcl_rtti_provider( ) ).
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~pull.
@@ -166,8 +170,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
           " Check once (RTTI) whether the repo supports get_files_local_filtered.
           " Doing this here avoids a second expensive RTTI lookup inside build_file_entries_from_remote.
-          DATA(lo_repo_desc1)       = CAST cl_abap_objectdescr(
-                                        cl_abap_typedescr=>describe_by_object_ref( mo_repo ) ).
+          DATA(lo_repo_desc1)       = mi_rtti->describe_object( mo_repo ).
           DATA(lv_has_local_filtered) = xsdbool(
                                           line_exists( lo_repo_desc1->methods[
                                             name = 'GET_FILES_LOCAL_FILTERED' ] )
@@ -414,8 +417,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " Older abapGit versions lack ii_obj_filter; detect at runtime via RTTI.
     DATA(lo_obj_desc) = COND #(
                           WHEN io_repo_desc IS BOUND THEN io_repo_desc
-                          ELSE CAST cl_abap_objectdescr(
-                                 cl_abap_typedescr=>describe_by_object_ref( mo_repo ) ) ).
+                          ELSE mi_rtti->describe_object( mo_repo ) ).
     DATA(lt_methods)  = lo_obj_desc->methods.
     " Same RTTI caveat as for DESERIALIZE: check the interface-prefixed name.
     DATA(lv_has_filter) = xsdbool(

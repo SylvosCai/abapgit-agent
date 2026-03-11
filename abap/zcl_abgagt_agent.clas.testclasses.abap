@@ -138,6 +138,23 @@ CLASS ltcl_repo_with_aliases IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" RTTI provider mock — returns a pre-configured cl_abap_objectdescr.
+" Inject into ZCL_ABGAGT_AGENT via ii_rtti to control which descriptor
+" the RTTI checks see without depending on the real object's class type.
+"----------------------------------------------------------------------
+CLASS ltcl_rtti_mock DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES lif_rtti_provider.
+    DATA mo_desc TYPE REF TO cl_abap_objectdescr.
+ENDCLASS.
+
+CLASS ltcl_rtti_mock IMPLEMENTATION.
+  METHOD lif_rtti_provider~describe_object.
+    ro_desc = mo_desc.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
@@ -453,52 +470,55 @@ CLASS ltcl_agent IMPLEMENTATION.
   "--------------------------------------------------------------------
   " RTTI alias detection — verifies the fixed code path.
   "
-  " In production, ZCL_ABAPGIT_REPO_ONLINE exposes DESERIALIZE via an
-  " ALIAS.  For global classes loaded from the ABAP Dictionary, ABAP
-  " RTTI leaves the alias entry's -parameters sub-table EMPTY; only the
-  " interface-prefixed entry (ZIF_ABAPGIT_REPO~DESERIALIZE) carries the
-  " full parameter list including II_OBJ_FILTER.  (Local test classes
-  " may populate alias parameters — the empty-alias behavior is specific
-  " to global classes.)
+  " The static cl_abap_typedescr=>describe_by_object_ref call in the
+  " agent is now routed through lif_rtti_provider so tests can inject
+  " any cl_abap_objectdescr without depending on a specific class.
   "
-  " The fix checks the interface-prefixed name rather than the alias.
-  " This test verifies that the prefixed name reliably exposes
-  " II_OBJ_FILTER regardless of local vs. global class context.
+  " This test injects the real RTTI of ltcl_repo_with_aliases and
+  " confirms:
+  "   (a) ZIF_ABAPGIT_REPO~DESERIALIZE exposes II_OBJ_FILTER — the
+  "       interface-prefixed name the fixed code checks.
+  "   (b) The alias entry DESERIALIZE also appears in the methods
+  "       table (confirming the class has the same structure as
+  "       production code that uses ALIASES).
   "--------------------------------------------------------------------
   METHOD test_rtti_alias_filter_param.
-    " Create an alias-based repo instance (mimics production class)
     DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
     lo_alias_repo = NEW ltcl_repo_with_aliases( ).
 
-    DATA(lo_desc) = CAST cl_abap_objectdescr(
-                      cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
+    DATA lo_rtti_mock TYPE REF TO ltcl_rtti_mock.
+    lo_rtti_mock = NEW ltcl_rtti_mock( ).
+    lo_rtti_mock->mo_desc = CAST cl_abap_objectdescr(
+                              cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
 
-    " The interface-prefixed name MUST have II_OBJ_FILTER in its
-    " parameter list — this is what the fixed code checks.
+    " The interface-prefixed name MUST have II_OBJ_FILTER — this is what
+    " the fixed code checks via the injected RTTI provider.
     DATA(lv_prefixed_has_filter) = xsdbool(
       line_exists(
-        lo_desc->methods[
+        lo_rtti_mock->mo_desc->methods[
           name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ]-parameters[
           name = 'II_OBJ_FILTER' ] ) ).
 
     cl_abap_unit_assert=>assert_true(
       act = lv_prefixed_has_filter
       msg = 'ZIF_ABAPGIT_REPO~DESERIALIZE must expose II_OBJ_FILTER in RTTI' ).
+
+    " The alias entry itself MUST appear in the methods table — confirming
+    " that the class uses ALIASES just like the production class does.
+    cl_abap_unit_assert=>assert_true(
+      act = xsdbool( line_exists(
+              lo_rtti_mock->mo_desc->methods[ name = 'DESERIALIZE' ] ) )
+      msg = 'Alias DESERIALIZE must appear in the methods table' ).
   ENDMETHOD.
 
   "--------------------------------------------------------------------
-  " End-to-end pull with alias-based repo — verifies filtered path.
+  " End-to-end pull with mocked RTTI — verifies filtered path.
   "
-  " When mo_repo is an alias-based instance (as in production) and
-  " --files is specified, the fixed code must detect II_OBJ_FILTER via
-  " the interface-prefixed RTTI entry and invoke the dynamic CALL METHOD
-  " path.  If the old bug were present (checking alias name), the filter
-  " flag would be false and the unfiltered deserialize would run instead,
-  " activating the entire repository.
-  "
-  " The test verifies pull succeeds — if the dynamic call path were
-  " broken (e.g. wrong method name in PARAMETER-TABLE), an exception
-  " would propagate and success would be false.
+  " The RTTI provider mock returns the descriptor of ltcl_repo_with_aliases
+  " which exposes II_OBJ_FILTER on ZIF_ABAPGIT_REPO~DESERIALIZE.  The
+  " agent must detect this and invoke the filtered dynamic CALL METHOD
+  " path.  If the detection logic were broken, an exception would
+  " propagate and success would be false.
   "--------------------------------------------------------------------
   METHOD test_pull_alias_repo_filter.
     " Build an alias-based repo with a known-good log double
@@ -510,6 +530,14 @@ CLASS ltcl_agent IMPLEMENTATION.
     lo_alias_repo = NEW ltcl_repo_with_aliases( ).
     lo_alias_repo->mo_log = lo_alias_log.
 
+    " Wire a mock RTTI provider that returns the descriptor of the
+    " alias-based repo — this simulates the production RTTI lookup
+    " without depending on the actual class being a global dictionary object.
+    DATA lo_rtti_mock TYPE REF TO ltcl_rtti_mock.
+    lo_rtti_mock = NEW ltcl_rtti_mock( ).
+    lo_rtti_mock->mo_desc = CAST cl_abap_objectdescr(
+                              cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
+
     " Wire a fresh conflict detector that returns no conflicts
     DATA lo_det TYPE REF TO zif_abgagt_conflict_detector.
     lo_det ?= cl_abap_testdouble=>create( 'ZIF_ABGAGT_CONFLICT_DETECTOR' ).
@@ -517,11 +545,12 @@ CLASS ltcl_agent IMPLEMENTATION.
     cl_abap_testdouble=>configure_call( lo_det )->returning( lt_no_conflicts ).
     lo_det->check_conflicts( it_files = VALUE #( ) iv_branch = '' ).
 
-    " Inject the alias-based repo into a fresh agent under test
+    " Inject the alias-based repo AND the RTTI mock into a fresh agent
     DATA lo_cut TYPE REF TO zcl_abgagt_agent.
     lo_cut = NEW zcl_abgagt_agent(
       io_repo              = lo_alias_repo
-      io_conflict_detector = lo_det ).
+      io_conflict_detector = lo_det
+      ii_rtti              = lo_rtti_mock ).
 
     " Pull with a single file — this must take the filtered deserialize
     " path via dynamic CALL METHOD (lv_deser_has_filter = true)
