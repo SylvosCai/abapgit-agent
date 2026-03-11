@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.11.1
+
+### New Features
+
+- Add optional `protocol` config field for HTTP support
+
+---
+
+---
+
+
 ## v1.11.0
 
 ### New Features
