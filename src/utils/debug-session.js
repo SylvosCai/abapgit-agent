@@ -607,16 +607,28 @@ class DebugSession {
    * ABAP WP to have been released, preventing it from staying frozen in SM50.
    */
   async detach() {
+    // stepContinue is a long-poll in ADT — it only responds when the program
+    // hits another breakpoint (200) or finishes (500).
+    //
+    // Previous bug: the .catch() handler returned `undefined` on HTTP 400,
+    // making postPromise resolve immediately without retrying.  The WP stayed
+    // frozen because stepContinue never actually reached it.
+    //
+    // Fix: wrap in retryOnIcmError so transient ICM 400 errors are retried
+    // (12 × 2s = 24s budget).  The outer 30s timeout exceeds this budget so
+    // we always wait long enough for at least one retry to get through.
     try {
-      const postPromise = this.http.post('/sap/bc/adt/debugger?method=stepContinue', '', {
-        contentType: 'application/vnd.sap.as+xml',
-        headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+      const postPromise = retryOnIcmError(async () => {
+        await this.http.post('/sap/bc/adt/debugger?method=stepContinue', '', {
+          contentType: 'application/vnd.sap.as+xml',
+          headers: { ...STATEFUL_HEADER, 'Accept': 'application/xml' }
+        });
       }).catch(err => {
-        // 500 means program ran to completion — session is released, not an error.
-        if (err && err.statusCode === 500) return null;
-        // Any other error: session already gone, ignore.
+        // 500: program ran to completion — WP released normally.
+        // Retries exhausted or non-ICM error: best-effort, ignore.
+        if (err && err.statusCode !== 500) return;
       });
-      const timeout = new Promise(resolve => setTimeout(resolve, 8000));
+      const timeout = new Promise(resolve => setTimeout(resolve, 30000));
       await Promise.race([postPromise, timeout]);
     } catch (e) {
       // Ignore — session may have already closed.

@@ -185,8 +185,25 @@ scenario1() {
     kill "$BLOCKED_PID" 2>/dev/null || true
   fi
 
+  # CRITICAL: verify the TRIGGER (the WP frozen at the breakpoint) also completes.
+  # "Blocked command completed" only proves SOME WP was free — the debug WP can
+  # still be frozen if the blocked command ran on a different free WP.
+  # Trigger completion means the frozen WP was actually released.
+  # Allow 40s: detach() may retry ICM 400 for up to 24s, then the ABAP inspect
+  # itself takes a few seconds to complete after the WP resumes.
+  log "Waiting for trigger to complete (confirms WP released, up to 40s)..."
+  if wait_pid_exit "$TRIGGER_PID" 40; then
+    pass "Trigger completed — work process released"
+  else
+    fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
+    for _i in 1 2 3 4 5; do
+      $AGENT debug terminate >/dev/null 2>&1 && break
+      sleep 3
+    done
+    kill "$TRIGGER_PID" 2>/dev/null || true
+  fi
+
   wait_pid_exit "$ATTACH1_PID" 10 || kill "$ATTACH1_PID" 2>/dev/null || true
-  wait_pid_exit "$TRIGGER_PID" 15 || kill "$TRIGGER_PID" 2>/dev/null || true
   wait_pid_exit "$BLOCKED_PID" 5  || kill "$BLOCKED_PID" 2>/dev/null || true
   ATTACH1_PID=""; TRIGGER_PID=""; BLOCKED_PID=""
   exec 6>&- 2>/dev/null || true
@@ -276,6 +293,19 @@ scenario2() {
     fail "Session 1 did NOT exit within 5s"
   fi
 
+  # CRITICAL: verify the TRIGGER (the WP frozen at the breakpoint) also completes.
+  log "Waiting for trigger to complete (confirms WP released, up to 40s)..."
+  if wait_pid_exit "$TRIGGER_PID" 40; then
+    pass "Trigger completed — work process released"
+  else
+    fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
+    for _i in 1 2 3 4 5; do
+      $AGENT debug terminate >/dev/null 2>&1 && break
+      sleep 3
+    done
+    kill "$TRIGGER_PID" 2>/dev/null || true
+  fi
+
   # Session 2 may have caught a second breakpoint hit from the blocked inspect
   # completing and re-running ZCL_ABGAGT_UTIL:25.  Terminate any active session
   # it holds before hard-killing the process so the WP is released cleanly.
@@ -283,7 +313,6 @@ scenario2() {
   kill "$ATTACH2_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH1_PID" 5  || kill "$ATTACH1_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH2_PID" 10 || kill "$ATTACH2_PID" 2>/dev/null || true
-  wait_pid_exit "$TRIGGER_PID" 15 || kill "$TRIGGER_PID" 2>/dev/null || true
   wait_pid_exit "$BLOCKED_PID" 5  || kill "$BLOCKED_PID" 2>/dev/null || true
   ATTACH1_PID=""; ATTACH2_PID=""; TRIGGER_PID=""; BLOCKED_PID=""
   exec 6>&- 2>/dev/null || true
