@@ -15,7 +15,7 @@ Two behaviours are possible:
 
 | abapGit version | Behaviour | Status |
 |---|---|---|
-| **Original abapGit** (`larshp/abapGit`) | Full repository fetched from Git; only the requested objects are deserialised | Works, not fully tested |
+| **Original abapGit** ([abapGit/abapGit](https://github.com/abapGit/abapGit)) | Full repository fetched from Git; only the requested objects are deserialised | Works, not fully tested |
 | **SylvosCai/abapGit fork** | Partial blob fetch — only the blobs for the requested files are downloaded from the Git server | Tested, significantly faster on large repos |
 
 ---
@@ -88,7 +88,7 @@ The PR also fixes three bugs that prevented the optimisation from working correc
 
 ---
 
-## Original abapGit — Existing Behaviour
+## Original abapGit ([abapGit/abapGit](https://github.com/abapGit/abapGit)) — Existing Behaviour
 
 The current abapgit-agent ABAP backend (`ZCL_ABGAGT_COMMAND_PULL`) is compatible with the original abapGit. When `--files` is used:
 
