@@ -262,7 +262,7 @@ When `attach --json` succeeds, both the `sessionId` and the daemon's Unix `socke
 
 The daemon auto-exits after 30 minutes of idle time or when `terminate` is called.
 
-**`detach()` loop:** When the REPL sends `q` (or `kill`), `detach()` issues `stepContinue`. If the program hits another cached ADT breakpoint (HTTP 200 response) rather than running to completion (HTTP 500), `detach()` loops and sends another `stepContinue` — up to 3 times — until the program finishes or an error occurs.
+**`detach()` — single stepContinue:** When the REPL sends `q`, `detach()` issues one `stepContinue`. ADT returns HTTP 200 as soon as the WP resumes (regardless of whether it later hits another breakpoint — "still running" and "re-hit breakpoint" are indistinguishable in the response). Sending a second `stepContinue` to an already-running WP races with the program's execution and can stall it mid-run (e.g. while a Code Inspector job is in flight). The REPL's `q` handler deletes all breakpoints before calling `detach()` to prevent an immediate re-hit.
 
 ## Files
 

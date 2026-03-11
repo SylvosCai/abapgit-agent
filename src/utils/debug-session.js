@@ -662,20 +662,21 @@ class DebugSession {
 
   /**
    * Detach from the debuggee without killing it.
-   * Issues a stepContinue so the ABAP program resumes running.
+   * Issues a single stepContinue so the ABAP program resumes running.
    *
-   * Loops up to MAX_LOOPS times in case a cached ADT breakpoint re-fires
-   * (HTTP 200): the WP would freeze again, so we send another stepContinue.
-   * Stops when the program finishes (HTTP 500 → finished:true) or on error.
+   * ADT returns HTTP 200 when the WP resumes (regardless of whether it
+   * later hits another breakpoint — there is no way to distinguish "still
+   * running" from "re-hit breakpoint" in the stepContinue response alone).
+   * Sending a second stepContinue to an already-running WP races with the
+   * program's own execution and can stall the WP mid-run (e.g. while a
+   * Code Inspector job is in flight), so we issue exactly one request.
+   *
+   * Callers (e.g. the REPL 'q' handler) must delete all breakpoints before
+   * calling detach() to prevent an immediate re-hit on the same line.
    */
   async detach() {
-    const MAX_LOOPS = 3;
     try {
-      for (let i = 0; i < MAX_LOOPS; i++) {
-        const result = await this.step('stepContinue');
-        if (result && result.position && result.position.finished) return;
-        // HTTP 200: WP paused at another breakpoint — send stepContinue again
-      }
+      await this.step('stepContinue');
     } catch (e) {
       // Ignore — session may have already closed.
     }

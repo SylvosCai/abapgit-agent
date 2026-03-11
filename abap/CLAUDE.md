@@ -308,32 +308,26 @@ abapgit-agent debug list    # confirm it was registered
 
 **Step 2 — attach and trigger**
 
-Two modes depending on context:
-
-*Interactive (human in a terminal):*
-```bash
-# Terminal 1 — attach (blocks waiting for breakpoint, opens REPL on hit)
-abapgit-agent debug attach
-
-# Terminal 2 — trigger (any command that calls the backend)
-abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-```
-
-*Scripted (AI / automation) — best practice: individual sequential calls:*
-
-Once the daemon is running and the session is saved to the state file, each
-`vars/stack/step` command is a plain standalone call — no bash script needed.
+Best practice: individual sequential calls. Once the daemon is running and
+the session is saved to the state file, each `vars/stack/step` command is a
+plain standalone call — no `--session` flag needed.
 
 ```bash
-# Step 1: start attach listener in background (spawns a daemon, saves session to state file)
+# Start attach listener in background (spawns a daemon, saves session to state file)
 abapgit-agent debug attach --json > /tmp/attach.json 2>&1 &
-sleep 2
 
-# Step 2: trigger in background — MUST stay alive for the whole session
+# Rule 1: wait for "Listener active" in the output, THEN fire the trigger.
+# attach --json prints "Listener active" to stderr (captured in attach.json) the
+# moment the long-poll POST is about to be sent to ADT.  Waiting for this marker
+# is reliable under any system load; a blind sleep may fire the trigger before
+# ADT has a registered listener, causing the breakpoint hit to be missed.
+until grep -q "Listener active" /tmp/attach.json 2>/dev/null; do sleep 0.3; done
+sleep 1   # brief extra window for the POST to reach ADT
+
+# Trigger in background — MUST stay alive for the whole session
 abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap > /tmp/trigger.json 2>&1 &
 
-# Step 3: poll until breakpoint fires and session JSON appears in attach output
+# Poll until breakpoint fires and session JSON appears in attach output
 SESSION=""
 for i in $(seq 1 30); do
   sleep 0.5
@@ -341,40 +335,29 @@ for i in $(seq 1 30); do
   [ -n "$SESSION" ] && break
 done
 
-# Step 4: inspect and step — each is an individual call, no --session needed
+# Inspect and step — each is an individual call, no --session needed
 abapgit-agent debug stack --json
 abapgit-agent debug vars  --json
 abapgit-agent debug vars  --expand LS_OBJECT --json
 abapgit-agent debug step  --type over --json
 abapgit-agent debug vars  --json
 
-# Step 5: ALWAYS release the ABAP work process before finishing
+# ALWAYS release the ABAP work process before finishing
 abapgit-agent debug step --type continue --json
 
-# Step 6: check trigger result
+# Check trigger result
 cat /tmp/trigger.json
 rm -f /tmp/attach.json /tmp/trigger.json
 ```
 
 > **Four rules for scripted mode:**
-> 1. `sleep 2` after starting attach — the listener must register on the server before the trigger fires
+> 1. Wait for `"Listener active"` in the attach output before firing the trigger — this message is printed to stderr (captured in `attach.json`) the moment the listener POST is about to reach ADT. A blind `sleep` is not reliable under system load.
 > 2. Keep the trigger process alive in the background for the entire session — if it exits, the ABAP work process is released and the session ends
 > 3. Always finish with `step --type continue` — this releases the frozen work process so the trigger can complete normally
 > 4. **Never pass `--session` to `step/vars/stack`** — it bypasses the daemon IPC and causes `noSessionAttached`. Omit it and let commands auto-load from the saved state file.
 
 **Step 3 — step through and inspect**
 
-*Interactive REPL commands (after `attach` without `--json`):*
-```
-  debug> v          — show all variables
-  debug> x LT_DATA  — expand a table or structure
-  debug> n          — step over
-  debug> s          — step into
-  debug> bt         — call stack
-  debug> q          — detach (program continues); kill — hard abort
-```
-
-*Scripted commands (after `attach --json`) — omit `--session`, commands auto-load from state file:*
 ```bash
 abapgit-agent debug vars   --json                        # all variables
 abapgit-agent debug vars   --name LV_RESULT --json       # one variable

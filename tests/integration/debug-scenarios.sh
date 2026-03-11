@@ -13,7 +13,7 @@
 #   continues, session 2 exits
 #
 # Scenario 3 (scripted AI / --json mode — full best-practice workflow):
-#   attach --json → sleep 2 → trigger in bg → poll for {"session":...} →
+#   attach --json → wait "Listener active" → trigger in bg → poll for {"session":...} →
 #   stack --json → vars --json → step over → vars --json →
 #   step continue (releases work process) → trigger completes → daemon exits
 #
@@ -83,7 +83,14 @@ ensure_breakpoint() {
   sleep 15
   log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
-  $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 || true
+  # Retry debug set: under load the ADT POST may transiently fail (ICM 400).
+  # Without a successful set the attach command exits immediately with
+  # "No breakpoints set", leaving the scenario with no session JSON.
+  for _i in 1 2 3 4 5; do
+    $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 && break
+    log "debug set attempt $_i failed — retrying in 5s..."
+    sleep 5
+  done
 }
 
 cleanup() {
@@ -189,10 +196,10 @@ scenario1() {
   # "Blocked command completed" only proves SOME WP was free — the debug WP can
   # still be frozen if the blocked command ran on a different free WP.
   # Trigger completion means the frozen WP was actually released.
-  # Allow 90s: after a full test:all run the SAP system is under load; the
-  # inspect command can take up to 60s to complete after the WP resumes.
-  log "Waiting for trigger to complete (confirms WP released, up to 90s)..."
-  if wait_pid_exit "$TRIGGER_PID" 90; then
+  # Allow 120s: after a full test:all run the SAP system is under load; the
+  # inspect command can take up to 90s to complete after the WP resumes.
+  log "Waiting for trigger to complete (confirms WP released, up to 120s)..."
+  if wait_pid_exit "$TRIGGER_PID" 120; then
     pass "Trigger completed — work process released"
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
@@ -294,8 +301,8 @@ scenario2() {
   fi
 
   # CRITICAL: verify the TRIGGER (the WP frozen at the breakpoint) also completes.
-  log "Waiting for trigger to complete (confirms WP released, up to 90s)..."
-  if wait_pid_exit "$TRIGGER_PID" 90; then
+  log "Waiting for trigger to complete (confirms WP released, up to 120s)..."
+  if wait_pid_exit "$TRIGGER_PID" 120; then
     pass "Trigger completed — work process released"
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
@@ -321,7 +328,7 @@ scenario2() {
 # ── Scenario 3: scripted AI mode (--json / daemon IPC) ───────────────────────
 #
 # Follows the four best-practice rules from abap/CLAUDE.md exactly:
-#   Rule 1: sleep 2 after starting attach — listener must register before trigger fires
+#   Rule 1: wait for "Listener active" before firing trigger — listener must be registered first
 #   Rule 2: keep trigger process alive in background for the entire session
 #   Rule 3: always finish with step --type continue — releases the frozen work process
 #   Rule 4: never pass --session to step/vars/stack — auto-load from daemon state file
@@ -335,15 +342,21 @@ scenario3() {
 
   rm -f /tmp/dbg_attach.out /tmp/dbg_trigger.out
 
-  # ── Step 1: start attach listener in background (rule 1: sleep 2 after this)
-  # attach --json spawns a background daemon and emits {"session":...} once hit.
-  # In --json mode "Listener active" is suppressed — we rely on sleep 2 instead.
+  # ── Step 1: start attach listener in background (rule 1: wait for listener before trigger)
+  # attach --json emits "Listener active" to stderr (captured in the output file) once
+  # the listener POST is about to be sent to ADT.  Waiting for this marker ensures the
+  # trigger does not fire before ADT has a registered listener, eliminating the race that
+  # caused "No session JSON" under system load when a blind sleep was not long enough.
   $AGENT debug attach --json > /tmp/dbg_attach.out 2>&1 &
   ATTACH1_PID=$!
   log "Attach (--json) PID=$ATTACH1_PID"
 
-  # Rule 1: give the listener POST time to register on ADT before the trigger fires
-  sleep 4
+  # Rule 1: wait for "Listener active" then give the POST 2s to reach ADT
+  if ! wait_text /tmp/dbg_attach.out "Listener active" 30; then
+    fail "Attach never printed 'Listener active' in 30s (breakpoints may not be set)"
+    ATTACH1_PID=""; return 1
+  fi
+  sleep 2
 
   # ── Step 2: start trigger in background — MUST stay alive for the whole session (rule 2)
   $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_trigger.out 2>&1 &

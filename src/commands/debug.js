@@ -583,7 +583,7 @@ async function cmdAttach(args, config, adt) {
     let firstPoll = true;
 
     for (let i = 0; i < (takenOver ? MAX_TAKEOVER_POLLS : MAX_POLLS); i++) {
-      if (firstPoll && !jsonOutput) {
+      if (firstPoll) {
         process.stderr.write('  Listener active — trigger your ABAP program now.\n');
         firstPoll = false;
       }
