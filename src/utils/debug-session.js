@@ -38,7 +38,7 @@ const STATEFUL_HEADER = { 'X-sap-adt-sessiontype': 'stateful' };
  * @param {number}   maxRetries - Max additional attempts after the first (default 3)
  * @param {number}   delayMs    - Wait between retries in ms (default 1000)
  */
-async function retryOnIcmError(fn, maxRetries = 5, delayMs = 1500) {
+async function retryOnIcmError(fn, maxRetries = 12, delayMs = 2000) {
   let lastErr;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -582,11 +582,15 @@ class DebugSession {
 
   /**
    * Terminate the debug session.
+   * Retries on transient ICM 400 errors so the ABAP work process is reliably
+   * released even when the system is under load (e.g. during test:all).
    */
   async terminate() {
-    await this.http.post('/sap/bc/adt/debugger?method=terminateDebuggee', '', {
-      contentType: 'application/vnd.sap.as+xml',
-      headers: STATEFUL_HEADER
+    await retryOnIcmError(async () => {
+      await this.http.post('/sap/bc/adt/debugger?method=terminateDebuggee', '', {
+        contentType: 'application/vnd.sap.as+xml',
+        headers: STATEFUL_HEADER
+      });
     });
   }
 

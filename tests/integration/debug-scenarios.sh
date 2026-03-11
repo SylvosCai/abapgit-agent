@@ -78,9 +78,9 @@ ensure_breakpoint() {
   # Give SAP a moment to detect the dropped HTTP connection and release any frozen
   # work process.  Without this pause the next listener poll can receive the stale
   # DEBUGGEE_ID before the server-side session has been cleaned up.
-  # Use 5s when running after a large test suite (e.g. npm run test:all) to allow
-  # the system to fully drain any residual debug connections.
-  sleep 5
+  # Use 15s when running after a large test suite (e.g. npm run test:all) to allow
+  # the system and ICM connection pool to fully drain any residual debug connections.
+  sleep 15
   log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
   $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 || true
@@ -90,7 +90,14 @@ cleanup() {
   # Release any frozen ABAP work process BEFORE killing Node.js PIDs.
   # If a scenario fails mid-way the ADT session may be active; terminate it
   # cleanly so the WP is freed rather than frozen in SM50 until SAP idle timeout.
-  $AGENT debug terminate >/dev/null 2>&1 || true
+  #
+  # Retry up to 5 times with 2s delay: the ICM may transiently return HTTP 400
+  # ("Service cannot be reached") right after a failed step, and we must keep
+  # trying until terminate succeeds or we give up.
+  for _i in 1 2 3 4 5; do
+    $AGENT debug terminate >/dev/null 2>&1 && break
+    sleep 2
+  done
   [[ -n "$ATTACH1_PID" ]] && kill "$ATTACH1_PID" 2>/dev/null || true
   [[ -n "$ATTACH2_PID" ]] && kill "$ATTACH2_PID" 2>/dev/null || true
   [[ -n "$TRIGGER_PID" ]] && kill "$TRIGGER_PID" 2>/dev/null || true
@@ -332,8 +339,18 @@ scenario3() {
   fi
 
   # ── Step 4: stack --json — no --session flag (rule 4)
-  STACK_OUT=$($AGENT debug stack --json 2>&1 || true)
-  if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
+  # Retry up to 8 times with 3s delay: ADT stateful routing can return HTTP 400
+  # transiently while the ICM connection pool recovers from previous test load.
+  STACK_OK=0
+  for _i in 1 2 3 4 5 6 7 8; do
+    STACK_OUT=$($AGENT debug stack --json 2>&1 || true)
+    if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
+      STACK_OK=1; break
+    fi
+    log "stack returned error (attempt $_i/8) — waiting 3s for ICM to recover..."
+    sleep 3
+  done
+  if [ "$STACK_OK" -eq 1 ]; then
     pass "stack --json returned {\"frames\":[...]} (rule 4: no --session needed)"
   else
     fail "stack --json did not return expected JSON: $STACK_OUT"
@@ -341,15 +358,24 @@ scenario3() {
 
   # ── Step 5: vars --json — no --session flag (rule 4)
   VARS_OUT=$($AGENT debug vars --json 2>&1 || true)
-  if echo "$VARS_OUT" | grep -q '"variables"' 2>/dev/null; then
+  if echo "$VARS_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     pass "vars --json returned {\"variables\":[...]} (rule 4: no --session needed)"
   else
     fail "vars --json did not return expected JSON: $VARS_OUT"
   fi
 
   # ── Step 6: step over — no --session flag (rule 4)
-  STEP_OUT=$($AGENT debug step --type over --json 2>&1 || true)
-  if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
+  # Retry same as stack — stateful routing may be briefly blocked.
+  STEP_OK=0
+  for _i in 1 2 3 4 5 6 7 8; do
+    STEP_OUT=$($AGENT debug step --type over --json 2>&1 || true)
+    if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
+      STEP_OK=1; break
+    fi
+    log "step over returned error (attempt $_i/8) — waiting 3s..."
+    sleep 3
+  done
+  if [ "$STEP_OK" -eq 1 ]; then
     pass "step --type over --json returned {\"position\":{...}}"
   else
     fail "step --type over --json did not return expected JSON: $STEP_OUT"
@@ -357,18 +383,33 @@ scenario3() {
 
   # ── Step 7: vars --json again — verify state after step
   VARS2_OUT=$($AGENT debug vars --json 2>&1 || true)
-  if echo "$VARS2_OUT" | grep -q '"variables"' 2>/dev/null; then
+  if echo "$VARS2_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     pass "vars --json after step returned {\"variables\":[...]}"
   else
     fail "vars --json after step did not return expected JSON: $VARS2_OUT"
   fi
 
   # ── Step 8: step continue — RULE 3: always release the frozen work process
-  CONT_OUT=$($AGENT debug step --type continue --json 2>&1 || true)
-  if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
+  # Critical: this MUST succeed to release the ABAP WP. Retry aggressively.
+  CONT_OK=0
+  for _i in 1 2 3 4 5 6 7 8; do
+    CONT_OUT=$($AGENT debug step --type continue --json 2>&1 || true)
+    if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
+      CONT_OK=1; break
+    fi
+    log "step continue returned error (attempt $_i/8) — waiting 3s..."
+    sleep 3
+  done
+  if [ "$CONT_OK" -eq 1 ]; then
     pass "step --type continue --json released work process (rule 3)"
   else
     fail "step --type continue --json did not return expected JSON: $CONT_OUT"
+    # Last-resort: terminate the session to prevent WP staying frozen
+    log "Attempting terminate as fallback to release frozen WP..."
+    for _j in 1 2 3 4 5; do
+      $AGENT debug terminate >/dev/null 2>&1 && break
+      sleep 3
+    done
   fi
 
   # ── Step 9: trigger should now complete normally (rule 2: kept alive until continue)
@@ -401,7 +442,7 @@ case "$SCENARIO" in
   1)    scenario1 ;;
   2)    scenario2 ;;
   3)    scenario3 ;;
-  all)  scenario1; sleep 5; scenario2; sleep 5; scenario3 ;;
+  all)  scenario1; sleep 15; scenario2; sleep 15; scenario3 ;;
   *)    echo "Usage: $0 [1|2|3|all]"; exit 1 ;;
 esac
 

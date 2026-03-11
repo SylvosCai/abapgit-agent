@@ -760,6 +760,16 @@ async function main() {
     results.cmd = await runCommandTests(demoMode, commandFilter);
   }
 
+  // Cooldown between command tests and debug scenarios.
+  // Command tests make ~90 HTTP requests in rapid succession; without a pause
+  // the SAP ICM is still draining connections when scenario 3 runs, causing
+  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
+  // cannot be reached" — leaving ABAP work processes frozen in SM50.
+  if (runCmd && runDebug) {
+    printInfo('  Cooling down 20s after command tests before debug scenarios...');
+    await new Promise(r => setTimeout(r, 20000));
+  }
+
   // Run Lifecycle tests only
   if (runLifecycle) {
     printSubHeader('Running Lifecycle Tests Only');

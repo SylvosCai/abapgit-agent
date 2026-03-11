@@ -15,16 +15,18 @@
  *   Reset:   pull --url ... --branch v0.1.0 --conflict-mode ignore  → idempotent baseline
  *   Step 1:  pull --url ... --branch v0.1.0  (no --files)           → no conflict (same ref)
  *            verify: only get_message
- *   Step 2:  pull --url ... --branch v1.0.0  (no --files)           → BRANCH_SWITCH conflict
- *   Step 3:  pull --url ... --branch v1.0.0 --conflict-mode ignore  → succeeds
+ *   Step 2:  pull --url ... --branch v1.0.0  (no --files)           → succeeds (same user branch switch)
  *            verify: get_message + validate_input
- *   Step 4:  pull --url ... --branch feature/test-branch (no --files) → BRANCH_SWITCH conflict
- *   Step 5:  pull --url ... --branch feature/test-branch --conflict-mode ignore → succeeds
+ *   Step 3:  pull --url ... --branch feature/test-branch (no --files) → succeeds (same user branch switch)
  *            verify: get_message + calculate_sum
- *   Step 6:  pull --url ... --branch main  (no --files)             → BRANCH_SWITCH conflict
- *   Step 7:  pull --url ... --branch main --conflict-mode ignore     → succeeds
+ *   Step 4:  pull --url ... --branch main  (no --files)             → succeeds (same user branch switch)
  *            verify: get_message + validate_input
- *   Step 8:  pull --url ... --branch v1.0.0 (same content as main)  → no conflict
+ *   Step 5:  pull --url ... --branch v1.0.0 (same content as main)  → no conflict
+ *
+ * Note: BRANCH_SWITCH aborts only when a *different* user last pulled from the
+ * other branch. Since integration tests run as a single user, same-user branch
+ * switches always succeed. The different-user scenario is covered by AUnit
+ * (test_brsw_diff_user_abort).
  */
 
 const { execSync } = require('child_process');
@@ -83,7 +85,7 @@ function runFullPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
     } else {
       printError('✗ baseline reset failed — cannot continue');
       printError(`  ${output.split('\n').find(l => l.includes('Error') || l.includes('failed')) || ''}`);
-      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 11 };
+      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 9 };
     }
   }
   printInfo('');
@@ -112,26 +114,16 @@ function runFullPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
   }
   printInfo('');
 
-  // ─── Steps 2–3: v1.0.0 ──────────────────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 2: BRANCH_SWITCH conflict — full pull v1.0.0 without override (no --files)'));
+  // ─── Step 2: v1.0.0 — same-user branch switch ───────────────────────────────
+  // Same user switching refs → always succeeds (no BRANCH_SWITCH).
+  printInfo(colorize('cyan', 'Step 2: full pull v1.0.0 (same-user branch switch — should succeed, no --files)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for v1.0.0 (full pull)')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'full pull: BRANCH_SWITCH conflict for v1.0.0', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 3: full pull v1.0.0 --conflict-mode ignore (no --files)'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'v1.0.0', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ full pull v1.0.0 succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'full pull: v1.0.0 with --conflict-mode ignore', passed });
+      ? printSuccess('✓ full pull v1.0.0 succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'full pull: v1.0.0 (same-user branch switch)', passed });
   }
 
   // verify content: get_message + validate_input
@@ -147,26 +139,15 @@ function runFullPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
   }
   printInfo('');
 
-  // ─── Steps 4–5: feature/test-branch ─────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 4: BRANCH_SWITCH conflict — full pull feature/test-branch without override (no --files)'));
+  // ─── Step 3: feature/test-branch — same-user branch switch ──────────────────
+  printInfo(colorize('cyan', 'Step 3: full pull feature/test-branch (same-user branch switch — should succeed, no --files)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'feature/test-branch');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for feature/test-branch (full pull)')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'full pull: BRANCH_SWITCH conflict for feature/test-branch', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 5: full pull feature/test-branch --conflict-mode ignore (no --files)'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'feature/test-branch', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ full pull feature/test-branch succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'full pull: feature/test-branch with --conflict-mode ignore', passed });
+      ? printSuccess('✓ full pull feature/test-branch succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'full pull: feature/test-branch (same-user branch switch)', passed });
   }
 
   // verify content: get_message + calculate_sum
@@ -182,26 +163,15 @@ function runFullPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
   }
   printInfo('');
 
-  // ─── Steps 6–7: main ─────────────────────────────────────────────────────────
-  printInfo(colorize('cyan', 'Step 6: BRANCH_SWITCH conflict — full pull main without override (no --files)'));
+  // ─── Step 4: main — same-user branch switch ──────────────────────────────────
+  printInfo(colorize('cyan', 'Step 4: full pull main (same-user branch switch — should succeed, no --files)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'main');
-    const passed = exitCode !== 0 && output.includes('BRANCH_SWITCH') && output.includes('Pull aborted');
-    passed
-      ? printSuccess('✓ BRANCH_SWITCH conflict detected for main (full pull)')
-      : printError(`✗ expected BRANCH_SWITCH conflict\n  exitCode=${exitCode}`);
-    results.push({ name: 'full pull: BRANCH_SWITCH conflict for main', passed });
-  }
-  printInfo('');
-
-  printInfo(colorize('cyan', 'Step 7: full pull main --conflict-mode ignore (no --files)'));
-  {
-    const { output, exitCode } = runPull(repoRoot, 'main', ['--conflict-mode', 'ignore']);
     const passed = exitCode === 0 && output.includes('Pull completed');
     passed
-      ? printSuccess('✓ full pull main succeeded with --conflict-mode ignore')
-      : printError(`✗ expected pull to succeed\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
-    results.push({ name: 'full pull: main with --conflict-mode ignore', passed });
+      ? printSuccess('✓ full pull main succeeded')
+      : printError(`✗ expected pull to succeed\n  exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+    results.push({ name: 'full pull: main (same-user branch switch)', passed });
   }
 
   // verify content: get_message + validate_input
@@ -216,10 +186,10 @@ function runFullPullTests(repoRoot, { printSubHeader, printInfo, printSuccess, p
     results.push({ name: 'full pull: verify main content', passed });
   }
 
-  // ─── Step 8: branch switch with identical content → no conflict ─────────────
+  // ─── Step 5: branch switch with identical content → no conflict ─────────────
   // main and v1.0.0 have the same content for ZIF_SIMPLE_TEST.
   // Branch switches with git_changed=false must NOT trigger BRANCH_SWITCH.
-  printInfo(colorize('cyan', 'Step 8: no conflict — full pull v1.0.0 after main (same content, no --files)'));
+  printInfo(colorize('cyan', 'Step 5: no conflict — full pull v1.0.0 after main (same content, no --files)'));
   {
     const { output, exitCode } = runPull(repoRoot, 'v1.0.0');
     const passed = exitCode === 0 && output.includes('Pull completed');
