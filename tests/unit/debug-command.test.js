@@ -219,6 +219,25 @@ describe('Debug Command - set', () => {
     await debugCommand.execute(['set', '--object', 'ZTEST_PROGRAM', '--line', '5'], makeContext(AdtHttpClass));
     expect(capturedBody).toContain('/sap/bc/adt/programs/programs/ztest_program');
   });
+
+  test('uses /programs/includes/ URI for class method include form (=====CMxxx)', async () => {
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((_url, body) => {
+        capturedBody = body;
+        return Promise.resolve({
+          body: '<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger"><breakpoint id="BP3" adtcore:uri="/sap/bc/adt/programs/includes/zcl_abgagt_agent=============cm00d#start=98" xmlns:adtcore="http://www.sap.com/adt/core"/></dbg:breakpoints>',
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    // Include form: class name padded to 30 chars with '=' then CM suffix
+    await debugCommand.execute(['set', '--objects', 'ZCL_ABGAGT_AGENT=============CM00D:98'], makeContext(AdtHttpClass));
+    expect(capturedBody).toContain('/sap/bc/adt/programs/includes/zcl_abgagt_agent=============cm00d');
+  });
 });
 
 // ─── debug list ───────────────────────────────────────────────────────────────

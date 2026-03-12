@@ -61,15 +61,25 @@ function hasFlag(args, flag) {
 }
 
 /**
- * Determine ADT object URI from object name (class/interface vs program).
+ * Determine ADT object URI from object name (class/interface vs program vs include).
  * Must use /source/main suffix for classes — verified by live testing: ADT
  * rejects breakpoints set on the class root URI but accepts /source/main.
  *   classes  → /sap/bc/adt/oo/classes/<name_lowercase>/source/main
+ *   includes → /sap/bc/adt/programs/includes/<name_lowercase>
  *   programs → /sap/bc/adt/programs/programs/<name_lowercase>
+ *
+ * Class method includes are named <ClassName padded to 30 chars with '='>CM<suffix>
+ * e.g. ZCL_ABGAGT_AGENT=============CM00D
+ * These must be routed to the programs/includes ADT endpoint.
  */
 function objectUri(name) {
   const upper = (name || '').toUpperCase();
   const lower = upper.toLowerCase();
+  // Include form: name contains '=' padding followed by CM suffix
+  // e.g. ZCL_ABGAGT_AGENT=============CM00D or ZCL_ABGAGT_AGENT=======CM001
+  if (/=+CM[0-9A-Z]+$/.test(upper)) {
+    return `/sap/bc/adt/programs/includes/${lower}`;
+  }
   if (/^[ZY](CL|IF)_/.test(upper) || /^(ZCL|ZIF|YCL|YIF)/.test(upper)) {
     return `/sap/bc/adt/oo/classes/${lower}/source/main`;
   }

@@ -357,7 +357,7 @@ describe('View Command - CLI Output Format', () => {
     expect(output).toMatch(/Error:|Failed/i);
   });
 
-  test('--full output renders dual line numbers for CM sections', async () => {
+  test('--full output renders include-relative line numbers for CM sections', async () => {
     const viewCommand = require('../../src/commands/view');
 
     const mockContext = {
@@ -388,20 +388,24 @@ describe('View Command - CLI Output Format', () => {
 
     const output = consoleOutput.join('\n');
 
-    // Global line numbers present
+    // No global line numbers — only include-relative [N] for CM sections
+    // CU section: plain line numbers (no brackets)
     expect(output).toMatch(/^\s+1\s+CLASS zcl_my_class/m);
     expect(output).toMatch(/^\s+3\s+ENDCLASS/m);
 
-    // Method header comment for CM001 at global line 4
-    expect(output).toMatch(/CONSTRUCTOR.*CM001.*global line 4/);
+    // Method header contains CM suffix and ready-to-use debug set hint
+    expect(output).toMatch(/CONSTRUCTOR.*CM001.*debug set.*ZCL_MY_CLASS/);
+    expect(output).toMatch(/EXECUTE.*CM002.*debug set.*ZCL_MY_CLASS/);
 
-    // CM001 lines with include-relative numbers
-    expect(output).toMatch(/^\s+4\s+\[\s*1\]/m);
-    expect(output).toMatch(/^\s+6\s+\[\s*3\]/m);
+    // CM001 lines: include-relative [N] only — no leading global number
+    expect(output).toMatch(/^\s+\[\s*1\]\s+METHOD constructor/m);
+    expect(output).toMatch(/^\s+\[\s*3\]\s+ENDMETHOD/m);
 
-    // Method header for CM002 starts at global line 7
-    expect(output).toMatch(/EXECUTE.*CM002.*global line 7/);
-    expect(output).toMatch(/^\s+7\s+\[\s*1\]/m);
+    // CM002 include-relative restarts at 1
+    expect(output).toMatch(/^\s+\[\s*1\]\s+METHOD execute/m);
+
+    // No "global line N" text in method headers
+    expect(output).not.toMatch(/global line \d+/);
   });
 
   test('--full output sends full: true in request', async () => {
@@ -454,7 +458,7 @@ describe('View Command - CLI Output Format', () => {
     expect(capturedData.full).toBeUndefined();
   });
 
-  test('non-CM sections in --full output use global line numbers only', async () => {
+  test('non-CM sections in --full output use section-local line numbers only', async () => {
     const viewCommand = require('../../src/commands/view');
 
     const mockContext = {

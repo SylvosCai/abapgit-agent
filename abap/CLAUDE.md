@@ -298,48 +298,36 @@ Use `debug` when:
 
 **Step 1 — set a breakpoint** on the first executable statement you want to inspect:
 
-Use `view --objects ZCL_MY_CLASS --full` to see the full source with **dual line numbers** before picking a line:
+Use `view --objects ZCL_MY_CLASS --full` to see the full source with **include-relative line numbers** before picking a line:
 
 ```bash
 abapgit-agent view --objects ZCL_MY_CLASS --full
 ```
 
-This shows two coordinate systems simultaneously:
-- **Global line** (left, no brackets): matches `.clas.abap` file line count
-  → use with `--files src/zcl_my_class.clas.abap:N` or `--objects ZCL_MY_CLASS:N`
-- **Include-relative `[N]`** (in brackets, restarts at 1 per method): line within the CM include
-  → use with `--objects ZCL_MY_CLASS=============CM002:N`
+Each method section shows include-relative `[N]` line numbers that restart at 1. The method header shows the ready-to-use `debug set` command:
 
-Example output:
 ```
-  42    CLASS zcl_my_class IMPLEMENTATION.
-  43  * ---- Method: EXECUTE (CM002) [include line: 1 = global line 43] ----
-  44  [  1]  METHOD execute.
-  45  [  2]    DATA lv_x TYPE i.
-  46  [  3]    lv_x = 1.
-  47  [  4]  ENDMETHOD.
+   1  CLASS zcl_my_class DEFINITION.
+   2    PUBLIC SECTION.
+   3  ENDCLASS.
+  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS=============CM002:N ----
+[  1]  METHOD execute.
+[  2]    DATA lv_x TYPE i.
+[  3]    lv_x = 1.
+[  4]  ENDMETHOD.
 ```
 
-To set a breakpoint at line `[  3]` (global line 46) in method EXECUTE — both forms work:
+To set a breakpoint at include-relative line `[  3]` in method EXECUTE:
 ```bash
-abapgit-agent debug set --objects ZCL_MY_CLASS:46              # global line
-abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3   # include-relative
+abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3
 abapgit-agent debug list    # confirm it was registered
 ```
 
-> **IMPORTANT — `view --full` global line numbers may not match ADT line numbers.**
-> The global line counter in `view --full` output counts ALL sections sequentially (CU+CO+CP+CM001+CM002…).
-> ADT breakpoint endpoints use **include-relative line numbers within each method include (CM*)**.
-> The include-relative `[N]` shown in brackets is what ADT actually uses.
->
-> **When a breakpoint succeeds but stops at the wrong method**, your global line number landed in a different CM include than expected.
-> Use `debug stack --json` immediately after hitting the breakpoint to see which method/include you're actually in.
-> If it's wrong, use the include-relative `[N]` form instead:
-> ```bash
-> # Instead of: debug set --objects ZCL_MY_CLASS:698   (landed in wrong method)
-> # Use:        debug set --objects ZCL_MY_CLASS=============CM00D:115  (exact method + line)
-> ```
-> The include name format is: class name padded to 30 chars with `=`, then the CM suffix (e.g. CM00D).
+The include name format is: class name padded to 30 chars with `=`, then the CM suffix shown in the header.
+
+> **Note:** The `--objects ZCL_MY_CLASS:N` form (plain object name + line number) uses ADT's
+> assembled-source line numbering, which may differ from the `[N]` numbers shown by `view --full`
+> for large classes. Prefer the `=====CMxxx:N` include form — it is always exact.
 
 > **Line number must point to an executable statement.** Two common mistakes when reading `view --full` output:
 >
@@ -426,6 +414,24 @@ abapgit-agent debug step   --type continue --json        # continue to next brea
 abapgit-agent debug stack  --json                        # call stack (shows which test method is active)
 ```
 
+> **`step --type continue` return values:**
+> - `{"continued":true,"finished":true}` — program ran to **completion** (ADT returned HTTP 500, session is over). Do not re-attach.
+> - `{"continued":true}` (no `finished` field) — program hit the **next breakpoint** and is still paused. You must re-attach to receive the suspension and continue inspecting:
+>   ```bash
+>   abapgit-agent debug attach --json > /tmp/attach2.json 2>&1 &
+>   until grep -q "Listener active" /tmp/attach2.json 2>/dev/null; do sleep 0.3; done
+>   # session auto-resumes — no trigger needed (trigger is still running in background)
+>   SESSION=""
+>   for i in $(seq 1 30); do
+>     sleep 0.5
+>     SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach2.json 2>/dev/null | head -1 | cut -d'"' -f4)
+>     [ -n "$SESSION" ] && break
+>   done
+>   abapgit-agent debug vars --json   # inspect at next breakpoint
+>   abapgit-agent debug step --type continue --json   # release again
+>   ```
+> Missing this re-attach step causes the session to appear dead when it is actually paused at the next breakpoint.
+
 **Clean up** when done:
 ```bash
 abapgit-agent debug delete --all
@@ -486,40 +492,17 @@ HTTP Request
 
 The following issues were identified during a live debugging session (2026-03) and should be fixed to make future debugging easier:
 
-#### 1. `view --full` global line numbers don't match ADT line numbers (High priority)
+#### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
 
-`view --full` computes its own global line count by sequentially numbering all assembled sections (CU+CO+CP+CM001+CM002…). ADT uses its own assembled-source line numbering — and for large classes the two diverge significantly. Setting a breakpoint at the `view --full` global line number can silently land in a completely different method.
+**Fixed**: Global line numbers removed from `view --full` output. Each CM method section now shows only the include-relative `[N]` line numbers, and the method header includes the exact `debug set --objects =====CMxxx:N` command to use.
 
-**Symptom**: `debug attach` stops at the right class but wrong method; `debug stack --json` shows `line=698, method=BUILD_FILE_ENTRIES_FROM_REMOTE` when you expected `method=ZIF_ABGAGT_AGENT~PULL`.
+#### ~~2. Include-relative breakpoint form is not implemented in the CLI~~ ✅ Fixed
 
-**Fix needed**: `view --full` should use ADT's actual assembled-source line numbering (query ADT) as the global line number, **or** drop the global line number column entirely and make the include-relative `[N]` the primary form for breakpoints.
+**Fixed**: `objectUri()` in `src/commands/debug.js` now detects names matching `=+CM[0-9A-Z]+$` (class name padded with `=` followed by a CM suffix) and routes them to `/sap/bc/adt/programs/includes/<name_lowercase>` instead of the class URI. The include form `--objects ZCL_MY_CLASS=============CM002:3` now works correctly.
 
-**Workaround until fixed**: always verify with `debug stack --json` immediately after hitting a breakpoint; if the method is wrong, switch to the include-relative `[N]` form:
-```bash
-# Wrong method hit at global line 698 — switch to include-relative form:
-debug set --objects ZCL_ABGAGT_AGENT=============CM00D:115
-```
+#### ~~3. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
 
-#### 2. Include-relative breakpoint form is not implemented in the CLI (High priority)
-
-The docs show `--objects ZCL_MY_CLASS=============CM002:3` as a working form, but the `objectUri()` function in `src/commands/debug.js` routes any name containing `ZCL_*/ZIF_*` to `/sap/bc/adt/oo/classes/.../source/main`, ignoring the `=============CMxxx` suffix. This causes HTTP 500.
-
-**Fix needed**: Update `objectUri()` to detect the `=============CM` pattern and route to `/sap/bc/adt/programs/includes/<name_lowercase>#start=<line>`.
-
-#### 3. `stepContinue` re-attach pattern missing from docs (Medium priority)
-
-After `step --type continue`, the return value is either:
-- `{continued:true, finished:true}` — program ran to **completion** (ADT returned HTTP 500, session is over)
-- `{continued:true}` (no `finished`) — program is **still running** and hit another breakpoint; you must call `debug attach --json` again to receive the next suspension
-
-The docs don't explain this distinction. Missing the re-attach step causes the session to appear dead when it is actually paused at the next breakpoint.
-
-**Fix needed**: Add the re-attach pattern to the Step 2 guide:
-```bash
-node bin/abapgit-agent debug step --type continue --json
-# If output is {"continued":true} (no "finished") → hit next BP, re-attach:
-node bin/abapgit-agent debug attach --json &   # wait for next suspension
-```
+**Fixed**: Step 3 of the debug guide now documents the two possible return values of `step --type continue` and includes the re-attach pattern for when the program hits a second breakpoint instead of finishing.
 
 ---
 

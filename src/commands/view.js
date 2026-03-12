@@ -94,34 +94,38 @@ module.exports = {
         const sections = obj.SECTIONS || obj.sections || [];
 
         if (sections.length > 0) {
-          // --full mode: render with dual line numbers
+          // --full mode: render with include-relative line numbers only.
+          // Global line numbers are NOT shown — they do not match ADT's line
+          // numbering and lead to breakpoints landing in the wrong method.
+          // Use the include-relative [N] number with the CM suffix form:
+          //   debug set --objects CLASSNAME=============CMxxx:N
           console.log('');
-          let globalLine = 0;
           for (const section of sections) {
             const suffix = section.SUFFIX || section.suffix || '';
             const methodName = section.METHOD_NAME || section.method_name || '';
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
             const isCmSection = suffix.startsWith('CM') && methodName;
+            // Pad object name to 30 chars for the include breakpoint form
+            const padded = objName.padEnd(30, '=');
 
             if (isCmSection) {
-              // Method header comment — no line number increment for the comment itself
-              const startGlobal = globalLine + 1;
-              console.log(`  * ---- Method: ${methodName} (${suffix}) [include line: 1 = global line ${startGlobal}] ----`);
+              console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: debug set --objects ${padded}${suffix}:N ----`);
             } else if (file) {
               console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
+            } else if (suffix && !isCmSection) {
+              console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
             }
 
             let includeRelLine = 0;
             for (const codeLine of lines) {
-              globalLine++;
               includeRelLine++;
-              const gStr = String(globalLine).padStart(4);
               if (isCmSection) {
                 const iStr = String(includeRelLine).padStart(3);
-                console.log(`  ${gStr}  [${iStr}]  ${codeLine}`);
+                console.log(`  [${iStr}]  ${codeLine}`);
               } else {
-                console.log(`  ${gStr}    ${codeLine}`);
+                const lStr = String(includeRelLine).padStart(4);
+                console.log(`  ${lStr}  ${codeLine}`);
               }
             }
           }
