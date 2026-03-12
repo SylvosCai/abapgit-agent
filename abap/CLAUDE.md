@@ -482,6 +482,45 @@ HTTP Request
 | abapGit deserialize entry (CM00L:525) | Step into CALL METHOD DESERIALIZE |
 | abapGit deserialize_objects call (CM00L:553–568) | Step over from CM00L:525 |
 
+### Known Limitations and Planned Improvements
+
+The following issues were identified during a live debugging session (2026-03) and should be fixed to make future debugging easier:
+
+#### 1. `view --full` global line numbers don't match ADT line numbers (High priority)
+
+`view --full` computes its own global line count by sequentially numbering all assembled sections (CU+CO+CP+CM001+CM002…). ADT uses its own assembled-source line numbering — and for large classes the two diverge significantly. Setting a breakpoint at the `view --full` global line number can silently land in a completely different method.
+
+**Symptom**: `debug attach` stops at the right class but wrong method; `debug stack --json` shows `line=698, method=BUILD_FILE_ENTRIES_FROM_REMOTE` when you expected `method=ZIF_ABGAGT_AGENT~PULL`.
+
+**Fix needed**: `view --full` should use ADT's actual assembled-source line numbering (query ADT) as the global line number, **or** drop the global line number column entirely and make the include-relative `[N]` the primary form for breakpoints.
+
+**Workaround until fixed**: always verify with `debug stack --json` immediately after hitting a breakpoint; if the method is wrong, switch to the include-relative `[N]` form:
+```bash
+# Wrong method hit at global line 698 — switch to include-relative form:
+debug set --objects ZCL_ABGAGT_AGENT=============CM00D:115
+```
+
+#### 2. Include-relative breakpoint form is not implemented in the CLI (High priority)
+
+The docs show `--objects ZCL_MY_CLASS=============CM002:3` as a working form, but the `objectUri()` function in `src/commands/debug.js` routes any name containing `ZCL_*/ZIF_*` to `/sap/bc/adt/oo/classes/.../source/main`, ignoring the `=============CMxxx` suffix. This causes HTTP 500.
+
+**Fix needed**: Update `objectUri()` to detect the `=============CM` pattern and route to `/sap/bc/adt/programs/includes/<name_lowercase>#start=<line>`.
+
+#### 3. `stepContinue` re-attach pattern missing from docs (Medium priority)
+
+After `step --type continue`, the return value is either:
+- `{continued:true, finished:true}` — program ran to **completion** (ADT returned HTTP 500, session is over)
+- `{continued:true}` (no `finished`) — program is **still running** and hit another breakpoint; you must call `debug attach --json` again to receive the next suspension
+
+The docs don't explain this distinction. Missing the re-attach step causes the session to appear dead when it is actually paused at the next breakpoint.
+
+**Fix needed**: Add the re-attach pattern to the Step 2 guide:
+```bash
+node bin/abapgit-agent debug step --type continue --json
+# If output is {"continued":true} (no "finished") → hit next BP, re-attach:
+node bin/abapgit-agent debug attach --json &   # wait for next suspension
+```
+
 ---
 
 ## Development Workflow
