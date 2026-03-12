@@ -54,7 +54,7 @@ abapgit-agent ref --topic sql
 abapgit-agent ref --list-topics
 ```
 
-### 2. Read `.abapGitAgent` for Folder Location
+### 2. Read `.abapGitAgent` for Folder Location and Naming Conventions
 
 **Before creating ANY ABAP object file, you MUST read `.abapGitAgent` to determine the correct folder.**
 
@@ -66,6 +66,15 @@ abapgit-agent ref --list-topics
 The folder is configured in `.abapGitAgent` (property: `folder`):
 - If `folder` is `/src/` → files go in `src/` (e.g., `src/zcl_my_class.clas.abap`)
 - If `folder` is `/abap/` → files go in `abap/` (e.g., `abap/zcl_my_class.clas.abap`)
+
+**Also check naming conventions before creating any new object:**
+
+```
+1. Check guidelines/objects.local.md  ← project-specific overrides (if file exists)
+2. Fall back to guidelines/objects.md ← default Z/Y prefix conventions
+```
+
+`objects.local.md` is created by `abapgit-agent init` and is never overwritten by updates — it holds project-specific prefixes (e.g. `YCL_` instead of `ZCL_`).
 
 ---
 
@@ -367,7 +376,8 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/testing.md` | Unit Testing (including CDS) |
 | `guidelines/cds.md` | CDS Views |
 | `guidelines/classes.md` | ABAP Classes and Objects |
-| `guidelines/objects.md` | Object Naming Conventions |
+| `guidelines/objects.md` | Object Naming Conventions (defaults) |
+| `guidelines/objects.local.md` | **Project** Naming Conventions — overrides `objects.md` (created by `init`, never overwritten) |
 | `guidelines/json.md` | JSON Handling |
 | `guidelines/abapgit.md` | abapGit XML Metadata Templates |
 | `guidelines/unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
