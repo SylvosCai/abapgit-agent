@@ -327,6 +327,20 @@ abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3   # include-r
 abapgit-agent debug list    # confirm it was registered
 ```
 
+> **IMPORTANT — `view --full` global line numbers may not match ADT line numbers.**
+> The global line counter in `view --full` output counts ALL sections sequentially (CU+CO+CP+CM001+CM002…).
+> ADT breakpoint endpoints use **include-relative line numbers within each method include (CM*)**.
+> The include-relative `[N]` shown in brackets is what ADT actually uses.
+>
+> **When a breakpoint succeeds but stops at the wrong method**, your global line number landed in a different CM include than expected.
+> Use `debug stack --json` immediately after hitting the breakpoint to see which method/include you're actually in.
+> If it's wrong, use the include-relative `[N]` form instead:
+> ```bash
+> # Instead of: debug set --objects ZCL_MY_CLASS:698   (landed in wrong method)
+> # Use:        debug set --objects ZCL_MY_CLASS=============CM00D:115  (exact method + line)
+> ```
+> The include name format is: class name padded to 30 chars with `=`, then the CM suffix (e.g. CM00D).
+
 > **Line number must point to an executable statement.** Two common mistakes when reading `view --full` output:
 >
 > 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
@@ -416,6 +430,57 @@ abapgit-agent debug stack  --json                        # call stack (shows whi
 ```bash
 abapgit-agent debug delete --all
 ```
+
+> **If the stale debug daemon holds an ABAP lock** (symptom: `Requested object EZABAPGIT is currently locked by user CAIS`):
+> ```bash
+> pkill -f "debug-daemon"   # kills daemon, SIGTERM triggers session.terminate() internally
+> ```
+> Wait ~10 seconds for the lock to release, then retry.
+
+---
+
+### Debugged Pull Flow Architecture
+
+The following call chain was traced by live debugging (2026-03). Use as a reference for setting breakpoints when investigating pull issues:
+
+```
+HTTP Request
+  → SAPMHTTP (%_HTTP_START) [frame 1]
+  → SAPLHTTP_RUNTIME (HTTP_DISPATCH_REQUEST) [frame 2]
+  → CL_HTTP_SERVER (EXECUTE_REQUEST) [frame 3]
+  → CL_REST_HTTP_HANDLER (IF_HTTP_EXTENSION~HANDLE_REQUEST) [frame 4]
+  → CL_REST_ROUTER (IF_REST_HANDLER~HANDLE) [frame 5]
+  → CL_REST_RESOURCE (IF_REST_HANDLER~HANDLE, DO_HANDLE_CONDITIONAL, DO_HANDLE) [frames 6-8]
+  → ZCL_ABGAGT_RESOURCE_BASE (IF_REST_RESOURCE~POST) [frame 9]
+  → ZCL_ABGAGT_COMMAND_PULL (ZIF_ABGAGT_COMMAND~EXECUTE, CM001:21) [frame 10]
+  → ZCL_ABGAGT_AGENT (ZIF_ABGAGT_AGENT~PULL, CM00D) [frame 11]
+      CM00D: build_file_entries_from_remote()  — fetch remote files, build entries for conflict check
+      CM00D: check_conflicts()                 — abort if conflicts found
+      CM00D: prepare_deserialize_checks()      — transport + requirements check
+      CM00D: mo_repo->create_new_log()         — init abapGit log
+      CM00D: RTTI check (lv_deser_has_filter)  — does abapGit DESERIALIZE support II_OBJ_FILTER?
+      CM00D: CALL METHOD mo_repo->('DESERIALIZE') PARAMETER-TABLE …  — dynamic dispatch
+  → ZCL_ABAPGIT_REPO (ZIF_ABAPGIT_REPO~DESERIALIZE, CM00L:525) [frame 12]
+      CM00L: find_remote_dot_abapgit()         — parse .abapgit config
+      CM00L: find_remote_dot_apack()           — parse .apack-manifest
+      CM00L: check_write_protect()             — package write-protect check
+      CM00L: check_language()                  — language check
+      CM00L: deserialize_dot_abapgit()         — update .abapgit config in ABAP
+      CM00L: deserialize_objects()             — import and activate ABAP objects
+      CM00L: checksums()->update()             — update checksums
+      CM00L: update_last_deserialize()         — update timestamp
+      CM00L: COMMIT WORK AND WAIT              — commit the whole transaction
+```
+
+**Key breakpoint locations** (include-relative form, verified working):
+| Location | Command |
+|---|---|
+| Pull command entry | `debug set --objects ZCL_ABGAGT_COMMAND_PULL:46` |
+| Agent pull entry | `debug set --objects ZCL_ABGAGT_AGENT=============CM00D:1` |
+| After build_file_entries (CM00D:187) | Step out of BUILD_FILE_ENTRIES_FROM_REMOTE |
+| Before DESERIALIZE call (CM00D:236) | Step to after prepare_deserialize_checks |
+| abapGit deserialize entry (CM00L:525) | Step into CALL METHOD DESERIALIZE |
+| abapGit deserialize_objects call (CM00L:553–568) | Step over from CM00L:525 |
 
 ---
 
