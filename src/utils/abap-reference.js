@@ -508,10 +508,10 @@ async function getTopic(topic) {
   if (guidelinesDir) {
     // Map topic to local guideline file
     const guidelineMap = {
-      'abapgit': '08_abapgit.md',
-      'xml': '06_objects.md',
-      'objects': '06_objects.md',
-      'naming': '06_objects.md'
+      'abapgit': 'abapgit.md',
+      'xml': 'objects.md',
+      'objects': 'objects.md',
+      'naming': 'objects.md'
     };
 
     const guidelineFile = guidelineMap[topicLower];

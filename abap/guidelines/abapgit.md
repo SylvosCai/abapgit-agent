@@ -237,7 +237,7 @@ abapGit needs XML files to:
 5. **Serializer**: Use `LCL_OBJECT_DDLS`
 6. **Source file**: Must include `@AbapCatalog.sqlViewName` annotation
 
-**For detailed comparison and usage guidance, see `guidelines/04_cds.md`**
+**For detailed comparison and usage guidance, see `guidelines/cds.md`**
 
 ---
 

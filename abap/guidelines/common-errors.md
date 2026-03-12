@@ -90,6 +90,6 @@ Find data elements: `abapgit-agent view --objects <TABLE> --type TABL`
 ---
 
 ## See Also
-- **ABAP SQL** (01_sql.md) - for SQL syntax rules
-- **CDS Views** (04_cds.md) - for CDS selection patterns
-- **abapGit** (08_abapgit.md) - for XML metadata templates
+- **ABAP SQL** (sql.md) - for SQL syntax rules
+- **CDS Views** (cds.md) - for CDS selection patterns
+- **abapGit** (abapgit.md) - for XML metadata templates

@@ -13,7 +13,7 @@ grand_parent: ABAP Development
 ## TOPICS IN THIS FILE
 1. Naming Conventions
 2. ABAP Object Types
-3. XML Metadata (see guidelines/08_abapgit.md)
+3. XML Metadata (see guidelines/abapgit.md)
 
 ## Naming Conventions
 
@@ -51,7 +51,7 @@ Common object types in this project:
 
 ## XML Metadata
 
-**See guidelines/08_abapgit.md for XML templates.**
+**See guidelines/abapgit.md for XML templates.**
 
 Each ABAP object requires an XML metadata file for abapGit. Quick reference:
 

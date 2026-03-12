@@ -111,6 +111,6 @@ SELECT carrid, connid, fldate      " Commas required
 ---
 
 ## See Also
-- **Constructor Expressions** (05_classes.md) - for VALUE #(), FILTER, FOR loops
+- **Constructor Expressions** (classes.md) - for VALUE #(), FILTER, FOR loops
 - **Internal Tables** - for filtering and iteration patterns
-- **abapGit** (08_abapgit.md) - for XML metadata templates
+- **abapGit** (abapgit.md) - for XML metadata templates

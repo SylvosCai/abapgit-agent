@@ -100,7 +100,7 @@ abapgit-agent unit --files src/zcl_test.clas.testclasses.abap
 - Testing specific scenarios that may not exist in production
 - Fast, isolated tests that don't depend on database state
 
-See `../guidelines/03_testing.md` for code examples.
+See `../guidelines/testing.md` for code examples.
 
 ---
 
@@ -232,14 +232,14 @@ Detailed guidelines are available in the `guidelines/` folder:
 
 | File | Topic |
 |------|-------|
-| `../guidelines/01_sql.md` | ABAP SQL Best Practices |
-| `../guidelines/02_exceptions.md` | Exception Handling |
-| `../guidelines/03_testing.md` | Unit Testing (including CDS) |
-| `../guidelines/04_cds.md` | CDS Views |
-| `../guidelines/05_classes.md` | ABAP Classes and Objects |
-| `../guidelines/06_objects.md` | Object Naming Conventions |
-| `../guidelines/07_json.md` | JSON Handling |
-| `../guidelines/08_abapgit.md` | abapGit XML Metadata Templates |
+| `../guidelines/sql.md` | ABAP SQL Best Practices |
+| `../guidelines/exceptions.md` | Exception Handling |
+| `../guidelines/testing.md` | Unit Testing (including CDS) |
+| `../guidelines/cds.md` | CDS Views |
+| `../guidelines/classes.md` | ABAP Classes and Objects |
+| `../guidelines/objects.md` | Object Naming Conventions |
+| `../guidelines/json.md` | JSON Handling |
+| `../guidelines/abapgit.md` | abapGit XML Metadata Templates |
 
 These guidelines are automatically searched by the `ref` command.
 

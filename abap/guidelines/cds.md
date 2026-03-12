@@ -19,7 +19,7 @@ grand_parent: ABAP Development
    - Key Field Ordering (STRICT RULE) - line 198
    - Currency/Amount Field Aggregation - line 230
    - Choosing Currency Fields for Aggregation - line 255
-6. CDS Test Doubles - see 03_testing.md
+6. CDS Test Doubles - see testing.md
 
 ## Creating CDS Views (DDLS)
 
@@ -354,6 +354,6 @@ abapgit-agent preview --objects ZC_MY_VIEW --limit 1
 ---
 
 ## See Also
-- **Unit Testing** (03_testing.md) - for CDS Test Double Framework
-- **abapGit** (08_abapgit.md) - for CDS XML metadata templates
-- **ABAP SQL** (01_sql.md) - for SQL functions used in CDS
+- **Unit Testing** (testing.md) - for CDS Test Double Framework
+- **abapGit** (abapgit.md) - for CDS XML metadata templates
+- **ABAP SQL** (sql.md) - for SQL functions used in CDS

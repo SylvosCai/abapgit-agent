@@ -330,6 +330,6 @@ abapgit-agent ref --topic unit-tests
 ---
 
 ## See Also
-- **CDS Views** (04_cds.md) - for CDS view definitions and syntax
-- **abapGit** (08_abapgit.md) - for WITH_UNIT_TESTS in XML metadata
-- **ABAP SQL** (01_sql.md) - for SELECT statements in tests
+- **CDS Views** (cds.md) - for CDS view definitions and syntax
+- **abapGit** (abapgit.md) - for WITH_UNIT_TESTS in XML metadata
+- **ABAP SQL** (sql.md) - for SELECT statements in tests

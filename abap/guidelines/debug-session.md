@@ -1,0 +1,280 @@
+---
+layout: default
+title: Debug Session Guide
+nav_order: 11
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
+# Debug Session Guide
+
+#### When There Is No Dump — Use `debug`
+
+Use `debug` when:
+- The bug is a logic error (wrong output, no crash)
+- You need to inspect variable values mid-execution
+- You want to verify which branch of code runs
+
+**Step 1 — set a breakpoint** on the first executable statement you want to inspect:
+
+Use `view --objects ZCL_MY_CLASS --full --lines` to see the full source with **both** global assembled-source line numbers and include-relative `[N]` numbers:
+
+```bash
+abapgit-agent view --objects ZCL_MY_CLASS --full --lines
+```
+
+> **Tip**: `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers — useful for understanding logic. Add `--lines` when you need line numbers for breakpoints.
+
+Each line is shown as `G [N]  code` where:
+- **G** = assembled-source global line → use with `debug set --objects CLASS:G` or `debug set --files src/cls.clas.abap:G`
+- **[N]** = include-relative (restarts at 1 per method) → for code navigation only, not for breakpoints
+
+The method header shows the ready-to-use `debug set` command pointing to the first executable line:
+
+```
+   1  CLASS zcl_my_class DEFINITION.
+   2    PUBLIC SECTION.
+   3  ENDCLASS.
+  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:9 ----
+   7 [  1]  METHOD execute.
+   8 [  2]    DATA lv_x TYPE i.
+   9 [  3]    lv_x = 1.
+  10 [  4]  ENDMETHOD.
+```
+
+**Two scenarios:**
+
+| Scenario | Command |
+|---|---|
+| Source available locally (your own classes) | `debug set --files src/zcl_my_class.clas.abap:9` |
+| No local source (abapGit library, SAP standard) | `debug set --objects ZCL_MY_CLASS:9` |
+
+Both use the same assembled-source global line number **G** shown in the output. To set a breakpoint at `lv_x = 1.` (global line 9):
+```bash
+# With local file:
+abapgit-agent debug set --files src/zcl_my_class.clas.abap:9
+# Without local file:
+abapgit-agent debug set --objects ZCL_MY_CLASS:9
+abapgit-agent debug list    # confirm it was registered
+```
+
+> **Line number must point to an executable statement.** The method header hint already skips the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations automatically. Two cases still require manual attention when picking a line from the output:
+>
+> 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
+>    Pick the next non-comment line instead.
+>    ```
+>     95 [ 70]    " --- Conflict detection ---   ← NOT valid (comment)
+>     96 [ 71]    " Build remote file entries…   ← NOT valid (comment)
+>     97 [ 73]    DATA(lt_file_entries) = …      ← valid ✅ (use global 97)
+>    ```
+>
+> 2. **First line of a multi-line inline `DATA(x) = call(`** — the ABAP debugger treats the
+>    `DATA(x) =` line as a declaration, not an executable step. Set the breakpoint on the
+>    **next standalone executable statement** after the closing `).` instead.
+>    ```
+>    100 [ 92]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
+>    101 [ 93]      it_files = it_files                           ← NOT valid (continuation)
+>    104 [ 96]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
+>    106 [ 98]    mo_repo->create_new_log( ).                     ← valid ✅ (use global 106)
+>    ```
+>
+> Other non-executable lines: blank lines, `METHOD`/`ENDMETHOD`, `DATA:` declarations,
+> `CLASS`/`ENDCLASS`. When in doubt, prefer a simple method call or assignment.
+
+**Step 2 — attach and trigger**
+
+Best practice: individual sequential calls. Once the daemon is running and
+the session is saved to the state file, each `vars/stack/step` command is a
+plain standalone call — no `--session` flag needed.
+
+```bash
+# Start attach listener in background (spawns a daemon, saves session to state file)
+abapgit-agent debug attach --json > /tmp/attach.json 2>&1 &
+
+# Rule 1: wait for "Listener active" in the output, THEN fire the trigger.
+# attach --json prints "Listener active" to stderr (captured in attach.json) the
+# moment the long-poll POST is about to be sent to ADT.  Waiting for this marker
+# is reliable under any system load; a blind sleep may fire the trigger before
+# ADT has a registered listener, causing the breakpoint hit to be missed.
+until grep -q "Listener active" /tmp/attach.json 2>/dev/null; do sleep 0.3; done
+sleep 1   # brief extra window for the POST to reach ADT
+
+# Trigger in background — MUST stay alive for the whole session
+abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap > /tmp/trigger.json 2>&1 &
+
+# Poll until breakpoint fires and session JSON appears in attach output
+SESSION=""
+for i in $(seq 1 30); do
+  sleep 0.5
+  SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach.json 2>/dev/null | head -1 | cut -d'"' -f4)
+  [ -n "$SESSION" ] && break
+done
+
+# Inspect and step — each is an individual call, no --session needed
+abapgit-agent debug stack --json
+abapgit-agent debug vars  --json
+abapgit-agent debug vars  --expand LS_OBJECT --json
+abapgit-agent debug step  --type over --json
+abapgit-agent debug vars  --json
+
+# ALWAYS release the ABAP work process before finishing
+abapgit-agent debug step --type continue --json
+
+# Check trigger result
+cat /tmp/trigger.json
+rm -f /tmp/attach.json /tmp/trigger.json
+```
+
+> **Four rules for scripted mode:**
+> 1. Wait for `"Listener active"` in the attach output before firing the trigger — this message is printed to stderr (captured in `attach.json`) the moment the listener POST is about to reach ADT. A blind `sleep` is not reliable under system load.
+> 2. Keep the trigger process alive in the background for the entire session — if it exits, the ABAP work process is released and the session ends
+> 3. Always finish with `step --type continue` — this releases the frozen work process so the trigger can complete normally
+> 4. **Never pass `--session` to `step/vars/stack`** — it bypasses the daemon IPC and causes `noSessionAttached`. Omit it and let commands auto-load from the saved state file.
+
+**Step 3 — step through and inspect**
+
+```bash
+abapgit-agent debug vars   --json                        # all variables
+abapgit-agent debug vars   --name LV_RESULT --json       # one variable
+abapgit-agent debug vars   --expand LT_DATA --json       # drill into table/structure
+abapgit-agent debug step   --type over --json            # step over
+abapgit-agent debug step   --type into --json            # step into
+abapgit-agent debug step   --type continue --json        # continue to next breakpoint / finish
+abapgit-agent debug stack  --json                        # call stack (shows which test method is active)
+```
+
+> **`step --type continue` return values:**
+> - `{"continued":true,"finished":true}` — program ran to **completion** (ADT returned HTTP 500, session is over). Do not re-attach.
+> - `{"continued":true}` (no `finished` field) — program hit the **next breakpoint** and is still paused. You must re-attach to receive the suspension and continue inspecting:
+>   ```bash
+>   abapgit-agent debug attach --json > /tmp/attach2.json 2>&1 &
+>   until grep -q "Listener active" /tmp/attach2.json 2>/dev/null; do sleep 0.3; done
+>   # session auto-resumes — no trigger needed (trigger is still running in background)
+>   SESSION=""
+>   for i in $(seq 1 30); do
+>     sleep 0.5
+>     SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach2.json 2>/dev/null | head -1 | cut -d'"' -f4)
+>     [ -n "$SESSION" ] && break
+>   done
+>   abapgit-agent debug vars --json   # inspect at next breakpoint
+>   abapgit-agent debug step --type continue --json   # release again
+>   ```
+> Missing this re-attach step causes the session to appear dead when it is actually paused at the next breakpoint.
+
+**Clean up** when done:
+```bash
+abapgit-agent debug delete --all
+```
+
+> **If the stale debug daemon holds an ABAP lock** (symptom: `Requested object EZABAPGIT is currently locked by user CAIS`):
+> ```bash
+> pkill -f "debug-daemon"   # kills daemon, SIGTERM triggers session.terminate() internally
+> ```
+> Wait ~10 seconds for the lock to release, then retry.
+
+---
+
+### Debugged Pull Flow Architecture
+
+The following call chain was traced by live debugging (2026-03), verified with two breakpoints firing successfully. Use as a reference for setting breakpoints when investigating pull issues:
+
+```
+HTTP Request
+  → SAPMHTTP (%_HTTP_START) [frame 1]
+  → SAPLHTTP_RUNTIME (HTTP_DISPATCH_REQUEST) [frame 2]
+  → CL_HTTP_SERVER (EXECUTE_REQUEST) [frame 3]
+  → CL_REST_HTTP_HANDLER (IF_HTTP_EXTENSION~HANDLE_REQUEST) [frame 4]
+  → CL_REST_ROUTER (IF_REST_HANDLER~HANDLE) [frame 5]
+  → CL_REST_RESOURCE (IF_REST_HANDLER~HANDLE, DO_HANDLE_CONDITIONAL, DO_HANDLE) [frames 6-8]
+  → ZCL_ABGAGT_RESOURCE_BASE (IF_REST_RESOURCE~POST, CM004:84) [frame 9]
+  → ZCL_ABGAGT_COMMAND_PULL (ZIF_ABGAGT_COMMAND~EXECUTE, CM001:21) [frame 10]
+  → ZCL_ABGAGT_AGENT (ZIF_ABGAGT_AGENT~PULL, CM00D) [frame 11]
+      CM00D: build_file_entries_from_remote()           — fetch remote files + acquire EZABAPGIT lock
+      CM00D: check_conflicts()                          — abort if conflicts found (LT_CONFLICTS)
+      CM00D: prepare_deserialize_checks()               — transport + requirements; returns LS_CHECKS
+                                                          (LS_CHECKS-OVERWRITE[n] = objects to overwrite)
+      CM00D: mo_repo->create_new_log()            :207  — init abapGit log object
+      CM00D: RTTI check (lv_deser_has_filter)           — does ZIF_ABAPGIT_REPO~DESERIALIZE have
+                                                          II_OBJ_FILTER parameter? (X = yes)
+      CM00D: CALL METHOD mo_repo->('DESERIALIZE') :236  — dynamic dispatch with PARAMETER-TABLE
+                                                          (IS_CHECKS, II_LOG, II_OBJ_FILTER)
+  → ZCL_ABAPGIT_REPO (ZIF_ABAPGIT_REPO~DESERIALIZE, CM00L) [frame 12]
+      CM00L: find_remote_dot_abapgit()            :525  — fetch .abapgit from remote; COMMIT WORK
+                                                          AND WAIT inside → releases EZABAPGIT lock
+      CM00L: find_remote_dot_apack()              :526  — fetch .apack-manifest
+      CM00L: check_write_protect()                :528  — package write-protect check
+      CM00L: check_language()                     :529  — language check
+      CM00L: (requirements/dependencies checks)   :531  — abort if not met
+      CM00L: deserialize_dot_abapgit()            :543  — update .abapgit config in ABAP
+                                                          populates LT_UPDATED_FILES (e.g. .abapgit.xml)
+      CM00L: deserialize_objects(is_checks, ii_log, ii_obj_filter) :545
+  → ZCL_ABAPGIT_REPO (DESERIALIZE_OBJECTS, CM007:258) [frame 13]
+      CM007: zcl_abapgit_objects=>deserialize(ii_repo=me, ..., ii_obj_filter=...) :259
+  → ZCL_ABAPGIT_OBJECTS (DESERIALIZE static, CM00A) [frame 14]
+      CM00A: lt_steps = get_deserialize_steps()   :617  — 4-step pipeline
+      CM00A: lv_package = ii_repo->get_package()  :619
+      CM00A: lt_remote = get_files_remote(ii_obj_filter=...) :628  — filtered remote files
+      CM00A: lt_results = zcl_abapgit_file_deserialize=>get_results(...) :631
+      CM00A: zcl_abapgit_objects_check=>checks_adjust(...) :640
+      CM00A: check_objects_locked(lt_items)        :657
+      CM00A: LOOP steps → LOOP objects → call type handler:
+             Step 1 Pre-process:  ZCL_ABGAGT_VIEWER_CLAS imported
+             Step 2 DDIC:         (nothing for CLAS)
+             Step 3 Non-DDIC:     ZCL_ABGAGT_VIEWER_CLAS imported + activated
+             Step 4 Post-process: ZCL_ABGAGT_VIEWER_CLAS imported
+      CM00A: returns RT_ACCESSED_FILES
+  ← back in CM00L:
+      CM00L: checksums()->update()
+      CM00L: update_last_deserialize()
+      CM00L: COMMIT WORK AND WAIT                       — commit the whole transaction
+```
+
+**Key variables observed during trace** (for `pull --files abap/zcl_abgagt_viewer_clas.clas.abap`):
+
+| Variable at BP1 (CM00D:207) | Value |
+|---|---|
+| `IT_FILES[1]` | `abap/zcl_abgagt_viewer_clas.clas.abap` |
+| `LI_REPO` (class) | `ZCL_ABAPGIT_REPO_ONLINE` |
+| `LO_OBJ_FILTER` (class) | `ZCL_ABAPGIT_OBJECT_FILTER_OBJ` |
+| `LT_CONFLICTS` | empty (no conflicts) |
+| `LS_CHECKS-OVERWRITE[1]` | CLAS `ZCL_ABGAGT_VIEWER_CLAS`, DEVCLASS `$ABAP_AI_BRIDGE`, DECISION=Y |
+| `LV_DESER_HAS_FILTER` | `X` (II_OBJ_FILTER supported) |
+
+| Variable at BP2 (CM00L:545) | Value |
+|---|---|
+| `II_OBJ_FILTER` (class) | `ZCL_ABAPGIT_OBJECT_FILTER_OBJ` |
+| `LT_UPDATED_FILES[1]` | `/.abapgit.xml` (from deserialize_dot_abapgit) |
+
+**Verified breakpoint locations** (assembled-source global line numbers, confirmed accepted by ADT):
+
+| Location | Command |
+|---|---|
+| Before DESERIALIZE call | `debug set --objects ZCL_ABGAGT_AGENT:207` (create_new_log) |
+| abapGit DESERIALIZE entry | `debug set --objects ZCL_ABAPGIT_REPO:545` (deserialize_objects call) |
+| abapGit objects pipeline entry | `debug set --objects ZCL_ABAPGIT_OBJECTS:<CM00A first exec line>` |
+
+> **Note**: The EZABAPGIT lock is acquired during `build_file_entries_from_remote()` and released
+> inside `find_remote_dot_abapgit()` via `COMMIT WORK AND WAIT` — i.e., the lock is released before
+> BP2 fires. There is no active lock between BP1 and the end of CM00L.
+
+### Known Limitations and Planned Improvements
+
+The following issues were identified during a live debugging session (2026-03) and should be fixed to make future debugging easier:
+
+#### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
+
+**Fixed**: `view --full --lines` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. Method headers show the ready-to-use `debug set --objects CLASS:G` command pointing to the first executable statement. `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers.
+
+Global line numbers are computed **client-side** in Node.js, not in ABAP:
+- **Own classes** (local `.clas.abap` file exists): reads the local file — guaranteed exact match with ADT
+- **Library classes** (no local file, e.g. abapGit): fetches assembled source from `/sap/bc/adt/oo/classes/<name>/source/main`
+
+Both strategies scan for `METHOD <name>.` as the first token on the line to find `global_start`. The method header hint automatically points to the **first executable statement** (skipping the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations) so it can be used directly without adjustment.
+
+#### ~~2. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
+
+**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full --lines` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
+
+#### ~~3. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
+
+**Fixed**: Step 3 of the debug guide now documents the two possible return values of `step --type continue` and includes the re-attach pattern for when the program hits a second breakpoint instead of finishing.
