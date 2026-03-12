@@ -178,7 +178,18 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       lv_remainder = lv_quotient MOD 36.
       lv_quotient  = lv_quotient DIV 36.
       IF lv_remainder < 10.
-        lv_digits = CONV string( lv_remainder ) && lv_digits.
+        CASE lv_remainder.
+          WHEN 0. lv_digits = '0' && lv_digits.
+          WHEN 1. lv_digits = '1' && lv_digits.
+          WHEN 2. lv_digits = '2' && lv_digits.
+          WHEN 3. lv_digits = '3' && lv_digits.
+          WHEN 4. lv_digits = '4' && lv_digits.
+          WHEN 5. lv_digits = '5' && lv_digits.
+          WHEN 6. lv_digits = '6' && lv_digits.
+          WHEN 7. lv_digits = '7' && lv_digits.
+          WHEN 8. lv_digits = '8' && lv_digits.
+          WHEN 9. lv_digits = '9' && lv_digits.
+        ENDCASE.
       ELSE.
         lv_val = lv_remainder - 10.
         CASE lv_val.
