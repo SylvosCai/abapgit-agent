@@ -77,8 +77,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       DATA: ls_section     TYPE zcl_abgagt_command_view=>ty_section,
             lv_pubsec      TYPE program,
             lv_cm_suffix   TYPE string,
-            lv_include_pad TYPE program,
-            lv_global_line TYPE i VALUE 1.
+            lv_include_pad TYPE program.
 
       " Build padded class name prefix (30 chars) for direct include reads
       DATA lv_pad30 TYPE program.
@@ -87,81 +86,158 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         lv_pad30 = lv_pad30 && '='.
       ENDWHILE.
 
+      " Read the CS include (complete assembled source as served by ADT).
+      " This is the ground truth for global line numbers.
+      DATA lt_cs_source TYPE string_table.
+      DATA lv_cs_available TYPE abap_bool VALUE abap_false.
+      lv_prog = lv_pad30 && 'CS'.
+      READ REPORT lv_prog INTO lt_cs_source.
+      IF sy-subrc = 0.
+        lv_cs_available = abap_true.
+      ENDIF.
+      " lv_cs_pos tracks our current scan position within the assembled source
+      DATA lv_cs_pos TYPE i VALUE 1.
+      DATA lv_search_line TYPE string.
+      DATA lv_found_pos   TYPE i.
+
       " --- Definition sections: CU (public), CO (protected), CP (private) ---
       " For CU use cl_oo_classname_service as before; CO and CP via padded include names
       CALL METHOD cl_oo_classname_service=>get_pubsec_name
         EXPORTING  clsname = lv_clsname
         RECEIVING  result  = lv_pubsec.
 
-      " Public section (CU)
+      " Public section (CU): always starts at global line 1
       CLEAR ls_section.
       ls_section-suffix       = 'CU'.
       ls_section-description  = 'Public Section'.
-      ls_section-global_start = lv_global_line.
+      ls_section-global_start = 1.
+      CLEAR lt_source.
       READ REPORT lv_pubsec INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      lv_global_line = lv_global_line + lines( ls_section-lines ).
+      " Advance CS scan position past CU content (READ REPORT trims trailing blanks,
+      " so scan past known lines and then skip any trailing blanks in CS)
+      lv_cs_pos = lv_cs_pos + lines( lt_source ).
+      " Skip trailing blank lines in CS that belong to CU
+      WHILE lv_cs_pos <= lines( lt_cs_source ).
+        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
+          lv_cs_pos = lv_cs_pos + 1.
+        ELSE.
+          EXIT.
+        ENDIF.
+      ENDWHILE.
       APPEND ls_section TO rs_info-sections.
 
-      " Protected section (CO)
+      " Protected section (CO): global_start = current CS scan position
       CLEAR ls_section.
       ls_section-suffix       = 'CO'.
       ls_section-description  = 'Protected Section'.
-      ls_section-global_start = lv_global_line.
+      ls_section-global_start = lv_cs_pos.
       lv_prog = lv_pad30 && 'CO'.
+      CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      lv_global_line = lv_global_line + lines( ls_section-lines ).
+      lv_cs_pos = lv_cs_pos + lines( lt_source ).
+      WHILE lv_cs_pos <= lines( lt_cs_source ).
+        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
+          lv_cs_pos = lv_cs_pos + 1.
+        ELSE.
+          EXIT.
+        ENDIF.
+      ENDWHILE.
       APPEND ls_section TO rs_info-sections.
 
-      " Private section (CP)
+      " Private section (CP): global_start = current CS scan position
       CLEAR ls_section.
       ls_section-suffix       = 'CP'.
       ls_section-description  = 'Private Section'.
-      ls_section-global_start = lv_global_line.
+      ls_section-global_start = lv_cs_pos.
       lv_prog = lv_pad30 && 'CP'.
+      CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      lv_global_line = lv_global_line + lines( ls_section-lines ).
+      lv_cs_pos = lv_cs_pos + lines( lt_source ).
+      " Skip trailing blank lines of CP in CS (these precede the CLASS IMPLEMENTATION. line)
+      WHILE lv_cs_pos <= lines( lt_cs_source ).
+        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
+          lv_cs_pos = lv_cs_pos + 1.
+        ELSE.
+          EXIT.
+        ENDIF.
+      ENDWHILE.
       APPEND ls_section TO rs_info-sections.
 
-      " Implementation wrapper between definition and first method:
-      " blank line + CLASS ... IMPLEMENTATION. + blank line = 3 extra lines
-      lv_global_line = lv_global_line + 3.
+      " Advance past the implementation wrapper in CS.
+      " The assembled source has:
+      "   CLASS <clsname> IMPLEMENTATION.   ← one line
+      "   (blank line)                       ← one line
+      " We scan forward past lines until we hit METHOD (the first method line)
+      " or exhaust CS. We skip lines that are NOT method implementations.
+      WHILE lv_cs_pos <= lines( lt_cs_source ).
+        lv_search_line = lt_cs_source[ lv_cs_pos ].
+        " A method implementation block starts with "METHOD " (case-insensitive)
+        IF lv_search_line CS 'METHOD ' OR lv_search_line CS 'method '.
+          EXIT.
+        ENDIF.
+        lv_cs_pos = lv_cs_pos + 1.
+      ENDWHILE.
 
       SELECT methodname, methodindx FROM tmdir
         INTO TABLE @DATA(lt_methods)
         WHERE classname = @lv_clsname
         ORDER BY methodindx.
 
-      DATA lv_first_cm TYPE abap_bool VALUE abap_true.
       LOOP AT lt_methods INTO DATA(ls_method).
-        " Between CM methods there is 1 blank separator line (ENDMETHOD. then blank then METHOD)
-        IF lv_first_cm = abap_false.
-          lv_global_line = lv_global_line + 1.
-        ENDIF.
-        lv_first_cm = abap_false.
-
         lv_cm_suffix = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
+
+        " Scan CS forward to find the METHOD line for this method.
+        " The CM include begins exactly at the METHOD statement.
+        DATA lv_method_upper TYPE string.
+        lv_method_upper = to_upper( ls_method-methodname ).
+        lv_found_pos = 0.
+        DATA lv_scan TYPE i.
+        lv_scan = lv_cs_pos.
+        WHILE lv_scan <= lines( lt_cs_source ).
+          lv_search_line = to_upper( lt_cs_source[ lv_scan ] ).
+          IF lv_search_line CS 'METHOD' AND lv_search_line CS lv_method_upper.
+            lv_found_pos = lv_scan.
+            EXIT.
+          ENDIF.
+          lv_scan = lv_scan + 1.
+        ENDWHILE.
+        IF lv_found_pos > 0.
+          lv_cs_pos = lv_found_pos.
+        ENDIF.
 
         CLEAR ls_section.
         ls_section-suffix       = lv_cm_suffix.
         ls_section-description  = 'Class Method'.
         ls_section-method_name  = CONV string( ls_method-methodname ).
-        ls_section-global_start = lv_global_line.
+        ls_section-global_start = lv_cs_pos.
         lv_prog = lv_include_pad.
+        CLEAR lt_source.
         READ REPORT lv_prog INTO lt_source.
         IF sy-subrc = 0.
           ls_section-lines = lt_source.
         ENDIF.
-        lv_global_line = lv_global_line + lines( ls_section-lines ).
+        " Advance CS past this method's content (include lines + trailing blanks/ENDMETHOD)
+        lv_cs_pos = lv_cs_pos + lines( lt_source ).
+        " Skip trailing blank lines / ENDMETHOD line in CS before the next METHOD
+        WHILE lv_cs_pos <= lines( lt_cs_source ).
+          lv_search_line = to_upper( lt_cs_source[ lv_cs_pos ] ).
+          IF lv_search_line CS 'METHOD '.
+            EXIT.
+          ELSEIF lv_search_line CS 'ENDCLASS'.
+            EXIT.
+          ENDIF.
+          lv_cs_pos = lv_cs_pos + 1.
+        ENDWHILE.
         APPEND ls_section TO rs_info-sections.
       ENDLOOP.
 
@@ -173,6 +249,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ls_section-description = 'Local Definitions'.
       ls_section-file        = 'locals_def'.
       lv_prog = lv_pad30 && 'CCDEF'.
+      CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
@@ -184,6 +261,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ls_section-description = 'Local Implementations'.
       ls_section-file        = 'locals_imp'.
       lv_prog = lv_pad30 && 'CCIMP'.
+      CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
@@ -195,6 +273,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ls_section-description = 'Unit Test'.
       ls_section-file        = 'testclasses'.
       lv_prog = lv_pad30 && 'CCAU'.
+      CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
