@@ -293,5 +293,5 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 
 ## Known Limitations
 
-- Breakpoints fire only for dialog requests by the configured user — any synchronous REST call to the ABAP backend triggers the listener; `syntax` (parses locally) and `pull` (runs as a background job) do not
+- Breakpoints fire only for dialog work processes executing under the configured user
 - The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement
