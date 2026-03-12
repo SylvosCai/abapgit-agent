@@ -298,55 +298,63 @@ Use `debug` when:
 
 **Step 1 — set a breakpoint** on the first executable statement you want to inspect:
 
-Use `view --objects ZCL_MY_CLASS --full` to see the full source with **include-relative line numbers** before picking a line:
+Use `view --objects ZCL_MY_CLASS --full` to see the full source with **both** global assembled-source line numbers and include-relative `[N]` numbers:
 
 ```bash
 abapgit-agent view --objects ZCL_MY_CLASS --full
 ```
 
-Each method section shows include-relative `[N]` line numbers that restart at 1. The method header shows the ready-to-use `debug set` command:
+Each line is shown as `G [N]  code` where:
+- **G** = assembled-source global line → use with `debug set --objects CLASS:G` or `debug set --files src/cls.clas.abap:G`
+- **[N]** = include-relative (restarts at 1 per method) → for code navigation only, not for breakpoints
+
+The method header shows the ready-to-use `debug set` command using the global line:
 
 ```
    1  CLASS zcl_my_class DEFINITION.
    2    PUBLIC SECTION.
    3  ENDCLASS.
-  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS=============CM002:N ----
-[  1]  METHOD execute.
-[  2]    DATA lv_x TYPE i.
-[  3]    lv_x = 1.
-[  4]  ENDMETHOD.
+  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:7 ----
+   7 [  1]  METHOD execute.
+   8 [  2]    DATA lv_x TYPE i.
+   9 [  3]    lv_x = 1.
+  10 [  4]  ENDMETHOD.
 ```
 
-To set a breakpoint at include-relative line `[  3]` in method EXECUTE:
+**Two scenarios:**
+
+| Scenario | Command |
+|---|---|
+| Source available locally (your own classes) | `debug set --files src/zcl_my_class.clas.abap:9` |
+| No local source (abapGit library, SAP standard) | `debug set --objects ZCL_MY_CLASS:9` |
+
+Both use the same assembled-source global line number **G** shown in the output. To set a breakpoint at `lv_x = 1.` (global line 9):
 ```bash
-abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3
+# With local file:
+abapgit-agent debug set --files src/zcl_my_class.clas.abap:9
+# Without local file:
+abapgit-agent debug set --objects ZCL_MY_CLASS:9
 abapgit-agent debug list    # confirm it was registered
 ```
-
-The include name format is: class name padded to 30 chars with `=`, then the CM suffix shown in the header.
-
-> **Note:** The `--objects ZCL_MY_CLASS:N` form (plain object name + line number) uses ADT's
-> assembled-source line numbering, which may differ from the `[N]` numbers shown by `view --full`
-> for large classes. Prefer the `=====CMxxx:N` include form — it is always exact.
 
 > **Line number must point to an executable statement.** Two common mistakes when reading `view --full` output:
 >
 > 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
 >    Pick the next non-comment line instead.
 >    ```
->    653  [ 70]    " --- Conflict detection ---   ← NOT valid (comment)
->    654  [ 71]    " Build remote file entries…   ← NOT valid (comment)
->    656  [ 73]    DATA(lt_file_entries) = …      ← valid ✅
+>     95 [ 70]    " --- Conflict detection ---   ← NOT valid (comment)
+>     96 [ 71]    " Build remote file entries…   ← NOT valid (comment)
+>     97 [ 73]    DATA(lt_file_entries) = …      ← valid ✅ (use global 97)
 >    ```
 >
 > 2. **First line of a multi-line inline `DATA(x) = call(`** — the ABAP debugger treats the
 >    `DATA(x) =` line as a declaration, not an executable step. Set the breakpoint on the
 >    **next standalone executable statement** after the closing `).` instead.
 >    ```
->    675  [ 92]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
->    676  [ 93]      it_files = it_files                           ← NOT valid (continuation)
->    679  [ 96]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
->    681  [ 98]    mo_repo->create_new_log( ).                     ← valid ✅
+>    100 [ 92]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
+>    101 [ 93]      it_files = it_files                           ← NOT valid (continuation)
+>    104 [ 96]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
+>    106 [ 98]    mo_repo->create_new_log( ).                     ← valid ✅ (use global 106)
 >    ```
 >
 > Other non-executable lines: blank lines, `METHOD`/`ENDMETHOD`, `DATA:` declarations,
@@ -494,11 +502,11 @@ The following issues were identified during a live debugging session (2026-03) a
 
 #### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
 
-**Fixed**: Global line numbers removed from `view --full` output. Each CM method section now shows only the include-relative `[N]` line numbers, and the method header includes the exact `debug set --objects =====CMxxx:N` command to use.
+**Fixed**: `view --full` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. The ABAP backend computes `global_start` for each section and returns it in the response. Method headers now show the ready-to-use `debug set --objects CLASS:G` command using the actual global start line.
 
-#### ~~2. Include-relative breakpoint form is not implemented in the CLI~~ ✅ Fixed
+#### ~~2. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
 
-**Fixed**: `objectUri()` in `src/commands/debug.js` now detects names matching `=+CM[0-9A-Z]+$` (class name padded with `=` followed by a CM suffix) and routes them to `/sap/bc/adt/programs/includes/<name_lowercase>` instead of the class URI. The include form `--objects ZCL_MY_CLASS=============CM002:3` now works correctly.
+**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
 
 #### ~~3. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
 

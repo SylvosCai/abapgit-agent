@@ -357,7 +357,7 @@ describe('View Command - CLI Output Format', () => {
     expect(output).toMatch(/Error:|Failed/i);
   });
 
-  test('--full output renders include-relative line numbers for CM sections', async () => {
+  test('--full output renders dual line numbers (global + include-relative) for CM sections', async () => {
     const viewCommand = require('../../src/commands/view');
 
     const mockContext = {
@@ -374,9 +374,9 @@ describe('View Command - CLI Output Format', () => {
             description: 'Class ZCL_MY_CLASS in $PACKAGE',
             not_found: false,
             sections: [
-              { suffix: 'CU', description: 'Public Section', lines: ['CLASS zcl_my_class DEFINITION.', '  PUBLIC SECTION.', 'ENDCLASS.'] },
-              { suffix: 'CM001', description: 'Class Method', method_name: 'CONSTRUCTOR', lines: ['METHOD constructor.', '  mv_x = 1.', 'ENDMETHOD.'] },
-              { suffix: 'CM002', description: 'Class Method', method_name: 'EXECUTE', lines: ['METHOD execute.', '  RETURN.', 'ENDMETHOD.'] }
+              { suffix: 'CU', description: 'Public Section', global_start: 1, lines: ['CLASS zcl_my_class DEFINITION.', '  PUBLIC SECTION.', 'ENDCLASS.'] },
+              { suffix: 'CM001', description: 'Class Method', method_name: 'CONSTRUCTOR', global_start: 7, lines: ['METHOD constructor.', '  mv_x = 1.', 'ENDMETHOD.'] },
+              { suffix: 'CM002', description: 'Class Method', method_name: 'EXECUTE', global_start: 11, lines: ['METHOD execute.', '  RETURN.', 'ENDMETHOD.'] }
             ]
           }],
           summary: { total: 1 }
@@ -388,21 +388,20 @@ describe('View Command - CLI Output Format', () => {
 
     const output = consoleOutput.join('\n');
 
-    // No global line numbers — only include-relative [N] for CM sections
-    // CU section: plain line numbers (no brackets)
+    // CU section: global line numbers (global_start=1, so lines 1,2,3)
     expect(output).toMatch(/^\s+1\s+CLASS zcl_my_class/m);
     expect(output).toMatch(/^\s+3\s+ENDCLASS/m);
 
-    // Method header contains CM suffix and ready-to-use debug set hint
-    expect(output).toMatch(/CONSTRUCTOR.*CM001.*debug set.*ZCL_MY_CLASS/);
-    expect(output).toMatch(/EXECUTE.*CM002.*debug set.*ZCL_MY_CLASS/);
+    // Method header contains CM suffix and ready-to-use debug set --objects hint with global_start line
+    expect(output).toMatch(/CONSTRUCTOR.*CM001.*debug set.*ZCL_MY_CLASS:7/);
+    expect(output).toMatch(/EXECUTE.*CM002.*debug set.*ZCL_MY_CLASS:11/);
 
-    // CM001 lines: include-relative [N] only — no leading global number
-    expect(output).toMatch(/^\s+\[\s*1\]\s+METHOD constructor/m);
-    expect(output).toMatch(/^\s+\[\s*3\]\s+ENDMETHOD/m);
+    // CM001 lines: global G [N] dual format — global_start=7 so global lines 7,8,9
+    expect(output).toMatch(/^\s+7\s+\[\s*1\]\s+METHOD constructor/m);
+    expect(output).toMatch(/^\s+9\s+\[\s*3\]\s+ENDMETHOD/m);
 
-    // CM002 include-relative restarts at 1
-    expect(output).toMatch(/^\s+\[\s*1\]\s+METHOD execute/m);
+    // CM002 include-relative restarts at 1, global starts at 11
+    expect(output).toMatch(/^\s+11\s+\[\s*1\]\s+METHOD execute/m);
 
     // No "global line N" text in method headers
     expect(output).not.toMatch(/global line \d+/);
@@ -475,7 +474,7 @@ describe('View Command - CLI Output Format', () => {
             description: 'Interface',
             not_found: false,
             sections: [
-              { suffix: 'IU', description: 'Interface Section', lines: ['INTERFACE zif_my_intf PUBLIC.', '  METHODS do_it.', 'ENDINTERFACE.'] }
+              { suffix: 'IU', description: 'Interface Section', global_start: 1, lines: ['INTERFACE zif_my_intf PUBLIC.', '  METHODS do_it.', 'ENDINTERFACE.'] }
             ]
           }],
           summary: { total: 1 }

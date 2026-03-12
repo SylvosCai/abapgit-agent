@@ -74,10 +74,11 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ENDLOOP.
     ELSE.
       " Full mode: assemble all sections into rs_info-sections
-      DATA: ls_section    TYPE zcl_abgagt_command_view=>ty_section,
-            lv_pubsec     TYPE program,
-            lv_cm_suffix  TYPE string,
-            lv_include_pad TYPE program.
+      DATA: ls_section     TYPE zcl_abgagt_command_view=>ty_section,
+            lv_pubsec      TYPE program,
+            lv_cm_suffix   TYPE string,
+            lv_include_pad TYPE program,
+            lv_global_line TYPE i VALUE 1.
 
       " Build padded class name prefix (30 chars) for direct include reads
       DATA lv_pad30 TYPE program.
@@ -94,58 +95,79 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
       " Public section (CU)
       CLEAR ls_section.
-      ls_section-suffix      = 'CU'.
-      ls_section-description = 'Public Section'.
+      ls_section-suffix       = 'CU'.
+      ls_section-description  = 'Public Section'.
+      ls_section-global_start = lv_global_line.
       READ REPORT lv_pubsec INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
+      lv_global_line = lv_global_line + lines( ls_section-lines ).
       APPEND ls_section TO rs_info-sections.
 
       " Protected section (CO)
       CLEAR ls_section.
-      ls_section-suffix      = 'CO'.
-      ls_section-description = 'Protected Section'.
+      ls_section-suffix       = 'CO'.
+      ls_section-description  = 'Protected Section'.
+      ls_section-global_start = lv_global_line.
       lv_prog = lv_pad30 && 'CO'.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
+      lv_global_line = lv_global_line + lines( ls_section-lines ).
       APPEND ls_section TO rs_info-sections.
 
       " Private section (CP)
       CLEAR ls_section.
-      ls_section-suffix      = 'CP'.
-      ls_section-description = 'Private Section'.
+      ls_section-suffix       = 'CP'.
+      ls_section-description  = 'Private Section'.
+      ls_section-global_start = lv_global_line.
       lv_prog = lv_pad30 && 'CP'.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
+      lv_global_line = lv_global_line + lines( ls_section-lines ).
       APPEND ls_section TO rs_info-sections.
+
+      " Implementation wrapper between definition and first method:
+      " blank line + CLASS ... IMPLEMENTATION. + blank line = 3 extra lines
+      lv_global_line = lv_global_line + 3.
 
       SELECT methodname, methodindx FROM tmdir
         INTO TABLE @DATA(lt_methods)
         WHERE classname = @lv_clsname
         ORDER BY methodindx.
 
+      DATA lv_first_cm TYPE abap_bool VALUE abap_true.
       LOOP AT lt_methods INTO DATA(ls_method).
+        " Between CM methods there is 1 blank separator line (ENDMETHOD. then blank then METHOD)
+        IF lv_first_cm = abap_false.
+          lv_global_line = lv_global_line + 1.
+        ENDIF.
+        lv_first_cm = abap_false.
+
         lv_cm_suffix = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
         CLEAR ls_section.
-        ls_section-suffix      = lv_cm_suffix.
-        ls_section-description = 'Class Method'.
-        ls_section-method_name = CONV string( ls_method-methodname ).
+        ls_section-suffix       = lv_cm_suffix.
+        ls_section-description  = 'Class Method'.
+        ls_section-method_name  = CONV string( ls_method-methodname ).
+        ls_section-global_start = lv_global_line.
         lv_prog = lv_include_pad.
         READ REPORT lv_prog INTO lt_source.
         IF sy-subrc = 0.
           ls_section-lines = lt_source.
         ENDIF.
+        lv_global_line = lv_global_line + lines( ls_section-lines ).
         APPEND ls_section TO rs_info-sections.
       ENDLOOP.
 
       " --- Auxiliary sections: CCDEF, CCIMP, CCAU ---
+      " These live in separate git files and are not part of the assembled source.
+      " global_start = 0 signals that global line numbers are not applicable.
       CLEAR ls_section.
       ls_section-suffix      = 'CCDEF'.
       ls_section-description = 'Local Definitions'.

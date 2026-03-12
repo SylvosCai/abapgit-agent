@@ -94,23 +94,25 @@ module.exports = {
         const sections = obj.SECTIONS || obj.sections || [];
 
         if (sections.length > 0) {
-          // --full mode: render with include-relative line numbers only.
-          // Global line numbers are NOT shown — they do not match ADT's line
-          // numbering and lead to breakpoints landing in the wrong method.
-          // Use the include-relative [N] number with the CM suffix form:
-          //   debug set --objects CLASSNAME=============CMxxx:N
+          // --full mode: dual line numbers per line.
+          // G  = assembled-source global line → use with: debug set --objects CLASS:G
+          //                                     or with:  debug set --files src/cls.clas.abap:G
+          // [N] = include-relative (restarts at 1 per CM method) — for code navigation only.
+          // Both numbers come from the ABAP backend: global_start + include_relative - 1.
           console.log('');
           for (const section of sections) {
             const suffix = section.SUFFIX || section.suffix || '';
             const methodName = section.METHOD_NAME || section.method_name || '';
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
+            const globalStart = section.GLOBAL_START || section.global_start || 0;
             const isCmSection = suffix.startsWith('CM') && methodName;
-            // Pad object name to 30 chars for the include breakpoint form
-            const padded = objName.padEnd(30, '=');
 
             if (isCmSection) {
-              console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: debug set --objects ${padded}${suffix}:N ----`);
+              const bpHint = globalStart
+                ? `debug set --objects ${objName}:${globalStart}`
+                : `debug set --objects ${objName}:<global_line>`;
+              console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
             } else if (file) {
               console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
             } else if (suffix && !isCmSection) {
@@ -120,11 +122,13 @@ module.exports = {
             let includeRelLine = 0;
             for (const codeLine of lines) {
               includeRelLine++;
+              const globalLine = globalStart ? globalStart + includeRelLine - 1 : 0;
               if (isCmSection) {
+                const gStr = globalLine ? String(globalLine).padStart(4) : '    ';
                 const iStr = String(includeRelLine).padStart(3);
-                console.log(`  [${iStr}]  ${codeLine}`);
+                console.log(`  ${gStr} [${iStr}]  ${codeLine}`);
               } else {
-                const lStr = String(includeRelLine).padStart(4);
+                const lStr = globalLine ? String(globalLine).padStart(4) : String(includeRelLine).padStart(4);
                 console.log(`  ${lStr}  ${codeLine}`);
               }
             }

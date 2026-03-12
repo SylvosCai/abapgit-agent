@@ -75,11 +75,6 @@ function hasFlag(args, flag) {
 function objectUri(name) {
   const upper = (name || '').toUpperCase();
   const lower = upper.toLowerCase();
-  // Include form: name contains '=' padding followed by CM suffix
-  // e.g. ZCL_ABGAGT_AGENT=============CM00D or ZCL_ABGAGT_AGENT=======CM001
-  if (/=+CM[0-9A-Z]+$/.test(upper)) {
-    return `/sap/bc/adt/programs/includes/${lower}`;
-  }
   if (/^[ZY](CL|IF)_/.test(upper) || /^(ZCL|ZIF|YCL|YIF)/.test(upper)) {
     return `/sap/bc/adt/oo/classes/${lower}/source/main`;
   }
