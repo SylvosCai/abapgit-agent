@@ -69,22 +69,28 @@ When `attach --json` is called, a **background daemon** (`debug-daemon.js`) is s
 
 **Four best-practice rules for scripted use:**
 
-1. **Sleep 2s after `attach --json`** — gives the ADT listener POST time to register before the trigger fires
+1. **Wait for `"Listener active"` in the attach output** before firing the trigger — `attach --json` prints this marker to stderr the moment the long-poll POST is about to reach ADT. A blind `sleep` is not reliable under system load
 2. **Keep the trigger process alive in the background** for the entire debug session
 3. **Always finish with `step --type continue`** — releases the frozen ABAP work process
 4. **Never pass `--session`** to `step`/`vars`/`stack`/`terminate` — the active session and socket path are loaded automatically from the state file
 
 Example workflow:
 ```bash
-# Step 1 — start listener (rule 1: sleep 2 before firing trigger)
+# Step 1 — start listener (rule 1: wait for "Listener active" before firing trigger)
 abapgit-agent debug attach --json > /tmp/attach.out 2>&1 &
-sleep 2
+until grep -q "Listener active" /tmp/attach.out 2>/dev/null; do sleep 0.3; done
+sleep 1   # brief extra window for the POST to reach ADT
 
 # Step 2 — fire trigger, keep alive (rule 2)
 abapgit-agent inspect --files abap/zcl_my_class.clas.abap > /tmp/trigger.out 2>&1 &
 
 # Step 3 — poll for {"session":...}
-SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach.out | head -1 | cut -d'"' -f4)
+SESSION=""
+for i in $(seq 1 30); do
+  sleep 0.5
+  SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach.out 2>/dev/null | head -1 | cut -d'"' -f4)
+  [ -n "$SESSION" ] && break
+done
 
 # Step 4 — use debug commands (no --session needed — rule 4)
 abapgit-agent debug stack --json
@@ -288,4 +294,4 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 ## Known Limitations
 
 - Breakpoints fire only for dialog requests by the configured user — to trigger via `abapgit-agent`, use commands that issue synchronous REST calls to the ABAP backend: `view`, `preview`, `where`, `inspect` (not `syntax` which parses locally, and not `unit`/`pull` which run as background jobs)
-- The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position"
+- The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement

@@ -55,9 +55,12 @@ abapgit-agent view --objects ZCL_MY_CLASS=============CCAU
 # View program source
 abapgit-agent view --objects ZMY_PROGRAM --type PROG
 
-# View FULL source (definition + all method implementations) with dual line numbers
-# Use this for AI-assisted debugging — see line number details below
+# View with FULL source (all sections, clean readable code)
+# Use this to read and understand logic, or for AI code analysis
 abapgit-agent view --objects ZCL_MY_CLASS --full
+
+# View FULL source with dual line numbers (for setting breakpoints / debugging)
+abapgit-agent view --objects ZCL_MY_CLASS --full --lines
 
 # Lowercase names and types are supported
 abapgit-agent view --objects zcl_my_class --type clas
@@ -67,6 +70,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 
 # Full source as JSON (clean sections array, no pre-rendered numbers)
 abapgit-agent view --objects ZCL_MY_CLASS --full --json
+abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 ```
 
 ## Prerequisite
@@ -80,7 +84,8 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --json
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
 | `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG). Auto-detected from TADIR if not specified |
-| `--full` | No | For CLAS: return all sections (definition + all method implementations) with dual line numbers. For INTF/PROG/DDLS: return source with global line numbers |
+| `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections. For INTF/PROG/DDLS: shows full source |
+| `--lines` | No | Add dual line numbers to `--full` output: `G [N]  code` where G is assembled-source global line and [N] is include-relative. Also adds breakpoint hints to method headers. Only meaningful with `--full` |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -120,50 +125,84 @@ GET /health (with X-CSRF-Token: fetch)
 
 ## Output
 
-### Class Definition with Full Source (`--full`)
+### Class Full Source (`--full`)
 
-When `--full` is specified for a class, the output shows the complete assembled source with **dual line numbers**:
-
-- **Global line** (left, no brackets): matches the local `.clas.abap` file line count → use with `--files src/zcl_foo.clas.abap:N` or `--objects ZCL_FOO:N`
-- **Include-relative `[N]`**: restarts at 1 for each method → use with `--objects ZCL_FOO=============CM002:N`
-- **Method header comments**: show method name, CM code, and the global line where the include starts
+When `--full` is specified for a class, the output shows all sections (definition + all method implementations) as clean readable source:
 
 ```
-   1    CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
-   2      PUBLIC SECTION.
-   3        METHODS:
-   4          constructor
-   5            IMPORTING iv_host TYPE string,
-   6          execute RETURNING VALUE(rv_result) TYPE string.
-   7      PROTECTED SECTION.
-   8      PRIVATE SECTION.
-   9        DATA mv_host TYPE string.
-  10    ENDCLASS.
-  11
-  12    CLASS zcl_my_class IMPLEMENTATION.
-  13  * ---- Method: CONSTRUCTOR (CM001) [include line: 1 = global line 13] ----
-  14  [  1]  METHOD constructor.
-  15  [  2]    mv_host = iv_host.
-  16  [  3]  ENDMETHOD.
-  17  * ---- Method: EXECUTE (CM002) [include line: 1 = global line 17] ----
-  18  [  1]  METHOD execute.
-  19  [  2]    DATA lv_x TYPE i.
-  20  [  3]    lv_x = 1.
-  21  [  4]    rv_result = CONV string( lv_x ).
-  22  [  5]  ENDMETHOD.
-  23    ENDCLASS.
+  * ---- Section: Public Section (CU) ----
+  CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
+    PUBLIC SECTION.
+      METHODS:
+        constructor IMPORTING iv_host TYPE string,
+        execute RETURNING VALUE(rv_result) TYPE string.
+    PRIVATE SECTION.
+      DATA mv_host TYPE string.
+  ENDCLASS.
+
+  * ---- Section: Protected Section (CO) ----
+  ...
+  * ---- Section: Private Section (CP) ----
+  ...
+  * ---- Method: CONSTRUCTOR (CM001) ----
+  METHOD constructor.
+    mv_host = iv_host.
+  ENDMETHOD.
+  * ---- Method: EXECUTE (CM002) ----
+  METHOD execute.
+    DATA lv_x TYPE i.
+    lv_x = 1.
+    rv_result = CONV string( lv_x ).
+  ENDMETHOD.
+  * ---- Section: Local Definitions (from .clas.locals_def.abap) ----
+  ...
+  * ---- Section: Unit Test (from .clas.testclasses.abap) ----
+  ...
 ```
 
-Non-CLAS types (INTF, PROG, DDLS): global line numbers only (no `[N]` brackets, since there is no include split).
+### Class Full Source with Line Numbers (`--full --lines`)
 
-#### Using Dual Line Numbers for Breakpoints
+Adding `--lines` renders dual line numbers on every line and adds a ready-to-use breakpoint hint to each method header:
 
-From the `--full` output you can set breakpoints using either form:
+- **G** (left, no brackets): assembled-source global line → use directly with `debug set --objects ZCL_FOO:G` or `debug set --files src/zcl_foo.clas.abap:G`
+- **[N]** (brackets): include-relative, restarts at 1 per method — useful for code navigation only
+- **Method header hint**: automatically points to the first executable statement (skips `METHOD`, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations)
 
-| Line reference | Breakpoint command | ADT coordinate system |
-|---|---|---|
-| Global line 20 (no brackets) | `debug set --objects ZCL_MY_CLASS:20` | Assembled source |
-| Include-relative `[  3]` in CM002 | `debug set --objects ZCL_MY_CLASS=============CM002:3` | Include-relative |
+```
+  * ---- Section: Public Section (CU) ----
+     1    CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
+     2      PUBLIC SECTION.
+  ...
+  * ---- Method: CONSTRUCTOR (CM001) — breakpoint: debug set --objects ZCL_MY_CLASS:14 ----
+    13 [  1]    METHOD constructor.
+    14 [  2]      mv_host = iv_host.
+    15 [  3]    ENDMETHOD.
+  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:19 ----
+    17 [  1]    METHOD execute.
+    18 [  2]      DATA lv_x TYPE i.
+    19 [  3]      lv_x = 1.
+    20 [  4]      rv_result = CONV string( lv_x ).
+    21 [  5]    ENDMETHOD.
+```
+
+**How global line numbers are computed:** Node.js reads the local `.clas.abap` file (own classes) or fetches `/sap/bc/adt/oo/classes/<name>/source/main` from ADT (library classes), then scans for `METHOD <name>.` to determine each method's start line.
+
+**Setting a breakpoint from the output:**
+
+```bash
+# Copy the hint directly from the method header — it already points to the first executable line
+abapgit-agent debug set --objects ZCL_MY_CLASS:19
+```
+
+Non-CLAS types (INTF, PROG, DDLS): single section, section-local line numbers only (no `[N]` brackets).
+
+#### Using `--full` vs `--full --lines`
+
+| Goal | Command |
+|---|---|
+| Read and understand class logic | `view --objects ZCL_MY_CLASS --full` |
+| Set a breakpoint in a method | `view --objects ZCL_MY_CLASS --full --lines` |
+| AI code analysis / review | `view --objects ZCL_MY_CLASS --full` |
 
 ### Class Definition (default, public section only)
 
@@ -503,8 +542,11 @@ The `FILE` field (when present) signals that the section comes from a separate g
 # View a class definition (public section)
 abapgit-agent view --objects ZCL_ABGAGT_AGENT
 
-# View FULL class source with dual line numbers (for debugging)
+# View FULL class source — clean, all sections (for reading / AI analysis)
 abapgit-agent view --objects ZCL_ABGAGT_AGENT --full
+
+# View FULL class source with line numbers (for setting breakpoints)
+abapgit-agent view --objects ZCL_ABGAGT_AGENT --full --lines
 
 # View interface
 abapgit-agent view --objects ZIF_ABGAGT_COMMAND
