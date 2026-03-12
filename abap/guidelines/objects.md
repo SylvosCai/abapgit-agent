@@ -8,6 +8,9 @@ grand_parent: ABAP Development
 
 # ABAP Object Naming Conventions
 
+> **Project-specific overrides**: Add your naming conventions to `guidelines/objects.local.md`.
+> That file is never overwritten by `abapgit-agent init --update` and is searched by the `ref` command.
+
 **Searchable keywords**: naming convention, Z prefix, namespace, object type, CLAS, INTF, PROG, TABL, DDLS
 
 ## TOPICS IN THIS FILE

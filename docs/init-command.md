@@ -125,7 +125,37 @@ cp /path/to/abapgit-agent/abap/CLAUDE.md .
 | `.abapGitAgent` | Configuration (user must edit host, user, password, gitUsername, gitPassword) |
 | `.gitignore` | Updated with sensitive files |
 | `CLAUDE.md` | ABAP coding guidelines |
+| `guidelines/` | ABAP coding guidelines (searchable via `ref` command) |
+| `guidelines/objects.local.md` | Project naming conventions — **never overwritten** by `--update`, safe to customise |
 | `/src/` | Folder for ABAP source files |
+
+## Customising Guidelines
+
+Guidelines in `guidelines/` are overwritten by `init --update` to stay in sync with new abapgit-agent versions.
+
+To add project-specific content that **survives updates**, use `*.local.md` files:
+
+| File | Purpose |
+|---|---|
+| `guidelines/objects.local.md` | Project naming conventions (created automatically by `init`) |
+| `guidelines/my-topic.local.md` | Any other project-specific guideline |
+
+`*.local.md` files are:
+- Never overwritten by `init --update`
+- Automatically searched by the `ref` command
+- Safe to commit to your project repository
+
+**Example** — override naming conventions for a project using `Y` prefix:
+
+```markdown
+# Project Naming Conventions (Override)
+
+| Object Type | Prefix | Example |
+|---|---|---|
+| Class | YCL_ | YCL_MY_CLASS |
+| Interface | YIF_ | YIF_MY_INTERFACE |
+| CDS View | YC_ | YC_MY_VIEW |
+```
 
 ## .abapGitAgent Contents
 

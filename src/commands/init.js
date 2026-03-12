@@ -43,6 +43,11 @@ async function copyGuidelinesFolder(srcPath, destPath, overwrite = false) {
 
       for (const file of files) {
         if (file.endsWith('.md')) {
+          // Never overwrite *.local.md files — these are project-specific customisations
+          if (file.endsWith('.local.md')) {
+            continue;
+          }
+
           const srcFile = pathModule.join(srcPath, file);
           const destFile = pathModule.join(destPath, file);
 
@@ -395,6 +400,41 @@ Examples:
           console.log(`✅ Created guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
         } else {
           console.log(`⚠️  guidelines/ already exists, skipped`);
+        }
+
+        // Create objects.local.md stub if not already present
+        const localNamingPath = pathModule.join(guidelinesDestPath, 'objects.local.md');
+        if (!fs.existsSync(localNamingPath)) {
+          const localNamingStub = `---
+nav_order: 8
+---
+
+# Project Naming Conventions (Override)
+
+This file overrides \`guidelines/objects.md\` for this project.
+It is **never overwritten** by \`abapgit-agent init --update\` — safe to customise.
+
+Searched by the \`ref\` command alongside all other guidelines.
+
+## Naming Conventions
+
+Uncomment and edit the rows that differ from the defaults in \`guidelines/objects.md\`:
+
+| Object Type | Prefix | Example |
+|---|---|---|
+| Class | ZCL_ | ZCL_MY_CLASS |
+| Interface | ZIF_ | ZIF_MY_INTERFACE |
+| Program | Z | ZMY_PROGRAM |
+| Package | $ | $MY_PACKAGE |
+| Table | Z | ZMY_TABLE |
+| CDS View | ZC_ | ZC_MY_VIEW |
+| CDS Entity | ZE_ | ZE_MY_ENTITY |
+| Data Element | Z | ZMY_ELEMENT |
+| Structure | Z | ZMY_STRUCTURE |
+| Table Type | Z | ZMY_TABLE_TYPE |
+`;
+          fs.writeFileSync(localNamingPath, localNamingStub);
+          console.log(`✅ Created guidelines/objects.local.md (project naming conventions)`);
         }
       } else {
         console.log(`⚠️  guidelines folder not found in abap/ directory`);
