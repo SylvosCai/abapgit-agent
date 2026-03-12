@@ -357,6 +357,35 @@ async function cmdSet(args, config, adt) {
   });
   if (_saveBpState) _saveBpState(config, updatedWithServerIds);
 
+  // Immediately re-validate the newly added breakpoints: ADT accepts the POST
+  // with HTTP 200 even for invalid positions (e.g. comment lines), but then
+  // silently drops them.  Re-validating here gives immediate feedback instead
+  // of only discovering the failure on the next "debug list".
+  const addedBps = updatedWithServerIds.filter(bp =>
+    added.some(a => a.uri === bp.uri && a.line === bp.line)
+  );
+  const { stale: newlyStale } = await refreshBreakpoints(config, adt, addedBps);
+  if (newlyStale.length > 0) {
+    // Remove stale from state
+    const stillValid = updatedWithServerIds.filter(bp =>
+      !newlyStale.some(s => s.uri === bp.uri && s.line === bp.line)
+    );
+    if (_saveBpState) _saveBpState(config, stillValid);
+
+    if (jsonOutput) {
+      console.log(JSON.stringify({ error: 'Breakpoint not accepted by server', stale: newlyStale.map(b => ({ object: b.object, line: b.line, error: b.error })) }));
+    } else {
+      newlyStale.forEach(({ object, line, error }) => {
+        console.error(`\n  ❌ Breakpoint not accepted: ${object} line ${line}`);
+        console.error(`     Reason: ${error || 'Not registered on server'}`);
+        console.error(`     Tip: line must be an executable statement — not a comment, blank line,`);
+        console.error(`          DATA declaration, or continuation line of a multi-line call.\n`);
+      });
+      process.exit(1);
+    }
+    return;
+  }
+
   if (jsonOutput) {
     const out = added.map(a => {
       const sr = serverResults.find(r => r.uri === a.uri && r.line === a.line);
