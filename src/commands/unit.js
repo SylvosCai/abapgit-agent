@@ -4,11 +4,12 @@
 
 const pathModule = require('path');
 const fs = require('fs');
+const { formatHttpError } = require('../utils/format-error');
 
 /**
  * Run unit test for a single file
  */
-async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput = false) {
+async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput = false, verbose = false) {
   if (!jsonOutput) {
     console.log(`  Running unit test for: ${sourceFile}`);
   }
@@ -123,14 +124,12 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
     }
 
     if (!jsonOutput) {
-      console.error(`\n  ❌ Error: ${error.message}`);
-      if (error.statusCode) {
-        console.error(`     Status Code: ${error.statusCode}`);
-      }
-      if (error.body && typeof error.body === 'string') {
-        // Show first 500 chars of error body
-        const preview = error.body.substring(0, 500);
-        console.error(`     Response: ${preview}${error.body.length > 500 ? '...' : ''}`);
+      console.error(`\n  ❌ Error: ${formatHttpError(error)}`);
+      if (verbose && error.body) {
+        console.error('\n--- Raw response body ---');
+        const raw = typeof error.body === 'object' ? JSON.stringify(error.body, null, 2) : String(error.body);
+        console.error(raw);
+        console.error('--- End of response body ---');
       }
     }
 
@@ -148,6 +147,7 @@ module.exports = {
     const { loadConfig, AbapHttp } = context;
 
     const jsonOutput = args.includes('--json');
+    const verbose = args.includes('--verbose');
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
@@ -177,7 +177,7 @@ module.exports = {
     let hasErrors = false;
 
     for (const sourceFile of files) {
-      const result = await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput);
+      const result = await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput, verbose);
       if (result) {
         results.push(result);
 

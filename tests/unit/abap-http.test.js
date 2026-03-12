@@ -116,7 +116,7 @@ describe('AbapHttp Error Handling', () => {
 
       await expect(abapHttp._makeRequest('GET', '/test')).rejects.toMatchObject({
         statusCode: 500,
-        message: 'HTTP 500 error'
+        message: expect.stringContaining('(HTTP 500)')
       });
     });
 
@@ -142,7 +142,7 @@ describe('AbapHttp Error Handling', () => {
 
       await expect(abapHttp._makeRequest('GET', '/test')).rejects.toMatchObject({
         statusCode: 404,
-        message: 'HTTP 404 error'
+        message: expect.stringContaining('(HTTP 404)')
       });
     });
   });

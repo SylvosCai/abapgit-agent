@@ -2,6 +2,8 @@
  * Pull command - Pull and activate ABAP objects from git repository
  */
 
+const { printHttpError } = require('../utils/format-error');
+
 module.exports = {
   name: 'pull',
   description: 'Pull and activate ABAP objects from git repository',
@@ -10,6 +12,7 @@ module.exports = {
 
   async execute(args, context) {
     const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings, getTransportSettings } = context;
+    const verbose = args.includes('--verbose');
 
     // Check project-level safeguards
     const safeguards = getSafeguards();
@@ -404,7 +407,7 @@ module.exports = {
       if (error._isPullError) {
         throw error;
       }
-      console.error(`\n❌ Error: ${error.message}`);
+      printHttpError(error, { verbose });
       process.exit(1);
     }
   }

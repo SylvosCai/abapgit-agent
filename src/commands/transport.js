@@ -5,6 +5,7 @@
 const VALID_SCOPES = ['mine', 'task', 'all'];
 const VALID_SUBCOMMANDS = ['list', 'create', 'check', 'release'];
 const VALID_TYPES = ['workbench', 'customizing'];
+const { printHttpError } = require('../utils/format-error');
 
 module.exports = {
   name: 'transport',
@@ -16,6 +17,7 @@ module.exports = {
     const { loadConfig, AbapHttp, getTransportSettings } = context;
 
     const jsonOutput = args.includes('--json');
+    const verbose = args.includes('--verbose');
 
     // Determine subcommand (first positional arg, default to 'list')
     const subcommand = args[0] && !args[0].startsWith('-') ? args[0] : 'list';
@@ -65,7 +67,7 @@ module.exports = {
           break;
       }
     } catch (error) {
-      console.error(`❌ Error: ${error.message}`);
+      printHttpError(error, { verbose });
       process.exit(1);
     }
   },

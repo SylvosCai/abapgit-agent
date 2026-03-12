@@ -3,6 +3,7 @@
  */
 const https = require('https');
 const http = require('http');
+const { extractBodyDetail } = require('./format-error');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -269,9 +270,13 @@ class AbapHttp {
           let body = '';
           res.on('data', chunk => body += chunk);
           res.on('end', () => {
+            const detail = extractBodyDetail(body);
+            const message = detail
+              ? `(HTTP ${res.statusCode}) ${detail}`
+              : `(HTTP ${res.statusCode}) ${res.statusMessage || 'Internal Server Error'}`;
             reject({
               statusCode: res.statusCode,
-              message: `HTTP ${res.statusCode} error`,
+              message,
               body: body
             });
           });

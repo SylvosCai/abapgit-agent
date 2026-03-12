@@ -3,11 +3,12 @@
  */
 
 const pathModule = require('path');
+const { printHttpError } = require('../utils/format-error');
 
 /**
  * Inspect all files in one request
  */
-async function inspectAllFiles(files, csrfToken, config, variant, http) {
+async function inspectAllFiles(files, csrfToken, config, variant, http, verbose = false) {
   // Convert files to uppercase names
   const fileNames = files.map(f => {
     const baseName = pathModule.basename(f).toUpperCase();
@@ -45,7 +46,7 @@ async function inspectAllFiles(files, csrfToken, config, variant, http) {
 
     return results;
   } catch (error) {
-    console.error(`\n  Error: ${error.message}`);
+    printHttpError(error, { verbose });
     process.exit(1);
   }
 }
@@ -149,6 +150,7 @@ module.exports = {
     const { loadConfig, AbapHttp } = context;
 
     const jsonOutput = args.includes('--json');
+    const verbose = args.includes('--verbose');
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
@@ -178,7 +180,7 @@ module.exports = {
     const csrfToken = await http.fetchCsrfToken();
 
     // Send all files in one request
-    const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http);
+    const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http, verbose);
 
     // JSON output mode
     if (jsonOutput) {
