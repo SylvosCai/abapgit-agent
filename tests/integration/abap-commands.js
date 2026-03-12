@@ -6,7 +6,7 @@
  *
  * Test Distribution:
  *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
- *   - view:    4 tests (class, interface, table, class --full)
+ *   - view:    5 tests (class, interface, table, class --full, class --full --lines)
  *   - tree:    3 tests (package, depth, types)
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
@@ -21,7 +21,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
- *   Total:    59 tests
+ *   Total:    60 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -253,8 +253,23 @@ const commandTestCases = [
   },
   {
     command: 'view',
-    name: 'view class --full (sections with dual line numbers)',
+    name: 'view class --full (clean source without line numbers)',
     args: ['--objects', 'ZCL_ABGAGT_AGENT', '--full'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should contain CM method section headers
+      const hasCmHeader = /Method:.*CM\d/.test(output);
+      // Should NOT contain include-relative line number brackets
+      const noIncludeRelLines = !/\[\s*\d+\]/.test(output);
+      // Should NOT contain debug breakpoint hints
+      const noDebugHints = !output.includes('debug set');
+      return hasCmHeader && noIncludeRelLines && noDebugHints;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view class --full --lines (dual line numbers for debugging)',
+    args: ['--objects', 'ZCL_ABGAGT_AGENT', '--full', '--lines'],
     expectSuccess: true,
     verify: (output) => {
       // Should contain global line numbers
@@ -263,7 +278,9 @@ const commandTestCases = [
       const hasCmHeader = /Method:.*CM\d/.test(output);
       // Should contain include-relative line numbers
       const hasIncludeRelLines = /\[\s*\d+\]/.test(output);
-      return hasGlobalLines && hasCmHeader && hasIncludeRelLines;
+      // Should contain debug breakpoint hints
+      const hasDebugHints = output.includes('debug set');
+      return hasGlobalLines && hasCmHeader && hasIncludeRelLines && hasDebugHints;
     }
   },
 
