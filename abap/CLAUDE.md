@@ -298,23 +298,25 @@ Use `debug` when:
 
 **Step 1 — set a breakpoint** on the first executable statement you want to inspect:
 
-Use `view --objects ZCL_MY_CLASS --full` to see the full source with **both** global assembled-source line numbers and include-relative `[N]` numbers:
+Use `view --objects ZCL_MY_CLASS --full --lines` to see the full source with **both** global assembled-source line numbers and include-relative `[N]` numbers:
 
 ```bash
-abapgit-agent view --objects ZCL_MY_CLASS --full
+abapgit-agent view --objects ZCL_MY_CLASS --full --lines
 ```
+
+> **Tip**: `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers — useful for understanding logic. Add `--lines` when you need line numbers for breakpoints.
 
 Each line is shown as `G [N]  code` where:
 - **G** = assembled-source global line → use with `debug set --objects CLASS:G` or `debug set --files src/cls.clas.abap:G`
 - **[N]** = include-relative (restarts at 1 per method) → for code navigation only, not for breakpoints
 
-The method header shows the ready-to-use `debug set` command using the global line:
+The method header shows the ready-to-use `debug set` command pointing to the first executable line:
 
 ```
    1  CLASS zcl_my_class DEFINITION.
    2    PUBLIC SECTION.
    3  ENDCLASS.
-  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:7 ----
+  * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:9 ----
    7 [  1]  METHOD execute.
    8 [  2]    DATA lv_x TYPE i.
    9 [  3]    lv_x = 1.
@@ -337,7 +339,7 @@ abapgit-agent debug set --objects ZCL_MY_CLASS:9
 abapgit-agent debug list    # confirm it was registered
 ```
 
-> **Line number must point to an executable statement.** Two common mistakes when reading `view --full` output:
+> **Line number must point to an executable statement.** The method header hint already skips the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations automatically. Two cases still require manual attention when picking a line from the output:
 >
 > 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
 >    Pick the next non-comment line instead.
@@ -542,17 +544,17 @@ The following issues were identified during a live debugging session (2026-03) a
 
 #### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
 
-**Fixed**: `view --full` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. Method headers show the ready-to-use `debug set --objects CLASS:G` command.
+**Fixed**: `view --full --lines` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. Method headers show the ready-to-use `debug set --objects CLASS:G` command pointing to the first executable statement. `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers.
 
 Global line numbers are computed **client-side** in Node.js, not in ABAP:
 - **Own classes** (local `.clas.abap` file exists): reads the local file — guaranteed exact match with ADT
 - **Library classes** (no local file, e.g. abapGit): fetches assembled source from `/sap/bc/adt/oo/classes/<name>/source/main`
 
-Both strategies scan for `METHOD <name>.` as the first token on the line to find `global_start`. The METHOD statement line itself is shown as `G [1]`, but is not executable — use the next executable statement (typically a few lines after METHOD) as the actual breakpoint target.
+Both strategies scan for `METHOD <name>.` as the first token on the line to find `global_start`. The method header hint automatically points to the **first executable statement** (skipping the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations) so it can be used directly without adjustment.
 
 #### ~~2. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
 
-**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
+**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full --lines` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
 
 #### ~~3. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
 

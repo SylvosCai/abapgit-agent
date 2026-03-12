@@ -143,6 +143,25 @@ async function computeGlobalStarts(objName, sections, config) {
   }
 }
 
+/**
+ * Given the lines of a CM method section, return the 0-based index of the
+ * first "executable" line — i.e. skip METHOD, blank lines, and pure
+ * declaration lines (DATA/FINAL/TYPES/CONSTANTS/CLASS-DATA).
+ * Returns 0 if no better line is found (falls back to METHOD statement).
+ */
+function findFirstExecutableLine(lines) {
+  const declPattern = /^\s*(data|final|types|constants|class-data)[\s:]/i;
+  const methodPattern = /^\s*method\s+/i;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;             // blank line
+    if (methodPattern.test(trimmed)) continue; // METHOD statement itself
+    if (declPattern.test(trimmed)) continue;   // declaration
+    return i;
+  }
+  return 0;
+}
+
 module.exports = {
   name: 'view',
   description: 'View ABAP object definitions from ABAP system',
@@ -166,6 +185,7 @@ module.exports = {
     const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
     const jsonOutput = args.includes('--json');
     const fullMode = args.includes('--full');
+    const linesMode = args.includes('--lines');
 
     console.log(`\n  Viewing ${objects.length} object(s)`);
 
@@ -198,8 +218,8 @@ module.exports = {
       return;
     }
 
-    // In full mode, compute global line numbers client-side before rendering
-    if (fullMode) {
+    // In full+lines mode, compute global line numbers client-side before rendering
+    if (fullMode && linesMode) {
       for (const obj of viewObjects) {
         const objName = obj.NAME || obj.name || '';
         const sections = obj.SECTIONS || obj.sections || [];
@@ -246,43 +266,60 @@ module.exports = {
         const sections = obj.SECTIONS || obj.sections || [];
 
         if (sections.length > 0) {
-          // --full mode: dual line numbers per line.
-          // G  = assembled-source global line → use with: debug set --objects CLASS:G
-          //                                     or with:  debug set --files src/cls.clas.abap:G
-          // [N] = include-relative (restarts at 1 per CM method) — for code navigation only.
-          // G is computed client-side from the local file or ADT source.
+          // --full mode: render all sections.
+          // --full --lines adds dual line numbers per line for debugging.
           console.log('');
           for (const section of sections) {
             const suffix = section.SUFFIX || section.suffix || '';
             const methodName = section.METHOD_NAME || section.method_name || '';
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
-            // globalStart was set by computeGlobalStarts; fall back to 0 (unknown)
-            const globalStart = section.globalStart || 0;
             const isCmSection = suffix.startsWith('CM') && methodName;
 
-            if (isCmSection) {
-              const bpHint = globalStart
-                ? `debug set --objects ${objName}:${globalStart}`
-                : `debug set --objects ${objName}:<global_line>`;
-              console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
-            } else if (file) {
-              console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
-            } else if (suffix && !isCmSection) {
-              console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
-            }
+            if (linesMode) {
+              // --full --lines: dual line numbers (G [N]) for debugging
+              const globalStart = section.globalStart || 0;
 
-            let includeRelLine = 0;
-            for (const codeLine of lines) {
-              includeRelLine++;
-              const globalLine = globalStart ? globalStart + includeRelLine - 1 : 0;
               if (isCmSection) {
-                const gStr = globalLine ? String(globalLine).padStart(4) : '    ';
-                const iStr = String(includeRelLine).padStart(3);
-                console.log(`  ${gStr} [${iStr}]  ${codeLine}`);
-              } else {
-                const lStr = globalLine ? String(globalLine).padStart(4) : String(includeRelLine).padStart(4);
-                console.log(`  ${lStr}  ${codeLine}`);
+                let bpHint;
+                if (globalStart) {
+                  const execOffset = findFirstExecutableLine(lines);
+                  const execLine = globalStart + execOffset;
+                  bpHint = `debug set --objects ${objName}:${execLine}`;
+                } else {
+                  bpHint = `debug set --objects ${objName}:<global_line>`;
+                }
+                console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
+              } else if (file) {
+                console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
+              } else if (suffix) {
+                console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
+              }
+
+              let includeRelLine = 0;
+              for (const codeLine of lines) {
+                includeRelLine++;
+                const globalLine = globalStart ? globalStart + includeRelLine - 1 : 0;
+                if (isCmSection) {
+                  const gStr = globalLine ? String(globalLine).padStart(4) : '    ';
+                  const iStr = String(includeRelLine).padStart(3);
+                  console.log(`  ${gStr} [${iStr}]  ${codeLine}`);
+                } else {
+                  const lStr = globalLine ? String(globalLine).padStart(4) : String(includeRelLine).padStart(4);
+                  console.log(`  ${lStr}  ${codeLine}`);
+                }
+              }
+            } else {
+              // --full (no --lines): clean source, no line numbers
+              if (isCmSection) {
+                console.log(`  * ---- Method: ${methodName} (${suffix}) ----`);
+              } else if (file) {
+                console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
+              } else if (suffix) {
+                console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
+              }
+              for (const codeLine of lines) {
+                console.log(`  ${codeLine}`);
               }
             }
           }

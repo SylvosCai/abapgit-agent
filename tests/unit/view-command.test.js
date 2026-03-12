@@ -147,6 +147,18 @@ describe('View Command - Logic Tests', () => {
     });
   });
 
+  describe('Lines mode flag', () => {
+    test('detects --lines flag alongside --full', () => {
+      const args = ['view', '--objects', 'ZCL_TEST', '--full', '--lines'];
+      expect(args.includes('--lines')).toBe(true);
+    });
+
+    test('--lines flag not present by default', () => {
+      const args = ['view', '--objects', 'ZCL_TEST', '--full'];
+      expect(args.includes('--lines')).toBe(false);
+    });
+  });
+
   describe('Full mode flag', () => {
     test('detects --full flag', () => {
       const args = ['view', '--objects', 'ZCL_TEST', '--full'];
@@ -360,7 +372,7 @@ describe('View Command - CLI Output Format', () => {
     expect(output).toMatch(/Error:|Failed/i);
   });
 
-  test('--full output renders dual line numbers (global + include-relative) for CM sections', async () => {
+  test('--full --lines output renders dual line numbers (global + include-relative) for CM sections', async () => {
     const viewCommand = require('../../src/commands/view');
     const fs = require('fs');
 
@@ -413,13 +425,13 @@ describe('View Command - CLI Output Format', () => {
       }))
     };
 
-    await viewCommand.execute(['--objects', 'ZCL_MY_CLASS', '--full'], mockContext);
+    await viewCommand.execute(['--objects', 'ZCL_MY_CLASS', '--full', '--lines'], mockContext);
 
     const output = consoleOutput.join('\n');
 
-    // Method header contains CM suffix and ready-to-use debug set --objects hint with global_start line
-    expect(output).toMatch(/CONSTRUCTOR.*CM001.*debug set.*ZCL_MY_CLASS:7/);
-    expect(output).toMatch(/EXECUTE.*CM002.*debug set.*ZCL_MY_CLASS:11/);
+    // Method header contains CM suffix and ready-to-use debug set --objects hint with first exec line
+    expect(output).toMatch(/CONSTRUCTOR.*CM001.*debug set.*ZCL_MY_CLASS:8/);
+    expect(output).toMatch(/EXECUTE.*CM002.*debug set.*ZCL_MY_CLASS:12/);
 
     // CM001 lines: global G [N] dual format — METHOD at 7, so global lines 7,8,9
     expect(output).toMatch(/^\s+7\s+\[\s*1\]\s+METHOD constructor/m);
@@ -486,7 +498,7 @@ describe('View Command - CLI Output Format', () => {
     expect(capturedData.full).toBeUndefined();
   });
 
-  test('non-CM sections in --full output use section-local line numbers only', async () => {
+  test('non-CM sections in --full --lines output use section-local line numbers only', async () => {
     const viewCommand = require('../../src/commands/view');
 
     const mockContext = {
@@ -511,7 +523,7 @@ describe('View Command - CLI Output Format', () => {
       }))
     };
 
-    await viewCommand.execute(['--objects', 'ZIF_MY_INTF', '--full'], mockContext);
+    await viewCommand.execute(['--objects', 'ZIF_MY_INTF', '--full', '--lines'], mockContext);
 
     const output = consoleOutput.join('\n');
 
@@ -519,5 +531,51 @@ describe('View Command - CLI Output Format', () => {
     expect(output).toMatch(/^\s+1\s+INTERFACE/m);
     // No include-relative brackets (non-CM section)
     expect(output).not.toMatch(/\[\s*\d+\]/);
+  });
+
+  test('--full without --lines renders clean source without line numbers', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZCL_MY_CLASS',
+            type: 'CLAS',
+            type_text: 'Class',
+            description: 'Test class',
+            not_found: false,
+            sections: [
+              { suffix: 'CU', description: 'Public Section', lines: ['CLASS zcl_my_class DEFINITION.', '  PUBLIC SECTION.', 'ENDCLASS.'] },
+              { suffix: 'CM001', description: 'Class Method', method_name: 'CONSTRUCTOR', lines: ['METHOD constructor.', '  mv_x = 1.', 'ENDMETHOD.'] }
+            ]
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_MY_CLASS', '--full'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Section headers present
+    expect(output).toMatch(/Public Section.*CU/);
+    expect(output).toMatch(/Method: CONSTRUCTOR.*CM001/);
+
+    // Code lines present without line numbers
+    expect(output).toMatch(/CLASS zcl_my_class DEFINITION/);
+    expect(output).toMatch(/METHOD constructor/);
+
+    // No breakpoint hint in header (clean mode)
+    expect(output).not.toMatch(/debug set/);
+    // No dual line number format G [N]
+    expect(output).not.toMatch(/\[\s*\d+\]/);
+    // No leading numeric columns
+    expect(output).not.toMatch(/^\s+\d+\s+\[/m);
   });
 });
