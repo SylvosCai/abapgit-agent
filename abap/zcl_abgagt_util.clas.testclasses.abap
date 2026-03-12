@@ -12,6 +12,8 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_detect_include_method FOR TESTING.
     METHODS test_detect_intf_section FOR TESTING.
     METHODS test_detect_public_section FOR TESTING.
+    METHODS test_convert_method_index FOR TESTING.
+    METHODS test_convert_index_to_cm_suffix FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
@@ -136,6 +138,38 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
       act = ls_info-obj_name exp = 'ZCL_ABGAGT_COMMAND_VIEW'
       msg = 'Object name should NOT have trailing equals' ).
+  ENDMETHOD.
+
+  METHOD test_convert_method_index.
+    \" Test base-36 decoding: CM suffix -> integer index
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_method_index( 'CM001' ) exp = 1
+      msg = 'CM001 should be 1' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_method_index( 'CM00A' ) exp = 10
+      msg = 'CM00A should be 10' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_method_index( 'CM00Z' ) exp = 35
+      msg = 'CM00Z should be 35' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_method_index( 'CM010' ) exp = 36
+      msg = 'CM010 should be 36' ).
+  ENDMETHOD.
+
+  METHOD test_convert_index_to_cm_suffix.
+    \" Test base-36 encoding: integer index -> CM suffix
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_index_to_cm_suffix( 1 ) exp = 'CM001'
+      msg = '1 should be CM001' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_index_to_cm_suffix( 10 ) exp = 'CM00A'
+      msg = '10 should be CM00A' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_index_to_cm_suffix( 35 ) exp = 'CM00Z'
+      msg = '35 should be CM00Z' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_util->convert_index_to_cm_suffix( 36 ) exp = 'CM010'
+      msg = '36 should be CM010' ).
   ENDMETHOD.
 
 ENDCLASS.
