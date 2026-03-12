@@ -10,7 +10,17 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
     TYPES: BEGIN OF ty_view_params,
              objects TYPE string_table,
              type TYPE string,
+             full TYPE abap_bool,
            END OF ty_view_params.
+
+    TYPES: BEGIN OF ty_section,
+             suffix      TYPE string,
+             description TYPE string,
+             method_name TYPE string,
+             file        TYPE string,
+             lines       TYPE string_table,
+           END OF ty_section.
+    TYPES ty_sections TYPE STANDARD TABLE OF ty_section WITH DEFAULT KEY.
 
     TYPES: BEGIN OF ty_component,
              field TYPE string,
@@ -34,6 +44,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              source TYPE string,
              definition TYPE string,
              not_found TYPE abap_bool,
+             sections TYPE ty_sections,
              components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
 
@@ -103,7 +114,9 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       " Get viewer and retrieve info
       TRY.
           lo_viewer = lo_factory->get_viewer( lv_type ).
-          ls_info = lo_viewer->get_info( lv_object ).
+          ls_info = lo_viewer->get_info(
+            iv_name = lv_object
+            iv_full = ls_params-full ).
         CATCH cx_sy_create_object_error.
           " Viewer class not found - set not found flag
           ls_info-name = lv_object.

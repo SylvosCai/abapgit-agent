@@ -24,6 +24,7 @@ module.exports = {
     const typeArg = args.indexOf('--type');
     const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
     const jsonOutput = args.includes('--json');
+    const fullMode = args.includes('--full');
 
     console.log(`\n  Viewing ${objects.length} object(s)`);
 
@@ -37,6 +38,10 @@ module.exports = {
 
     if (type) {
       data.type = type;
+    }
+
+    if (fullMode) {
+      data.full = true;
     }
 
     const result = await http.post('/sap/bc/z_abapgit_agent/view', data, { csrfToken });
@@ -86,7 +91,41 @@ module.exports = {
 
         // Display source code for classes, interfaces, CDS views, programs/source includes, and STOB
         const source = obj.SOURCE || obj.source || '';
-        if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'PROG' || objType === 'Program' || objType === 'STOB' || objType === 'Structured Object')) {
+        const sections = obj.SECTIONS || obj.sections || [];
+
+        if (sections.length > 0) {
+          // --full mode: render with dual line numbers
+          console.log('');
+          let globalLine = 0;
+          for (const section of sections) {
+            const suffix = section.SUFFIX || section.suffix || '';
+            const methodName = section.METHOD_NAME || section.method_name || '';
+            const file = section.FILE || section.file || '';
+            const lines = section.LINES || section.lines || [];
+            const isCmSection = suffix.startsWith('CM') && methodName;
+
+            if (isCmSection) {
+              // Method header comment — no line number increment for the comment itself
+              const startGlobal = globalLine + 1;
+              console.log(`  * ---- Method: ${methodName} (${suffix}) [include line: 1 = global line ${startGlobal}] ----`);
+            } else if (file) {
+              console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
+            }
+
+            let includeRelLine = 0;
+            for (const codeLine of lines) {
+              globalLine++;
+              includeRelLine++;
+              const gStr = String(globalLine).padStart(4);
+              if (isCmSection) {
+                const iStr = String(includeRelLine).padStart(3);
+                console.log(`  ${gStr}  [${iStr}]  ${codeLine}`);
+              } else {
+                console.log(`  ${gStr}    ${codeLine}`);
+              }
+            }
+          }
+        } else if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'PROG' || objType === 'Program' || objType === 'STOB' || objType === 'Structured Object')) {
           console.log('');
           // Replace escaped newlines with actual newlines and display
           const displaySource = source.replace(/\\n/g, '\n');

@@ -74,7 +74,18 @@ CLASS zcl_abgagt_viewer_ddls IMPLEMENTATION.
 
     " Set source code if found
     IF lv_found = abap_true.
-      rs_info-source = ls_ddlsrcv-source.
+      IF iv_full = abap_true.
+        " Split source into lines for sections[]
+        DATA lt_lines TYPE string_table.
+        SPLIT ls_ddlsrcv-source AT cl_abap_char_utilities=>newline INTO TABLE lt_lines.
+        DATA(ls_section) = VALUE zcl_abgagt_command_view=>ty_section(
+          suffix      = 'DDLS'
+          description = 'CDS View Source'
+          lines       = lt_lines ).
+        APPEND ls_section TO rs_info-sections.
+      ELSE.
+        rs_info-source = ls_ddlsrcv-source.
+      ENDIF.
     ELSE.
       rs_info-not_found = abap_true.
     ENDIF.

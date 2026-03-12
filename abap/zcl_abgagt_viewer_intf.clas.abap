@@ -48,13 +48,21 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
         ENDIF.
 
         " Read source
-        LOOP AT lt_source INTO lv_line.
-          IF rs_info-source IS INITIAL.
-            rs_info-source = lv_line.
-          ELSE.
-            rs_info-source = rs_info-source && |\n| && lv_line.
-          ENDIF.
-        ENDLOOP.
+        IF iv_full = abap_true.
+          DATA(ls_section) = VALUE zcl_abgagt_command_view=>ty_section(
+            suffix      = 'IU'
+            description = 'Interface Section'
+            lines       = lt_source ).
+          APPEND ls_section TO rs_info-sections.
+        ELSE.
+          LOOP AT lt_source INTO lv_line.
+            IF rs_info-source IS INITIAL.
+              rs_info-source = lv_line.
+            ELSE.
+              rs_info-source = rs_info-source && |\n| && lv_line.
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
         RETURN.
       ENDIF.
     ENDIF.
@@ -87,13 +95,21 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     " Read source from program
     READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
-      LOOP AT lt_source INTO lv_line.
-        IF rs_info-source IS INITIAL.
-          rs_info-source = lv_line.
-        ELSE.
-          rs_info-source = rs_info-source && |\n| && lv_line.
-        ENDIF.
-      ENDLOOP.
+      IF iv_full = abap_true.
+        DATA(ls_section_intf) = VALUE zcl_abgagt_command_view=>ty_section(
+          suffix      = 'IU'
+          description = 'Interface Section'
+          lines       = lt_source ).
+        APPEND ls_section_intf TO rs_info-sections.
+      ELSE.
+        LOOP AT lt_source INTO lv_line.
+          IF rs_info-source IS INITIAL.
+            rs_info-source = lv_line.
+          ELSE.
+            rs_info-source = rs_info-source && |\n| && lv_line.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 

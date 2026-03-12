@@ -61,10 +61,13 @@ CLASS zcl_abgagt_viewer_stob IMPLEMENTATION.
           lo_factory = zcl_abgagt_viewer_factory=>get_instance( ).
           lo_viewer = lo_factory->get_viewer( 'DDLS' ).
           " Convert DDLNAME to string for viewer interface
-          ls_ddls_info = lo_viewer->get_info( CONV string( lv_ddls_name ) ).
+          ls_ddls_info = lo_viewer->get_info(
+            iv_name = CONV string( lv_ddls_name )
+            iv_full = iv_full ).
 
           " Copy relevant info from DDLS viewer
-          rs_info-source = ls_ddls_info-source.
+          rs_info-source   = ls_ddls_info-source.
+          rs_info-sections = ls_ddls_info-sections.
           rs_info-type_text = |Structured Object (from CDS View { lv_ddls_name })|.
 
           IF lv_devclass IS NOT INITIAL.

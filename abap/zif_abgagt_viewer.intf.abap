@@ -3,9 +3,11 @@ INTERFACE zif_abgagt_viewer PUBLIC.
 
   " Get detailed information about an ABAP object
   " @parameter iv_name | Object name (e.g., ZCL_MY_CLASS)
+  " @parameter iv_full | When true, return all sections with source lines
   " @parameter rs_info | Object information structure
   METHODS get_info
     IMPORTING iv_name        TYPE string
+              iv_full        TYPE abap_bool DEFAULT abap_false
     RETURNING VALUE(rs_info) TYPE zcl_abgagt_command_view=>ty_view_object
     RAISING   cx_dd_ddl_read.
 

@@ -69,6 +69,15 @@ INTERFACE zif_abgagt_util PUBLIC.
     RETURNING
       VALUE(rv_method_index) TYPE i.
 
+  "! Convert integer method index to 3-digit base-36 CM suffix string
+  "! @parameter iv_method_index | Method index as integer (e.g., 1, 10, 36)
+  "! @return rv_cm_suffix | CM suffix string (e.g., 'CM001', 'CM00A', 'CM010')
+  METHODS convert_index_to_cm_suffix
+    IMPORTING
+      iv_method_index TYPE i
+    RETURNING
+      VALUE(rv_cm_suffix) TYPE string.
+
   "! Get method name from TMDIR by class name and method index
   "! @parameter iv_classname | Class name (e.g., 'ZCL_MY_CLASS')
   "! @parameter iv_method_index | Method index (e.g., 1 = CM001, 15 = CM00F)

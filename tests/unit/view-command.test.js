@@ -144,6 +144,34 @@ describe('View Command - Logic Tests', () => {
     });
   });
 
+  describe('Full mode flag', () => {
+    test('detects --full flag', () => {
+      const args = ['view', '--objects', 'ZCL_TEST', '--full'];
+      expect(args.includes('--full')).toBe(true);
+    });
+
+    test('--full flag not present by default', () => {
+      const args = ['view', '--objects', 'ZCL_TEST'];
+      expect(args.includes('--full')).toBe(false);
+    });
+
+    test('builds request with full: true when --full present', () => {
+      const args = ['view', '--objects', 'ZCL_TEST', '--full'];
+      const fullMode = args.includes('--full');
+      const data = { objects: ['ZCL_TEST'] };
+      if (fullMode) data.full = true;
+      expect(data.full).toBe(true);
+    });
+
+    test('does not include full in request without --full', () => {
+      const args = ['view', '--objects', 'ZCL_TEST'];
+      const fullMode = args.includes('--full');
+      const data = { objects: ['ZCL_TEST'] };
+      if (fullMode) data.full = true;
+      expect(data.full).toBeUndefined();
+    });
+  });
+
   describe('Request building', () => {
     test('builds request for single object', () => {
       const request = {
@@ -327,5 +355,137 @@ describe('View Command - CLI Output Format', () => {
 
     // When success=false, shows error message
     expect(output).toMatch(/Error:|Failed/i);
+  });
+
+  test('--full output renders dual line numbers for CM sections', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZCL_MY_CLASS',
+            type: 'CLAS',
+            type_text: 'Class',
+            description: 'Class ZCL_MY_CLASS in $PACKAGE',
+            not_found: false,
+            sections: [
+              { suffix: 'CU', description: 'Public Section', lines: ['CLASS zcl_my_class DEFINITION.', '  PUBLIC SECTION.', 'ENDCLASS.'] },
+              { suffix: 'CM001', description: 'Class Method', method_name: 'CONSTRUCTOR', lines: ['METHOD constructor.', '  mv_x = 1.', 'ENDMETHOD.'] },
+              { suffix: 'CM002', description: 'Class Method', method_name: 'EXECUTE', lines: ['METHOD execute.', '  RETURN.', 'ENDMETHOD.'] }
+            ]
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_MY_CLASS', '--full'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Global line numbers present
+    expect(output).toMatch(/^\s+1\s+CLASS zcl_my_class/m);
+    expect(output).toMatch(/^\s+3\s+ENDCLASS/m);
+
+    // Method header comment for CM001 at global line 4
+    expect(output).toMatch(/CONSTRUCTOR.*CM001.*global line 4/);
+
+    // CM001 lines with include-relative numbers
+    expect(output).toMatch(/^\s+4\s+\[\s*1\]/m);
+    expect(output).toMatch(/^\s+6\s+\[\s*3\]/m);
+
+    // Method header for CM002 starts at global line 7
+    expect(output).toMatch(/EXECUTE.*CM002.*global line 7/);
+    expect(output).toMatch(/^\s+7\s+\[\s*1\]/m);
+  });
+
+  test('--full output sends full: true in request', async () => {
+    const viewCommand = require('../../src/commands/view');
+    let capturedData;
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockImplementation((url, data) => {
+          capturedData = data;
+          return Promise.resolve({
+            success: true,
+            message: 'Retrieved object(s)',
+            objects: [{ name: 'ZCL_TEST', type: 'CLAS', type_text: 'Class', not_found: false, sections: [] }],
+            summary: { total: 1 }
+          });
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_TEST', '--full'], mockContext);
+
+    expect(capturedData.full).toBe(true);
+  });
+
+  test('request without --full does not send full field', async () => {
+    const viewCommand = require('../../src/commands/view');
+    let capturedData;
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockImplementation((url, data) => {
+          capturedData = data;
+          return Promise.resolve({
+            success: true,
+            message: 'Retrieved object(s)',
+            objects: [{ name: 'ZCL_TEST', type: 'CLAS', type_text: 'Class', source: 'CLASS zcl_test DEFINITION.', not_found: false }],
+            summary: { total: 1 }
+          });
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZCL_TEST'], mockContext);
+
+    expect(capturedData.full).toBeUndefined();
+  });
+
+  test('non-CM sections in --full output use global line numbers only', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZIF_MY_INTF',
+            type: 'INTF',
+            type_text: 'Interface',
+            description: 'Interface',
+            not_found: false,
+            sections: [
+              { suffix: 'IU', description: 'Interface Section', lines: ['INTERFACE zif_my_intf PUBLIC.', '  METHODS do_it.', 'ENDINTERFACE.'] }
+            ]
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZIF_MY_INTF', '--full'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    // Global line numbers present
+    expect(output).toMatch(/^\s+1\s+INTERFACE/m);
+    // No include-relative brackets
+    expect(output).not.toMatch(/\[\s*\d+\]/);
   });
 });

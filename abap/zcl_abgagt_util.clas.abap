@@ -163,8 +163,59 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     ENDDO.
   ENDMETHOD.
 
+  METHOD zif_abgagt_util~convert_index_to_cm_suffix.
+    " Convert integer to 3-digit base-36 string for CM include suffix
+    " 1 -> 'CM001', 10 -> 'CM00A', 35 -> 'CM00Z', 36 -> 'CM010'
+    DATA: lv_remainder TYPE i,
+          lv_quotient  TYPE i,
+          lv_digits    TYPE string,
+          lv_val       TYPE i.
+
+    lv_quotient = iv_method_index.
+    lv_digits = ''.
+
+    DO 3 TIMES.
+      lv_remainder = lv_quotient MOD 36.
+      lv_quotient  = lv_quotient DIV 36.
+      IF lv_remainder < 10.
+        lv_digits = CONV string( lv_remainder ) && lv_digits.
+      ELSE.
+        lv_val = lv_remainder - 10.
+        CASE lv_val.
+          WHEN 0.  lv_digits = 'A' && lv_digits.
+          WHEN 1.  lv_digits = 'B' && lv_digits.
+          WHEN 2.  lv_digits = 'C' && lv_digits.
+          WHEN 3.  lv_digits = 'D' && lv_digits.
+          WHEN 4.  lv_digits = 'E' && lv_digits.
+          WHEN 5.  lv_digits = 'F' && lv_digits.
+          WHEN 6.  lv_digits = 'G' && lv_digits.
+          WHEN 7.  lv_digits = 'H' && lv_digits.
+          WHEN 8.  lv_digits = 'I' && lv_digits.
+          WHEN 9.  lv_digits = 'J' && lv_digits.
+          WHEN 10. lv_digits = 'K' && lv_digits.
+          WHEN 11. lv_digits = 'L' && lv_digits.
+          WHEN 12. lv_digits = 'M' && lv_digits.
+          WHEN 13. lv_digits = 'N' && lv_digits.
+          WHEN 14. lv_digits = 'O' && lv_digits.
+          WHEN 15. lv_digits = 'P' && lv_digits.
+          WHEN 16. lv_digits = 'Q' && lv_digits.
+          WHEN 17. lv_digits = 'R' && lv_digits.
+          WHEN 18. lv_digits = 'S' && lv_digits.
+          WHEN 19. lv_digits = 'T' && lv_digits.
+          WHEN 20. lv_digits = 'U' && lv_digits.
+          WHEN 21. lv_digits = 'V' && lv_digits.
+          WHEN 22. lv_digits = 'W' && lv_digits.
+          WHEN 23. lv_digits = 'X' && lv_digits.
+          WHEN 24. lv_digits = 'Y' && lv_digits.
+          WHEN 25. lv_digits = 'Z' && lv_digits.
+        ENDCASE.
+      ENDIF.
+    ENDDO.
+
+    rv_cm_suffix = 'CM' && lv_digits.
+  ENDMETHOD.
+
   METHOD zif_abgagt_util~get_method_name.
-    " Get method name from TMDIR by class name and method index
     SELECT SINGLE methodname
       FROM tmdir
       INTO rv_method_name

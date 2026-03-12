@@ -55,11 +55,18 @@ abapgit-agent view --objects ZCL_MY_CLASS=============CCAU
 # View program source
 abapgit-agent view --objects ZMY_PROGRAM --type PROG
 
+# View FULL source (definition + all method implementations) with dual line numbers
+# Use this for AI-assisted debugging — see line number details below
+abapgit-agent view --objects ZCL_MY_CLASS --full
+
 # Lowercase names and types are supported
 abapgit-agent view --objects zcl_my_class --type clas
 
 # Output as JSON (for scripting/AI processing)
 abapgit-agent view --objects ZCL_MY_CLASS --json
+
+# Full source as JSON (clean sections array, no pre-rendered numbers)
+abapgit-agent view --objects ZCL_MY_CLASS --full --json
 ```
 
 ## Prerequisite
@@ -73,6 +80,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --json
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
 | `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG). Auto-detected from TADIR if not specified |
+| `--full` | No | For CLAS: return all sections (definition + all method implementations) with dual line numbers. For INTF/PROG/DDLS: return source with global line numbers |
 | `--json` | No | Output raw JSON only (for scripting) |
 
 ---
@@ -112,7 +120,52 @@ GET /health (with X-CSRF-Token: fetch)
 
 ## Output
 
-### Class Definition (CLAS)
+### Class Definition with Full Source (`--full`)
+
+When `--full` is specified for a class, the output shows the complete assembled source with **dual line numbers**:
+
+- **Global line** (left, no brackets): matches the local `.clas.abap` file line count → use with `--files src/zcl_foo.clas.abap:N` or `--objects ZCL_FOO:N`
+- **Include-relative `[N]`**: restarts at 1 for each method → use with `--objects ZCL_FOO=============CM002:N`
+- **Method header comments**: show method name, CM code, and the global line where the include starts
+
+```
+   1    CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
+   2      PUBLIC SECTION.
+   3        METHODS:
+   4          constructor
+   5            IMPORTING iv_host TYPE string,
+   6          execute RETURNING VALUE(rv_result) TYPE string.
+   7      PROTECTED SECTION.
+   8      PRIVATE SECTION.
+   9        DATA mv_host TYPE string.
+  10    ENDCLASS.
+  11
+  12    CLASS zcl_my_class IMPLEMENTATION.
+  13  * ---- Method: CONSTRUCTOR (CM001) [include line: 1 = global line 13] ----
+  14  [  1]  METHOD constructor.
+  15  [  2]    mv_host = iv_host.
+  16  [  3]  ENDMETHOD.
+  17  * ---- Method: EXECUTE (CM002) [include line: 1 = global line 17] ----
+  18  [  1]  METHOD execute.
+  19  [  2]    DATA lv_x TYPE i.
+  20  [  3]    lv_x = 1.
+  21  [  4]    rv_result = CONV string( lv_x ).
+  22  [  5]  ENDMETHOD.
+  23    ENDCLASS.
+```
+
+Non-CLAS types (INTF, PROG, DDLS): global line numbers only (no `[N]` brackets, since there is no include split).
+
+#### Using Dual Line Numbers for Breakpoints
+
+From the `--full` output you can set breakpoints using either form:
+
+| Line reference | Breakpoint command | ADT coordinate system |
+|---|---|---|
+| Global line 20 (no brackets) | `debug set --objects ZCL_MY_CLASS:20` | Assembled source |
+| Include-relative `[  3]` in CM002 | `debug set --objects ZCL_MY_CLASS=============CM002:3` | Include-relative |
+
+### Class Definition (default, public section only)
 
 ```
 📖 ZCL_MY_CLASS (Class)
@@ -311,6 +364,41 @@ ENDMETHOD.
 }
 ```
 
+### JSON Output with `--full` flag
+
+When `--full` is specified, the response includes a `sections` array instead of `source`. Line number rendering is done client-side by Node.js from this clean JSON:
+
+```json
+{
+  "SUCCESS": true,
+  "COMMAND": "VIEW",
+  "MESSAGE": "Retrieved 1 object(s)",
+  "OBJECTS": [
+    {
+      "NAME": "ZCL_MY_CLASS",
+      "TYPE": "CLAS",
+      "TYPE_TEXT": "Class",
+      "DESCRIPTION": "Class ZCL_MY_CLASS in $PACKAGE",
+      "SECTIONS": [
+        { "SUFFIX": "CU",    "DESCRIPTION": "Public Section",      "LINES": ["CLASS zcl_my_class DEFINITION ...", "  PUBLIC SECTION.", "  ..."] },
+        { "SUFFIX": "CO",    "DESCRIPTION": "Protected Section",   "LINES": ["  PROTECTED SECTION.", "  ..."] },
+        { "SUFFIX": "CP",    "DESCRIPTION": "Private Section",     "LINES": ["  PRIVATE SECTION.", "  DATA mv_host TYPE string.", "ENDCLASS."] },
+        { "SUFFIX": "CM001", "DESCRIPTION": "Class Method", "METHOD_NAME": "CONSTRUCTOR", "LINES": ["METHOD constructor.", "  mv_host = iv_host.", "ENDMETHOD."] },
+        { "SUFFIX": "CM002", "DESCRIPTION": "Class Method", "METHOD_NAME": "EXECUTE",     "LINES": ["METHOD execute.", "  DATA lv_x TYPE i.", "  lv_x = 1.", "ENDMETHOD."] },
+        { "SUFFIX": "CCDEF", "DESCRIPTION": "Local Definitions",   "FILE": "locals_def",  "LINES": [] },
+        { "SUFFIX": "CCIMP", "DESCRIPTION": "Local Implementations","FILE": "locals_imp", "LINES": ["CLASS lcl_helper IMPLEMENTATION.", "ENDCLASS."] },
+        { "SUFFIX": "CCAU",  "DESCRIPTION": "Unit Test",           "FILE": "testclasses", "LINES": [] }
+      ],
+      "COMPONENTS": []
+    }
+  ],
+  "SUMMARY": { "TOTAL": 1, "BY_TYPE": ["CLAS"] },
+  "ERROR": ""
+}
+```
+
+The `FILE` field (when present) signals that the section comes from a separate git file (`.clas.locals_def.abap`, `.clas.locals_imp.abap`, `.clas.testclasses.abap`). Empty sections (no source found) still appear with empty `LINES` arrays so the client knows they exist.
+
 ---
 
 ## Response Structure
@@ -332,7 +420,16 @@ ENDMETHOD.
       "DOMAIN_TYPE": "string",      // For DTEL
       "DOMAIN_LENGTH": number,      // For DTEL
       "DOMAIN_DECIMALS": number,    // For DTEL
-      "SOURCE": "string",           // Full ABAP source (CLAS/INTF/DDLS/STOB)
+      "SOURCE": "string",           // Full ABAP source (CLAS/INTF/DDLS/STOB) — omitted when sections present
+      "SECTIONS": [                 // Present only when --full is used (CLAS/INTF/PROG/DDLS)
+        {
+          "SUFFIX": "string",       // CU, CO, CP, CM001..CMxxx, CCDEF, CCIMP, CCAU
+          "DESCRIPTION": "string",  // Human-readable section label
+          "METHOD_NAME": "string",  // Present for CM* sections only
+          "FILE": "string",         // Present for CCDEF/CCIMP/CCAU — name of separate git file
+          "LINES": ["string"]       // Source lines (no line numbers — calculated client-side)
+        }
+      ],
       "NOT_FOUND": boolean,         // true if object does not exist
       "COMPONENTS": [              // For TABL/STRU
         {
@@ -405,6 +502,9 @@ ENDMETHOD.
 ```bash
 # View a class definition (public section)
 abapgit-agent view --objects ZCL_ABGAGT_AGENT
+
+# View FULL class source with dual line numbers (for debugging)
+abapgit-agent view --objects ZCL_ABGAGT_AGENT --full
 
 # View interface
 abapgit-agent view --objects ZIF_ABGAGT_COMMAND

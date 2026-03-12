@@ -297,9 +297,33 @@ Use `debug` when:
 - You want to verify which branch of code runs
 
 **Step 1 — set a breakpoint** on the first executable statement you want to inspect:
+
+Use `view --objects ZCL_MY_CLASS --full` to see the full source with **dual line numbers** before picking a line:
+
 ```bash
-abapgit-agent debug set --files src/zcl_my_class.clas.abap:42   # from local file
-abapgit-agent debug set --objects ZCL_MY_CLASS:42                # by name (no local file needed)
+abapgit-agent view --objects ZCL_MY_CLASS --full
+```
+
+This shows two coordinate systems simultaneously:
+- **Global line** (left, no brackets): matches `.clas.abap` file line count
+  → use with `--files src/zcl_my_class.clas.abap:N` or `--objects ZCL_MY_CLASS:N`
+- **Include-relative `[N]`** (in brackets, restarts at 1 per method): line within the CM include
+  → use with `--objects ZCL_MY_CLASS=============CM002:N`
+
+Example output:
+```
+  42    CLASS zcl_my_class IMPLEMENTATION.
+  43  * ---- Method: EXECUTE (CM002) [include line: 1 = global line 43] ----
+  44  [  1]  METHOD execute.
+  45  [  2]    DATA lv_x TYPE i.
+  46  [  3]    lv_x = 1.
+  47  [  4]  ENDMETHOD.
+```
+
+To set a breakpoint at line `[  3]` (global line 46) in method EXECUTE — both forms work:
+```bash
+abapgit-agent debug set --objects ZCL_MY_CLASS:46              # global line
+abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3   # include-relative
 abapgit-agent debug list    # confirm it was registered
 ```
 
