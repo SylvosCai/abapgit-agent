@@ -118,6 +118,8 @@ abapgit-agent list --package '$MY_PACKAGE' --name 'ZCL_*'
 # View object definitions (classes, interfaces, tables, data elements)
 abapgit-agent view --objects ZCL_MY_CLASS
 abapgit-agent view --objects SFLIGHT --type TABL
+abapgit-agent view --objects ZCL_MY_CLASS --full          # all sections, clean source
+abapgit-agent view --objects ZCL_MY_CLASS --full --lines  # with dual line numbers for debugging
 
 # Find where an object is used (where-used list)
 abapgit-agent where --objects ZCL_SUT_AUNIT_RUNNER
