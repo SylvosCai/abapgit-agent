@@ -455,7 +455,7 @@ abapgit-agent debug delete --all
 
 ### Debugged Pull Flow Architecture
 
-The following call chain was traced by live debugging (2026-03). Use as a reference for setting breakpoints when investigating pull issues:
+The following call chain was traced by live debugging (2026-03), verified with two breakpoints firing successfully. Use as a reference for setting breakpoints when investigating pull issues:
 
 ```
 HTTP Request
@@ -465,36 +465,76 @@ HTTP Request
   → CL_REST_HTTP_HANDLER (IF_HTTP_EXTENSION~HANDLE_REQUEST) [frame 4]
   → CL_REST_ROUTER (IF_REST_HANDLER~HANDLE) [frame 5]
   → CL_REST_RESOURCE (IF_REST_HANDLER~HANDLE, DO_HANDLE_CONDITIONAL, DO_HANDLE) [frames 6-8]
-  → ZCL_ABGAGT_RESOURCE_BASE (IF_REST_RESOURCE~POST) [frame 9]
+  → ZCL_ABGAGT_RESOURCE_BASE (IF_REST_RESOURCE~POST, CM004:84) [frame 9]
   → ZCL_ABGAGT_COMMAND_PULL (ZIF_ABGAGT_COMMAND~EXECUTE, CM001:21) [frame 10]
   → ZCL_ABGAGT_AGENT (ZIF_ABGAGT_AGENT~PULL, CM00D) [frame 11]
-      CM00D: build_file_entries_from_remote()  — fetch remote files, build entries for conflict check
-      CM00D: check_conflicts()                 — abort if conflicts found
-      CM00D: prepare_deserialize_checks()      — transport + requirements check
-      CM00D: mo_repo->create_new_log()         — init abapGit log
-      CM00D: RTTI check (lv_deser_has_filter)  — does abapGit DESERIALIZE support II_OBJ_FILTER?
-      CM00D: CALL METHOD mo_repo->('DESERIALIZE') PARAMETER-TABLE …  — dynamic dispatch
-  → ZCL_ABAPGIT_REPO (ZIF_ABAPGIT_REPO~DESERIALIZE, CM00L:525) [frame 12]
-      CM00L: find_remote_dot_abapgit()         — parse .abapgit config
-      CM00L: find_remote_dot_apack()           — parse .apack-manifest
-      CM00L: check_write_protect()             — package write-protect check
-      CM00L: check_language()                  — language check
-      CM00L: deserialize_dot_abapgit()         — update .abapgit config in ABAP
-      CM00L: deserialize_objects()             — import and activate ABAP objects
-      CM00L: checksums()->update()             — update checksums
-      CM00L: update_last_deserialize()         — update timestamp
-      CM00L: COMMIT WORK AND WAIT              — commit the whole transaction
+      CM00D: build_file_entries_from_remote()           — fetch remote files + acquire EZABAPGIT lock
+      CM00D: check_conflicts()                          — abort if conflicts found (LT_CONFLICTS)
+      CM00D: prepare_deserialize_checks()               — transport + requirements; returns LS_CHECKS
+                                                          (LS_CHECKS-OVERWRITE[n] = objects to overwrite)
+      CM00D: mo_repo->create_new_log()            :207  — init abapGit log object
+      CM00D: RTTI check (lv_deser_has_filter)           — does ZIF_ABAPGIT_REPO~DESERIALIZE have
+                                                          II_OBJ_FILTER parameter? (X = yes)
+      CM00D: CALL METHOD mo_repo->('DESERIALIZE') :236  — dynamic dispatch with PARAMETER-TABLE
+                                                          (IS_CHECKS, II_LOG, II_OBJ_FILTER)
+  → ZCL_ABAPGIT_REPO (ZIF_ABAPGIT_REPO~DESERIALIZE, CM00L) [frame 12]
+      CM00L: find_remote_dot_abapgit()            :525  — fetch .abapgit from remote; COMMIT WORK
+                                                          AND WAIT inside → releases EZABAPGIT lock
+      CM00L: find_remote_dot_apack()              :526  — fetch .apack-manifest
+      CM00L: check_write_protect()                :528  — package write-protect check
+      CM00L: check_language()                     :529  — language check
+      CM00L: (requirements/dependencies checks)   :531  — abort if not met
+      CM00L: deserialize_dot_abapgit()            :543  — update .abapgit config in ABAP
+                                                          populates LT_UPDATED_FILES (e.g. .abapgit.xml)
+      CM00L: deserialize_objects(is_checks, ii_log, ii_obj_filter) :545
+  → ZCL_ABAPGIT_REPO (DESERIALIZE_OBJECTS, CM007:258) [frame 13]
+      CM007: zcl_abapgit_objects=>deserialize(ii_repo=me, ..., ii_obj_filter=...) :259
+  → ZCL_ABAPGIT_OBJECTS (DESERIALIZE static, CM00A) [frame 14]
+      CM00A: lt_steps = get_deserialize_steps()   :617  — 4-step pipeline
+      CM00A: lv_package = ii_repo->get_package()  :619
+      CM00A: lt_remote = get_files_remote(ii_obj_filter=...) :628  — filtered remote files
+      CM00A: lt_results = zcl_abapgit_file_deserialize=>get_results(...) :631
+      CM00A: zcl_abapgit_objects_check=>checks_adjust(...) :640
+      CM00A: check_objects_locked(lt_items)        :657
+      CM00A: LOOP steps → LOOP objects → call type handler:
+             Step 1 Pre-process:  ZCL_ABGAGT_VIEWER_CLAS imported
+             Step 2 DDIC:         (nothing for CLAS)
+             Step 3 Non-DDIC:     ZCL_ABGAGT_VIEWER_CLAS imported + activated
+             Step 4 Post-process: ZCL_ABGAGT_VIEWER_CLAS imported
+      CM00A: returns RT_ACCESSED_FILES
+  ← back in CM00L:
+      CM00L: checksums()->update()
+      CM00L: update_last_deserialize()
+      CM00L: COMMIT WORK AND WAIT                       — commit the whole transaction
 ```
 
-**Key breakpoint locations** (include-relative form, verified working):
+**Key variables observed during trace** (for `pull --files abap/zcl_abgagt_viewer_clas.clas.abap`):
+
+| Variable at BP1 (CM00D:207) | Value |
+|---|---|
+| `IT_FILES[1]` | `abap/zcl_abgagt_viewer_clas.clas.abap` |
+| `LI_REPO` (class) | `ZCL_ABAPGIT_REPO_ONLINE` |
+| `LO_OBJ_FILTER` (class) | `ZCL_ABAPGIT_OBJECT_FILTER_OBJ` |
+| `LT_CONFLICTS` | empty (no conflicts) |
+| `LS_CHECKS-OVERWRITE[1]` | CLAS `ZCL_ABGAGT_VIEWER_CLAS`, DEVCLASS `$ABAP_AI_BRIDGE`, DECISION=Y |
+| `LV_DESER_HAS_FILTER` | `X` (II_OBJ_FILTER supported) |
+
+| Variable at BP2 (CM00L:545) | Value |
+|---|---|
+| `II_OBJ_FILTER` (class) | `ZCL_ABAPGIT_OBJECT_FILTER_OBJ` |
+| `LT_UPDATED_FILES[1]` | `/.abapgit.xml` (from deserialize_dot_abapgit) |
+
+**Verified breakpoint locations** (assembled-source global line numbers, confirmed accepted by ADT):
+
 | Location | Command |
 |---|---|
-| Pull command entry | `debug set --objects ZCL_ABGAGT_COMMAND_PULL:46` |
-| Agent pull entry | `debug set --objects ZCL_ABGAGT_AGENT=============CM00D:1` |
-| After build_file_entries (CM00D:187) | Step out of BUILD_FILE_ENTRIES_FROM_REMOTE |
-| Before DESERIALIZE call (CM00D:236) | Step to after prepare_deserialize_checks |
-| abapGit deserialize entry (CM00L:525) | Step into CALL METHOD DESERIALIZE |
-| abapGit deserialize_objects call (CM00L:553–568) | Step over from CM00L:525 |
+| Before DESERIALIZE call | `debug set --objects ZCL_ABGAGT_AGENT:207` (create_new_log) |
+| abapGit DESERIALIZE entry | `debug set --objects ZCL_ABAPGIT_REPO:545` (deserialize_objects call) |
+| abapGit objects pipeline entry | `debug set --objects ZCL_ABAPGIT_OBJECTS:<CM00A first exec line>` |
+
+> **Note**: The EZABAPGIT lock is acquired during `build_file_entries_from_remote()` and released
+> inside `find_remote_dot_abapgit()` via `COMMIT WORK AND WAIT` — i.e., the lock is released before
+> BP2 fires. There is no active lock between BP1 and the end of CM00L.
 
 ### Known Limitations and Planned Improvements
 
