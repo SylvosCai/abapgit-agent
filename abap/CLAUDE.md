@@ -502,7 +502,13 @@ The following issues were identified during a live debugging session (2026-03) a
 
 #### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
 
-**Fixed**: `view --full` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. The ABAP backend computes `global_start` for each section and returns it in the response. Method headers now show the ready-to-use `debug set --objects CLASS:G` command using the actual global start line.
+**Fixed**: `view --full` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. Method headers show the ready-to-use `debug set --objects CLASS:G` command.
+
+Global line numbers are computed **client-side** in Node.js, not in ABAP:
+- **Own classes** (local `.clas.abap` file exists): reads the local file — guaranteed exact match with ADT
+- **Library classes** (no local file, e.g. abapGit): fetches assembled source from `/sap/bc/adt/oo/classes/<name>/source/main`
+
+Both strategies scan for `METHOD <name>.` as the first token on the line to find `global_start`. The METHOD statement line itself is shown as `G [1]`, but is not executable — use the next executable statement (typically a few lines after METHOD) as the actual breakpoint target.
 
 #### ~~2. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
 
