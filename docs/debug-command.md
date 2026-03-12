@@ -289,9 +289,9 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 
 - ABAP system must have ICF node `/sap/bc/adt/` activated (transaction SICF)
 - User needs `S_ADT_RES` authorization (ACTVT=16) for debugging
-- Breakpoints only fire for dialog work processes executing under the configured `user`; background jobs and AUnit internal sessions (`cl_sut_aunit_runner`) do **not** trigger the listener
+- Breakpoints only fire for dialog work processes executing under the configured `user`; background jobs do **not** trigger the listener
 
 ## Known Limitations
 
-- Breakpoints fire only for dialog requests by the configured user — to trigger via `abapgit-agent`, use commands that issue synchronous REST calls to the ABAP backend: `view`, `preview`, `where`, `inspect` (not `syntax` which parses locally, and not `unit`/`pull` which run as background jobs)
+- Breakpoints fire only for dialog requests by the configured user — to trigger via `abapgit-agent`, use commands that issue synchronous REST calls to the ABAP backend: `view`, `preview`, `where`, `inspect`, `unit` (not `syntax` which parses locally, and not `pull` which runs as a background job)
 - The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement
