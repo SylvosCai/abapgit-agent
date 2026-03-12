@@ -122,7 +122,7 @@ abapgit-agent pull --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
 
 ---
 
-### 5. (covered in object-creation.md)
+### 5. Local Helper / Test-Double Classes
 
 → See `guidelines/object-creation.md` for local class setup (`locals_def.abap` / `locals_imp.abap`)
 
