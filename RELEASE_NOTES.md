@@ -2,6 +2,27 @@
 title: Release Notes
 ---
 
+## v1.11.2
+
+### New Features
+
+- `view --full --lines`: dual line numbers for breakpoint debugging
+- Added `--verbose` flag; HTTP error body details now surfaced
+
+### Bug Fixes
+
+- Debug `set`: validate breakpoint line numbers immediately on creation
+- View: global line numbers now computed accurately client-side
+
+### Documentation
+
+- Updated `view` and `debug` command specs for `--full/--lines` split
+
+---
+
+---
+
+
 ## v1.11.1
 
 ### New Features
