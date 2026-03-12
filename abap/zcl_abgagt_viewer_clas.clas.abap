@@ -130,7 +130,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ORDER BY methodindx.
 
       LOOP AT lt_methods INTO DATA(ls_method).
-        lv_cm_suffix = lo_util->convert_index_to_cm_suffix( ls_method-methodindx ).
+        lv_cm_suffix = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
         CLEAR ls_section.
