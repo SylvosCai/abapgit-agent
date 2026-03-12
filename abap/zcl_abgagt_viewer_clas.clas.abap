@@ -77,7 +77,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       DATA: ls_section     TYPE zcl_abgagt_command_view=>ty_section,
             lv_pubsec      TYPE program,
             lv_cm_suffix   TYPE string,
-            lv_include_pad TYPE program.
+            lv_include_pad TYPE program,
+            lv_condensed   TYPE string.
 
       " Build padded class name prefix (30 chars) for direct include reads
       DATA lv_pad30 TYPE program.
@@ -179,9 +180,12 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       " We scan forward past lines until we hit METHOD (the first method line)
       " or exhaust CS. We skip lines that are NOT method implementations.
       WHILE lv_cs_pos <= lines( lt_cs_source ).
-        lv_search_line = lt_cs_source[ lv_cs_pos ].
-        " A method implementation block starts with "METHOD " (case-insensitive)
-        IF lv_search_line CS 'METHOD ' OR lv_search_line CS 'method '.
+        lv_condensed = lt_cs_source[ lv_cs_pos ].
+        CONDENSE lv_condensed.
+        " A METHOD statement starts with "METHOD " as first non-blank token.
+        " Using starts-with avoids false matches on comment lines containing "METHOD ".
+        IF strlen( lv_condensed ) >= 7
+            AND ( lv_condensed(7) = 'METHOD ' OR to_lower( lv_condensed(7) ) = 'method ' ).
           EXIT.
         ENDIF.
         lv_cs_pos = lv_cs_pos + 1.
@@ -204,8 +208,11 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         DATA lv_scan TYPE i.
         lv_scan = lv_cs_pos.
         WHILE lv_scan <= lines( lt_cs_source ).
-          lv_search_line = to_upper( lt_cs_source[ lv_scan ] ).
-          IF lv_search_line CS 'METHOD' AND lv_search_line CS lv_method_upper.
+          lv_condensed = to_upper( lt_cs_source[ lv_scan ] ).
+          CONDENSE lv_condensed.
+          " Match only actual METHOD statements (starts with "METHOD "), not comments
+          IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '
+              AND lv_condensed CS lv_method_upper.
             lv_found_pos = lv_scan.
             EXIT.
           ENDIF.
@@ -230,10 +237,12 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         lv_cs_pos = lv_cs_pos + lines( lt_source ).
         " Skip trailing blank lines / ENDMETHOD line in CS before the next METHOD
         WHILE lv_cs_pos <= lines( lt_cs_source ).
-          lv_search_line = to_upper( lt_cs_source[ lv_cs_pos ] ).
-          IF lv_search_line CS 'METHOD '.
+          lv_condensed = to_upper( lt_cs_source[ lv_cs_pos ] ).
+          CONDENSE lv_condensed.
+          " Stop at actual METHOD statement (starts with "METHOD "), not a comment
+          IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '.
             EXIT.
-          ELSEIF lv_search_line CS 'ENDCLASS'.
+          ELSEIF lv_condensed CS 'ENDCLASS'.
             EXIT.
           ENDIF.
           lv_cs_pos = lv_cs_pos + 1.
