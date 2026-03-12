@@ -902,7 +902,8 @@ View ABAP object definitions directly from ABAP system.
 ```json
 {
   "objects": ["ZCL_MY_CLASS", "ZIF_MY_INTERFACE", "SFLIGHT"],
-  "type": "CLAS"
+  "type": "CLAS",
+  "full": false
 }
 ```
 
@@ -910,6 +911,7 @@ View ABAP object definitions directly from ABAP system.
 |-------|------|-------------|
 | `objects` | Array | List of object names (required) |
 | `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected if not specified |
+| `full` | Boolean | Return all source sections instead of public section only. For CLAS: returns `sections[]` with CU/CO/CP/CM*/CCDEF/CCIMP/CCAU includes. For INTF/PROG/DDLS: returns single-entry `sections[]`. Default: `false` |
 
 ### Supported Object Types
 
@@ -948,6 +950,78 @@ View ABAP object definitions directly from ABAP system.
   "error": ""
 }
 ```
+
+### Response (success - class with `full: true`)
+
+When `full: true` is set, `source` is replaced by a `sections` array. Each entry represents one ABAP include. Line number rendering is done client-side by Node.js.
+
+```json
+{
+  "success": true,
+  "command": "VIEW",
+  "message": "Retrieved object(s)",
+  "objects": [
+    {
+      "name": "ZCL_MY_CLASS",
+      "type": "CLAS",
+      "type_text": "Class",
+      "description": "Class ZCL_MY_CLASS in $PACKAGE",
+      "not_found": false,
+      "components": [],
+      "sections": [
+        {
+          "suffix": "CU",
+          "description": "Public Section",
+          "method_name": "",
+          "file": "",
+          "lines": ["CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.", "  PUBLIC SECTION.", "  ..."]
+        },
+        {
+          "suffix": "CO",
+          "description": "Protected Section",
+          "method_name": "",
+          "file": "",
+          "lines": ["  PROTECTED SECTION."]
+        },
+        {
+          "suffix": "CP",
+          "description": "Private Section",
+          "method_name": "",
+          "file": "",
+          "lines": ["  PRIVATE SECTION.", "    DATA mv_host TYPE string."]
+        },
+        {
+          "suffix": "CM001",
+          "description": "Class Method",
+          "method_name": "CONSTRUCTOR",
+          "file": "",
+          "lines": ["METHOD constructor.", "  mv_host = iv_host.", "ENDMETHOD."]
+        },
+        {
+          "suffix": "CCDEF",
+          "description": "Local Definitions",
+          "method_name": "",
+          "file": "locals_def",
+          "lines": ["CLASS lcl_helper DEFINITION.", "  ..."]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "by_type": ["CLAS"]
+  },
+  "error": ""
+}
+```
+
+| Section field | Description |
+|---|---|
+| `suffix` | Include type: `CU` (public), `CO` (protected), `CP` (private), `CM001`…`CMxxx` (method implementations), `CCDEF` (local defs), `CCIMP` (local impl), `CCAU` (unit tests) |
+| `description` | Human-readable label |
+| `method_name` | Method name for CM* sections; empty for others |
+| `file` | Non-empty for sections that come from a separate git file (`locals_def`, `locals_imp`, `testclasses`) |
+| `lines` | Source lines of this include (no line numbers — rendering is client-side) |
 
 ### Response (success - table)
 
