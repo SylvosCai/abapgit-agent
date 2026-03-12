@@ -13,7 +13,7 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_detect_intf_section FOR TESTING.
     METHODS test_detect_public_section FOR TESTING.
     METHODS test_convert_method_index FOR TESTING.
-    METHODS test_convert_index_to_cm_suffix FOR TESTING.
+    METHODS test_convert_index_to_cm FOR TESTING.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
@@ -141,7 +141,6 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_convert_method_index.
-    \" Test base-36 decoding: CM suffix -> integer index
     cl_abap_unit_assert=>assert_equals(
       act = mo_util->convert_method_index( 'CM001' ) exp = 1
       msg = 'CM001 should be 1' ).
@@ -156,8 +155,7 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       msg = 'CM010 should be 36' ).
   ENDMETHOD.
 
-  METHOD test_convert_index_to_cm_suffix.
-    \" Test base-36 encoding: integer index -> CM suffix
+  METHOD test_convert_index_to_cm.
     cl_abap_unit_assert=>assert_equals(
       act = mo_util->convert_index_to_cm_suffix( 1 ) exp = 'CM001'
       msg = '1 should be CM001' ).
