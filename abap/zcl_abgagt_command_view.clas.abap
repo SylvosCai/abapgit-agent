@@ -18,7 +18,6 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              description  TYPE string,
              method_name  TYPE string,
              file         TYPE string,
-             global_start TYPE i,
              lines        TYPE string_table,
            END OF ty_section.
     TYPES ty_sections TYPE STANDARD TABLE OF ty_section WITH DEFAULT KEY.

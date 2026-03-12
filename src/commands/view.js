@@ -2,6 +2,147 @@
  * View command - View ABAP object definitions
  */
 
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Find the local .clas.abap file for an object by scanning the configured
+ * source folder (from the nearest .abapGitAgent config file).
+ * Returns the file path if found, null otherwise.
+ */
+function findLocalClassFile(objName) {
+  try {
+    // Try to read .abapGitAgent to get configured folder
+    let folder = null;
+    let dir = process.cwd();
+    for (let i = 0; i < 5; i++) {
+      const cfgPath = path.join(dir, '.abapGitAgent');
+      if (fs.existsSync(cfgPath)) {
+        try {
+          const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+          folder = cfg.folder;
+        } catch (e) { /* ignore */ }
+        break;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+
+    // Normalise folder to a relative path segment (strip leading/trailing slashes)
+    const folderSeg = folder ? folder.replace(/^\/|\/$/g, '') : null;
+    const lowerName = objName.toLowerCase();
+    const fileName = `${lowerName}.clas.abap`;
+
+    const candidates = [];
+    if (folderSeg) {
+      candidates.push(path.join(process.cwd(), folderSeg, fileName));
+    }
+    candidates.push(path.join(process.cwd(), 'src', fileName));
+    candidates.push(path.join(process.cwd(), 'abap', fileName));
+    candidates.push(path.join(process.cwd(), fileName));
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+/**
+ * Given a fully assembled class source (array of lines, 1-indexed positions),
+ * return a map of { METHODNAME_UPPER: globalLineNumber } where globalLineNumber
+ * is the line on which `METHOD <name>.` appears.
+ *
+ * Matches lines where the first non-blank token is exactly "METHOD" (case-insensitive)
+ * to avoid false matches on comments or string literals.
+ */
+function buildMethodLineMap(sourceLines) {
+  const map = {};
+  for (let i = 0; i < sourceLines.length; i++) {
+    const condensed = sourceLines[i].trimStart();
+    if (/^method\s+/i.test(condensed)) {
+      // Extract method name: everything between "METHOD " and the next space/period/paren
+      const m = condensed.match(/^method\s+([\w~]+)/i);
+      if (m) {
+        map[m[1].toUpperCase()] = i + 1; // 1-based line number
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Fetch the assembled class source from ADT.
+ * Returns an array of source lines, or null on failure.
+ */
+async function fetchAdtSource(objName, config) {
+  try {
+    const { AdtHttp } = require('../utils/adt-http');
+    const adt = new AdtHttp(config);
+    await adt.fetchCsrfToken();
+    const lower = objName.toLowerCase();
+    const resp = await adt.get(
+      `/sap/bc/adt/oo/classes/${lower}/source/main`,
+      { accept: 'text/plain' }
+    );
+    if (resp && resp.body) {
+      return resp.body.split('\n');
+    }
+  } catch (e) { /* ignore — fall through */ }
+  return null;
+}
+
+/**
+ * Compute global_start for each CM section in a sections array.
+ * Mutates sections in-place, adding a globalStart property.
+ *
+ * Strategy:
+ *  1. Try local .clas.abap file → build method line map
+ *  2. Fall back to ADT source fetch → build method line map
+ *  3. If neither works, leave globalStart = 0 (unknown)
+ *
+ * For non-CM sections (CU, CO, CP, CCDEF, CCIMP, CCAU) globalStart is also
+ * set from the source map for sections that have a unique recognisable first line,
+ * but for simplicity we set it to 0 for non-CM sections (they use section-local
+ * line numbers already).
+ */
+async function computeGlobalStarts(objName, sections, config) {
+  // Only CM sections need global_start for breakpoints
+  const cmSections = sections.filter(s => {
+    const suffix = s.SUFFIX || s.suffix || '';
+    const methodName = s.METHOD_NAME || s.method_name || '';
+    return suffix.startsWith('CM') && methodName;
+  });
+  if (cmSections.length === 0) return;
+
+  let sourceLines = null;
+
+  // Try local file first
+  const localFile = findLocalClassFile(objName);
+  if (localFile) {
+    try {
+      sourceLines = fs.readFileSync(localFile, 'utf8').split('\n');
+    } catch (e) { /* ignore */ }
+  }
+
+  // Fall back to ADT source fetch
+  if (!sourceLines) {
+    sourceLines = await fetchAdtSource(objName, config);
+  }
+
+  if (!sourceLines) return;
+
+  const methodLineMap = buildMethodLineMap(sourceLines);
+
+  for (const section of cmSections) {
+    const methodName = (section.METHOD_NAME || section.method_name || '').toUpperCase();
+    if (methodLineMap[methodName] !== undefined) {
+      section.globalStart = methodLineMap[methodName];
+    }
+  }
+}
+
 module.exports = {
   name: 'view',
   description: 'View ABAP object definitions from ABAP system',
@@ -57,6 +198,17 @@ module.exports = {
       return;
     }
 
+    // In full mode, compute global line numbers client-side before rendering
+    if (fullMode) {
+      for (const obj of viewObjects) {
+        const objName = obj.NAME || obj.name || '';
+        const sections = obj.SECTIONS || obj.sections || [];
+        if (sections.length > 0 && objName) {
+          await computeGlobalStarts(objName, sections, config);
+        }
+      }
+    }
+
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2));
     } else {
@@ -98,14 +250,15 @@ module.exports = {
           // G  = assembled-source global line → use with: debug set --objects CLASS:G
           //                                     or with:  debug set --files src/cls.clas.abap:G
           // [N] = include-relative (restarts at 1 per CM method) — for code navigation only.
-          // Both numbers come from the ABAP backend: global_start + include_relative - 1.
+          // G is computed client-side from the local file or ADT source.
           console.log('');
           for (const section of sections) {
             const suffix = section.SUFFIX || section.suffix || '';
             const methodName = section.METHOD_NAME || section.method_name || '';
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
-            const globalStart = section.GLOBAL_START || section.global_start || 0;
+            // globalStart was set by computeGlobalStarts; fall back to 0 (unknown)
+            const globalStart = section.globalStart || 0;
             const isCmSection = suffix.startsWith('CM') && methodName;
 
             if (isCmSection) {
