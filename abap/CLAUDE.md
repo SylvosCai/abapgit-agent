@@ -1,11 +1,11 @@
 ---
 layout: default
-title: ABAP Project Guidelines
+title: Claude Code Instructions (Template)
 nav_order: 1
 parent: ABAP Development
 ---
 
-# ABAP Project Guidelines - Template
+# Claude Code Instructions - Template
 
 This file provides guidelines for **generating ABAP code** in abapGit repositories.
 
