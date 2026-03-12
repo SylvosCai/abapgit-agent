@@ -327,8 +327,28 @@ abapgit-agent debug set --objects ZCL_MY_CLASS=============CM002:3   # include-r
 abapgit-agent debug list    # confirm it was registered
 ```
 
-> **Line number must point to an executable statement** — not a comment, blank line,
-> `DATA` declaration, or `METHOD`/`ENDMETHOD`. Use `view --objects` to find valid lines.
+> **Line number must point to an executable statement.** Two common mistakes when reading `view --full` output:
+>
+> 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
+>    Pick the next non-comment line instead.
+>    ```
+>    653  [ 70]    " --- Conflict detection ---   ← NOT valid (comment)
+>    654  [ 71]    " Build remote file entries…   ← NOT valid (comment)
+>    656  [ 73]    DATA(lt_file_entries) = …      ← valid ✅
+>    ```
+>
+> 2. **First line of a multi-line inline `DATA(x) = call(`** — the ABAP debugger treats the
+>    `DATA(x) =` line as a declaration, not an executable step. Set the breakpoint on the
+>    **next standalone executable statement** after the closing `).` instead.
+>    ```
+>    675  [ 92]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
+>    676  [ 93]      it_files = it_files                           ← NOT valid (continuation)
+>    679  [ 96]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
+>    681  [ 98]    mo_repo->create_new_log( ).                     ← valid ✅
+>    ```
+>
+> Other non-executable lines: blank lines, `METHOD`/`ENDMETHOD`, `DATA:` declarations,
+> `CLASS`/`ENDCLASS`. When in doubt, prefer a simple method call or assignment.
 
 **Step 2 — attach and trigger**
 
