@@ -87,19 +87,42 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         lv_pad30 = lv_pad30 && '='.
       ENDWHILE.
 
-      " Read the CS include (complete assembled source as served by ADT).
-      " This is the ground truth for global line numbers.
-      DATA lt_cs_source TYPE string_table.
-      DATA lv_cs_available TYPE abap_bool VALUE abap_false.
-      lv_prog = lv_pad30 && 'CS'.
-      READ REPORT lv_prog INTO lt_cs_source.
-      IF sy-subrc = 0.
-        lv_cs_available = abap_true.
+      " --- Attempt to read the full assembled source via the class pool program ---
+      " cl_oo_classname_service=>get_classpool_name returns the class pool main program
+      " which, when read via READ REPORT, gives the full assembled source with line
+      " numbers that match ADT's breakpoint coordinate system exactly.
+      DATA lv_classpool TYPE program.
+      DATA lt_full_source TYPE string_table.
+      DATA lv_pool_available TYPE abap_bool VALUE abap_false.
+
+      CALL METHOD cl_oo_classname_service=>get_classpool_name
+        EXPORTING  clsname = lv_clsname
+        RECEIVING  result  = lv_classpool.
+
+      IF lv_classpool IS NOT INITIAL.
+        READ REPORT lv_classpool INTO lt_full_source.
+        IF sy-subrc = 0 AND lines( lt_full_source ) > 0.
+          lv_pool_available = abap_true.
+        ENDIF.
       ENDIF.
-      " lv_cs_pos tracks our current scan position within the assembled source
+
+      " Fall back to CS include if classpool read failed
+      DATA lv_cs_available TYPE abap_bool VALUE abap_false.
       DATA lv_cs_pos TYPE i VALUE 1.
       DATA lv_search_line TYPE string.
       DATA lv_found_pos   TYPE i.
+
+      IF lv_pool_available = abap_false.
+        " Fallback: use CS include (complete assembled source — may differ slightly from ADT)
+        DATA lt_cs_source TYPE string_table.
+        lv_prog = lv_pad30 && 'CS'.
+        READ REPORT lv_prog INTO lt_cs_source.
+        IF sy-subrc = 0.
+          lv_cs_available = abap_true.
+          lt_full_source  = lt_cs_source.
+          lv_pool_available = abap_true.
+        ENDIF.
+      ENDIF.
 
       " --- Definition sections: CU (public), CO (protected), CP (private) ---
       " For CU use cl_oo_classname_service as before; CO and CP via padded include names
@@ -107,89 +130,132 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         EXPORTING  clsname = lv_clsname
         RECEIVING  result  = lv_pubsec.
 
-      " Public section (CU): always starts at global line 1
+      " ---------------------------------------------------------------
+      " Helper: compute global_start for a section/method by scanning
+      " lt_full_source for the first line of that section's include content.
+      " We search forward from lv_scan_from for a line that matches the
+      " first non-blank line of lt_needle. Returns 0 if not found.
+      " ---------------------------------------------------------------
+
+      " Scan helper variables
+      DATA lv_scan_from TYPE i VALUE 1.
+
+      " --- Public section (CU) ---
       CLEAR ls_section.
-      ls_section-suffix       = 'CU'.
-      ls_section-description  = 'Public Section'.
-      ls_section-global_start = 1.
+      ls_section-suffix      = 'CU'.
+      ls_section-description = 'Public Section'.
       CLEAR lt_source.
       READ REPORT lv_pubsec INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      " Advance CS scan position past CU content (READ REPORT trims trailing blanks,
-      " so scan past known lines and then skip any trailing blanks in CS)
-      lv_cs_pos = lv_cs_pos + lines( lt_source ).
-      " Skip trailing blank lines in CS that belong to CU
-      WHILE lv_cs_pos <= lines( lt_cs_source ).
-        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
-          lv_cs_pos = lv_cs_pos + 1.
+
+      IF lv_pool_available = abap_true.
+        " Find the first non-blank line of the CU include in the full source.
+        " CU always starts near the top; search from line 1.
+        DATA lv_cu_needle TYPE string.
+        LOOP AT lt_source INTO lv_cu_needle.
+          CONDENSE lv_cu_needle.
+          IF lv_cu_needle IS NOT INITIAL.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        IF lv_cu_needle IS NOT INITIAL.
+          lv_scan_from = 1.
+          WHILE lv_scan_from <= lines( lt_full_source ).
+            DATA lv_full_cmp TYPE string.
+            lv_full_cmp = lt_full_source[ lv_scan_from ].
+            CONDENSE lv_full_cmp.
+            IF lv_full_cmp = lv_cu_needle.
+              EXIT.
+            ENDIF.
+            lv_scan_from = lv_scan_from + 1.
+          ENDWHILE.
+          ls_section-global_start = lv_scan_from.
         ELSE.
-          EXIT.
+          ls_section-global_start = 1.
+          lv_scan_from = 1.
         ENDIF.
-      ENDWHILE.
+        " Advance scan past CU content
+        lv_scan_from = ls_section-global_start + lines( lt_source ).
+      ELSE.
+        ls_section-global_start = 1.
+      ENDIF.
       APPEND ls_section TO rs_info-sections.
 
-      " Protected section (CO): global_start = current CS scan position
+      " --- Protected section (CO) ---
       CLEAR ls_section.
-      ls_section-suffix       = 'CO'.
-      ls_section-description  = 'Protected Section'.
-      ls_section-global_start = lv_cs_pos.
+      ls_section-suffix      = 'CO'.
+      ls_section-description = 'Protected Section'.
       lv_prog = lv_pad30 && 'CO'.
       CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      lv_cs_pos = lv_cs_pos + lines( lt_source ).
-      WHILE lv_cs_pos <= lines( lt_cs_source ).
-        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
-          lv_cs_pos = lv_cs_pos + 1.
-        ELSE.
-          EXIT.
-        ENDIF.
-      ENDWHILE.
+
+      IF lv_pool_available = abap_true.
+        " Skip blank lines between sections
+        WHILE lv_scan_from <= lines( lt_full_source ).
+          DATA lv_tmp TYPE string.
+          lv_tmp = lt_full_source[ lv_scan_from ].
+          CONDENSE lv_tmp.
+          IF lv_tmp IS NOT INITIAL.
+            EXIT.
+          ENDIF.
+          lv_scan_from = lv_scan_from + 1.
+        ENDWHILE.
+        ls_section-global_start = lv_scan_from.
+        lv_scan_from = lv_scan_from + lines( lt_source ).
+      ELSE.
+        ls_section-global_start = 0.
+      ENDIF.
       APPEND ls_section TO rs_info-sections.
 
-      " Private section (CP): global_start = current CS scan position
+      " --- Private section (CP) ---
       CLEAR ls_section.
-      ls_section-suffix       = 'CP'.
-      ls_section-description  = 'Private Section'.
-      ls_section-global_start = lv_cs_pos.
+      ls_section-suffix      = 'CP'.
+      ls_section-description = 'Private Section'.
       lv_prog = lv_pad30 && 'CP'.
       CLEAR lt_source.
       READ REPORT lv_prog INTO lt_source.
       IF sy-subrc = 0.
         ls_section-lines = lt_source.
       ENDIF.
-      lv_cs_pos = lv_cs_pos + lines( lt_source ).
-      " Skip trailing blank lines of CP in CS (these precede the CLASS IMPLEMENTATION. line)
-      WHILE lv_cs_pos <= lines( lt_cs_source ).
-        IF lt_cs_source[ lv_cs_pos ] IS INITIAL.
-          lv_cs_pos = lv_cs_pos + 1.
-        ELSE.
-          EXIT.
-        ENDIF.
-      ENDWHILE.
+
+      IF lv_pool_available = abap_true.
+        " Skip blank lines between sections
+        WHILE lv_scan_from <= lines( lt_full_source ).
+          lv_tmp = lt_full_source[ lv_scan_from ].
+          CONDENSE lv_tmp.
+          IF lv_tmp IS NOT INITIAL.
+            EXIT.
+          ENDIF.
+          lv_scan_from = lv_scan_from + 1.
+        ENDWHILE.
+        ls_section-global_start = lv_scan_from.
+        lv_scan_from = lv_scan_from + lines( lt_source ).
+      ELSE.
+        ls_section-global_start = 0.
+      ENDIF.
       APPEND ls_section TO rs_info-sections.
 
-      " Advance past the implementation wrapper in CS.
+      " --- Advance past the implementation wrapper ---
       " The assembled source has:
       "   CLASS <clsname> IMPLEMENTATION.   ← one line
       "   (blank line)                       ← one line
-      " We scan forward past lines until we hit METHOD (the first method line)
-      " or exhaust CS. We skip lines that are NOT method implementations.
-      WHILE lv_cs_pos <= lines( lt_cs_source ).
-        lv_condensed = lt_cs_source[ lv_cs_pos ].
-        CONDENSE lv_condensed.
-        " A METHOD statement starts with "METHOD " as first non-blank token.
-        " Using starts-with avoids false matches on comment lines containing "METHOD ".
-        IF strlen( lv_condensed ) >= 7
-            AND ( lv_condensed(7) = 'METHOD ' OR to_lower( lv_condensed(7) ) = 'method ' ).
-          EXIT.
-        ENDIF.
-        lv_cs_pos = lv_cs_pos + 1.
-      ENDWHILE.
+      " Scan forward until we hit the first METHOD statement.
+      IF lv_pool_available = abap_true.
+        WHILE lv_scan_from <= lines( lt_full_source ).
+          lv_condensed = lt_full_source[ lv_scan_from ].
+          CONDENSE lv_condensed.
+          IF strlen( lv_condensed ) >= 7
+              AND ( lv_condensed(7) = 'METHOD ' OR to_lower( lv_condensed(7) ) = 'method ' ).
+            EXIT.
+          ENDIF.
+          lv_scan_from = lv_scan_from + 1.
+        ENDWHILE.
+      ENDIF.
 
       SELECT methodname, methodindx FROM tmdir
         INTO TABLE @DATA(lt_methods)
@@ -200,53 +266,57 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         lv_cm_suffix = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
-        " Scan CS forward to find the METHOD line for this method.
-        " The CM include begins exactly at the METHOD statement.
+        " Compute global_start for this CM method by scanning the full source
+        " for its METHOD statement, starting from lv_scan_from (current position).
         DATA lv_method_upper TYPE string.
         lv_method_upper = to_upper( ls_method-methodname ).
         lv_found_pos = 0.
-        DATA lv_scan TYPE i.
-        lv_scan = lv_cs_pos.
-        WHILE lv_scan <= lines( lt_cs_source ).
-          lv_condensed = to_upper( lt_cs_source[ lv_scan ] ).
-          CONDENSE lv_condensed.
-          " Match only actual METHOD statements (starts with "METHOD "), not comments
-          IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '
-              AND lv_condensed CS lv_method_upper.
-            lv_found_pos = lv_scan.
-            EXIT.
+
+        IF lv_pool_available = abap_true.
+          DATA lv_scan TYPE i.
+          lv_scan = lv_scan_from.
+          WHILE lv_scan <= lines( lt_full_source ).
+            lv_condensed = to_upper( lt_full_source[ lv_scan ] ).
+            CONDENSE lv_condensed.
+            " Match only actual METHOD statements (starts with "METHOD "), not comments
+            IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '
+                AND lv_condensed CS lv_method_upper.
+              lv_found_pos = lv_scan.
+              EXIT.
+            ENDIF.
+            lv_scan = lv_scan + 1.
+          ENDWHILE.
+          IF lv_found_pos > 0.
+            lv_scan_from = lv_found_pos.
           ENDIF.
-          lv_scan = lv_scan + 1.
-        ENDWHILE.
-        IF lv_found_pos > 0.
-          lv_cs_pos = lv_found_pos.
         ENDIF.
 
         CLEAR ls_section.
         ls_section-suffix       = lv_cm_suffix.
         ls_section-description  = 'Class Method'.
         ls_section-method_name  = CONV string( ls_method-methodname ).
-        ls_section-global_start = lv_cs_pos.
+        ls_section-global_start = COND #( WHEN lv_found_pos > 0 THEN lv_found_pos ELSE 0 ).
         lv_prog = lv_include_pad.
         CLEAR lt_source.
         READ REPORT lv_prog INTO lt_source.
         IF sy-subrc = 0.
           ls_section-lines = lt_source.
         ENDIF.
-        " Advance CS past this method's content (include lines + trailing blanks/ENDMETHOD)
-        lv_cs_pos = lv_cs_pos + lines( lt_source ).
-        " Skip trailing blank lines / ENDMETHOD line in CS before the next METHOD
-        WHILE lv_cs_pos <= lines( lt_cs_source ).
-          lv_condensed = to_upper( lt_cs_source[ lv_cs_pos ] ).
-          CONDENSE lv_condensed.
-          " Stop at actual METHOD statement (starts with "METHOD "), not a comment
-          IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '.
-            EXIT.
-          ELSEIF lv_condensed CS 'ENDCLASS'.
-            EXIT.
-          ENDIF.
-          lv_cs_pos = lv_cs_pos + 1.
-        ENDWHILE.
+        " Advance scan past this method's content (include lines) then skip
+        " ENDMETHOD / blank lines until the next METHOD statement.
+        IF lv_pool_available = abap_true AND lv_found_pos > 0.
+          lv_scan_from = lv_found_pos + lines( lt_source ).
+          WHILE lv_scan_from <= lines( lt_full_source ).
+            lv_condensed = to_upper( lt_full_source[ lv_scan_from ] ).
+            CONDENSE lv_condensed.
+            IF strlen( lv_condensed ) >= 7 AND lv_condensed(7) = 'METHOD '.
+              EXIT.
+            ELSEIF lv_condensed CS 'ENDCLASS'.
+              EXIT.
+            ENDIF.
+            lv_scan_from = lv_scan_from + 1.
+          ENDWHILE.
+        ENDIF.
         APPEND ls_section TO rs_info-sections.
       ENDLOOP.
 
