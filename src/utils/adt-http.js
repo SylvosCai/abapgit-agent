@@ -8,6 +8,7 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { extractBodyDetail } = require('./format-error');
 const os = require('os');
 const crypto = require('crypto');
 
@@ -194,7 +195,11 @@ class AdtHttp {
           let respBody = '';
           res.on('data', chunk => respBody += chunk);
           res.on('end', () => {
-            reject({ statusCode: res.statusCode, message: `HTTP ${res.statusCode} error`, body: respBody });
+            const detail = extractBodyDetail(respBody);
+            const message = detail
+              ? `(HTTP ${res.statusCode}) ${detail}`
+              : `(HTTP ${res.statusCode}) ${res.statusMessage || 'Internal Server Error'}`;
+            reject({ statusCode: res.statusCode, message, body: respBody });
           });
           return;
         }

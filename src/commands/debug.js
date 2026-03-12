@@ -34,6 +34,7 @@ const { spawn } = require('child_process');
 const { AdtHttp }      = require('../utils/adt-http');
 const { DebugSession } = require('../utils/debug-session');
 const debugStateModule = require('../utils/debug-state');
+const { printHttpError } = require('../utils/format-error');
 const {
   saveActiveSession,
   loadActiveSession,
@@ -325,17 +326,16 @@ async function cmdSet(args, config, adt) {
     return;
   }
 
-  await adt.fetchCsrfToken();
-  const body = buildBreakpointsXml(config.user, updated);
-
   let resp;
   try {
+    await adt.fetchCsrfToken();
+    const body = buildBreakpointsXml(config.user, updated);
     resp = await adt.post('/sap/bc/adt/debugger/breakpoints', body, {
       contentType: 'application/xml',
       headers: { Accept: 'application/xml' }
     });
   } catch (err) {
-    console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+    printHttpError(err, { prefix: '  Error' });
     process.exit(1);
   }
 
@@ -461,7 +461,7 @@ async function cmdDelete(args, config, adt) {
       try {
         await adt.delete(`/sap/bc/adt/debugger/breakpoints/${encodeURIComponent(bpId)}`);
       } catch (err) {
-        console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+        printHttpError(err, { prefix: '  Error' });
         process.exit(1);
       }
       if (jsonOutput) {
@@ -488,11 +488,11 @@ async function cmdDelete(args, config, adt) {
       try {
         await adt.delete(`/sap/bc/adt/debugger/breakpoints?clientId=${encodeURIComponent(ADT_CLIENT_ID)}`);
       } catch (err2) {
-        console.error(`\n  Error: ${err2.message || JSON.stringify(err2)}\n`);
+        printHttpError(err2, { prefix: '  Error' });
         process.exit(1);
       }
     } else {
-      console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
   }
@@ -622,7 +622,7 @@ async function cmdAttach(args, config, adt) {
           );
           process.exit(1);
         }
-        console.error(`\n  Error from ADT listener: ${err.message || JSON.stringify(err)}\n`);
+        printHttpError(err, { prefix: '  Error from ADT listener' });
         process.exit(1);
       }
 
@@ -708,7 +708,7 @@ async function cmdAttach(args, config, adt) {
     try {
       await session.attach(sessionId, (config.user || '').toUpperCase());
     } catch (e) {
-      console.error(`\n  Error during attach: ${e.message || JSON.stringify(e)}\n`);
+      printHttpError(e, { prefix: '  Error during attach' });
       if (e.body) console.error('  Response body:', e.body.substring(0, 400));
       process.exit(1);
     }
@@ -802,7 +802,7 @@ async function cmdStep(args, config, adt) {
     try {
       resp = await sendDaemonCommand(socketPath, { cmd: 'step', type }, 60000);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     if (!resp.ok) {
@@ -846,7 +846,7 @@ async function cmdStep(args, config, adt) {
       );
       process.exit(1);
     }
-    console.error(`\n  Error: ${err.message || JSON.stringify(err)}${err.body ? '\n  Body: ' + err.body.substring(0, 600) : ''}\n`);
+    printHttpError(err, { prefix: '  Error' });
     process.exit(1);
   }
 
@@ -892,7 +892,7 @@ async function cmdVars(args, config, adt) {
     try {
       resp = await sendDaemonCommand(socketPath, { cmd: 'vars', name: nameFilter }, 60000);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     if (!resp.ok) {
@@ -923,7 +923,7 @@ async function cmdVars(args, config, adt) {
       );
       process.exit(1);
     }
-    console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+    printHttpError(err, { prefix: '  Error' });
     process.exit(1);
   }
 
@@ -962,7 +962,7 @@ async function cmdExpand(expandName, sessionId, socketPath, config, adt, jsonOut
     try {
       result = await session.expandPath(pathParts);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     const { variable: target, children } = result;
@@ -977,7 +977,7 @@ async function cmdExpand(expandName, sessionId, socketPath, config, adt, jsonOut
     try {
       resp = await sendDaemonCommand(socketPath, { cmd: 'vars', name: null }, 60000);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     if (!resp.ok) {
@@ -1009,7 +1009,7 @@ async function cmdExpand(expandName, sessionId, socketPath, config, adt, jsonOut
     try {
       resp = await sendDaemonCommand(socketPath, { cmd: 'expand', id: target.id, meta }, 60000);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     if (!resp.ok) {
@@ -1070,7 +1070,7 @@ async function cmdStack(args, config, adt) {
     try {
       resp = await sendDaemonCommand(socketPath, { cmd: 'stack' }, 60000);
     } catch (err) {
-      console.error(`\n  Error: ${err.message}\n`);
+      printHttpError(err, { prefix: '  Error' });
       process.exit(1);
     }
     if (!resp.ok) {
@@ -1101,7 +1101,7 @@ async function cmdStack(args, config, adt) {
       );
       process.exit(1);
     }
-    console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+    printHttpError(err, { prefix: '  Error' });
     process.exit(1);
   }
 
@@ -1164,7 +1164,7 @@ async function cmdTerminate(args, config, adt) {
       );
       process.exit(1);
     }
-    console.error(`\n  Error: ${err.message || JSON.stringify(err)}\n`);
+    printHttpError(err, { prefix: '  Error' });
     process.exit(1);
   }
 
