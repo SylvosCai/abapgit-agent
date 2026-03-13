@@ -222,7 +222,7 @@ GitHub credentials not configured or invalid:
 The repository must exist in abapGit:
 
 1. Run `abapgit-agent create` to create it, OR
-2. Create manually in abapGit UI: https://<sap>/sap/bc/zabapgit
+2. Create manually in abapGit: run transaction `ZABAPGIT` (or `SE38` → `ZABAPGIT`) → New → Online → enter git URL
 
 ### No Objects Found
 
@@ -280,8 +280,7 @@ abapgit-agent init --folder /abap --package ZMYPROJECT
 # Edit config
 vim .abapGitAgent
 
-# Create repository in abapGit UI
-# https://<sap>/sap/bc/zabapgit → New → Online → Enter git URL
+# Create repository in abapGit: run transaction ZABAPGIT → New → Online → Enter git URL
 
 # Develop objects in ABAP...
 
