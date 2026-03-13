@@ -13,6 +13,7 @@ Initialize local configuration for an existing git repository.
 
 ```bash
 abapgit-agent init --package ZMY_PACKAGE [options]
+abapgit-agent init --update
 ```
 
 ## Prerequisite
@@ -24,9 +25,10 @@ abapgit-agent init --package ZMY_PACKAGE [options]
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `--package` | Yes | - | Target ABAP package |
+| `--package` | Yes (unless `--update`) | - | Target ABAP package |
 | `--folder` | No | `/src/` | Subfolder path for ABAP source files |
 | `--folder-logic` | No | `PREFIX` | Folder logic: `PREFIX` or `FULL` (see below) |
+| `--update` | No | - | Update `CLAUDE.md` and `guidelines/` to the latest version without touching credentials or config |
 
 ### Folder Logic Options
 
@@ -117,6 +119,24 @@ Add sensitive files to `.gitignore`:
 ```bash
 cp /path/to/abapgit-agent/abap/CLAUDE.md .
 ```
+
+## Update Mode (`--update`)
+
+Run `init --update` after upgrading the `abapgit-agent` npm package to get the latest `CLAUDE.md` and guidelines:
+
+```bash
+abapgit-agent init --update
+```
+
+What it updates:
+
+| File | Behaviour |
+|---|---|
+| `CLAUDE.md` | Always overwritten with latest version |
+| `.github/copilot-instructions.md` | Always overwritten with latest version |
+| `guidelines/*.md` | Overwritten (except `*.local.md`) |
+| `guidelines/*.local.md` | **Never touched** — project customisations are preserved |
+| `.abapGitAgent` | Never touched |
 
 ## Output Files
 
@@ -250,6 +270,9 @@ abapgit-agent init --package ZMYPROJECT --folder-logic FULL
 
 # Initialize with all custom options
 abapgit-agent init --package ZMYPROJECT --folder /src/ --folder-logic PREFIX
+
+# Update CLAUDE.md and guidelines/ to the latest version (preserves credentials and config)
+abapgit-agent init --update
 
 # Edit config
 vim .abapGitAgent
