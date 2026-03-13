@@ -235,7 +235,7 @@ The package may be empty or objects not yet created:
 
 If the import appears to hang:
 
-1. Check ABAP background job: `SM37` → Job name: `IMPORT_*`
+1. Check ABAP background job: `SM37` → Job name: `ABGAGT_IMPORT_*`
 2. View job log for errors
 3. If job failed, error will be shown in CLI after timeout
 
