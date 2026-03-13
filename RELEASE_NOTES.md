@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+## v1.11.3
+
+### New Features
+
+- Support `*.local.md` for project-specific naming conventions
+
+### Documentation
+
+- Fix SM37 job name pattern and abapGit URL in import docs
+- Document `--update` option for init command
+- Correct AUnit breakpoint behavior in debug docs
+- Add `--full` and `--full --lines` examples to view docs
+
+---
+
+---
+
+
 ## v1.11.2
 
 ### New Features
