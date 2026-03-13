@@ -31,6 +31,7 @@ Detailed ABAP coding guidelines for development in this project.
 |-------|-------------|
 | [Debug Session Guide](../abap/guidelines/debug-session.md) | Step-by-step debug workflow: set breakpoints, attach, inspect variables, pull flow architecture |
 | [Dump Analysis Guide](../abap/guidelines/debug-dump.md) | Analyse ST22 short dumps using the `dump` command |
+| [run Command Guide](../abap/guidelines/run-probe-classes.md) | Never-run-proactively rule, probe class workflow, scratchWorkspace setup |
 
 ## Workflow & Project Setup
 

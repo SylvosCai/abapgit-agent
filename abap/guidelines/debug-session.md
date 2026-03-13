@@ -166,7 +166,7 @@ abapgit-agent debug stack  --json                        # call stack (shows whi
 abapgit-agent debug delete --all
 ```
 
-> **If the stale debug daemon holds an ABAP lock** (symptom: `Requested object EZABAPGIT is currently locked by user CAIS`):
+> **If the stale debug daemon holds an ABAP lock** (symptom: `Requested object EZABAPGIT is currently locked by user <USER>`):
 > ```bash
 > pkill -f "debug-daemon"   # kills daemon, SIGTERM triggers session.terminate() internally
 > ```

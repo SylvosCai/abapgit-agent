@@ -14,6 +14,8 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap    # Check syntax BEFORE
 abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull and activate (AFTER push)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap   # Code Inspector check (AFTER pull)
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run unit tests
+abapgit-agent run --program ZMY_REPORT                     # Execute ABAP report
+abapgit-agent run --class ZCL_MY_RUNNER                    # Execute class (IF_OO_ADT_CLASSRUN)
 abapgit-agent preview --objects TABLE           # Preview table data
 abapgit-agent view --objects OBJ               # View object definition
 abapgit-agent tree --package '$PACKAGE'          # Show package hierarchy
@@ -199,7 +201,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 
 | Category | Commands | Purpose |
 |----------|----------|---------|
-| **Development** | `syntax`, `pull`, `inspect`, `unit` | Core development workflow |
+| **Development** | `syntax`, `pull`, `inspect`, `unit`, `run` | Core development workflow |
 | **Exploration** | `view`, `preview`, `tree`, `list`, `where` | Explore ABAP system |
 | **Setup** | `init`, `create`, `import`, `delete` | Repository setup |
 | **Utility** | `ref`, `status`, `health` | Reference & diagnostics |
@@ -212,6 +214,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 | Activate code AFTER push to git | `pull` | [docs/pull-command.md](docs/pull-command.md) |
 | Check activated code with Code Inspector | `inspect` | [docs/inspect-command.md](docs/inspect-command.md) |
 | Run unit tests | `unit` | [docs/unit-command.md](docs/unit-command.md) |
+| Execute ABAP report or class headlessly | `run` | [docs/run-command.md](docs/run-command.md) |
 | Explore package structure | `tree` | [docs/tree-command.md](docs/tree-command.md) |
 | Understand table/class/interface | `view` | [docs/view-command.md](docs/view-command.md) |
 | See table data | `preview` | [docs/preview-command.md](docs/preview-command.md) |
@@ -326,6 +329,10 @@ Create `.abapGitAgent` in repository root:
 
   "workflow": {
     "mode": "branch"  // "branch" or "trunk" (default: trunk)
+  },
+
+  "scratchWorkspace": {
+    "path": "/absolute/path/to/scratch-repo"
   }
 }
 ```
@@ -338,6 +345,20 @@ The `workflow` section controls git workflow behavior for AI coding tools:
 |-------|--------|---------|-------------|
 | `mode` | `"branch"` or `"trunk"` | `"trunk"` | Workflow mode (see below) |
 | `defaultBranch` | String (e.g., `"main"`) | Auto-detected | Override auto-detected default branch |
+
+#### Scratch Workspace Configuration
+
+The `scratchWorkspace` section tells AI tools where to create probe/throwaway ABAP classes:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `path` | string | — | **Required.** Absolute path to the scratch git repository |
+| `classPrefix` | string | `ZCL_{USER}_` | Prefix for generated class names (e.g. `ZCL_JOHN_`) |
+| `programPrefix` | string | `Z{USER}_` | Prefix for generated program names (e.g. `ZJOHN_`) |
+
+`{USER}` is derived from the `user` field in `.abapGitAgent` (e.g. user `JOHN` → `ZCL_JOHN_`).
+
+> **Note**: `scratchWorkspace` lives in `.abapGitAgent` (personal, per-machine) — never in `.abapgit-agent.json` (shared team config).
 
 **Workflow Modes:**
 
@@ -379,6 +400,7 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
   "safeguards": {
     "requireFilesForPull": true,
     "disablePull": false,
+    "disableRun": false,
     "reason": "Large project with 500+ objects. Selective activation required."
   },
 
@@ -405,6 +427,8 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
 |--------|------|---------|-------------|
 | `requireFilesForPull` | boolean | `false` | Requires `--files` parameter for pull command |
 | `disablePull` | boolean | `false` | Completely disables pull command |
+| `disableRun` | boolean | `false` | Completely disables run command |
+| `disableProbeClasses` | boolean | `false` | Prevents AI from creating probe classes in this project; redirects to `scratchWorkspace` |
 | `reason` | string | `null` | Optional explanation shown in error messages |
 
 #### Conflict Detection Options
@@ -446,6 +470,16 @@ CLI `--conflict-mode` flag always takes precedence over project config.
 }
 ```
 
+**Prevent AI from running ABAP code autonomously:**
+```json
+{
+  "safeguards": {
+    "disableRun": true,
+    "reason": "run command executes live ABAP code with potential side effects. Only use interactively."
+  }
+}
+```
+
 **Solo Developer (disable conflict detection):**
 ```json
 {
@@ -463,6 +497,10 @@ CLI `--conflict-mode` flag always takes precedence over project config.
 
 **When `disablePull: true`:**
 - All `pull` commands are disabled
+- Error message directs users to project maintainer
+
+**When `disableRun: true`:**
+- All `run` commands are disabled
 - Error message directs users to project maintainer
 
 ### Environment Variables
@@ -519,6 +557,7 @@ All command specifications are maintained in the `docs/` folder:
 | syntax | [docs/syntax-command.md](docs/syntax-command.md) |
 | inspect | [docs/inspect-command.md](docs/inspect-command.md) |
 | unit | [docs/unit-command.md](docs/unit-command.md) |
+| run | [docs/run-command.md](docs/run-command.md) |
 | tree | [docs/tree-command.md](docs/tree-command.md) |
 | view | [docs/view-command.md](docs/view-command.md) |
 | preview | [docs/preview-command.md](docs/preview-command.md) |

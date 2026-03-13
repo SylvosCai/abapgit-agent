@@ -102,7 +102,7 @@ The optional `transport_request` field specifies a transport request number to u
 ```json
 {
   "success": "X",
-  "job_id": "CAIS20260208115649",
+  "job_id": "USER20260208115649",
   "message": "Pull completed successfully",
   "transport_request": "DEVK900001",
   "activated_count": 10,
@@ -117,7 +117,7 @@ The optional `transport_request` field specifies a transport request number to u
 ```json
 {
   "success": "",
-  "job_id": "CAIS20260209041349",
+  "job_id": "USER20260209041349",
   "message": "Pull completed with errors",
   "error_detail": "CLAS ZCL_MY_CLASS: Syntax error\nException: The statement...",
   "transport_request": "DEVK900001",

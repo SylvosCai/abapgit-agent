@@ -42,6 +42,8 @@ describe('Project Safeguards', () => {
       expect(safeguards).toEqual({
         requireFilesForPull: false,
         disablePull: false,
+        disableRun: false,
+        disableProbeClasses: false,
         reason: null
       });
     });
@@ -121,6 +123,30 @@ describe('Project Safeguards', () => {
 
       expect(safeguards.requireFilesForPull).toBe(false);
       expect(safeguards.disablePull).toBe(true);
+    });
+
+    test('disableProbeClasses defaults to false', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: { disablePull: false }
+      }));
+
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().disableProbeClasses).toBe(false);
+    });
+
+    test('disableProbeClasses reads true from config', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: {
+          disableProbeClasses: true,
+          reason: 'Production-adjacent system'
+        }
+      }));
+
+      const { getSafeguards } = require('../../src/config');
+      const safeguards = getSafeguards();
+
+      expect(safeguards.disableProbeClasses).toBe(true);
+      expect(safeguards.reason).toBe('Production-adjacent system');
     });
   });
 

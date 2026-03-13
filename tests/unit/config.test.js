@@ -171,4 +171,82 @@ describe('Config', () => {
 
     expect(abapConfig.protocol).toBe('https');
   });
+
+  describe('getScratchWorkspace', () => {
+    test('returns null when not configured', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        host: 'test.com', user: 'CAIS', password: 'pass'
+      }));
+
+      const { getScratchWorkspace } = require('../../src/config');
+      expect(getScratchWorkspace()).toBeNull();
+    });
+
+    test('derives classPrefix and programPrefix from user field', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        host: 'test.com', user: 'CAIS', password: 'pass',
+        scratchWorkspace: { path: '/home/cais/scratch' }
+      }));
+
+      const { getScratchWorkspace } = require('../../src/config');
+      const ws = getScratchWorkspace();
+
+      expect(ws.path).toBe('/home/cais/scratch');
+      expect(ws.classPrefix).toBe('ZCL_CAIS_');
+      expect(ws.programPrefix).toBe('ZCAIS_');
+    });
+
+    test('uses explicit classPrefix and programPrefix when provided', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        host: 'test.com', user: 'CAIS', password: 'pass',
+        scratchWorkspace: {
+          path: '/home/cais/scratch',
+          classPrefix: 'YCL_PROBE_',
+          programPrefix: 'YPROBE_'
+        }
+      }));
+
+      const { getScratchWorkspace } = require('../../src/config');
+      const ws = getScratchWorkspace();
+
+      expect(ws.classPrefix).toBe('YCL_PROBE_');
+      expect(ws.programPrefix).toBe('YPROBE_');
+    });
+
+    test('falls back to PROBE prefix when user field is absent', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        host: 'test.com', password: 'pass',
+        scratchWorkspace: { path: '/home/scratch' }
+      }));
+
+      const { getScratchWorkspace } = require('../../src/config');
+      const ws = getScratchWorkspace();
+
+      expect(ws.classPrefix).toBe('ZCL_PROBE_');
+      expect(ws.programPrefix).toBe('ZPROBE_');
+    });
+
+    test('derives prefix from lowercased user correctly', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        host: 'test.com', user: 'john', password: 'pass',
+        scratchWorkspace: { path: '/home/john/scratch' }
+      }));
+
+      const { getScratchWorkspace } = require('../../src/config');
+      const ws = getScratchWorkspace();
+
+      expect(ws.classPrefix).toBe('ZCL_JOHN_');
+      expect(ws.programPrefix).toBe('ZJOHN_');
+    });
+  });
 });

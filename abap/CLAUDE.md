@@ -225,7 +225,23 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 ---
 
-### 9. Troubleshooting ABAP Issues
+### 9. Never Run `run` Command Proactively
+
+**Never call `abapgit-agent run` unless the user explicitly asks.** A class implementing `IF_OO_ADT_CLASSRUN` can modify data, send emails, or trigger RFCs — running it automatically is unsafe.
+
+After activating a class, stop and tell the user: `"Class is activated. Run with: abapgit-agent run --class ZCL_MY_CLASS"`
+
+---
+
+### 10. Probe Classes — Use `scratchWorkspace` When Required
+
+By default, probe/throwaway classes may be created in the current project. When `disableProbeClasses: true` is set in `.abapgit-agent.json`, they must go to `scratchWorkspace` instead. If `scratchWorkspace` is also not configured, refuse and guide the user to set it up.
+
+→ See `guidelines/run-probe-classes.md` for naming conventions, full workflow, and refusal guidance
+
+---
+
+### 11. Troubleshooting ABAP Issues
 
 | Symptom | Tool | When |
 |---|---|---|
@@ -236,6 +252,7 @@ Quick start:
 ```bash
 abapgit-agent dump --date TODAY --detail 1    # inspect last crash
 abapgit-agent debug set --objects ZCL_FOO:42  # set breakpoint then attach
+abapgit-agent run --class ZCL_MY_RUNNER       # execute and inspect output
 ```
 → See `guidelines/debug-dump.md` for dump analysis workflow
 → See `guidelines/debug-session.md` for full debug session guide, breakpoint tips, and pull flow architecture
@@ -326,6 +343,13 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 1. ✗ Do not run `abapgit-agent pull` at all
 2. ✓ Inform the user that pull is disabled for this project (CI/CD only)
 
+**When `safeguards.disableRun = true`:**
+1. ✗ Do not run `abapgit-agent run` at all
+2. ✓ Inform the user that run is disabled for this project
+
+**When `safeguards.disableProbeClasses = true`:**
+1. ✗ Do not create probe classes in the current project — see Rule 10 and `guidelines/run-command.md`
+
 **When `conflictDetection.mode = "ignore"` or not set:**
 1. ✓ Run `pull` normally — no conflict flags needed
 2. ✗ Don't add `--conflict-mode` unless user explicitly asks
@@ -384,6 +408,7 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/common-errors.md` | Common ABAP Errors - Quick Fixes |
 | `guidelines/debug-session.md` | Debug Session Guide |
 | `guidelines/debug-dump.md` | Dump Analysis Guide |
+| `guidelines/run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
 | `guidelines/branch-workflow.md` | Branch Workflow |
 | `guidelines/workflow-detailed.md` | Development Workflow (Detailed) |
 | `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |

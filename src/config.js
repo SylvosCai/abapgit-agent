@@ -122,6 +122,8 @@ function getSafeguards() {
     return {
       requireFilesForPull: projectConfig.safeguards.requireFilesForPull === true,
       disablePull: projectConfig.safeguards.disablePull === true,
+      disableRun: projectConfig.safeguards.disableRun === true,
+      disableProbeClasses: projectConfig.safeguards.disableProbeClasses === true,
       reason: projectConfig.safeguards.reason || null
     };
   }
@@ -130,6 +132,8 @@ function getSafeguards() {
   return {
     requireFilesForPull: false,
     disablePull: false,
+    disableRun: false,
+    disableProbeClasses: false,
     reason: null
   };
 }
@@ -199,6 +203,22 @@ function getTransportSettings() {
   return { allowCreate: true, allowRelease: true, reason: null };
 }
 
+/**
+ * Get scratch workspace configuration from personal config (.abapGitAgent)
+ * Used by AI to create probe/throwaway ABAP classes outside the current project
+ * @returns {{ path: string, classPrefix: string, programPrefix: string }|null}
+ */
+function getScratchWorkspace() {
+  const cfg = loadConfig();
+  if (!cfg.scratchWorkspace) return null;
+  const user = (cfg.user || 'PROBE').toUpperCase();
+  return {
+    path: cfg.scratchWorkspace.path || null,
+    classPrefix: cfg.scratchWorkspace.classPrefix || `ZCL_${user}_`,
+    programPrefix: cfg.scratchWorkspace.programPrefix || `Z${user}_`
+  };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -211,5 +231,6 @@ module.exports = {
   getConflictSettings,
   loadProjectConfig,
   getTransportHookConfig,
-  getTransportSettings
+  getTransportSettings,
+  getScratchWorkspace
 };

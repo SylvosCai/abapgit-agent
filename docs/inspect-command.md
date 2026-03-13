@@ -1,7 +1,7 @@
 ---
 layout: default
 title: inspect - Syntax Check
-nav_order: 3
+nav_order: 4
 parent: Development Commands
 ---
 

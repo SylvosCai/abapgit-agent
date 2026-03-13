@@ -18,10 +18,11 @@
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
  *   - pull:    1 test  (--files)
  *   - unit:    1 test  (test class)
+ *   - run:     2 tests (run program, run class)
  *   - status:  1 test  (config check)
  *   - inspect: 1 test  (code inspector)
  *   - health:  1 test  (system health)
- *   Total:    60 tests
+ *   Total:    62 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -1245,6 +1246,32 @@ ENDCLASS.`;
       const hasCLI = output.includes('CLI:');
       const noAbapError = !output.includes('.abapGitAgent config file not found');
       return hasCurrentVersions && hasCLI && noAbapError;
+    }
+  },
+
+  // ===================================================================
+  // RUN COMMAND - 2 tests
+  // Purpose: Execute ABAP program and class, capture output
+  // Note: Objects live in the abgagt-run-test repository ($ABGAGT_RUN_TEST)
+  // ===================================================================
+  {
+    command: 'run',
+    name: 'run --program ZABGAGT_RUN_TEST',
+    args: ['--program', 'ZABGAGT_RUN_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('Completed: ZABGAGT_RUN_TEST') &&
+        output.includes('Run command integration test passed');
+    }
+  },
+  {
+    command: 'run',
+    name: 'run --class ZCL_ABGAGT_RUN_TEST',
+    args: ['--class', 'ZCL_ABGAGT_RUN_TEST'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('Completed: ZCL_ABGAGT_RUN_TEST') &&
+        output.includes('run command integration test passed');
     }
   }
 ];
