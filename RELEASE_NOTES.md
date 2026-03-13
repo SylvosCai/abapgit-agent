@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.12.0
+
+### New Features
+
+- `run` command supports `scratchWorkspace` and `disableProbeClasses`
+
+### Improvements
+
+- Pull output no longer shows internal job ID
+
+---
+
+---
+
+
 ## v1.11.4
 
 ### New Features
