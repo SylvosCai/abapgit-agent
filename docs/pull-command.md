@@ -164,7 +164,6 @@ GET /health (with X-CSRF-Token: fetch)
 
 ```
 ✅ Pull completed successfully!
-   Job ID: USER20260208115649
    Message: Pull completed successfully
 
 📋 Pull Log (N messages):
@@ -184,7 +183,6 @@ Icon │Object                      │Message
 
 ```
 ❌ Pull completed with errors!
-   Job ID: USER20260208115649
    Message: Pull completed with errors
 
 📋 Error Details:
@@ -219,7 +217,6 @@ Files are parsed to extract `(obj_type, obj_name)`:
 ```json
 {
   "success": "X",
-  "job_id": "USER20260208115649",
   "message": "Pull completed successfully",
   "activated_count": 15,
   "failed_count": 1,

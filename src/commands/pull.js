@@ -284,11 +284,9 @@ module.exports = {
 
       if (success === 'X' || success === true) {
         console.log(`✅ Pull completed successfully!`);
-        console.log(`   Job ID: ${jobId || 'N/A'}`);
         console.log(`   Message: ${message || 'N/A'}`);
       } else {
         console.error(`❌ Pull completed with errors!`);
-        console.error(`   Job ID: ${jobId || 'N/A'}`);
         console.error(`   Message: ${message || 'N/A'}`);
       }
 

@@ -330,7 +330,7 @@ describe('Pull Command - CLI Output Format', () => {
         post: jest.fn().mockResolvedValue({
           success: 'X',
           message: 'Pull completed successfully',
-          job_id: 'CAIS20260208115649',
+          
           activated_objects: [
             { obj_type: 'CLAS', obj_name: 'ZCL_MY_CLASS' },
             { obj_type: 'INTF', obj_name: 'ZIF_MY_INTERFACE' }
@@ -358,8 +358,6 @@ describe('Pull Command - CLI Output Format', () => {
     // Check pull command output elements
     expect(output).toMatch(/✅/); // Success icon
     expect(output).toMatch(/Pull completed/i);
-    expect(output).toMatch(/Job ID:/i);
-    expect(output).toMatch(/CAIS/); // Job ID pattern
   });
 
   test('output shows failed objects when pull has errors', async () => {
@@ -372,7 +370,7 @@ describe('Pull Command - CLI Output Format', () => {
         post: jest.fn().mockResolvedValue({
           success: '',
           message: '1 object(s) failed activation',
-          job_id: 'CAIS20260208115650',
+          
           activated_objects: [
             { obj_type: 'INTF', obj_name: 'ZIF_MY_INTERFACE' }
           ],
@@ -415,7 +413,7 @@ describe('Pull Command - CLI Output Format', () => {
         post: jest.fn().mockResolvedValue({
           success: 'X',
           message: 'Pull completed',
-          job_id: 'CAIS20260208115651',
+          
           activated_objects: [
             { obj_type: 'CLAS', obj_name: 'ZCL_MY_CLASS' }
           ],
@@ -441,7 +439,6 @@ describe('Pull Command - CLI Output Format', () => {
     const output = consoleOutput.join('\n');
 
     expect(output).toMatch(/Branch: develop/i);
-    expect(output).toMatch(/Job ID:/i);
     expect(output).toMatch(/Starting pull/i);
   });
 
@@ -741,7 +738,7 @@ describe('Pull Command - Transport Required Detection', () => {
     getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
   });
 
-  const successPull = { success: 'X', job_id: 'JOB1', message: 'Done', log_messages: [], activated_objects: [] };
+  const successPull = { success: 'X',  message: 'Done', log_messages: [], activated_objects: [] };
 
   test('skips transport selector when transport_required is false', async () => {
     const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');

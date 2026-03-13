@@ -102,7 +102,6 @@ The optional `transport_request` field specifies a transport request number to u
 ```json
 {
   "success": "X",
-  "job_id": "USER20260208115649",
   "message": "Pull completed successfully",
   "transport_request": "DEVK900001",
   "activated_count": 10,
@@ -117,7 +116,6 @@ The optional `transport_request` field specifies a transport request number to u
 ```json
 {
   "success": "",
-  "job_id": "USER20260209041349",
   "message": "Pull completed with errors",
   "error_detail": "CLAS ZCL_MY_CLASS: Syntax error\nException: The statement...",
   "transport_request": "DEVK900001",
@@ -1382,7 +1380,6 @@ Find where-used list for ABAP objects (classes, interfaces, programs).
 | Field | Type | Description |
 |-------|------|-------------|
 | `success` | String | 'X' for success, '' for errors |
-| `job_id` | String | Job identifier |
 | `message` | String | Status message |
 | `error_detail` | String | Error details (if any) |
 | `activated_count` | Integer | Number of activated objects |
