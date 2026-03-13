@@ -4,6 +4,7 @@
 
 const pathModule = require('path');
 const fs = require('fs');
+const readline = require('readline');
 
 /**
  * Copy a file if source exists (helper for init --update)
@@ -71,6 +72,42 @@ async function copyGuidelinesFolder(srcPath, destPath, overwrite = false) {
     }
   } catch (error) {
     console.error(`Error copying guidelines: ${error.message}`);
+  }
+}
+
+/**
+ * Detect old numbered guideline files (e.g. 00_index.md, 01_sql.md) and
+ * prompt user to delete them if found.
+ */
+async function cleanupOldGuidelineFiles(guidelinesPath) {
+  if (!fs.existsSync(guidelinesPath)) return;
+
+  const oldFiles = fs.readdirSync(guidelinesPath)
+    .filter(f => /^\d+_.*\.md$/.test(f));
+
+  if (oldFiles.length === 0) return;
+
+  console.log('');
+  console.log('⚠️  Old numbered guideline files detected (from a previous version):');
+  oldFiles.forEach(f => console.log(`   guidelines/${f}`));
+  console.log('   These have been renamed and are no longer used.');
+
+  const answer = await new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('Delete old files? [Y/n] ', (ans) => {
+      rl.close();
+      resolve(ans.trim().toLowerCase());
+    });
+  });
+
+  if (answer === '' || answer === 'y' || answer === 'yes') {
+    oldFiles.forEach(f => {
+      fs.unlinkSync(pathModule.join(guidelinesPath, f));
+      console.log(`   🗑  Deleted guidelines/${f}`);
+    });
+    console.log(`✅ Old guideline files removed`);
+  } else {
+    console.log('⚠️  Old files kept — they may appear as duplicates in ref search results');
   }
 }
 
@@ -186,6 +223,9 @@ Examples:
         pathModule.join(process.cwd(), 'guidelines'),
         true  // overwrite
       );
+
+      // Detect and offer to remove old numbered guideline files
+      await cleanupOldGuidelineFiles(pathModule.join(process.cwd(), 'guidelines'));
 
       console.log(`
 📋 Update complete!
