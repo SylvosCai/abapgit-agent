@@ -62,7 +62,7 @@ git remote get-url origin
 - Set `package`, `folder`, and `folderLogic` from CLI parameters (or defaults)
 - Initialize with placeholder credentials
 
-**If `.abapGitAgent` already exists (UPDATE MODE):**
+**If `.abapGitAgent` already exists (re-init):**
 - Read existing configuration
 - Update ONLY `package`, `folder`, and `folderLogic` fields
 - Keep ALL other settings (host, credentials, workflow, etc.)
@@ -122,7 +122,17 @@ cp /path/to/abapgit-agent/abap/CLAUDE.md .
 
 ## Update Mode (`--update`)
 
-Run `init --update` after upgrading the `abapgit-agent` npm package to get the latest `CLAUDE.md` and guidelines:
+Run `init --update` after upgrading the `abapgit-agent` npm package to get the latest `CLAUDE.md` and guidelines.
+
+**Difference from re-running `init --package X`:**
+
+| | `init --package X` (re-init) | `init --update` |
+|---|---|---|
+| Purpose | Change package / folder / folderLogic | Refresh documentation to latest version |
+| `.abapGitAgent` | Updated (package, folder, folderLogic only) | Never touched |
+| `CLAUDE.md` | Overwritten | Overwritten |
+| `guidelines/` | Skipped if folder already exists | Always overwritten (except `*.local.md`) |
+| Requires `--package` | Yes | No |
 
 ```bash
 abapgit-agent init --update
