@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.11.4
+
+### New Features
+
+- `init --update` detects and removes old numbered guideline files
+
+### Documentation
+
+- Sync copilot-instructions.md with latest CLAUDE.md
+
+---
+
+---
+
+
 ## v1.11.3
 
 ### New Features
