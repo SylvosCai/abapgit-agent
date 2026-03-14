@@ -248,13 +248,27 @@ By default, probe/throwaway classes may be created in the current project. When 
 | HTTP 500 / runtime crash (ST22) | `dump` | Error already occurred |
 | Wrong output, no crash | `debug` | Need to trace logic |
 
-Quick start:
-```bash
-abapgit-agent dump --date TODAY --detail 1    # inspect last crash
-abapgit-agent debug set --objects ZCL_FOO:42  # set breakpoint then attach
-abapgit-agent run --class ZCL_MY_RUNNER       # execute and inspect output
-```
 → See `guidelines/debug-dump.md` for dump analysis workflow
+
+**Critical rules for `debug` sessions:**
+
+1. **Always use `--json`** for all debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable
+2. **Attach BEFORE trigger** — start `debug attach --json` in background first, wait for `"Listener active"`, THEN fire the trigger (`unit`/`pull`/`run`)
+3. **Never pull to trigger** if a simpler trigger works — use `unit` when a test exists, `run` for a class runner; use `pull` only when the bug is specifically in the pull flow
+4. **Never pass `--session`** to `step/vars/stack` — it bypasses the daemon and causes errors
+5. **Always finish with `step --type continue --json`** — releases the frozen ABAP work process
+
+Minimal correct sequence:
+```bash
+abapgit-agent debug set --objects ZCL_FOO:42        # 1. set breakpoint
+abapgit-agent debug attach --json > /tmp/a.json 2>&1 &   # 2. attach (background)
+until grep -q "Listener active" /tmp/a.json 2>/dev/null; do sleep 0.3; done
+abapgit-agent unit --files src/zcl_foo.clas.testclasses.abap > /tmp/t.json 2>&1 &  # 3. trigger
+# poll for session, then inspect
+abapgit-agent debug vars --json
+abapgit-agent debug step --type continue --json     # 4. release
+```
+
 → See `guidelines/debug-session.md` for full debug session guide, breakpoint tips, and pull flow architecture
 
 ---
