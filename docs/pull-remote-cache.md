@@ -39,19 +39,19 @@ fresh content from the remote repository.
 | Trigger | Condition |
 |---------|-----------|
 | `select_branch()` | Called whenever `iv_branch` is non-empty in `pull` |
-| `deserialize_checks` override | Only present in `perf/partial-blob-fetch` abapGit branch |
+| `deserialize_checks` override | Only present when the SylvosCai/abapGit fork (PR #7) is installed |
 
 ### Risk matrix
 
 | abapGit version | `iv_branch` set? | Cache reliably reset? |
 |---|---|---|
-| `perf/partial-blob-fetch` | Yes | ✅ `select_branch()` resets it |
-| `perf/partial-blob-fetch` | No | ✅ `deserialize_checks` override resets it |
-| `main` branch | Yes | ✅ `select_branch()` resets it |
-| `main` branch | No | ⚠️ **No reset — stale cache possible** |
+| Fork (PRs #5/#6/#7) | Yes | ✅ `select_branch()` resets it |
+| Fork (PRs #5/#6/#7) | No | ✅ `deserialize_checks` override resets it before delegating to `super` |
+| Original abapGit (`main`) | Yes | ✅ `select_branch()` resets it |
+| Original abapGit (`main`) | No | ⚠️ **No reset — stale cache possible** |
 
-The dangerous case is `main` branch abapGit + `iv_branch` empty (e.g. `pull --files` without
-specifying a branch). In this case neither `select_branch()` nor the partial-blob-fetch
+The dangerous case is original abapGit + `iv_branch` empty (e.g. `pull --files` without
+specifying a branch). In this case neither `select_branch()` nor the fork's
 `deserialize_checks` override fires, so a warm cache from a previous request in the same WP
 is silently reused.
 
@@ -71,30 +71,29 @@ fresh download — but it also caused a **double full-pack download** on the `ma
 pull time on large repositories.
 
 The call was removed in `12f756d` as part of the performance fix (60s → 12s). The
-`perf/partial-blob-fetch` abapGit branch is not affected because its `deserialize_checks`
-override calls `reset_remote()` explicitly before every pull.
+fork (PRs #5/#6/#7) is not affected because its `deserialize_checks`
+override calls `reset_remote()` explicitly before delegating to `super->deserialize_checks`.
 
 ---
 
 ## Recommended Fix
 
-Guard the `refresh()` call so it only runs when the `deserialize_checks` override (with its
-built-in `reset_remote()`) is **not** present, and no branch switch was requested:
+Guard the `refresh()` call so it only runs when the fork's `deserialize_checks` override
+(with its built-in `reset_remote()`) is **not** present, and no branch switch was requested.
+
+The agent already detects whether the fork is installed via `filter_param_available()` — which
+checks at runtime whether `II_OBJ_FILTER` exists on `ZIF_ABAPGIT_REPO~DESERIALIZE`:
 
 ```abap
-" lv_deser_has_filter = true  → partial-blob-fetch branch → deserialize_checks calls reset_remote() itself
-" lv_deser_has_filter = false → main branch → no automatic reset; refresh to avoid stale WP cache
-IF lv_deser_has_filter = abap_false AND iv_branch IS INITIAL.
+" filter_param_available() = true  → fork (PRs #5/#6/#7) installed → deserialize_checks resets cache
+" filter_param_available() = false → original abapGit → no automatic reset; refresh to avoid stale WP cache
+IF filter_param_available( ) = abap_false AND iv_branch IS INITIAL.
   mo_repo->refresh( iv_drop_cache = abap_true ).
 ENDIF.
 ```
 
-This preserves the performance gain on `perf/partial-blob-fetch` (no double download) while
-restoring correctness on `main` branch.
-
-The check uses `lv_deser_has_filter`, which is already computed via RTTI earlier in `pull()`
-to detect whether the `II_OBJ_FILTER` parameter exists on `DESERIALIZE` — the same RTTI
-result that distinguishes the two abapGit branches.
+This preserves the performance gain on the fork (no double download) while restoring
+correctness on original abapGit.
 
 ---
 
@@ -102,7 +101,7 @@ result that distinguishes the two abapGit branches.
 
 | Scenario | Without fix | With fix |
 |---|---|---|
-| `perf/partial-blob-fetch`, any pull | ✅ correct, fast (6s) | ✅ correct, fast (6s) — no change |
-| `main` branch, branch specified | ✅ correct | ✅ correct — no change |
-| `main` branch, no branch, same WP reused | ⚠️ may use stale data | ✅ correct |
-| `main` branch, no branch, fresh WP | ✅ correct (cold cache) | ✅ correct |
+| Fork (PRs #5/#6/#7), any pull | ✅ correct, fast | ✅ correct, fast — no change |
+| Original abapGit, branch specified | ✅ correct | ✅ correct — no change |
+| Original abapGit, no branch, same WP reused | ⚠️ may use stale data | ✅ correct |
+| Original abapGit, no branch, fresh WP | ✅ correct (cold cache) | ✅ correct |

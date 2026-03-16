@@ -14,15 +14,9 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
         io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL
-        ii_rtti              TYPE REF TO zif_abgagt_rtti_provider       OPTIONAL.
+        io_rtti              TYPE REF TO zif_abgagt_rtti_provider      OPTIONAL.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
-    METHODS: parse_file_to_object
-      IMPORTING
-        iv_file TYPE string
-      EXPORTING
-        ev_obj_type TYPE string
-        ev_obj_name TYPE string.
 
   PROTECTED SECTION.
 
@@ -35,7 +29,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     DATA: mo_repo              TYPE REF TO zif_abapgit_repo.
     DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
-    DATA: mi_rtti              TYPE REF TO zif_abgagt_rtti_provider.
+    DATA: mo_obj_filter        TYPE REF TO zif_abapgit_object_filter.
+    DATA: mo_rtti              TYPE REF TO zif_abgagt_rtti_provider.
 
     METHODS configure_credentials
       IMPORTING
@@ -48,8 +43,6 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         it_files             TYPE string_table OPTIONAL
         iv_transport_request TYPE string OPTIONAL
-        ii_obj_filter        TYPE REF TO zif_abapgit_object_filter OPTIONAL
-        io_repo_desc         TYPE REF TO cl_abap_objectdescr OPTIONAL
       RETURNING
         VALUE(rs_checks) TYPE zif_abapgit_definitions=>ty_deserialize_checks
       RAISING zcx_abapgit_exception.
@@ -58,23 +51,17 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rv_has_error) TYPE abap_bool.
 
-    METHODS build_object_filter
-      IMPORTING
-        it_files          TYPE string_table OPTIONAL
-      RETURNING
-        VALUE(ro_filter)  TYPE REF TO zif_abapgit_object_filter
-      RAISING
-        zcx_abapgit_exception.
-
     METHODS build_file_entries_from_remote
       IMPORTING
         it_files               TYPE string_table OPTIONAL
-        ii_obj_filter          TYPE REF TO zif_abapgit_object_filter OPTIONAL
-        iv_has_local_filtered  TYPE abap_bool DEFAULT abap_false
       RETURNING
         VALUE(rt_entries) TYPE zif_abgagt_conflict_detector=>ty_file_entries
       RAISING
         zcx_abapgit_exception.
+
+    METHODS build_obj_filter
+      IMPORTING
+        it_files TYPE string_table OPTIONAL.
 
     METHODS get_log_detail
       RETURNING
@@ -84,11 +71,60 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result.
 
+    METHODS filter_param_available
+      RETURNING
+        VALUE(rv_available) TYPE abap_bool.
+
     METHODS handle_exception
       IMPORTING
         ix_exception TYPE REF TO cx_root
       RETURNING
         VALUE(rs_result) TYPE zif_abgagt_agent=>ty_result.
+
+    METHODS paths_param_available
+      RETURNING
+        VALUE(rv_available) TYPE abap_bool.
+
+    METHODS resolve_repo
+      IMPORTING
+        iv_url        TYPE string
+      RETURNING
+        VALUE(rv_found) TYPE abap_bool
+      RAISING
+        zcx_abapgit_exception.
+
+    METHODS select_branch
+      IMPORTING
+        iv_branch TYPE string
+      RAISING
+        zcx_abapgit_exception.
+
+    METHODS run_conflict_check
+      IMPORTING
+        it_files           TYPE string_table OPTIONAL
+        iv_branch          TYPE string       OPTIONAL
+        iv_conflict_mode   TYPE string       OPTIONAL
+      EXPORTING
+        et_file_entries    TYPE zif_abgagt_conflict_detector=>ty_file_entries
+        ev_conflict_count  TYPE i
+        ev_conflict_report TYPE string
+      RETURNING
+        VALUE(rv_aborted)  TYPE abap_bool
+      RAISING
+        zcx_abapgit_exception.
+
+    METHODS run_deserialize
+      IMPORTING
+        is_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks
+      RAISING
+        zcx_abapgit_exception.
+
+    METHODS build_pull_result
+      IMPORTING
+        it_file_entries TYPE zif_abgagt_conflict_detector=>ty_file_entries OPTIONAL
+        iv_branch       TYPE string OPTIONAL
+      CHANGING
+        cs_result       TYPE zif_abgagt_agent=>ty_result.
 
 ENDCLASS.
 
@@ -103,15 +139,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ELSE.
       mo_conflict_detector = zcl_abgagt_conflict_detector=>get_instance( ).
     ENDIF.
-    mi_rtti = COND #( WHEN ii_rtti IS BOUND THEN ii_rtti
+    mo_rtti = COND #( WHEN io_rtti IS BOUND THEN io_rtti
                       ELSE NEW lcl_rtti_provider( ) ).
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~pull.
-    DATA: lv_job_id TYPE string.
-    lv_job_id = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
-    rs_result-job_id = lv_job_id.
-    rs_result-success = abap_false.
+    rs_result-job_id            = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
+    rs_result-success           = abap_false.
     rs_result-transport_request = iv_transport_request.
     GET TIME STAMP FIELD rs_result-started_at.
 
@@ -128,151 +162,47 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             iv_password = iv_password ).
         ENDIF.
 
-        DATA: li_repo TYPE REF TO zif_abapgit_repo.
-        IF mo_repo IS NOT BOUND.
-          zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
-            EXPORTING iv_url = iv_url
-            IMPORTING ei_repo = li_repo ).
-          mo_repo = li_repo.
-        ENDIF.
-
-        IF mo_repo IS BOUND.
-
-          " Switch branch/tag if specified and it's an online repository
-          IF iv_branch IS NOT INITIAL.
-            DATA: li_repo_online TYPE REF TO zif_abapgit_repo_online.
-            DATA: lv_git_ref TYPE string.
-
-            " Convert short branch/tag name to full git ref format
-            " abapGit expects: refs/heads/master or refs/tags/v1.0.0
-            IF iv_branch CS 'refs/'.
-              " Already a full ref
-              lv_git_ref = iv_branch.
-            ELSEIF iv_branch(1) = 'v' AND iv_branch CN ' '.
-              " Looks like a tag (starts with 'v' and no spaces)
-              lv_git_ref = |refs/tags/{ iv_branch }|.
-            ELSE.
-              " Assume it's a branch
-              lv_git_ref = |refs/heads/{ iv_branch }|.
-            ENDIF.
-
-            TRY.
-                li_repo_online ?= mo_repo.
-                li_repo_online->select_branch( lv_git_ref ).
-              CATCH cx_sy_move_cast_error.
-                " Not an online repository, skip branch selection
-            ENDTRY.
-          ENDIF.
-
-          " Build filter once — used for both remote fetch and deserialize
-          DATA lo_obj_filter TYPE REF TO zif_abapgit_object_filter.
-          lo_obj_filter = build_object_filter( it_files ).
-
-          " Check once (RTTI) whether the repo supports get_files_local_filtered.
-          " Doing this here avoids a second expensive RTTI lookup inside build_file_entries_from_remote.
-          DATA(lo_repo_desc1)       = mi_rtti->describe_object( mo_repo ).
-          DATA(lv_has_local_filtered) = xsdbool(
-                                          line_exists( lo_repo_desc1->methods[
-                                            name = 'GET_FILES_LOCAL_FILTERED' ] )
-                                          AND lo_obj_filter IS BOUND ).
-
-          " --- Conflict detection (before deserialize) ---
-          " Build remote file entries and run conflict check before any activation.
-          " On success, the same entries are reused for store_pull_metadata after deserialize.
-          DATA(lt_file_entries) = build_file_entries_from_remote(
-            it_files              = it_files
-            ii_obj_filter         = lo_obj_filter
-            iv_has_local_filtered = lv_has_local_filtered ).
-
-          IF iv_conflict_mode <> 'ignore' AND lt_file_entries IS NOT INITIAL.
-            DATA(lt_conflicts) = mo_conflict_detector->check_conflicts(
-              it_files  = lt_file_entries
-              iv_branch = iv_branch ).
-
-            IF lt_conflicts IS NOT INITIAL.
-              rs_result-conflict_count  = lines( lt_conflicts ).
-              rs_result-conflict_report = mo_conflict_detector->get_conflict_report( lt_conflicts ).
-              rs_result-message = |Pull aborted — { rs_result-conflict_count } conflict(s) detected|.
-              GET TIME STAMP FIELD rs_result-finished_at.
-              RETURN.
-            ENDIF.
-          ENDIF.
-
-          DATA(ls_checks) = prepare_deserialize_checks(
-            it_files             = it_files
-            iv_transport_request = iv_transport_request
-            ii_obj_filter        = lo_obj_filter
-            io_repo_desc         = lo_repo_desc1 ).
-
-          mo_repo->create_new_log( ).
-
-          DATA(lo_repo_desc2) = lo_repo_desc1.
-          " RTTI: check on the interface-prefixed name, not the alias.
-          " Aliases (e.g. DESERIALIZE for zif_abapgit_repo~deserialize) appear in the
-          " methods table but their -parameters sub-table is empty in RTTI — only the
-          " interface-prefixed entry (ZIF_ABAPGIT_REPO~DESERIALIZE) carries the full
-          " parameter list.  Checking the alias name always yields lv_deser_has_filter
-          " = false, causing the unfiltered fallback to activate the entire repository.
-          DATA(lv_deser_has_filter) = xsdbool(
-                                        line_exists( lo_repo_desc2->methods[
-                                          name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ] )
-                                        AND line_exists(
-                                          lo_repo_desc2->methods[
-                                            name = 'ZIF_ABAPGIT_REPO~DESERIALIZE' ]-parameters[
-                                            name = 'II_OBJ_FILTER' ] ) ).
-
-          IF lv_deser_has_filter = abap_true.
-            DATA(lo_log_ref) = mo_repo->get_log( ).
-            DATA(lt_ptab_deser) = VALUE abap_parmbind_tab(
-              ( name  = 'IS_CHECKS'
-                kind  = cl_abap_objectdescr=>exporting
-                value = REF #( ls_checks ) )
-              ( name  = 'II_LOG'
-                kind  = cl_abap_objectdescr=>exporting
-                value = REF #( lo_log_ref ) )
-              ( name  = 'II_OBJ_FILTER'
-                kind  = cl_abap_objectdescr=>exporting
-                value = REF #( lo_obj_filter ) ) ).
-            CALL METHOD mo_repo->('DESERIALIZE') PARAMETER-TABLE lt_ptab_deser.
-          ELSE.
-            mo_repo->deserialize(
-              is_checks = ls_checks
-              ii_log    = mo_repo->get_log( ) ).
-          ENDIF.
-
-          " Check the abapGit log for errors and extract object lists
-          DATA(lv_has_error) = check_log_for_errors( ).
-          DATA(lv_error_detail) = get_log_detail( ).
-
-          " Extract activated and failed objects from the log
-          DATA(ls_obj_result) = get_object_lists( ).
-
-          rs_result-log_messages = ls_obj_result-log_messages.
-          rs_result-activated_objects = ls_obj_result-activated_objects.
-          rs_result-failed_objects = ls_obj_result-failed_objects.
-
-          " Count objects
-          rs_result-activated_count = lines( rs_result-activated_objects ).
-          rs_result-failed_count = lines( rs_result-failed_objects ).
-
-          GET TIME STAMP FIELD rs_result-finished_at.
-
-          IF lv_has_error = abap_true.
-            rs_result-message = 'Pull completed with errors'.
-            rs_result-error_detail = lv_error_detail.
-          ELSE.
-            rs_result-success = abap_true.
-            rs_result-message = 'Pull completed successfully'.
-
-            " --- Post-pull conflict metadata (lt_file_entries built before deserialize) ---
-            mo_conflict_detector->store_pull_metadata(
-              it_files  = lt_file_entries
-              iv_branch = iv_branch ).
-          ENDIF.
-        ELSE.
+        IF resolve_repo( iv_url ) = abap_false.
           rs_result-message = |Repository not found: { iv_url }|.
           GET TIME STAMP FIELD rs_result-finished_at.
+          RETURN.
         ENDIF.
+
+        select_branch( iv_branch ).
+        build_obj_filter( it_files ).
+
+        DATA lt_file_entries TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+        DATA lv_conflict_count TYPE i.
+        DATA lv_conflict_report TYPE string.
+
+        IF run_conflict_check(
+             EXPORTING
+               it_files           = it_files
+               iv_branch          = iv_branch
+               iv_conflict_mode   = iv_conflict_mode
+             IMPORTING
+               et_file_entries    = lt_file_entries
+               ev_conflict_count  = lv_conflict_count
+               ev_conflict_report = lv_conflict_report ) = abap_true.
+          rs_result-conflict_count  = lv_conflict_count.
+          rs_result-conflict_report = lv_conflict_report.
+          rs_result-message = |Pull aborted — { lv_conflict_count } conflict(s) detected|.
+          GET TIME STAMP FIELD rs_result-finished_at.
+          RETURN.
+        ENDIF.
+
+        DATA(ls_checks) = prepare_deserialize_checks(
+          it_files             = it_files
+          iv_transport_request = iv_transport_request ).
+
+        run_deserialize( ls_checks ).
+
+        build_pull_result(
+          EXPORTING
+            it_file_entries = lt_file_entries
+            iv_branch       = iv_branch
+          CHANGING
+            cs_result       = rs_result ).
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
         rs_result = handle_exception( ix_exception = lx_git ).
@@ -281,7 +211,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         rs_result = handle_exception( ix_exception = lx_error ).
         GET TIME STAMP FIELD rs_result-finished_at.
     ENDTRY.
-
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~get_repo_status.
@@ -312,133 +241,41 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       iv_password = iv_password ).
   ENDMETHOD.
 
-  METHOD parse_file_to_object.
-    " Parse file path to extract obj_type and obj_name
-    " Example: "zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
-    " Example: "src/zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
-    " Example: "zc_my_view.ddls.asddls" -> DDLS, ZC_MY_VIEW
+  METHOD prepare_deserialize_checks.
 
-    DATA lv_upper TYPE string.
-    lv_upper = iv_file.
-    TRANSLATE lv_upper TO UPPER CASE.
-
-    " Split filename by '.' to get parts
-    DATA lt_parts TYPE TABLE OF string.
-    SPLIT lv_upper AT '.' INTO TABLE lt_parts.
-    DATA lv_part_count TYPE i.
-    lv_part_count = lines( lt_parts ).
-
-    IF lv_part_count < 3.
-      RETURN.
-    ENDIF.
-
-    " Check file extension - support both .abap and .asddls
-    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS'.
-      RETURN.
-    ENDIF.
-
-    " First part is obj_name (may contain path), second part is obj_type
-    DATA lv_obj_name TYPE string.
-    DATA lv_obj_type_raw TYPE string.
-    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
-
-    " Convert file extension to object type
-    IF lv_obj_type_raw = 'CLASS'.
-      ev_obj_type = 'CLAS'.
-    ELSE.
-      ev_obj_type = lv_obj_type_raw.
-    ENDIF.
-
-    " Extract file name from obj_name (remove path prefix)
-    DATA lv_len TYPE i.
-    lv_len = strlen( lv_obj_name ).
-    DATA lv_offs TYPE i.
-    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
-    IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
-    ENDIF.
-
-    " Remove leading '/' if present
-    IF lv_obj_name(1) = '/'.
-      lv_obj_name = lv_obj_name+1.
-    ENDIF.
-
-    ev_obj_name = lv_obj_name.
-  ENDMETHOD.
-
-  METHOD build_object_filter.
-
-    DATA lt_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt.
+    " Build lookup table for DECISION loop from the files list
+    DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
+                            WITH UNIQUE KEY obj_type obj_name.
 
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
       LOOP AT it_files INTO DATA(lv_file).
         DATA lv_obj_type TYPE string.
         DATA lv_obj_name TYPE string.
-        parse_file_to_object(
+        zcl_abgagt_util=>get_instance( )->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
         IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
-          DATA ls_tadir TYPE zif_abapgit_definitions=>ty_tadir.
-          ls_tadir-object   = lv_obj_type.
-          ls_tadir-obj_name = lv_obj_name.
-          APPEND ls_tadir TO lt_tadir.
+          DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
+          ls_sig-obj_type = lv_obj_type.
+          ls_sig-obj_name = lv_obj_name.
+          INSERT ls_sig INTO TABLE lt_valid_files.
         ENDIF.
       ENDLOOP.
-
-      IF lt_tadir IS NOT INITIAL.
-        CREATE OBJECT ro_filter TYPE zcl_abapgit_object_filter_obj
-          EXPORTING it_filter = lt_tadir.
-      ENDIF.
     ENDIF.
 
-  ENDMETHOD.
+    " Build object filter for partial download when --files is used.
+    " Stored as instance variable so pull() can reuse it for deserialize().
+    build_obj_filter( it_files ).
 
-
-  METHOD prepare_deserialize_checks.
-
-    " Build lookup table for DECISION loop from the filter
-    DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
-                            WITH UNIQUE KEY obj_type obj_name.
-
-    IF ii_obj_filter IS BOUND.
-      LOOP AT ii_obj_filter->get_filter( ) INTO DATA(ls_tadir).
-        DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
-        ls_sig-obj_type = ls_tadir-object.
-        ls_sig-obj_name = ls_tadir-obj_name.
-        INSERT ls_sig INTO TABLE lt_valid_files.
-      ENDLOOP.
-    ENDIF.
-
-    " Use filtered call when filter is set — only processes requested objects.
-    " Older abapGit versions lack ii_obj_filter; detect at runtime via RTTI.
-    DATA(lo_obj_desc) = COND #(
-                          WHEN io_repo_desc IS BOUND THEN io_repo_desc
-                          ELSE mi_rtti->describe_object( mo_repo ) ).
-    DATA(lt_methods)  = lo_obj_desc->methods.
-    " Same RTTI caveat as for DESERIALIZE: check the interface-prefixed name.
-    DATA(lv_has_filter) = xsdbool(
-                            line_exists( lt_methods[
-                              name = 'ZIF_ABAPGIT_REPO~DESERIALIZE_CHECKS' ] )
-                            AND line_exists(
-                              lt_methods[
-                                name = 'ZIF_ABAPGIT_REPO~DESERIALIZE_CHECKS' ]-parameters[
-                                name = 'II_OBJ_FILTER' ] ) ).
-
-    IF lv_has_filter = abap_true.
-      DATA ls_checks_ret TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-      DATA(lt_ptab_checks) = VALUE abap_parmbind_tab(
-        ( name  = 'II_OBJ_FILTER'
-          kind  = cl_abap_objectdescr=>exporting
-          value = REF #( ii_obj_filter ) )
-        ( name  = 'RS_CHECKS'
-          kind  = cl_abap_objectdescr=>returning
-          value = REF #( ls_checks_ret ) ) ).
-      CALL METHOD mo_repo->('DESERIALIZE_CHECKS') PARAMETER-TABLE lt_ptab_checks.
-      rs_checks = ls_checks_ret.
+    " Call deserialize_checks — pass ii_obj_filter dynamically if the installed
+    " abapGit version supports it; fall back to plain call for older versions.
+    IF filter_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
+      CALL METHOD mo_repo->('DESERIALIZE_CHECKS')
+        EXPORTING
+          ii_obj_filter = mo_obj_filter
+        RECEIVING
+          rs_checks     = rs_checks.
     ELSE.
       rs_checks = mo_repo->deserialize_checks( ).
     ENDIF.
@@ -602,28 +439,250 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     rv_version = '1.0.0'.
   ENDMETHOD.
 
+  METHOD filter_param_available.
+    " Check at runtime whether the installed abapGit version exposes
+    " II_OBJ_FILTER on ZIF_ABAPGIT_REPO~DESERIALIZE.
+    " Returns abap_true only when the parameter exists — safe for older installs.
+    DATA lo_descr  TYPE REF TO cl_abap_objectdescr.
+    DATA ls_method LIKE LINE OF lo_descr->methods.
+
+    rv_available = abap_false.
+    TRY.
+        lo_descr = mo_rtti->describe_object( mo_repo ).
+        READ TABLE lo_descr->methods INTO ls_method
+          WITH KEY name = 'ZIF_ABAPGIT_REPO~DESERIALIZE'.
+        IF sy-subrc = 0.
+          READ TABLE ls_method-parameters WITH KEY name = 'II_OBJ_FILTER'
+            TRANSPORTING NO FIELDS.
+          rv_available = xsdbool( sy-subrc = 0 ).
+        ENDIF.
+      CATCH cx_root.
+        rv_available = abap_false.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD paths_param_available.
+    " Check at runtime whether the installed abapGit version supports the
+    " IT_PATHS parameter on ZCL_ABAPGIT_OBJECT_FILTER_OBJ constructor.
+    " Returns abap_true only when the parameter exists — safe for older installs.
+    DATA lo_descr  TYPE REF TO cl_abap_classdescr.
+    DATA ls_method LIKE LINE OF lo_descr->methods.
+
+    rv_available = abap_false.
+    TRY.
+        lo_descr = mo_rtti->describe_class( 'ZCL_ABAPGIT_OBJECT_FILTER_OBJ' ).
+        READ TABLE lo_descr->methods INTO ls_method
+          WITH KEY name = 'CONSTRUCTOR'.
+        IF sy-subrc = 0.
+          READ TABLE ls_method-parameters WITH KEY name = 'IT_PATHS'
+            TRANSPORTING NO FIELDS.
+          rv_available = xsdbool( sy-subrc = 0 ).
+        ENDIF.
+      CATCH cx_root.
+        rv_available = abap_false.
+    ENDTRY.
+  ENDMETHOD.
+
+  " ---------------------------------------------------------------------------
+  " build_obj_filter
+  " Builds mo_obj_filter from a list of file paths.  Extracted so the filter
+  " can be constructed before build_file_entries_from_remote, allowing the
+  " gitv2 two-phase fetch to be used during the conflict-detection fetch.
+  " ---------------------------------------------------------------------------
+  METHOD build_obj_filter.
+    CLEAR mo_obj_filter.
+    IF it_files IS SUPPLIED AND lines( it_files ) > 0.
+      DATA lt_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt.
+      DATA lt_paths TYPE string_table.
+      LOOP AT it_files INTO DATA(lv_file).
+        DATA lv_obj_type TYPE string.
+        DATA lv_obj_name TYPE string.
+        zcl_abgagt_util=>get_instance( )->parse_file_to_object(
+          EXPORTING iv_file     = lv_file
+          IMPORTING ev_obj_type = lv_obj_type
+                    ev_obj_name = lv_obj_name ).
+        IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
+          DATA ls_tadir LIKE LINE OF lt_tadir.
+          ls_tadir-pgmid    = 'R3TR'.
+          ls_tadir-object   = lv_obj_type.
+          ls_tadir-obj_name = lv_obj_name.
+          APPEND ls_tadir TO lt_tadir.
+        ENDIF.
+
+        " Extract directory path for gitv2 tree pruning
+        " e.g. 'src/git/foo.clas.abap' -> '/src/git/'
+        DATA lv_slash_pos TYPE i.
+        DATA lv_path      TYPE string.
+        DATA lv_len       TYPE i.
+        lv_slash_pos = find( val = lv_file sub = '/' occ = -1 ).
+        IF lv_slash_pos > 0.
+          lv_len  = lv_slash_pos + 1.
+          lv_path = '/' && lv_file(lv_len).
+        ELSE.
+          lv_path = '/'.
+        ENDIF.
+        READ TABLE lt_paths WITH KEY table_line = lv_path TRANSPORTING NO FIELDS.
+        IF sy-subrc <> 0.
+          APPEND lv_path TO lt_paths.
+        ENDIF.
+      ENDLOOP.
+      IF lt_tadir IS NOT INITIAL.
+        IF paths_param_available( ) = abap_true.
+          DATA lt_param TYPE abap_parmbind_tab.
+          DATA ls_param LIKE LINE OF lt_param.
+          ls_param-name  = 'IT_FILTER'.
+          ls_param-kind  = cl_abap_objectdescr=>exporting.
+          GET REFERENCE OF lt_tadir INTO ls_param-value.
+          INSERT ls_param INTO TABLE lt_param.
+          ls_param-name  = 'IT_PATHS'.
+          GET REFERENCE OF lt_paths INTO ls_param-value.
+          INSERT ls_param INTO TABLE lt_param.
+          CREATE OBJECT mo_obj_filter TYPE ('ZCL_ABAPGIT_OBJECT_FILTER_OBJ')
+            PARAMETER-TABLE lt_param.
+        ELSE.
+          mo_obj_filter = NEW zcl_abapgit_object_filter_obj( it_filter = lt_tadir ).
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
   " ---------------------------------------------------------------------------
   " build_file_entries_from_remote
   " Fetches remote git files and builds ty_file_entries for conflict detection.
   " Only .abap/.asddls files are included; filtered to it_files if provided.
   " ---------------------------------------------------------------------------
+  METHOD resolve_repo.
+    " Look up the repository by URL and assign it to mo_repo.
+    " Returns abap_true if found, abap_false if not registered.
+    rv_found = abap_false.
+    IF mo_repo IS BOUND.
+      rv_found = abap_true.
+      RETURN.
+    ENDIF.
+    DATA li_repo TYPE REF TO zif_abapgit_repo.
+    zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
+      EXPORTING iv_url = iv_url
+      IMPORTING ei_repo = li_repo ).
+    IF li_repo IS BOUND.
+      mo_repo  = li_repo.
+      rv_found = abap_true.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD select_branch.
+    " Switch the repository to the requested branch (empty = keep current).
+    " abapGit expects full git ref format: refs/heads/<name> or refs/tags/<name>.
+    IF iv_branch IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_git_ref TYPE string.
+    IF iv_branch CS 'refs/'.
+      lv_git_ref = iv_branch.
+    ELSEIF iv_branch(1) = 'v' AND iv_branch CN ' '.
+      lv_git_ref = |refs/tags/{ iv_branch }|.
+    ELSE.
+      lv_git_ref = |refs/heads/{ iv_branch }|.
+    ENDIF.
+
+    TRY.
+        DATA li_repo_online TYPE REF TO zif_abapgit_repo_online.
+        li_repo_online ?= mo_repo.
+        li_repo_online->select_branch( lv_git_ref ).
+      CATCH cx_sy_move_cast_error.
+        " Not an online repository — branch selection not applicable.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD run_conflict_check.
+    " Run conflict detection and return results.
+    " rv_aborted = abap_true  → caller must abort the pull.
+    rv_aborted        = abap_false.
+    ev_conflict_count = 0.
+
+    et_file_entries = build_file_entries_from_remote( it_files ).
+
+    IF iv_conflict_mode = 'ignore' OR et_file_entries IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA(lt_conflicts) = mo_conflict_detector->check_conflicts(
+      it_files  = et_file_entries
+      iv_branch = iv_branch ).
+
+    ev_conflict_count  = lines( lt_conflicts ).
+    ev_conflict_report = mo_conflict_detector->get_conflict_report( lt_conflicts ).
+
+    IF ev_conflict_count > 0.
+      rv_aborted = abap_true.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD run_deserialize.
+    " Execute abapGit deserialization with the prepared checks.
+    mo_repo->create_new_log( ).
+    IF filter_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
+      CALL METHOD mo_repo->('DESERIALIZE')
+        EXPORTING
+          is_checks     = is_checks
+          ii_log        = mo_repo->get_log( )
+          ii_obj_filter = mo_obj_filter.
+    ELSE.
+      mo_repo->deserialize(
+        is_checks = is_checks
+        ii_log    = mo_repo->get_log( ) ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD build_pull_result.
+    " Populate cs_result after a successful deserialization.
+    DATA(ls_objects) = get_object_lists( ).
+
+    cs_result-activated_objects = ls_objects-activated_objects.
+    cs_result-failed_objects    = ls_objects-failed_objects.
+    cs_result-log_messages      = ls_objects-log_messages.
+    cs_result-activated_count   = lines( cs_result-activated_objects ).
+    cs_result-failed_count      = lines( cs_result-failed_objects ).
+
+    GET TIME STAMP FIELD cs_result-finished_at.
+
+    IF check_log_for_errors( ) = abap_true.
+      cs_result-message      = 'Pull completed with errors'.
+      cs_result-error_detail = get_log_detail( ).
+    ELSE.
+      cs_result-success = abap_true.
+      cs_result-message = 'Pull completed successfully'.
+
+      " Store baseline metadata for future conflict detection.
+      IF it_file_entries IS NOT INITIAL.
+        mo_conflict_detector->store_pull_metadata(
+          it_files  = it_file_entries
+          iv_branch = iv_branch ).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
   METHOD build_file_entries_from_remote.
     DATA lt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
 
     TRY.
-        lt_remote = mo_repo->get_files_remote( ii_obj_filter = ii_obj_filter ).
+        " Pass the object filter when available so fetch_remote uses the gitv2
+        " two-phase fetch (fast) instead of downloading the full pack.
+        IF mo_obj_filter IS BOUND.
+          lt_remote = mo_repo->get_files_remote( mo_obj_filter ).
+        ELSE.
+          lt_remote = mo_repo->get_files_remote( ).
+        ENDIF.
       CATCH zcx_abapgit_exception.
         " Cannot read remote files — skip conflict check
         RETURN.
     ENDTRY.
 
-    " Build lookup of requested files (obj_type + obj_name)
+    " Build lookup of requested files (filename only, uppercased)
     DATA lt_filter TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
       LOOP AT it_files INTO DATA(lv_req_file).
         DATA lv_fn TYPE string.
-        DATA lv_ot TYPE string.
-        DATA lv_on TYPE string.
         " Extract just the filename (strip path)
         DATA(lv_pos) = find( val = reverse( lv_req_file ) sub = '/' ).
         IF lv_pos > 0.
@@ -663,7 +722,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       " Parse filename → obj_type + obj_name
       DATA lv_obj_type TYPE string.
       DATA lv_obj_name TYPE string.
-      parse_file_to_object(
+      zcl_abgagt_util=>get_instance( )->parse_file_to_object(
         EXPORTING iv_file = lv_filename
         IMPORTING ev_obj_type = lv_obj_type
                   ev_obj_name = lv_obj_name ).
@@ -690,22 +749,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDLOOP.
 
     " Read local ABAP system files to enable content-based change detection.
-    " This replaces VRSD timestamp approach (which does not work for local packages).
-    " Use filtered variant when the caller confirmed it exists and a filter is provided.
     DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
     TRY.
-        IF iv_has_local_filtered = abap_true.
-          DATA(lt_ptab_local) = VALUE abap_parmbind_tab(
-            ( name  = 'II_OBJ_FILTER'
-              kind  = cl_abap_objectdescr=>exporting
-              value = REF #( ii_obj_filter ) )
-            ( name  = 'RT_FILES'
-              kind  = cl_abap_objectdescr=>returning
-              value = REF #( lt_local ) ) ).
-          CALL METHOD mo_repo->('GET_FILES_LOCAL_FILTERED') PARAMETER-TABLE lt_ptab_local.
-        ELSE.
-          lt_local = mo_repo->get_files_local( ).
-        ENDIF.
+        lt_local = mo_repo->get_files_local( ).
       CATCH zcx_abapgit_exception.
         " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
         RETURN.
@@ -734,8 +780,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDTRY.
 
       DATA ls_local_idx TYPE zif_abgagt_conflict_detector=>ty_file_entry.
-      ls_local_idx-obj_type     = ls_local_item-item-obj_type.
-      ls_local_idx-obj_name     = ls_local_item-item-obj_name.
+      ls_local_idx-obj_type      = ls_local_item-item-obj_type.
+      ls_local_idx-obj_name      = ls_local_item-item-obj_name.
       ls_local_idx-local_content = lv_local_content.
       INSERT ls_local_idx INTO TABLE lt_local_idx.
     ENDLOOP.

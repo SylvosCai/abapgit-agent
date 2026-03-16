@@ -452,7 +452,10 @@ describe('Pull command integration - selectTransport hook', () => {
 
     const mockHttp = {
       fetchCsrfToken: jest.fn().mockResolvedValue('token'),
-      post: jest.fn().mockResolvedValue({ success: 'X', activated_count: 0, failed_count: 0, log_messages: [] })
+      post: jest.fn().mockImplementation((url) => {
+        if (url.includes('/status')) return Promise.resolve({ success: true, status: 'Found', transport_required: true });
+        return Promise.resolve({ success: 'X', activated_count: 0, failed_count: 0, log_messages: [] });
+      })
     };
 
     mockContext = {

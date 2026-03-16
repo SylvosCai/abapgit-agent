@@ -19,6 +19,11 @@ jest.mock('path', () => ({
   basename: jest.fn((p) => p.split('/').pop())
 }));
 
+// Mock format-error so we can verify printHttpError is called correctly
+jest.mock('../../src/utils/format-error', () => ({
+  printHttpError: jest.fn()
+}));
+
 // Mock transport-selector for transport_required tests
 jest.mock('../../src/utils/transport-selector', () => ({
   selectTransport: jest.fn(),
@@ -699,6 +704,63 @@ describe('Pull Command - Safeguard Validation', () => {
     const errorOutput = consoleErrorOutput.join('\n');
     expect(errorOutput).toMatch(/Reason: Project contains 100\+ ABAP objects/);
   });
+
+  test('exits with error when a specified file does not exist on disk', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValueOnce(false); // first file missing
+
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      AbapHttp: jest.fn(),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
+    };
+
+    await expect(async () => {
+      await pullCommand.execute(['--files', 'abap/zcl_nonexistent.clas.abap'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
+
+    const errorOutput = consoleErrorOutput.join('\n');
+    expect(errorOutput).toMatch(/do not exist/);
+    expect(errorOutput).toMatch(/zcl_nonexistent\.clas\.abap/);
+  });
+
+  test('skips file existence check when --url is explicitly provided', async () => {
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockHttp = {
+      fetchCsrfToken: jest.fn(() => 'token'),
+      post: jest.fn(() => ({ success: true, message: 'Pull completed successfully', log_messages: [], activated_objects: [], failed_objects: [] }))
+    };
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      AbapHttp: jest.fn(() => mockHttp),
+      gitUtils: {
+        getBranch: jest.fn(() => 'master'),
+        getRemoteUrl: jest.fn(() => null)
+      },
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransportSettings: jest.fn(() => ({}))
+    };
+
+    const fs = require('fs');
+    // Should NOT call existsSync when --url is explicit
+    await pullCommand.execute(
+      ['--url', 'https://example.com/other-repo.git', '--files', 'src/zif_simple_test.intf.abap'],
+      mockContext
+    );
+    expect(fs.existsSync).not.toHaveBeenCalled();
+  });
 });
 
 describe('Pull Command - Transport Required Detection', () => {
@@ -782,10 +844,7 @@ describe('Pull Command - Transport Required Detection', () => {
     expect(selectTransport).toHaveBeenCalled();
   });
 
-  test('runs transport selector as safe default when status check throws', async () => {
-    const { selectTransport } = jest.requireMock('../../src/utils/transport-selector');
-    selectTransport.mockResolvedValue('DEVK999999');
-
+  test('exits with error when status check throws', async () => {
     const mockHttp = {
       fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
       post: jest.fn().mockImplementation((url) => {
@@ -794,9 +853,13 @@ describe('Pull Command - Transport Required Detection', () => {
       })
     };
     const pullCommand = require('../../src/commands/pull');
-    await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
+    await expect(
+      pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp))
+    ).rejects.toThrow('process.exit(1)');
 
-    expect(selectTransport).toHaveBeenCalled();
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/status check failed/);
+    expect(output).toMatch(/Connection failed/);
   });
 
   test('fails with error when hook is configured but returns no transport', async () => {
@@ -837,5 +900,61 @@ describe('Pull Command - Transport Required Detection', () => {
     await pullCommand.execute(['--files', 'src/zcl_test.clas.abap', '--url', 'https://github.com/test/repo.git'], baseContext(mockHttp));
     expect(mockExit).not.toHaveBeenCalled();
     expect(interactivePicker).toHaveBeenCalled();
+  });
+});
+
+describe('Pull Command - --verbose flag', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const makeContext = (mockPost) => ({
+    loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+    AbapHttp: jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+      post: mockPost
+    })),
+    gitUtils: {
+      getBranch: jest.fn(() => 'master'),
+      getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+    },
+    getTransport: jest.fn(() => null),
+    getTransportSettings: jest.fn(() => ({})),
+    getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false })),
+    getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
+  });
+
+  test('passes verbose: true to printHttpError when --verbose is set', async () => {
+    const { printHttpError } = jest.requireMock('../../src/utils/format-error');
+    const pullCommand = require('../../src/commands/pull');
+
+    const httpError = new Error('Connection refused');
+    const mockPost = jest.fn().mockImplementation((url) => {
+      if (url.includes('/status')) return Promise.resolve({ success: true, status: 'Found', transport_required: false });
+      return Promise.reject(httpError);
+    });
+
+    await expect(
+      pullCommand.execute(['--verbose', '--files', 'src/zcl_test.clas.abap'], makeContext(mockPost))
+    ).rejects.toThrow('process.exit(1)');
+
+    expect(printHttpError).toHaveBeenCalledWith(httpError, { verbose: true });
+  });
+
+  test('passes verbose: false to printHttpError when --verbose is not set', async () => {
+    const { printHttpError } = jest.requireMock('../../src/utils/format-error');
+    const pullCommand = require('../../src/commands/pull');
+
+    const httpError = new Error('Connection refused');
+    const mockPost = jest.fn().mockImplementation((url) => {
+      if (url.includes('/status')) return Promise.resolve({ success: true, status: 'Found', transport_required: false });
+      return Promise.reject(httpError);
+    });
+
+    await expect(
+      pullCommand.execute(['--files', 'src/zcl_test.clas.abap'], makeContext(mockPost))
+    ).rejects.toThrow('process.exit(1)');
+
+    expect(printHttpError).toHaveBeenCalledWith(httpError, { verbose: false });
   });
 });

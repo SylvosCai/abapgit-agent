@@ -84,6 +84,20 @@ module.exports = {
         console.error('   Example: --files src/zcl_my_class.clas.abap');
         process.exit(1);
       }
+
+      // Validate that every specified file exists on disk.
+      // Skip when --url is explicit: the files belong to a different repository
+      // and won't be present in the current working directory.
+      if (urlArgIndex === -1) {
+        const fs = require('fs');
+        const missingFiles = files.filter(f => !fs.existsSync(f));
+        if (missingFiles.length > 0) {
+          console.error('❌ Error: the following file(s) do not exist:');
+          missingFiles.forEach(f => console.error(`     ${f}`));
+          console.error('   Check the path and try again.');
+          process.exit(1);
+        }
+      }
     }
 
     // SAFEGUARD 2: Check if files are required but not provided
@@ -102,22 +116,30 @@ module.exports = {
     if (!transportRequest && !jsonOutput) {
       const { selectTransport, isNonInteractive, _getTransportHookConfig } = require('../utils/transport-selector');
 
-      // Check if this package requires a transport before showing the interactive
-      // picker. Skip the status round-trip in non-interactive mode — selectTransport
-      // already returns null there without prompting, so the extra HTTP call is wasted.
-      let transportRequired = true; // Safe default: assume transport needed
-      if (!isNonInteractive()) {
-        try {
-          const config = loadConfig();
-          const http = new AbapHttp(config);
-          const csrfToken = await http.fetchCsrfToken();
-          const statusResult = await http.post('/sap/bc/z_abapgit_agent/status', { url: gitUrl }, { csrfToken });
-          if (statusResult.transport_required === false || statusResult.transport_required === 'false') {
-            transportRequired = false;
-          }
-        } catch (e) {
-          // Status check failed — proceed with selector as safe default
-        }
+      // Check repository status — confirms the repo is registered and tells us
+      // whether a transport is required. If the check fails, abort: pulling into
+      // an uninitialised repository does not make sense.
+      let transportRequired = false;
+      let statusResult;
+      try {
+        const config = loadConfig();
+        const http = new AbapHttp(config);
+        const csrfToken = await http.fetchCsrfToken();
+        statusResult = await http.post('/sap/bc/z_abapgit_agent/status', { url: gitUrl }, { csrfToken });
+      } catch (e) {
+        console.error(`❌ Repository status check failed: ${e.message}`);
+        console.error('   Make sure the repository is registered with abapgit-agent (run "abapgit-agent create").');
+        process.exit(1);
+      }
+
+      if (!statusResult || statusResult.status === 'Not found') {
+        console.error(`❌ Repository not found in ABAP system: ${gitUrl}`);
+        console.error('   Run "abapgit-agent create" to register it first.');
+        process.exit(1);
+      }
+
+      if (statusResult.transport_required === true || statusResult.transport_required === 'true') {
+        transportRequired = true;
       }
 
       if (transportRequired) {
@@ -147,10 +169,10 @@ module.exports = {
       }
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode, verbose);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort') {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort', verbose = false) {
     const TERM_WIDTH = process.stdout.columns || 80;
 
     if (!jsonOutput) {

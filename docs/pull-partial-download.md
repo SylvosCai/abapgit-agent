@@ -16,75 +16,116 @@ Two behaviours are possible:
 | abapGit version | Behaviour | Status |
 |---|---|---|
 | **Original abapGit** ([abapGit/abapGit](https://github.com/abapGit/abapGit)) | Full repository fetched from Git; only the requested objects are deserialised | Works, not fully tested |
-| **SylvosCai/abapGit fork** | Partial blob fetch — only the blobs for the requested files are downloaded from the Git server | Tested, significantly faster on large repos |
+| **SylvosCai/abapGit fork** | Partial blob fetch — only the blobs for the requested files are downloaded from the Git server | In review (PRs #5, #6, #7) |
 
 ---
 
 ## SylvosCai/abapGit Fork — Partial Blob Fetch
 
-The fork ([SylvosCai/abapGit PR #1](https://github.com/SylvosCai/abapGit/pull/1)) adds two connected optimisations so that a filtered pull avoids processing the full repository at every layer of the stack.
+The fork adds partial blob fetch across three PRs, each targeting a different layer of the abapGit stack:
+
+| PR | Layer | Title | Status |
+|---|---|---|---|
+| [#5](https://github.com/SylvosCai/abapGit/pull/5) | git / gitv2 | feat(git): partial blob fetch via gitv2 (phase 1 of 3) | Open |
+| [#6](https://github.com/SylvosCai/abapGit/pull/6) | objects / deserialise | feat(objects): thread ii_obj_filter through deserialization (phase 2 of 3) | Open |
+| [#7](https://github.com/SylvosCai/abapGit/pull/7) | repo / online | feat: partial blob fetch in repo/online layer (phase 3/3) | Open |
+
+All changes are **additive and backwards-compatible**. Existing callers and the full-pull path are unaffected.
+
+---
 
 ### How It Works
 
-**Change 1 — Filtered deserialise**
+#### Phase 1 (PR #5) — git / gitv2 layer
 
-The object filter (`ii_obj_filter`) is threaded through the entire deserialise call chain. Only the requested objects are status-checked and deserialised; the rest are skipped.
+**`get_capabilities()`** is added to `zcl_abapgit_git_branch_list` to expose the server's raw capability string from the git protocol handshake — used downstream to detect whether the server supports `filter`.
+
+**`list_trees_for_paths( iv_url, iv_sha1, it_wanted_paths )`** is added to `zcl_abapgit_gitv2_porcelain`:
+- Sends one gitv2 `fetch` with `filter tree:<N>` (where `N` = depth of the deepest wanted path)
+- The server returns only the commit and the tree objects needed to reach the wanted directories — no blob data
+- The locally-cached tree objects are then walked to produce a flat file listing
+
+**`filter_expanded`** is added as a public class method on `zcl_abapgit_git_porcelain` so the repo layer (phase 3) can reuse it when assembling files from a gitv2 partial fetch.
+
+#### Phase 2 (PR #6) — objects / deserialise layer
+
+Threads `ii_obj_filter TYPE REF TO zif_abapgit_object_filter OPTIONAL` through the entire deserialise call chain so only matching objects are status-checked and deserialised:
 
 ```
-zif_abapgit_repo~deserialize( ii_obj_filter )
-  └─ zcl_abapgit_objects=>deserialize( ii_obj_filter )
-       ├─ get_files_remote( ii_obj_filter )
-       └─ zcl_abapgit_file_deserialize=>get_results( ii_obj_filter )
-            └─ zcl_abapgit_repo_status=>calculate( ii_obj_filter )
+zcl_abapgit_objects=>deserialize( ii_obj_filter )
+  ├─ get_files_remote( ii_obj_filter )
+  └─ zcl_abapgit_file_deserialize=>get_results( ii_obj_filter )
+       └─ zcl_abapgit_repo_status=>calculate( ii_obj_filter )
+
+zcl_abapgit_objects=>deserialize_checks( ii_obj_filter )
+  └─ zcl_abapgit_objects_check=>deserialize_checks( ii_obj_filter )
+       └─ zcl_abapgit_repo_status=>calculate( ii_obj_filter )
 ```
 
-**Change 2 — Partial blob fetch (two-phase Git fetch)**
+This is pure parameter pass-through — no branching logic added.
 
-When the Git server supports the `filter` capability (Git ≥ 2.17 — GitHub, GitLab, Gitea all qualify), abapGit uses a two-phase fetch:
+#### Phase 3 (PR #7) — repo / online layer
 
-- **Phase 1** — `filter=blob:none`: server returns commits and trees only; no blob data is transferred
-- **Phase 2** — targeted blob fetch: only the blob SHAs for the requested files are fetched
+**`zif_abapgit_object_filter`** gains `get_paths()` returning directory path hints (`string_table`). These let the git layer prune the tree traversal to only the directories that contain the requested objects.
 
-Servers without `filter` support fall back transparently to a full fetch.
+**`zcl_abapgit_object_filter_obj`** implements `get_paths()` and gains an optional `it_paths` constructor parameter so callers can supply path hints at construction time (e.g. `'/src/my_package/'`).
+
+**`zif_abapgit_repo~deserialize` and `deserialize_checks`** gain `OPTIONAL ii_obj_filter`. All existing callers are unaffected.
+
+**`zcl_abapgit_repo_online`** — the main addition — overrides `fetch_remote`:
+
+```
+fetch_remote( ii_obj_filter ):
+  if filter IS BOUND and server has 'filter' capability:
+    Phase 1: list_trees_for_paths( get_paths() ) + filter_expanded → wanted file list
+    Phase 2: fetch_blobs( wanted SHA1s )          ← only the needed blobs
+  else:
+    pull_by_branch( it_wanted_files )              ← full pack, client-side filtered
+```
+
+**`find_remote_dot_abapgit`** is overridden to fetch `.abapgit.xml` directly via gitv2 (`list_no_blobs` + `fetch_blob`) without downloading the full pack.
+
+**`deserialize_checks`** is overridden to reset the remote cache before delegating to `super->deserialize_checks( ii_obj_filter )` — ensures the filter is applied on the first remote fetch rather than hitting a warm unfiltered cache.
+
+---
 
 ### Performance Impact
 
 | Scenario | Original abapGit | Fork |
 |---|---|---|
-| `--files` pull, large repo, capable server | Full fetch (~50 MB) | Phase 1 tree + Phase 2 ~5 blobs (~100 KB) |
-| `--files` pull, filter matches zero objects | Full blob fetch | Zero blobs fetched |
+| `--files` pull, large repo, server with `filter` support | Full pack download | Phase 1: trees only (~few KB) + Phase 2: requested blobs only (~few KB each) |
+| `--files` pull, server without `filter` support | Full pack download | Full pack download, client-side filtered |
 | Full pull (no `--files`) | Unchanged | Unchanged |
 
-### Bugs Fixed in the Fork
+GitHub, GitHub Enterprise, GitLab, and Gitea all support the git `filter` capability.
 
-The PR also fixes three bugs that prevented the optimisation from working correctly:
+---
 
-1. **Phase 2 fetched all blobs** — `walk_for_blobs` collected stubs for the entire tree before filtering. Phase 2 then requested all ~19,500 blob SHAs instead of the handful needed. Fixed by passing wanted filenames into `pull()` and calling `filter_stubs` before Phase 2.
+### Files Changed
 
-2. **`blob:none` was never sent** — The first call to `fetch_remote` came from `find_remote_dot_abapgit` inside `deserialize_checks` with no filter. By the time `deserialize()` called `get_files_remote( ii_obj_filter )`, the cache was already warm, so the filter was silently ignored. Fixed by overriding `deserialize_checks` in `zcl_abapgit_repo_online` to store the pending filter and reset the remote cache before delegating to `super`.
-
-3. **Empty filter fetched all blobs** — If the object filter matched zero objects, `lt_wanted_files` was empty and a guard skipped `filter_stubs`, causing Phase 2 to fetch all blobs. Fixed by removing the guard so `filter_stubs` is always called.
-
-### ABAP Files Changed
-
-| File | Change |
-|---|---|
-| `zif_abapgit_repo.intf.abap` | `deserialize` gains `ii_obj_filter OPTIONAL` |
-| `zcl_abapgit_repo.clas.abap` | Passes filter through call chain |
-| `zcl_abapgit_repo_online.clas.abap` | Overrides `deserialize_checks`; manages `mi_pending_obj_filter` |
-| `zcl_abapgit_objects.clas.abap` | Accepts and forwards filter |
-| `zcl_abapgit_file_deserialize.clas.abap` | Applies filter during status calculation |
-| `zcl_abapgit_objects_check.clas.abap` | Applies filter during check phase |
-| `zcl_abapgit_git_porcelain.clas.abap` | `pull()` accepts wanted files; calls `filter_stubs` |
-| `zcl_abapgit_git_transport.clas.abap` | Sends `filter=blob:none` when capability present |
-| `zif_abapgit_git_branch_list.intf.abap` | Adds `get_capabilities` method |
-| `zcl_abapgit_git_branch_list.clas.abap` | Implements `get_capabilities` |
+| File | PR | Change |
+|---|---|---|
+| `zif_abapgit_git_branch_list.intf.abap` | #5 | Adds `get_capabilities` method |
+| `zcl_abapgit_git_branch_list.clas.abap` | #5 | Implements `get_capabilities` |
+| `zif_abapgit_gitv2_porcelain.intf.abap` | #5 | Adds `list_trees_for_paths` |
+| `zcl_abapgit_gitv2_porcelain.clas.abap` | #5 | Implements `list_trees_for_paths`, `compute_max_depth`, `fetch_trees_at_depth`, `walk_tree_from_objects` |
+| `zcl_abapgit_git_porcelain.clas.abap` | #5 | `pull()` gains `it_wanted_files`; adds public `filter_expanded` class method |
+| `zcl_abapgit_objects.clas.abap` | #6 | `deserialize` + `deserialize_checks` gain `ii_obj_filter OPTIONAL` |
+| `zcl_abapgit_objects_check.clas.abap` | #6 | `deserialize_checks` gains `ii_obj_filter OPTIONAL` |
+| `zcl_abapgit_file_deserialize.clas.abap` | #6 | `get_results` gains `ii_obj_filter OPTIONAL` |
+| `zif_abapgit_object_filter.intf.abap` | #7 | Adds `get_paths` method |
+| `zcl_abapgit_object_filter_obj.clas.abap` | #7 | Implements `get_paths`; gains `it_paths OPTIONAL` constructor param |
+| `zcl_abapgit_object_filter_tran.clas.abap` | #7 | Implements `get_paths` returning empty |
+| `zif_abapgit_repo.intf.abap` | #7 | `deserialize` + `deserialize_checks` gain `ii_obj_filter OPTIONAL` |
+| `zcl_abapgit_repo.clas.abap` | #7 | Threads `ii_obj_filter` through `deserialize_objects` + `deserialize_checks` |
+| `zcl_abapgit_repo_online.clas.abap` | #7 | Overrides `fetch_remote`, `find_remote_dot_abapgit`, `deserialize_checks` |
 
 ### Backward Compatibility
 
-- All new parameters are `OPTIONAL` — existing callers are unaffected
-- Custom implementations that override `zif_abapgit_repo~deserialize` must add the `ii_obj_filter OPTIONAL` parameter
-- Custom implementations of `zif_abapgit_git_branch_list` must add the `get_capabilities` method (returning initial is sufficient)
+- All new parameters are `OPTIONAL` — existing callers are completely unaffected
+- Custom implementations of `zif_abapgit_object_filter` must add `get_paths()` (returning initial is sufficient)
+- Custom implementations of `zif_abapgit_git_branch_list` must add `get_capabilities()` (returning initial is sufficient)
+- Custom implementations that override `zif_abapgit_repo~deserialize` or `deserialize_checks` must add the `ii_obj_filter OPTIONAL` parameter
 
 ---
 
@@ -104,12 +145,12 @@ This means `--files` with original abapGit still activates only the requested ob
 
 ## How to Tell Which Version Is Installed
 
-Check the capabilities returned during a Git fetch. The fork advertises `filter` in the ref-advertisement:
+Check the abapGit version in your SAP system via transaction `/n/ABAPGit/ZABAPGIT` or the abapGit about screen.
+
+Once the fork PRs are merged and installed, a filtered pull will perform a two-phase fetch (trees + targeted blobs) rather than downloading the full pack:
 
 ```bash
-# If the fork is installed, a filtered pull log will show Phase 1 + Phase 2 steps.
-# With original abapGit, a full fetch always occurs regardless of --files.
+# With the fork installed and a filter-capable Git server:
 abapgit-agent pull --files src/zcl_my_class.clas.abap
+# → Pull log will show only 1 deserialised object, with no full pack download
 ```
-
-Alternatively, check the abapGit version in your SAP system via transaction `/n/ABAPGit/ZABAPGIT` or the abapGit about screen.

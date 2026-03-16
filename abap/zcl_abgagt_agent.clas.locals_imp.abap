@@ -5,4 +5,8 @@ CLASS lcl_rtti_provider IMPLEMENTATION.
     ro_desc = CAST cl_abap_objectdescr(
                 cl_abap_typedescr=>describe_by_object_ref( io_object ) ).
   ENDMETHOD.
+  METHOD zif_abgagt_rtti_provider~describe_class.
+    ro_desc = CAST cl_abap_classdescr(
+                cl_abap_typedescr=>describe_by_name( iv_class_name ) ).
+  ENDMETHOD.
 ENDCLASS.
