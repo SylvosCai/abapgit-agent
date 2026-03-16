@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.12.1
+
+### New Features
+
+- `init`: auto-creates `.abapgit.xml` if missing
+- Warns on `pull` when `.abapgit.xml` is absent
+
+### Improvements
+
+- Agent filter refactored for partial object download
+
+### Documentation
+
+- Debug workflow: critical rules added for Rule 11
+
+---
+
+---
+
+
 ## v1.12.0
 
 ### New Features
