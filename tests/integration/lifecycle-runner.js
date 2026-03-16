@@ -59,7 +59,7 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
   const runCli = (cmd, args = []) => {
     const argsStr = args.map(arg => `'${arg}'`).join(' ');
     return execSync(
-      `node bin/abapgit-agent ${cmd} ${argsStr}`,
+      `abapgit-agent ${cmd} ${argsStr}`,
       { cwd: testDir, encoding: 'utf8', timeout: 120000 }
     );
   };
@@ -94,23 +94,6 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     if (fs.existsSync(testConfigPath)) {
       printInfo('Removing existing .abapGitAgent from previous test run...');
       fs.unlinkSync(testConfigPath);
-    }
-    // Recreate symlinks that may have been removed by git reset
-    const binLink = path.join(testDir, 'bin');
-    const nodeLink = path.join(testDir, 'node_modules');
-    try {
-      if (!fs.existsSync(binLink)) {
-        fs.symlinkSync(path.join(repoRoot, 'bin'), binLink, 'dir');
-      }
-    } catch (e) {
-      // Ignore if already exists
-    }
-    try {
-      if (!fs.existsSync(nodeLink)) {
-        fs.symlinkSync(path.join(repoRoot, 'node_modules'), nodeLink, 'dir');
-      }
-    } catch (e) {
-      // Ignore if already exists
     }
 
     // Step 4: Run health without config - should fail/not work
@@ -193,9 +176,13 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     addResult('import objects (async)', importPassed, output);
 
     // Step 13: Git pull to see new commits
+    // Use fetch + reset --hard to avoid merge conflicts when the remote was force-reset
+    // (the import step may have created .abapgit.xml on the remote which conflicts with
+    // the local version created by init)
     printInfo('Git pull to check import...');
     try {
-      execSync('git pull origin main', { cwd: testDir });
+      execSync('git fetch origin main', { cwd: testDir });
+      execSync('git reset --hard origin/main', { cwd: testDir });
       // Check if ZIF_ABGAGT_TEST interface exists
       const interfacePath = path.join(testDir, 'src', 'zif_abgagt_test.intf.abap');
       const interfaceExists = fs.existsSync(interfacePath);

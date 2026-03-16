@@ -754,12 +754,13 @@ describe('Pull Command - Safeguard Validation', () => {
     };
 
     const fs = require('fs');
-    // Should NOT call existsSync when --url is explicit
+    // Should NOT call existsSync for the --files paths when --url is explicit
     await pullCommand.execute(
       ['--url', 'https://example.com/other-repo.git', '--files', 'src/zif_simple_test.intf.abap'],
       mockContext
     );
-    expect(fs.existsSync).not.toHaveBeenCalled();
+    const checkedPaths = fs.existsSync.mock.calls.map(c => c[0]);
+    expect(checkedPaths.some(p => String(p).includes('zif_simple_test'))).toBe(false);
   });
 });
 
@@ -956,5 +957,161 @@ describe('Pull Command - --verbose flag', () => {
     ).rejects.toThrow('process.exit(1)');
 
     expect(printHttpError).toHaveBeenCalledWith(httpError, { verbose: false });
+  });
+});
+
+describe('Pull Command - .abapgit.xml detection', () => {
+  let consoleOutput;
+  let consoleWarnOutput;
+  const originalConsoleLog = console.log;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    consoleOutput = [];
+    consoleWarnOutput = [];
+    console.log = jest.fn((...args) => consoleOutput.push(args.join(' ')));
+    console.warn = jest.fn((...args) => consoleWarnOutput.push(args.join(' ')));
+    console.error = jest.fn();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+  });
+
+  const makeContext = (mockPost) => ({
+    loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+    AbapHttp: jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+      post: mockPost
+    })),
+    gitUtils: {
+      getBranch: jest.fn(() => 'master'),
+      getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+    },
+    getTransport: jest.fn(() => 'DEVK900001'),
+    getTransportSettings: jest.fn(() => ({})),
+    getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false })),
+    getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
+  });
+
+  const successResult = {
+    success: 'X',
+    message: 'Pull completed successfully',
+    log_messages: [],
+    activated_objects: [],
+    failed_objects: []
+  };
+
+  test('warns when .abapgit.xml is missing (non-JSON mode)', async () => {
+    const fs = require('fs');
+    // .git exists, .abapgit.xml does not
+    fs.existsSync.mockImplementation((p) => !String(p).endsWith('.abapgit.xml'));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue(successResult);
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      false
+    );
+
+    const warnings = consoleWarnOutput.join('\n');
+    expect(warnings).toMatch(/\.abapgit\.xml not found/);
+    expect(warnings).toMatch(/ACTIVATED_COUNT=0/);
+    expect(warnings).toMatch(/abapgit-agent init/);
+  });
+
+  test('does NOT warn when .abapgit.xml exists (non-JSON mode)', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true); // both .git and .abapgit.xml exist
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue(successResult);
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      false
+    );
+
+    expect(consoleWarnOutput).toHaveLength(0);
+  });
+
+  test('does NOT warn when not in a git repo (non-JSON mode)', async () => {
+    const fs = require('fs');
+    // neither .git nor .abapgit.xml exist
+    fs.existsSync.mockReturnValue(false);
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue(successResult);
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      false
+    );
+
+    expect(consoleWarnOutput).toHaveLength(0);
+  });
+
+  test('sets missing_abapgit_xml: true in JSON output when .abapgit.xml is missing', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockImplementation((p) => !String(p).endsWith('.abapgit.xml'));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue({ ...successResult });
+
+    const result = await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      true  // jsonOutput
+    );
+
+    expect(result.missing_abapgit_xml).toBe(true);
+    const jsonPrinted = consoleOutput.join('\n');
+    expect(JSON.parse(jsonPrinted)).toMatchObject({ missing_abapgit_xml: true });
+  });
+
+  test('does NOT set missing_abapgit_xml in JSON output when .abapgit.xml exists', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue({ ...successResult });
+
+    const result = await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      true  // jsonOutput
+    );
+
+    expect(result.missing_abapgit_xml).toBeUndefined();
+  });
+
+  test('does NOT warn in JSON mode even when .abapgit.xml is missing', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockImplementation((p) => !String(p).endsWith('.abapgit.xml'));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockPost = jest.fn().mockResolvedValue({ ...successResult });
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'master', null, 'DEVK900001',
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      true  // jsonOutput
+    );
+
+    expect(consoleWarnOutput).toHaveLength(0);
   });
 });

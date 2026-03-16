@@ -241,6 +241,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 3. **Error Details** - When errors occur, displays error detail section at the top
 4. **Conflict Detection** - Enabled by default (`abort` mode); aborts pull if local ADT edits or branch divergence detected — see [Conflict Detection](pull-conflict-detection.md)
 5. **Partial Download** - `--files` performance depends on the abapGit version installed — see [Partial Download](pull-partial-download.md)
+6. **Missing `.abapgit.xml` warning** - If the repository root contains no `.abapgit.xml`, pull prints a warning on stderr. Without this file, abapGit may use an incorrect `STARTING_FOLDER` from ABAP-side persistence, causing `ACTIVATED_COUNT=0` with an empty log. In `--json` mode the result object includes `"missing_abapgit_xml": true` instead. Run `abapgit-agent init` to create the file.
 
 ---
 

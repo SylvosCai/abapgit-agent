@@ -192,4 +192,58 @@ describe('Init Command Integration', () => {
     expect(content).toContain('node_modules/');
     expect(content).toContain('.abapGitAgent');
   });
+
+  test('init creates .abapgit.xml with correct STARTING_FOLDER and FOLDER_LOGIC', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --folder /src --package ZTEST --folder-logic FULL`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    const xmlPath = path.join(testDir, '.abapgit.xml');
+    expect(fs.existsSync(xmlPath)).toBe(true);
+
+    const content = fs.readFileSync(xmlPath, 'utf8');
+    expect(content).toContain('<STARTING_FOLDER>/src/</STARTING_FOLDER>');
+    expect(content).toContain('<FOLDER_LOGIC>FULL</FOLDER_LOGIC>');
+    expect(content).toContain('<MASTER_LANGUAGE>E</MASTER_LANGUAGE>');
+  });
+
+  test('init uses default FOLDER_LOGIC PREFIX when not specified', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --folder /abap --package ZTEST`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    const xmlPath = path.join(testDir, '.abapgit.xml');
+    const content = fs.readFileSync(xmlPath, 'utf8');
+    expect(content).toContain('<STARTING_FOLDER>/abap/</STARTING_FOLDER>');
+    expect(content).toContain('<FOLDER_LOGIC>PREFIX</FOLDER_LOGIC>');
+  });
+
+  test('init skips .abapgit.xml creation when file already exists', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    // Pre-create .abapgit.xml with custom content
+    const xmlPath = path.join(testDir, '.abapgit.xml');
+    const existingContent = '<?xml version="1.0"?><custom>existing</custom>';
+    fs.writeFileSync(xmlPath, existingContent);
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --folder /src --package ZTEST`, {
+      cwd: testDir,
+      stdio: 'pipe'
+    });
+
+    // File must not be overwritten
+    expect(fs.readFileSync(xmlPath, 'utf8')).toBe(existingContent);
+  });
 });

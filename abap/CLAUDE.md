@@ -377,6 +377,12 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 1. ✗ Do not run `abapgit-agent transport create`
 2. ✓ Inform the user that transport creation is disabled for this project
 
+**When pull result contains `missing_abapgit_xml: true` (JSON mode) or warning about `.abapgit.xml`:**
+1. ✓ Inform the user that `.abapgit.xml` is missing from the repository root
+2. ✓ Suggest running `abapgit-agent init --package <PACKAGE>` to create it
+3. ✓ If `ACTIVATED_COUNT=0` with an empty log, suspect this as the cause
+4. ✗ Do not retry the pull — fix the missing file first
+
 **When `transports.allowRelease = false`:**
 1. ✗ Do not run `abapgit-agent transport release`
 2. ✓ Inform the user that transport release is disabled for this project

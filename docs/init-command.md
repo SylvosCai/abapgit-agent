@@ -104,6 +104,27 @@ Add `.gitkeep` (optional):
 touch /src/.gitkeep
 ```
 
+### 4. Create `.abapgit.xml`
+
+Creates `.abapgit.xml` in the repository root (skipped if the file already exists):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/src/</STARTING_FOLDER>
+   <FOLDER_LOGIC>PREFIX</FOLDER_LOGIC>
+  </DATA>
+ </asx:values>
+</asx:abap>
+```
+
+**Why this matters:** abapGit reads `STARTING_FOLDER` from this file when deserializing objects. Without it, abapGit falls back to the value stored in ABAP-side persistence, which may not match the actual source folder. When they disagree, `remove_ignored_files()` marks every remote file as ignored and `pull` silently returns `ACTIVATED_COUNT=0` with an empty log — a very hard-to-diagnose failure.
+
+**Note:** If `.abapgit.xml` already exists (e.g. after `import` has run), it is not overwritten. abapGit is authoritative for this file once the repo is initialised on the ABAP side.
+
 ### 5. Update .gitignore
 
 Add sensitive files to `.gitignore`:
@@ -153,6 +174,7 @@ What it updates:
 | File | Description |
 |------|-------------|
 | `.abapGitAgent` | Configuration (user must edit host, user, password, gitUsername, gitPassword) |
+| `.abapgit.xml` | abapGit repository settings (`STARTING_FOLDER`, `FOLDER_LOGIC`, `MASTER_LANGUAGE`) — skipped if already exists |
 | `.gitignore` | Updated with sensitive files |
 | `CLAUDE.md` | ABAP coding guidelines |
 | `guidelines/` | ABAP coding guidelines (searchable via `ref` command) |
@@ -249,7 +271,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 ```
 1. abapgit-agent init --folder /src/ --package ZMY_PACKAGE
-   └─> Creates .abapGitAgent, CLAUDE.md, /src/, updates .gitignore
+   └─> Creates .abapGitAgent, .abapgit.xml, CLAUDE.md, /src/, updates .gitignore
 
 2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
 

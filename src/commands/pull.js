@@ -3,6 +3,8 @@
  */
 
 const { printHttpError } = require('../utils/format-error');
+const fs = require('fs');
+const pathModule = require('path');
 
 module.exports = {
   name: 'pull',
@@ -218,10 +220,24 @@ module.exports = {
 
       const result = await http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
+      // Detect missing .abapgit.xml — without it abapGit's stored starting_folder
+      // may not match the actual source folder, causing pull to silently return ACTIVATED_COUNT=0
+      const missingAbapgitXml = fs.existsSync(pathModule.join(process.cwd(), '.git')) &&
+          !fs.existsSync(pathModule.join(process.cwd(), '.abapgit.xml'));
+
       // JSON output mode
       if (jsonOutput) {
+        if (missingAbapgitXml) {
+          result.missing_abapgit_xml = true;
+        }
         console.log(JSON.stringify(result, null, 2));
         return result;
+      }
+
+      if (missingAbapgitXml) {
+        console.warn('⚠️  .abapgit.xml not found in repository root.');
+        console.warn('   Pull may return ACTIVATED_COUNT=0 if the ABAP-side starting_folder is wrong.');
+        console.warn('   Run: abapgit-agent init --package <PACKAGE> to create it.\n');
       }
 
       console.log('\n');

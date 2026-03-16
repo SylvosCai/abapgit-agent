@@ -129,7 +129,7 @@ Usage:
 
 Description:
   Initialize local repository configuration.
-  Creates .abapGitAgent, .gitignore, CLAUDE.md, and guidelines folder.
+  Creates .abapGitAgent, .abapgit.xml, .gitignore, CLAUDE.md, and guidelines folder.
 
 Options:
   --package <PACKAGE>             ABAP package name (required)
@@ -498,6 +498,34 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
       }
     } catch (error) {
       console.error(`Error creating folder: ${error.message}`);
+    }
+
+    // Create .abapgit.xml with correct STARTING_FOLDER so abapGit's remove_ignored_files()
+    // keeps files inside the source folder. Without this file the stored starting_folder in
+    // the ABAP persistence may not match the actual folder, causing all remote files to be
+    // silently ignored and pull to return ACTIVATED_COUNT=0 with an empty log.
+    const abapgitXmlPath = pathModule.join(process.cwd(), '.abapgit.xml');
+    if (!fs.existsSync(abapgitXmlPath)) {
+      const language = (config.language || 'E').toUpperCase().charAt(0);
+      const abapgitXml = `<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>${language}</MASTER_LANGUAGE>
+   <STARTING_FOLDER>${folder}</STARTING_FOLDER>
+   <FOLDER_LOGIC>${folderLogic}</FOLDER_LOGIC>
+  </DATA>
+ </asx:values>
+</asx:abap>
+`;
+      try {
+        fs.writeFileSync(abapgitXmlPath, abapgitXml);
+        console.log(`✅ Created .abapgit.xml (STARTING_FOLDER=${folder}, FOLDER_LOGIC=${folderLogic})`);
+      } catch (error) {
+        console.error(`Error creating .abapgit.xml: ${error.message}`);
+      }
+    } else {
+      console.log(`✅ .abapgit.xml already exists, skipped`);
     }
 
     console.log(`
