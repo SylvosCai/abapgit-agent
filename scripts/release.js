@@ -8,6 +8,8 @@
  *   --minor    Bump minor version (e.g., 1.4.0 -> 1.5.0)
  *   --major    Bump major version (e.g., 1.4.0 -> 2.0.0)
  *   --dry-run  Preview only, don't make any changes
+ *   --hint     Extra guidance for Claude when generating release notes
+ *              e.g. --hint "add a link to the guide command docs"
  *
  * This script:
  * 1. Determines new version based on --patch/--minor/--major flag
@@ -41,6 +43,10 @@ if (args.includes('--patch')) bumpType = 'patch';
 else if (args.includes('--minor')) bumpType = 'minor';
 else if (args.includes('--major')) bumpType = 'major';
 
+// Get optional hint for Claude
+const hintIndex = args.indexOf('--hint');
+const userHint = hintIndex !== -1 ? args[hintIndex + 1] : null;
+
 if (!bumpType) {
   console.error('Error: Please specify --patch, --minor, or --major');
   console.error('');
@@ -50,7 +56,8 @@ if (!bumpType) {
   console.error('  npm run release -- --major    # e.g., 1.4.0 -> 2.0.0');
   console.error('');
   console.error('Options:');
-  console.error('  --dry-run    Preview only, no changes made');
+  console.error('  --dry-run          Preview only, no changes made');
+  console.error('  --hint "<text>"    Extra guidance for Claude when generating release notes');
   process.exit(1);
 }
 
@@ -111,20 +118,41 @@ try {
   const tagList = allTags.trim().split('\n').filter(t => t.startsWith('v'));
   const previousTag = tagList[0] || 'HEAD~10';
 
-  // Get commits since last release
-  const commits = execSync(`git log ${previousTag}..HEAD --oneline`, { cwd: repoRoot, encoding: 'utf8' });
+  // Get commits since last release — include subject + body
+  const rawLog = execSync(
+    `git log ${previousTag}..HEAD --format="---COMMIT---%n%s%n%b"`,
+    { cwd: repoRoot, encoding: 'utf8' }
+  );
+
+  // Parse into individual commits, truncating body to 500 chars each
+  const commits = rawLog
+    .split('---COMMIT---')
+    .map(c => c.trim())
+    .filter(Boolean)
+    .map(c => {
+      const lines = c.split('\n');
+      const subject = lines[0];
+      const body = lines.slice(1).join('\n').trim();
+      const truncatedBody = body.length > 500 ? body.slice(0, 500) + '...' : body;
+      return truncatedBody ? `${subject}\n${truncatedBody}` : subject;
+    })
+    .join('\n\n');
 
   if (commits.trim()) {
-    console.log(`Found ${commits.trim().split('\n').length} commits since last release`);
+    const commitCount = rawLog.split('---COMMIT---').filter(c => c.trim()).length;
+    console.log(`Found ${commitCount} commit(s) since last release`);
     console.log('');
 
     // Create Claude prompt - use stdin to avoid shell escaping issues
-    const commitsEscaped = commits.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    const hintSection = userHint
+      ? `\nAdditional instructions from the developer:\n${userHint}\n`
+      : '';
+
     const prompt = `Generate concise release notes for version ${newVersion} of a Node.js CLI tool called abapgit-agent.
 
-Commits since last release:
-${commitsEscaped}
-
+Commits since last release (subject + description):
+${commits}
+${hintSection}
 Instructions:
 1. IGNORE commits that revert, undo, or remove previous changes
 2. IGNORE commits that fix/improve the release process itself
