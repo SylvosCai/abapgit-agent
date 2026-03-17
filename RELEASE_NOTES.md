@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.13.1
+
+### Bug Fixes
+
+- `--migrate` now always replaces CLAUDE.md and removes non-local guidelines
+
+---
+
+---
+
+
 ## v1.13.0
 
 ### New Features
