@@ -115,7 +115,6 @@ npm run pull -- --url <git-url> --branch main
 | Installation & Setup | [INSTALL.md](INSTALL.md) |
 | All Commands Overview | [docs/commands.md](docs/commands.md) |
 | REST API Reference | [API.md](API.md) |
-| Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
 
 ## Dependent Projects
 
