@@ -54,6 +54,7 @@ async function main() {
     debug: require('../src/commands/debug'),
     run: require('../src/commands/run'),
     ref: require('../src/commands/ref'),
+    guide: require('../src/commands/guide'),
     init: require('../src/commands/init'),
     pull: require('../src/commands/pull'),
     upgrade: require('../src/commands/upgrade'),

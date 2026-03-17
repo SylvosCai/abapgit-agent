@@ -10,6 +10,8 @@ has_children: true
 
 Detailed ABAP coding guidelines for development in this project.
 
+> **For AI tools:** Run `abapgit-agent guide` to read the full development guide, then use `abapgit-agent ref --topic <name>` to access individual guideline files below.
+
 ## Coding Standards
 
 | Guide | Description |

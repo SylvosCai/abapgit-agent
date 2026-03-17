@@ -22,4 +22,7 @@ grand_parent: ABAP Development
 - Testing specific scenarios that may not exist in production
 - Fast, isolated tests that don't depend on database state
 
-See `guidelines/testing.md` for code examples.
+See `abapgit-agent ref --topic testing` for full code examples including:
+- Basic CDS test double setup
+- Testing CDS views with aggregations (insert into base tables)
+- Testing CDS views that select from another CDS view (`create_for_multiple_cds`)

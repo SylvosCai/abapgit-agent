@@ -78,6 +78,19 @@ Commands:
     - Use full URL: https://github.com/user/repo.git
     - Or short name: user/repo or user/repo (assumes github.com)
 
+  guide [--path] [--json]
+    Show the full ABAP development guide bundled with the package.
+    Reads directly from the installed npm package — always up-to-date.
+    - Use --path to print only the file path (useful for pagers)
+    - Use --json for machine-readable output
+
+  guide --migrate [--dry-run] [--yes]
+    Migrate repo from locally-copied guidelines to bundled fallback.
+    Removes standard guideline files copied by old 'init', replaces full CLAUDE.md
+    with slim stub. Project-specific files (*.local.md) are never removed.
+    - Use --dry-run to preview changes without applying them
+    - Use --yes to skip confirmation prompt
+
   health
     Check if ABAP REST API is healthy
 
@@ -107,6 +120,8 @@ Examples:
   abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
   abapgit-agent ref "CORRESPONDING"                          # Search for pattern
   abapgit-agent ref --topic exceptions                       # View exceptions topic
+  abapgit-agent guide                                        # Full ABAP dev guide
+  abapgit-agent guide --path                                 # Path to guide file
   abapgit-agent health                                       # Health check
   abapgit-agent status                                       # Configuration status
 

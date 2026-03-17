@@ -323,6 +323,13 @@ module.exports = {
       if (success === 'X' || success === true) {
         console.log(`✅ Pull completed successfully!`);
         console.log(`   Message: ${message || 'N/A'}`);
+      } else if (failedCount === 0 && failedObjects.length === 0 &&
+                 activatedCount === 0 && logMessages.length === 0 &&
+                 (!message || /activation cancelled|nothing to activate|already active/i.test(message))) {
+        // abapGit returns SUCCESS='' with "Activation cancelled" when there are
+        // no inactive objects to activate — the object is already active and consistent.
+        console.log(`✅ Pull completed — object already active, nothing to activate.`);
+        console.log(`   Message: ${message || 'N/A'}`);
       } else {
         console.error(`❌ Pull completed with errors!`);
         console.error(`   Message: ${message || 'N/A'}`);
@@ -431,8 +438,12 @@ module.exports = {
         console.log(`\n❌ Failed Objects Log (${failedCount})`);
       }
 
-      // Throw if pull was not successful so callers (e.g. upgrade) can detect failure
-      if (success !== 'X' && success !== true) {
+      // Throw if pull was not successful so callers (e.g. upgrade) can detect failure.
+      // Exception: SUCCESS='' with no failures and no log = object already active, not a real error.
+      const alreadyActive = failedCount === 0 && failedObjects.length === 0 &&
+                            activatedCount === 0 && logMessages.length === 0 &&
+                            (!message || /activation cancelled|nothing to activate|already active/i.test(message));
+      if (success !== 'X' && success !== true && !alreadyActive) {
         const err = new Error(message || 'Pull completed with errors');
         err._isPullError = true;
         throw err;

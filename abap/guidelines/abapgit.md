@@ -20,8 +20,7 @@ Test Class         | zcl_*.clas.testclasses.abap | zcl_*.clas.xml
 Interface          | zif_*.intf.abap             | zif_*.intf.xml
 Program            | z*.prog.abap                | z*.prog.xml
 Table              | z*.tabl.abap                | z*.tabl.xml
-CDS View           | zc_*.ddls.asddls            | zc_*.ddls.xml
-CDS Entity         | ze_*.ddlx.asddlx            | ze_*.ddlx.xml
+CDS View (DDLS)    | zc_*.ddls.asddls            | zc_*.ddls.xml
 Data Element       | z*.dtel.abap                | z*.dtel.xml
 Structure          | z*.stru.abap                | z*.stru.xml
 Table Type         | z*.ttyp.abap                | z*.ttyp.xml
@@ -33,7 +32,7 @@ Key XML Settings:
   Class STATE:      1=Active
   Table TABCLASS:   TRANSP, POOL, CLUSTER
   Table DELIVERY:   A=Application, C=Customizing
-  CDS SOURCE_TYPE:  V=View, C=Consumption
+  CDS SOURCE_TYPE:  W=View Entity (modern), V=View (legacy)
   Test Class XML:   <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
   Local Classes:    <CLSCCINCL>X</CLSCCINCL>
 ```
@@ -175,43 +174,11 @@ abapGit needs XML files to:
 
 ---
 
-### CDS View Entity (DDLS) - RECOMMENDED
-
-**Use by default when user says "create CDS view"**
-
-**Filename**: `src/zc_my_entity.ddls.xml`
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DDLS>
-    <DDLNAME>ZC_MY_ENTITY</DDLNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>My CDS View Entity</DDTEXT>
-    <SOURCE_TYPE>W</SOURCE_TYPE>
-   </DDLS>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-**Key Points for CDS View Entities**:
-1. **ABAP file extension**: Use `.ddls.asddls` (NOT `.ddls.abap`)
-2. **XML file**: Use `.ddls.xml`
-3. **DDLNAME**: Must match the CDS view entity name in the source
-4. **SOURCE_TYPE**: `W` = View Entity (modern, recommended)
-5. **Serializer**: Use `LCL_OBJECT_DDLS`
-6. **Source file**: Use `define view entity` (no `@AbapCatalog.sqlViewName`)
-
----
-
-### CDS View (DDLS) - Legacy Only
-
-**Only use when explicitly requested (e.g., "create legacy CDS view")**
+### CDS View / View Entity (DDLS)
 
 **Filename**: `src/zc_my_view.ddls.xml`
+
+The XML format is identical for both types — only `SOURCE_TYPE` differs:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -222,22 +189,17 @@ abapGit needs XML files to:
     <DDLNAME>ZC_MY_VIEW</DDLNAME>
     <DDLANGUAGE>E</DDLANGUAGE>
     <DDTEXT>My CDS View</DDTEXT>
-    <SOURCE_TYPE>V</SOURCE_TYPE>
+    <SOURCE_TYPE>W</SOURCE_TYPE>
    </DDLS>
   </asx:values>
  </asx:abap>
 </abapGit>
 ```
 
-**Key Points for CDS Views (Legacy)**:
-1. **ABAP file extension**: Use `.ddls.asddls` (NOT `.ddls.abap`)
-2. **XML file**: Use `.ddls.xml`
-3. **DDLNAME**: Must match the CDS view name in the source
-4. **SOURCE_TYPE**: `V` = View (legacy)
-5. **Serializer**: Use `LCL_OBJECT_DDLS`
-6. **Source file**: Must include `@AbapCatalog.sqlViewName` annotation
+- `SOURCE_TYPE W` → View Entity (`define view entity`, modern, **use by default**)
+- `SOURCE_TYPE V` → View (`define view` + `@AbapCatalog.sqlViewName`, legacy — only if explicitly requested)
 
-**For detailed comparison and usage guidance, see `guidelines/cds.md`**
+→ For DDL source syntax and full guidance: `abapgit-agent ref --topic cds-abapgit`
 
 ---
 

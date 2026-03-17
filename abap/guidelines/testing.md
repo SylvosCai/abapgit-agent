@@ -290,6 +290,49 @@ METHOD test_aggregation.
 ENDMETHOD.
 ```
 
+### Testing CDS Views that Select from Another CDS View
+
+> **Note:** This pattern applies when your design **already has** a CDS view that selects from another CDS view. It does NOT mean you should split a single view into two — use a single CDS view with GROUP BY / JOIN when the business logic fits.
+
+When your CDS view selects from **another CDS view** (not a base table), `create` will raise `CX_CDS_FAILURE`. Use `create_for_multiple_cds` instead and list all CDS entities in the dependency chain.
+
+```abap
+METHOD class_setup.
+  " ZC_TopView selects from ZC_IntermediateView (another CDS view entity)
+  " → must use create_for_multiple_cds and list all CDS entities
+  mo_cds_env_static = cl_cds_test_environment=>create_for_multiple_cds(
+    i_for_entities = VALUE #(
+      ( 'ZC_TOPVIEW' )           " the view under test
+      ( 'ZC_INTERMEDIATEVIEW' )  " the CDS view it selects from
+    ) ).
+ENDMETHOD.
+```
+
+Insert test data into the intermediate CDS view (not the base tables), since that is what the top-level view reads:
+
+```abap
+METHOD test_read.
+  DATA lt_source TYPE TABLE OF zc_intermediateview WITH EMPTY KEY.
+  lt_source = VALUE #(
+    ( field1 = 'A' field2 = 100 )
+    ( field1 = 'B' field2 = 200 ) ).
+  mo_cds_env->insert_test_data( i_data = lt_source ).
+
+  SELECT * FROM zc_topview INTO TABLE @DATA(lt_result).
+
+  cl_abap_unit_assert=>assert_equals(
+    exp = 2  act = lines( lt_result )  msg = 'Expected 2 rows' ).
+ENDMETHOD.
+```
+
+**Rules:**
+- List the view under test **and all CDS views it depends on** in `i_for_entities`
+- Insert data into the **direct source** of the top-level view (the intermediate CDS view)
+- Order in `i_for_entities` does not matter
+- If you get `CX_CDS_FAILURE` when using `create`, switch to `create_for_multiple_cds`
+
+---
+
 ### Key Classes for CDS Testing
 
 | Item | Type/Usage |
@@ -304,7 +347,8 @@ ENDMETHOD.
 
 | Method | Purpose |
 |--------|---------|
-| `CL_CDS_TEST_ENVIRONMENT=>create( i_for_entity = ... )` | Create test environment (returns `if_cds_test_environment`) |
+| `CL_CDS_TEST_ENVIRONMENT=>create( i_for_entity = ... )` | Create test environment for a CDS view over base tables |
+| `CL_CDS_TEST_ENVIRONMENT=>create_for_multiple_cds( i_for_entities = ... )` | Create test environment when the CDS view selects from another CDS view |
 | `insert_test_data( i_data = ... )` | Insert test data into test doubles |
 | `clear_doubles` | Clear test data before each test method |
 | `destroy` | Clean up after test class |
@@ -314,7 +358,7 @@ ENDMETHOD.
 1. **Use interface type**: `DATA mo_cds_env TYPE REF TO if_cds_test_environment` - the CREATE method returns an interface reference
 2. **CLASS-METHODS required**: `class_setup` and `class_teardown` must be declared with `CLASS-METHODS` (not `METHODS`)
 3. **Table type declaration**: Must declare `DATA lt_tab TYPE TABLE OF <type> WITH EMPTY KEY` before using `VALUE #()`
-4. **Auto-created dependencies**: CDS framework auto-creates test doubles for base tables - do not specify `i_dependency_list`
+4. **Auto-created dependencies**: When the CDS view selects only from **base tables**, the framework auto-creates test doubles — do not specify `i_dependency_list`. When the CDS view selects from **another CDS view**, use `create_for_multiple_cds` instead (see section below).
 5. **Aggregations**: For CDS views with SUM/COUNT/GROUP BY, insert test data into base tables (SFLIGHT, SCARR, etc.)
 6. **Clear doubles**: Call `clear_doubles` in `setup` method before each test
 7. **Enable associations**: Set `test_associations = 'X'` only if testing CDS associations

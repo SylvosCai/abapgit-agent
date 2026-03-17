@@ -8,7 +8,7 @@ grand_parent: ABAP Development
 
 # Creating CDS Views
 
-**Searchable keywords**: CDS, DDL, DDLS, CDS view, @AbapCatalog, @AccessControl, association, projection, consumption
+**Searchable keywords**: CDS, DDL, DDLS, CDS view, @AbapCatalog, @AccessControl, association, projection, consumption, GROUP BY, aggregation, subquery, JOIN
 
 ## TOPICS IN THIS FILE
 1. File Naming - line 96
@@ -145,20 +145,13 @@ where devclass not like '$%'
 
 1. **Avoid reserved words** - Field names like `PACKAGE`, `CLASS`, `INTERFACE` are reserved in CDS. Use alternatives like `PackageName`, `ClassName`.
 
-2. **Workflow for creating CDS views** - See `../CLAUDE.md` for complete workflow guidance:
-   - Independent CDS views: `syntax → commit → pull --files`
-   - Dependent CDS views (with associations to NEW views): Create underlying view first, then dependent view
-   - See CLAUDE.md section on "Working with dependent objects"
+2. **Workflow for creating CDS views** — run: `abapgit-agent ref --topic workflow-detailed`
 
 3. **System support** - CDS views require SAP systems with CDS capability (S/4HANA, SAP BW/4HANA, or ABAP 7.51+). Older systems will show error: "Object type DDLS is not supported by this system"
 
 ### Activating CDS Views
 
-**For standard workflow, see `../CLAUDE.md`**
-
-**CDS-specific notes:**
-- Single independent DDLS file: `abapgit-agent pull --files src/zc_view.ddls.asddls`
-- CDS views with associations to OTHER NEW views: Create target view first (see `../CLAUDE.md` for workflow)
+→ See `abapgit-agent ref --topic workflow-detailed` for the complete workflow.
 
 ## CDS View Entity Features
 
@@ -195,6 +188,39 @@ where devclass not like '$%'
 ---
 
 ## CDS Best Practices and Common Patterns
+
+### No Inline Subqueries — Use JOIN + GROUP BY Instead
+
+**CDS view entities do NOT support inline subqueries in JOIN.** This is a hard syntax error:
+
+❌ **WRONG — inline subquery (syntax error)**:
+```abap
+define view entity ZC_MyView as select from zheader as Header
+  inner join (                          // ← NOT SUPPORTED
+    select docid, sum( amount ) as Total
+    from zitems
+    group by docid
+  ) as Items on Items.docid = Header.docid ...
+```
+
+✅ **CORRECT — JOIN base tables directly, use GROUP BY on the outer view**:
+```abap
+define view entity ZC_MyView
+  as select from zheader as Header
+    inner join zitems as Item
+      on Item.docid = Header.docid
+{
+  key Header.docid       as DocId,
+      Header.description as Description,
+      count(*)           as NumberOfItems,
+      sum(Item.amount)   as TotalAmount
+}
+group by Header.docid, Header.description
+```
+
+**This works.** CDS supports JOIN + GROUP BY + aggregation functions in a single view. Only inline subqueries in the FROM/JOIN clause are unsupported.
+
+---
 
 ### Key Field Ordering (STRICT RULE)
 
@@ -234,6 +260,8 @@ CDS views enforce strict key field ordering that differs from regular SQL:
 ---
 
 ### Currency/Amount Field Aggregation
+
+> **Design principle**: Prefer a **single CDS view** with JOIN + GROUP BY. Only split into multiple layered views when requirements specifically need reusable intermediate aggregations shared across different consumers.
 
 When aggregating currency or amount fields in CDS views, use semantic annotations instead of complex casting:
 

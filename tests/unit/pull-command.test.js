@@ -536,6 +536,61 @@ describe('Pull Command - CLI Output Format', () => {
     expect(parsed.ACTIVATED_OBJECTS).toHaveLength(2);
     expect(parsed.LOG_MESSAGES).toHaveLength(2);
   });
+
+  test('shows error (not "already active") when message contains HTTP/SSL error', async () => {
+    jest.resetModules();
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: '',
+          message: 'HTTP error 421 occurred: SSL handshake with github.tools.sap:443 failed after 16ms: SSSLERR_PEER_CERT_UNTRUSTED (-102)',
+          activated_count: 0,
+          failed_count: 0,
+          log_messages: [],
+          activated_objects: [],
+          failed_objects: []
+        })
+      }))
+    };
+
+    await expect(
+      pullCommand.pull('https://github.tools.sap/test/repo.git', 'main', null, null,
+        mockContext.loadConfig, mockContext.AbapHttp, false)
+    ).rejects.toThrow();
+
+    expect(consoleOutput.join('\n')).not.toContain('already active');
+    expect(consoleOutput.join('\n')).toContain('SSL');
+  });
+
+  test('shows "already active" when message is "Activation cancelled"', async () => {
+    jest.resetModules();
+    const pullCommand = require('../../src/commands/pull');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: '',
+          message: 'Activation cancelled',
+          activated_count: 0,
+          failed_count: 0,
+          log_messages: [],
+          activated_objects: [],
+          failed_objects: []
+        })
+      }))
+    };
+
+    await pullCommand.pull('https://github.tools.sap/test/repo.git', 'main', null, null,
+      mockContext.loadConfig, mockContext.AbapHttp, false);
+
+    expect(consoleOutput.join('\n')).toContain('already active');
+  });
 });
 
 describe('Pull Command - Safeguard Validation', () => {

@@ -49,138 +49,49 @@ See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set u
 
 ## CLI Commands
 
-### Setup Commands
+### Setup
 
 ```bash
-# Initialize local configuration for existing git repo
-abapgit-agent init --package ZMY_PACKAGE
-
-# With custom folder (default: /src/)
-abapgit-agent init --package ZMY_PACKAGE --folder /abap/
-
-# With custom folder logic (default: PREFIX)
-abapgit-agent init --package ZMY_PACKAGE --folder-logic FULL
-
-# Create online repository in ABAP
-abapgit-agent create
-
-# Delete online repository from ABAP (keeps local files)
-abapgit-agent delete
-
-# Import objects from ABAP package to git
-abapgit-agent import
+abapgit-agent init --package ZMY_PACKAGE   # Initialize local config
+abapgit-agent create                        # Create online repo in ABAP
+abapgit-agent import                        # Import objects from ABAP to git
+abapgit-agent delete                        # Delete repo from ABAP
 ```
 
-### Development Commands
+### Development
 
 ```bash
-# Pull and activate (auto-detects git remote and branch)
-abapgit-agent pull
-
-# Pull with specific branch
-abapgit-agent pull --branch develop
-
-# Pull specific files only (fast iteration)
-abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zif_my_intf.intf.abap
-
-# Override git URL if needed
-abapgit-agent pull --url https://github.com/user/repo --branch main
-
-# Pull with a specific transport request
-abapgit-agent pull --transport DEVK900001
-
-# Import objects from ABAP package to git
-abapgit-agent import
-
-# Import with custom commit message
-abapgit-agent import --message "feat: add new feature"
+abapgit-agent pull                                         # Pull and activate
+abapgit-agent pull --files src/zcl_my_class.clas.abap     # Pull specific files
+abapgit-agent syntax --files src/zcl_my_class.clas.abap   # Check syntax before commit
+abapgit-agent inspect --files src/zcl_my_class.clas.abap  # Code Inspector after pull
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run AUnit tests
+abapgit-agent run --class ZCL_MY_RUNNER                   # Execute class headlessly
 ```
 
-### Validation Commands
+### Explore
 
 ```bash
-# Check syntax of local source files BEFORE commit (fast, no activation)
-# Supported: CLAS, INTF, PROG, DDLS (CDS Views)
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
-abapgit-agent syntax --files src/zc_my_view.ddls.asddls
-
-# Syntax check with ABAP Cloud mode
-abapgit-agent syntax --files src/zcl_my_class.clas.abap --cloud
-
-# Syntax check multiple files
-abapgit-agent syntax --files src/zcl_class.clas.abap,src/zc_view.ddls.asddls
-
-# Inspect source file for issues (after activation)
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-
-# Run AUnit tests for test classes
-abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
-
-# Run tests for multiple test classes
-abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
+abapgit-agent tree --package '$MY_PACKAGE'   # Package hierarchy
+abapgit-agent list --package '$MY_PACKAGE'   # List objects
+abapgit-agent view --objects ZCL_MY_CLASS    # View object definition
+abapgit-agent preview --objects SFLIGHT      # Preview table data
+abapgit-agent where --objects ZCL_MY_CLASS   # Where-used list
+abapgit-agent dump --date TODAY              # Query short dumps (ST22)
+abapgit-agent debug set --files abap/zcl_my_class.clas.abap:42  # Set breakpoint
 ```
 
-### Explore Commands
+### Utility
 
 ```bash
-# Display package hierarchy tree
-abapgit-agent tree --package '$MY_PACKAGE'
-
-# View object definitions from ABAP system (classes, interfaces, tables, data elements)
-abapgit-agent view --objects ZCL_MY_CLASS
-abapgit-agent view --objects SFLIGHT --type TABL
-abapgit-agent view --objects S_CARR_ID --type DTEL
-
-# Preview table or CDS view data
-abapgit-agent preview --objects SFLIGHT
-abapgit-agent preview --objects ZC_MY_CDS_VIEW --type DDLS
-abapgit-agent preview --objects SFLIGHT --limit 20
-abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
-abapgit-agent preview --objects SFLIGHT --columns CARRID,CONNID,PRICE
-abapgit-agent preview --objects SFLIGHT --vertical
-abapgit-agent preview --objects SFLIGHT --compact
-
-# Find where-used (objects using a specific object)
-abapgit-agent where --objects ZCL_MY_CLASS
-abapgit-agent where --objects ZIF_MY_INTERFACE
-abapgit-agent where --objects ZCL_MY_CLASS --type CLAS
-
-# Query short dumps (ST22)
-abapgit-agent dump --date TODAY
-abapgit-agent dump --user DEVELOPER --date TODAY --detail 1
+abapgit-agent guide                   # Read full ABAP development guide
+abapgit-agent ref "CORRESPONDING"     # Search ABAP reference
+abapgit-agent ref --topic sql         # Browse by topic
+abapgit-agent transport list          # List transport requests
+abapgit-agent upgrade                 # Upgrade CLI and ABAP backend
+abapgit-agent status                  # Check configuration
+abapgit-agent health                  # Verify ABAP connection
 ```
-
-### Debug Commands
-
-```bash
-# Set a breakpoint
-abapgit-agent debug set --files abap/zcl_my_class.clas.abap:42
-
-# Attach and debug interactively (human REPL)
-abapgit-agent debug attach
-
-# Attach in scripted AI mode — emits JSON on hit, starts background daemon
-abapgit-agent debug attach --json
-
-# Step, inspect variables, call stack (no --session needed)
-abapgit-agent debug step --type over --json
-abapgit-agent debug vars --json
-abapgit-agent debug stack --json
-
-# Always release the frozen work process when done
-abapgit-agent debug step --type continue --json
-```
-
-### Utility Commands
-
-```bash
-# Health check
-abapgit-agent health
-
-# Check integration status
-abapgit-agent status
-```
-Note: All ABAP commands automatically check CLI/ABAP API version compatibility.
 
 ## Local Development
 
@@ -200,25 +111,11 @@ npm run pull -- --url <git-url> --branch main
 
 | Topic | File |
 |-------|------|
+| Full Documentation | [https://sylvoscai.github.io/abapgit-agent/](https://sylvoscai.github.io/abapgit-agent/) |
 | Installation & Setup | [INSTALL.md](INSTALL.md) |
-| init Command | [docs/init-command.md](docs/init-command.md) |
-| create Command | [docs/create-command.md](docs/create-command.md) |
-| delete Command | [docs/delete-command.md](docs/delete-command.md) |
-| import Command | [docs/import-command.md](docs/import-command.md) |
-| pull Command | [docs/pull-command.md](docs/pull-command.md) |
-| syntax Command | [docs/syntax-command.md](docs/syntax-command.md) |
-| inspect Command | [docs/inspect-command.md](docs/inspect-command.md) |
-| unit Command | [docs/unit-command.md](docs/unit-command.md) |
-| tree Command | [docs/tree-command.md](docs/tree-command.md) |
-| view Command | [docs/view-command.md](docs/view-command.md) |
-| preview Command | [docs/preview-command.md](docs/preview-command.md) |
-| where Command | [docs/where-command.md](docs/where-command.md) |
-| dump Command | [docs/dump-command.md](docs/dump-command.md) |
-| debug Command | [docs/debug-command.md](docs/debug-command.md) |
-| ref Command | [docs/ref-command.md](docs/ref-command.md) |
+| All Commands Overview | [docs/commands.md](docs/commands.md) |
 | REST API Reference | [API.md](API.md) |
 | Error Handling | [ERROR_HANDLING.md](ERROR_HANDLING.md) |
-| ABAP Coding Guidelines | [abap/CLAUDE.md](abap/CLAUDE.md) |
 
 ## Dependent Projects
 

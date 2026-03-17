@@ -1,7 +1,7 @@
 ---
 layout: default
 title: status - Check Status
-nav_order: 3
+nav_order: 4
 parent: Utility Commands
 ---
 

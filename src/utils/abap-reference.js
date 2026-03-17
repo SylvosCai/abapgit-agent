@@ -17,9 +17,9 @@ const stat = promisify(fs.stat);
 const TOPIC_MAP = {
   'internal-tables': '01_Internal_Tables.md',
   'structures': '02_Structures.md',
-  'sql': '03_ABAP_SQL.md',
+  'sql-cheatsheet': '03_ABAP_SQL.md',
   'oop': '04_ABAP_Object_Orientation.md',
-  'objects': '04_ABAP_Object_Orientation.md',
+  'oop-cheatsheet': '04_ABAP_Object_Orientation.md',
   'constructors': '05_Constructor_Expressions.md',
   'constructor': '05_Constructor_Expressions.md',
   'dynamic': '06_Dynamic_Programming.md',
@@ -33,24 +33,23 @@ const TOPIC_MAP = {
   'flow': '13_Program_Flow_Logic.md',
   'unit-tests': '14_ABAP_Unit_Tests.md',
   'unit': '14_ABAP_Unit_Tests.md',
-  'testing': '14_ABAP_Unit_Tests.md',
-  'cds': '15_CDS_View_Entities.md',
+  'cds-cheatsheet': '15_CDS_View_Entities.md',
   'datatypes': '16_Data_Types_and_Objects.md',
   'luw': '17_SAP_LUW.md',
   'dynpro': '18_Dynpro.md',
   'cloud': '19_ABAP_for_Cloud_Development.md',
   'selection-screens': '20_Selection_Screens_Lists.md',
   'json-xml': '21_XML_JSON.md',
-  'json': '21_XML_JSON.md',
-  'xml': '21_XML_JSON.md',
+  'json-cheatsheet': '21_XML_JSON.md',
+  'xml-cheatsheet': '21_XML_JSON.md',
   'released-classes': '22_Released_ABAP_Classes.md',
   'datetime': '23_Date_and_Time.md',
   'functions': '24_Builtin_Functions.md',
   'auth': '25_Authorization_Checks.md',
   'authorization': '25_Authorization_Checks.md',
   'dictionary': '26_ABAP_Dictionary.md',
-  'exceptions': '27_Exceptions.md',
-  'exception': '27_Exceptions.md',
+  'exceptions-cheatsheet': '27_Exceptions.md',
+  'exception-cheatsheet': '27_Exceptions.md',
   'regex': '28_Regular_Expressions.md',
   'numeric': '29_Numeric_Operations.md',
   'ai': '30_Generative_AI.md',
@@ -380,9 +379,10 @@ async function searchPattern(pattern) {
   const refFolder = detectReferenceFolder();
   const repos = await getReferenceRepositories();
   const guidelinesFolder = detectGuidelinesFolder();
+  const builtInPath = getBuiltInGuidelinesPath();
 
-  // If neither reference folder nor guidelines exist, return error
-  if (!refFolder && !guidelinesFolder) {
+  // If no sources at all, return error
+  if (!refFolder && !guidelinesFolder && !builtInPath) {
     return {
       error: 'Reference folder not found',
       hint: 'Configure referenceFolder in .abapGitAgent, clone to ~/abap-reference, or create abap/guidelines/ folder'
@@ -397,6 +397,34 @@ async function searchPattern(pattern) {
     files: [],
     matches: []
   };
+
+  /**
+   * Helper: search a list of guideline file objects and push results
+   */
+  function searchGuidelineFiles(guidelineFiles, repoLabel) {
+    for (const file of guidelineFiles) {
+      if (file.content.toLowerCase().includes(pattern.toLowerCase())) {
+        results.files.push({ repo: repoLabel, file: file.relativePath });
+
+        const lines = file.content.split('\n');
+        let matchCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
+            const start = Math.max(0, i - 1);
+            const end = Math.min(lines.length, i + 2);
+            results.matches.push({
+              repo: repoLabel,
+              file: file.relativePath,
+              line: i + 1,
+              context: lines.slice(start, end).join('\n')
+            });
+            matchCount++;
+            if (matchCount >= 3) break;
+          }
+        }
+      }
+    }
+  }
 
   try {
     // Search reference repositories if available
@@ -447,44 +475,22 @@ async function searchPattern(pattern) {
       }
     }
 
-    // Search local guidelines folder if available
+    // Tier 1: search local guidelines folder
     if (guidelinesFolder) {
-      const guidelineFiles = await getGuidelineFiles();
+      const localFiles = await getGuidelineFilesFromPath(guidelinesFolder, 'guidelines');
+      searchGuidelineFiles(localFiles, 'guidelines');
+    }
 
-      for (const file of guidelineFiles) {
-        if (file.content.toLowerCase().includes(pattern.toLowerCase())) {
-          results.files.push({
-            repo: 'guidelines',
-            file: file.relativePath
-          });
-
-          // Find matching lines with context
-          const lines = file.content.split('\n');
-          let matchCount = 0;
-
-          for (let i = 0; i < lines.length; i++) {
-            if (lines[i].toLowerCase().includes(pattern.toLowerCase())) {
-              const start = Math.max(0, i - 1);
-              const end = Math.min(lines.length, i + 2);
-              const context = lines.slice(start, end).join('\n');
-
-              results.matches.push({
-                repo: 'guidelines',
-                file: file.relativePath,
-                line: i + 1,
-                context
-              });
-
-              matchCount++;
-
-              // Limit matches per file to avoid overwhelming output
-              if (matchCount >= 3) {
-                break;
-              }
-            }
-          }
-        }
-      }
+    // Tier 2: search built-in guidelines for files not shadowed by local ones
+    if (builtInPath) {
+      const localFileNames = guidelinesFolder
+        ? new Set(fs.readdirSync(guidelinesFolder).filter(f => f.endsWith('.md')))
+        : new Set();
+      const builtInFiles = await getGuidelineFilesFromPath(builtInPath, 'guidelines');
+      const filesToSearch = builtInFiles.filter(f => !localFileNames.has(f.name));
+      // Override relativePath to signal built-in source
+      filesToSearch.forEach(f => { f.relativePath = path.join('guidelines', f.name); });
+      searchGuidelineFiles(filesToSearch, '[built-in]');
     }
 
     return results;
@@ -523,8 +529,8 @@ async function getTopic(topic) {
           return {
             topic,
             file: guidelineFile,
-            content: content.slice(0, 5000),
-            truncated: content.length > 5000,
+            content: content.slice(0, 15000),
+            truncated: content.length > 15000,
             totalLength: content.length,
             source: 'guidelines'
           };
@@ -535,46 +541,113 @@ async function getTopic(topic) {
     }
   }
 
-  // Fall back to external reference folder
+  // Fall back to cheat sheets TOPIC_MAP
   const cheatSheetsDir = getCheatSheetsDir();
 
-  if (!cheatSheetsDir) {
-    return {
-      error: 'Reference folder not found',
-      hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
-    };
-  }
-
   const fileName = TOPIC_MAP[topicLower];
-  if (!fileName) {
+  if (fileName && cheatSheetsDir) {
+    const filePath = path.join(cheatSheetsDir, fileName);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = await readFile(filePath, 'utf8');
+        return {
+          topic,
+          file: fileName,
+          content: content.slice(0, 5000),
+          truncated: content.length > 5000,
+          totalLength: content.length,
+          source: 'cheat-sheets'
+        };
+      } catch (error) {
+        // fall through
+      }
+    }
+  }
+
+  // TOPIC_MAP matched but cheat sheets not available — give a helpful setup hint
+  if (fileName && !cheatSheetsDir) {
+    // Distinguish between "not configured" and "configured but folder missing"
+    let configuredRefFolder = null;
+    try {
+      const configPath = path.join(process.cwd(), '.abapGitAgent');
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (config.referenceFolder) configuredRefFolder = config.referenceFolder;
+      }
+    } catch (e) { /* ignore */ }
+
+    if (configuredRefFolder) {
+      return {
+        error: `Topic '${topic}' requires SAP ABAP cheat sheets (folder not found: ${configuredRefFolder})`,
+        hint: [
+          'The referenceFolder is configured but does not exist on disk.',
+          `Clone the cheat sheets into it: abapgit-agent ref --clone SAP-samples/abap-cheat-sheets`,
+          '',
+          'Bundled topics (no setup needed): run abapgit-agent ref --list-topics'
+        ].join('\n')
+      };
+    }
+
     return {
-      error: `Unknown topic: ${topic}`,
-      availableTopics: Object.keys(TOPIC_MAP).filter((v, i, a) => a.indexOf(v) === i).slice(0, 20)
+      error: `Topic '${topic}' requires SAP ABAP cheat sheets (not configured)`,
+      hint: [
+        'To access SAP cheat sheet topics:',
+        '  1. Add to .abapGitAgent: { "referenceFolder": "/path/to/abap-reference" }',
+        '  2. Clone: abapgit-agent ref --clone SAP-samples/abap-cheat-sheets',
+        '',
+        'Bundled topics (no setup needed): run abapgit-agent ref --list-topics'
+      ].join('\n')
     };
   }
 
-  const filePath = path.join(cheatSheetsDir, fileName);
+  // Fall back to bundled guidelines by filename stem
+  // e.g. 'debug-session' → 'debug-session.md', 'debug' → 'debug-session.md' (if unambiguous)
+  const builtInPath = getBuiltInGuidelinesPath();
+  if (builtInPath) {
+    try {
+      const builtInFiles = fs.readdirSync(builtInPath).filter(f => f.endsWith('.md'));
 
-  if (!fs.existsSync(filePath)) {
-    return {
-      error: `File not found: ${fileName}`
-    };
+      // Exact stem match first
+      const exactMatch = builtInFiles.find(f => f.replace(/\.md$/, '') === topicLower);
+      if (exactMatch) {
+        const content = await readFile(path.join(builtInPath, exactMatch), 'utf8');
+        return {
+          topic,
+          file: exactMatch,
+          content: content.slice(0, 15000),
+          truncated: content.length > 15000,
+          totalLength: content.length,
+          source: 'built-in guidelines'
+        };
+      }
+
+      // Partial stem match (unambiguous only)
+      const partialMatches = builtInFiles.filter(f => f.replace(/\.md$/, '').includes(topicLower));
+      if (partialMatches.length === 1) {
+        const content = await readFile(path.join(builtInPath, partialMatches[0]), 'utf8');
+        return {
+          topic,
+          file: partialMatches[0],
+          content: content.slice(0, 15000),
+          truncated: content.length > 15000,
+          totalLength: content.length,
+          source: 'built-in guidelines'
+        };
+      } else if (partialMatches.length > 1) {
+        return {
+          error: `Ambiguous topic: '${topic}' matches multiple guideline files`,
+          hint: `Be more specific. Matches: ${partialMatches.map(f => f.replace(/\.md$/, '')).join(', ')}`
+        };
+      }
+    } catch (error) {
+      // fall through to final error
+    }
   }
 
-  try {
-    const content = await readFile(filePath, 'utf8');
-    return {
-      topic,
-      file: fileName,
-      content: content.slice(0, 5000), // First 5000 chars
-      truncated: content.length > 5000,
-      totalLength: content.length
-    };
-  } catch (error) {
-    return {
-      error: `Failed to read topic: ${error.message}`
-    };
-  }
+  return {
+    error: `Unknown topic: ${topic}`,
+    hint: 'For project guidelines, use the filename stem (e.g. --topic debug-session, --topic workflow-detailed)\nRun: abapgit-agent ref --list-topics'
+  };
 }
 
 /**
@@ -584,27 +657,50 @@ async function getTopic(topic) {
 async function listTopics() {
   const cheatSheetsDir = getCheatSheetsDir();
 
-  if (!cheatSheetsDir) {
-    return {
-      error: 'Reference folder not found',
-      hint: 'Configure referenceFolder in .abapGitAgent or clone to ~/abap-reference'
-    };
-  }
-
-  // Build topic list from files that exist
+  // Build topic list from cheat sheet files that exist
   const topics = [];
-  const seenFiles = new Set();
 
-  for (const [topic, file] of Object.entries(TOPIC_MAP)) {
-    if (!seenFiles.has(file) && fs.existsSync(path.join(cheatSheetsDir, file))) {
-      topics.push({ topic, file });
-      seenFiles.add(file);
+  if (cheatSheetsDir) {
+    const seenFiles = new Set();
+    for (const [topic, file] of Object.entries(TOPIC_MAP)) {
+      if (!seenFiles.has(file) && fs.existsSync(path.join(cheatSheetsDir, file))) {
+        topics.push({ topic, file });
+        seenFiles.add(file);
+      }
     }
   }
 
+  // Build guideline topic list from bundled guidelines (filename stem → filename)
+  const builtInPath = getBuiltInGuidelinesPath();
+  const guidelineTopics = [];
+  if (builtInPath) {
+    try {
+      const entries = fs.readdirSync(builtInPath).filter(f => f.endsWith('.md')).sort();
+      for (const file of entries) {
+        const stem = file.replace(/\.md$/, '');
+        guidelineTopics.push({ topic: stem, file });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Also include local guidelines/ topics (if present)
+  const localGuidelinesDir = detectGuidelinesFolder();
+  const localGuidelineTopics = [];
+  if (localGuidelinesDir) {
+    try {
+      const entries = fs.readdirSync(localGuidelinesDir).filter(f => f.endsWith('.md')).sort();
+      for (const file of entries) {
+        const stem = file.replace(/\.md$/, '');
+        localGuidelineTopics.push({ topic: stem, file });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   return {
-    referenceFolder: path.dirname(cheatSheetsDir),
-    topics: topics.sort((a, b) => a.file.localeCompare(b.file))
+    referenceFolder: cheatSheetsDir ? path.dirname(cheatSheetsDir) : null,
+    topics: topics.sort((a, b) => a.file.localeCompare(b.file)),
+    guidelineTopics,
+    localGuidelineTopics
   };
 }
 
@@ -631,6 +727,11 @@ function displaySearchResults(results) {
   if (results.guidelinesFolder) {
     sources.push('local guidelines');
   }
+  // Check if built-in guidelines were searched (present in matches)
+  const hasBuiltIn = results.files.some(f => f.repo === '[built-in]');
+  if (hasBuiltIn) {
+    sources.push('built-in guidelines');
+  }
   console.log(`  📁 Sources searched: ${sources.join(', ') || 'none'}`);
 
   if (results.repositories && results.repositories.length > 0) {
@@ -653,8 +754,9 @@ function displaySearchResults(results) {
 
   console.log(`  ✅ Found in ${results.files.length} file(s):`);
   for (const [repo, files] of Object.entries(filesByRepo)) {
-    const icon = repo === 'guidelines' ? '📋' : '📦';
-    console.log(`\n     ${icon} ${repo}/`);
+    const icon = repo === 'guidelines' ? '📋' : repo === '[built-in]' ? '📦' : '📦';
+    const label = repo === '[built-in]' ? 'built-in guidelines' : repo;
+    console.log(`\n     ${icon} ${label}/`);
     files.forEach(file => {
       console.log(`        • ${file}`);
     });
@@ -705,12 +807,13 @@ function displayTopic(result) {
     return;
   }
 
-  console.log(`\n  📖 ${result.file}`);
+  const sourceLabel = result.source === 'built-in guidelines' ? ' [built-in]' : result.source === 'guidelines' ? ' [local]' : '';
+  console.log(`\n  📖 ${result.file}${sourceLabel}`);
   console.log('  ' + '─'.repeat(60));
   console.log('');
 
-  // Display first 100 lines
-  const lines = result.content.split('\n').slice(0, 100);
+  // Display up to 300 lines (covers full guideline files without truncation)
+  const lines = result.content.split('\n').slice(0, 300);
   lines.forEach(line => {
     const trimmed = line.slice(0, 100);
     console.log(`  ${trimmed}`);
@@ -736,15 +839,40 @@ function displayTopics(result) {
   }
 
   console.log(`\n  📚 Available ABAP Reference Topics`);
-  console.log(`  📁 Reference folder: ${result.referenceFolder}`);
+  if (result.referenceFolder) {
+    console.log(`  📁 Reference folder: ${result.referenceFolder}`);
+  }
   console.log('');
-  console.log('  Topic                File');
-  console.log('  ' + '─'.repeat(60));
 
-  result.topics.forEach(({ topic, file }) => {
-    const paddedTopic = topic.padEnd(20);
-    console.log(`  ${paddedTopic} ${file}`);
-  });
+  if (result.topics.length > 0) {
+    console.log('  SAP Cheat Sheets');
+    console.log('  Topic                File');
+    console.log('  ' + '─'.repeat(60));
+    result.topics.forEach(({ topic, file }) => {
+      console.log(`  ${topic.padEnd(20)} ${file}`);
+    });
+    console.log('');
+  }
+
+  if (result.localGuidelineTopics && result.localGuidelineTopics.length > 0) {
+    console.log('  Local Guidelines  (guidelines/)');
+    console.log('  Topic                File');
+    console.log('  ' + '─'.repeat(60));
+    result.localGuidelineTopics.forEach(({ topic, file }) => {
+      console.log(`  ${topic.padEnd(20)} ${file}`);
+    });
+    console.log('');
+  }
+
+  if (result.guidelineTopics && result.guidelineTopics.length > 0) {
+    console.log('  Bundled Guidelines  (use: abapgit-agent ref --topic <topic>)');
+    console.log('  Topic                File');
+    console.log('  ' + '─'.repeat(60));
+    result.guidelineTopics.forEach(({ topic, file }) => {
+      console.log(`  ${topic.padEnd(20)} ${file}`);
+    });
+    console.log('');
+  }
 }
 
 /**
@@ -933,6 +1061,35 @@ function initGuidelines() {
 }
 
 /**
+ * Get all guideline files from a specific path
+ * @param {string} guidelinesPath - Path to guidelines folder
+ * @param {string} [label] - Optional label suffix for relativePath (default: 'guidelines')
+ * @returns {Promise<Array<{name: string, path: string, content: string, relativePath: string}>>}
+ */
+async function getGuidelineFilesFromPath(guidelinesPath, label) {
+  const folderLabel = label || 'guidelines';
+  const files = [];
+  try {
+    const entries = await readdir(guidelinesPath);
+    for (const entry of entries) {
+      if (entry.endsWith('.md')) {
+        const fullPath = path.join(guidelinesPath, entry);
+        const content = await readFile(fullPath, 'utf8');
+        files.push({
+          name: entry,
+          path: fullPath,
+          content,
+          relativePath: path.join(folderLabel, entry)
+        });
+      }
+    }
+  } catch (error) {
+    // Return empty array on error
+  }
+  return files.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
  * Get all guideline files from the project
  * @returns {Promise<Array<{name: string, path: string, content: string}>>}
  */
@@ -941,29 +1098,7 @@ async function getGuidelineFiles() {
   if (!guidelinesFolder) {
     return [];
   }
-
-  const files = [];
-
-  try {
-    const entries = await readdir(guidelinesFolder);
-
-    for (const entry of entries) {
-      if (entry.endsWith('.md')) {
-        const fullPath = path.join(guidelinesFolder, entry);
-        const content = await readFile(fullPath, 'utf8');
-        files.push({
-          name: entry,
-          path: fullPath,
-          content,
-          relativePath: path.join('guidelines', entry)
-        });
-      }
-    }
-  } catch (error) {
-    // Return empty array on error
-  }
-
-  return files.sort((a, b) => a.name.localeCompare(b.name));
+  return getGuidelineFilesFromPath(guidelinesFolder);
 }
 
 /**
@@ -1134,6 +1269,7 @@ module.exports = {
   ensureReferenceFolder,
   detectGuidelinesFolder,
   getBuiltInGuidelinesPath,
+  getGuidelineFilesFromPath,
   initGuidelines,
   getReferenceRepositories,
   getGuidelineFiles,

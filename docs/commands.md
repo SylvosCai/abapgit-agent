@@ -47,6 +47,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
+| [guide](guide-command.md) | ✅ | Show full bundled ABAP development guide |
 | [ref](ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
 
 ---
@@ -158,6 +159,12 @@ abapgit-agent health
 ### Offline Reference
 
 ```bash
+# Read the full bundled ABAP development guide
+abapgit-agent guide
+
+# Print only the path to the guide file
+abapgit-agent guide --path
+
 # Search for ABAP syntax patterns (no ABAP connection needed)
 abapgit-agent ref "CORRESPONDING"
 abapgit-agent ref "FILTER #"

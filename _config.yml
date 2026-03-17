@@ -102,6 +102,9 @@ collections:
 
 # Exclude from processing
 exclude:
+  - abap/CLAUDE.md
+  - abap/CLAUDE.slim.md
+  - abap/guidelines/
   - node_modules/
   - package.json
   - package-lock.json

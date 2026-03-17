@@ -9,20 +9,26 @@ parent: ABAP Development
 
 This file provides guidelines for **generating ABAP code** in abapGit repositories.
 
-**Use this file as a template**: Copy it to your ABAP repository root when setting up new projects with Claude Code.
-
 ---
 
 ## Critical Rules
 
-### 1. Use `ref` Command for Unfamiliar Topics
+### 1. Use `guide` and `ref` Commands for Unfamiliar Topics
 
-**When starting to work on ANY unfamiliar ABAP topic, syntax, or pattern, you MUST use the `ref` command BEFORE writing any code.**
+**When starting a new session or working on ANY unfamiliar ABAP topic, syntax, or pattern:**
 
 ```
 ❌ WRONG: Start writing code immediately based on assumptions
-✅ CORRECT: Run ref command first to look up the correct pattern
+✅ CORRECT: Run guide first, then ref for specific topics
 ```
+
+**Step 1 — Read the full dev guide at session start:**
+```bash
+abapgit-agent guide
+```
+Covers the complete workflow, all critical rules, object naming, unit testing, debugging, and the full guidelines index.
+
+**Step 2 — Look up specific syntax or topics with ref:**
 
 **Why**: ABAP syntax is strict. Guessing leads to activation errors that waste time.
 
@@ -81,7 +87,7 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 ### 3. Create XML Metadata / Local Classes
 
 Each ABAP object needs an XML metadata file. Local helper/test-double classes use separate `.locals_def.abap` / `.locals_imp.abap` files.
-→ See `guidelines/object-creation.md` for XML templates and local class setup
+→ See `guidelines/object-creation.md` — run: `abapgit-agent ref --topic object-creation`
 
 ---
 
@@ -133,18 +139,19 @@ abapgit-agent pull --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
 
 ### 5. Local Helper / Test-Double Classes
 
-→ See `guidelines/object-creation.md` for local class setup (`locals_def.abap` / `locals_imp.abap`)
+→ See `guidelines/object-creation.md` — run: `abapgit-agent ref --topic object-creation`
 
 ---
 
-### 6. Use `ref`, `view` and `where` Commands to Learn About Unknown Classes/Methods
+### 6. Use `guide`, `ref`, `view` and `where` Commands to Learn About Unknown Classes/Methods
 
 **When working with unfamiliar ABAP classes or methods, follow this priority:**
 
 ```
 1. First: Check local git repo for usage examples
-2. Second: Check ABAP reference/cheat sheets
-3. Third: Use view/where commands to query ABAP system (if needed)
+2. Second: Run abapgit-agent guide for the full ABAP dev guide
+3. Third: Use ref for specific syntax/topic details
+4. Fourth: Use view/where commands to query ABAP system (if needed)
 ```
 
 #### Priority 1: Check Local Git Repository
@@ -154,7 +161,16 @@ abapgit-agent pull --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
 - Check how similar classes are implemented
 - This gives the most relevant context for your project
 
-#### Priority 2: Check ABAP References
+#### Priority 2: Read the ABAP Development Guide
+
+```bash
+# Read the full bundled ABAP dev guide (workflow, patterns, guidelines index)
+abapgit-agent guide
+```
+
+This covers the complete development workflow, coding guidelines, object naming, unit testing patterns, and debugging guide. Always up-to-date with the installed package version.
+
+#### Priority 3: Check ABAP References
 
 ```bash
 # Search in ABAP cheat sheets and guidelines
@@ -163,7 +179,7 @@ abapgit-agent ref "INTERFACE"
 abapgit-agent ref --topic classes
 ```
 
-#### Priority 3: Use `where` and `view` Commands (Query ABAP System)
+#### Priority 4: Use `where` and `view` Commands (Query ABAP System)
 
 **If local/references don't have the answer, query the ABAP system:**
 
@@ -180,6 +196,13 @@ abapgit-agent view --objects ZCL_UNKNOWN_CLASS
 
 # View specific METHOD implementation
 abapgit-agent view --objects ZCL_UNKNOWN_CLASS=============CM001
+
+# View FULL source (definition + all method implementations)
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS --full
+
+# View FULL source with dual line numbers (for setting breakpoints)
+# G [N]  code — G = global line for debug set, [N] = include-relative
+abapgit-agent view --objects ZCL_UNKNOWN_CLASS --full --lines
 ```
 
 **Example workflow for AI:**
@@ -188,9 +211,9 @@ User: "How do I use ZCL_ABGAGT_AGENT?"
 
 AI thought process:
 1. Search local repo for ZCL_ABGAGT_AGENT usage
-2. Found: It's instantiated in several places with ->pull() method
-3. Still unclear about parameters? Check view command
-4. View: abapgit-agent view --objects ZCL_ABGAGT_AGENT
+2. Run: abapgit-agent guide  ← check if covered in the dev guide
+3. Run: abapgit-agent ref "ZCL_ABGAGT_AGENT"  ← search guidelines
+4. Still unclear? Run: abapgit-agent view --objects ZCL_ABGAGT_AGENT
 ```
 
 **Key differences:**
@@ -202,7 +225,7 @@ AI thought process:
 ### 7. CDS Unit Tests
 
 Use `CL_CDS_TEST_ENVIRONMENT` for unit tests that read CDS views.
-→ See `guidelines/cds-testing.md` for code examples
+→ See `guidelines/cds-testing.md` — run: `abapgit-agent ref --topic cds-testing`
 
 ---
 
@@ -237,7 +260,7 @@ After activating a class, stop and tell the user: `"Class is activated. Run with
 
 By default, probe/throwaway classes may be created in the current project. When `disableProbeClasses: true` is set in `.abapgit-agent.json`, they must go to `scratchWorkspace` instead. If `scratchWorkspace` is also not configured, refuse and guide the user to set it up.
 
-→ See `guidelines/run-probe-classes.md` for naming conventions, full workflow, and refusal guidance
+→ See `guidelines/run-probe-classes.md` — run: `abapgit-agent ref --topic run-probe-classes`
 
 ---
 
@@ -248,7 +271,7 @@ By default, probe/throwaway classes may be created in the current project. When 
 | HTTP 500 / runtime crash (ST22) | `dump` | Error already occurred |
 | Wrong output, no crash | `debug` | Need to trace logic |
 
-→ See `guidelines/debug-dump.md` for dump analysis workflow
+→ See `guidelines/debug-dump.md` — run: `abapgit-agent ref --topic debug-dump`
 
 **Critical rules for `debug` sessions:**
 
@@ -257,6 +280,21 @@ By default, probe/throwaway classes may be created in the current project. When 
 3. **Never pull to trigger** if a simpler trigger works — use `unit` when a test exists, `run` for a class runner; use `pull` only when the bug is specifically in the pull flow
 4. **Never pass `--session`** to `step/vars/stack` — it bypasses the daemon and causes errors
 5. **Always finish with `step --type continue --json`** — releases the frozen ABAP work process
+
+**Finding the right line number for a breakpoint:**
+
+Use `view --full --lines` to get assembled-source global line numbers (the `G` column) — these are the coordinates ADT accepts for breakpoints:
+
+```bash
+abapgit-agent view --objects ZCL_FOO --full --lines
+```
+
+Output format: `G [N]  code` where `G` = global line (use with `debug set`) and `[N]` = include-relative (for navigation only).
+
+```bash
+# Example: METHOD do_something. starts at global line 87
+abapgit-agent debug set --objects ZCL_FOO:90   # set BP a few lines after METHOD statement
+```
 
 Minimal correct sequence:
 ```bash
@@ -269,7 +307,7 @@ abapgit-agent debug vars --json
 abapgit-agent debug step --type continue --json     # 4. release
 ```
 
-→ See `guidelines/debug-session.md` for full debug session guide, breakpoint tips, and pull flow architecture
+→ See `guidelines/debug-session.md` — run: `abapgit-agent ref --topic debug-session`
 
 ---
 
@@ -308,7 +346,7 @@ See **AI Tool Guidelines** below for how to react to each setting.
 ### Branch Workflow (`"mode": "branch"`)
 
 Always work on feature branches. Before every `pull`: rebase to default branch. On completion: create PR with squash merge.
-→ See `guidelines/branch-workflow.md` for step-by-step commands and examples
+→ See `guidelines/branch-workflow.md` — run: `abapgit-agent ref --topic branch-workflow`
 
 ### Trunk Workflow (`"mode": "trunk"`)
 
@@ -404,11 +442,18 @@ Modified ABAP files?
    └─ ✅ Use: skip syntax → commit → push → pull → (if errors: inspect)
 ```
 
-→ See `guidelines/workflow-detailed.md` for full workflow decision tree, error indicators, and complete command reference
+→ See `guidelines/workflow-detailed.md` — run: `abapgit-agent ref --topic workflow-detailed`
 
 ---
 
 ## Guidelines Index
+
+> **Note:** If the `guidelines/` folder doesn't exist in your repo, the `ref` command
+> automatically uses bundled guidelines from the package. Access them with:
+> ```bash
+> abapgit-agent ref --topic <topic>   # e.g. ref --topic sql
+> abapgit-agent ref "<pattern>"       # e.g. ref "SELECT"
+> ```
 
 Detailed guidelines are available in the `guidelines/` folder:
 

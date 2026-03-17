@@ -202,34 +202,82 @@ Examples:
       console.log(`\n🔄 Updating abapGit Agent files`);
       console.log('');
 
-      // Copy CLAUDE.md
-      await copyFileIfExists(
-        pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.md'),
-        pathModule.join(process.cwd(), 'CLAUDE.md'),
-        'CLAUDE.md'
-      );
+      // copilot-instructions.md: never overwrite — user may have customised it
+      const localCopilotMdPath = pathModule.join(process.cwd(), '.github', 'copilot-instructions.md');
+      if (!fs.existsSync(localCopilotMdPath)) {
+        await copyFileIfExists(
+          pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.slim.md'),
+          localCopilotMdPath,
+          '.github/copilot-instructions.md',
+          true  // create parent dir
+        );
+      } else {
+        console.log(`⚠️  .github/copilot-instructions.md already exists, skipped`);
+      }
 
-      // Copy copilot-instructions.md
-      await copyFileIfExists(
-        pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.md'),
-        pathModule.join(process.cwd(), '.github', 'copilot-instructions.md'),
-        '.github/copilot-instructions.md',
-        true  // create parent dir
-      );
+      // CLAUDE.md: never overwrite — user may have customised it
+      const localClaudeMdPath = pathModule.join(process.cwd(), 'CLAUDE.md');
+      if (!fs.existsSync(localClaudeMdPath)) {
+        await copyFileIfExists(
+          pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.slim.md'),
+          localClaudeMdPath,
+          'CLAUDE.md'
+        );
+      } else {
+        console.log(`⚠️  CLAUDE.md already exists, skipped (use 'abapgit-agent guide --migrate' to replace a full guide with the slim stub)`);
+      }
 
-      // Copy guidelines folder to project root
-      await copyGuidelinesFolder(
-        pathModule.join(__dirname, '..', '..', 'abap', 'guidelines'),
-        pathModule.join(process.cwd(), 'guidelines'),
-        true  // overwrite
-      );
+      // guidelines/: never copy standard files — they're bundled in the package now.
+      // Only ensure objects.local.md stub exists if missing.
+      const guidelinesDestPath = pathModule.join(process.cwd(), 'guidelines');
+      if (!fs.existsSync(guidelinesDestPath)) {
+        fs.mkdirSync(guidelinesDestPath, { recursive: true });
+        console.log(`✅ Created guidelines/`);
+      }
+      const localNamingPath = pathModule.join(guidelinesDestPath, 'objects.local.md');
+      if (!fs.existsSync(localNamingPath)) {
+        // reuse the same stub content as init
+        const localNamingStub = `---
+nav_order: 8
+---
 
-      // Detect and offer to remove old numbered guideline files
-      await cleanupOldGuidelineFiles(pathModule.join(process.cwd(), 'guidelines'));
+# Project Naming Conventions (Override)
+
+This file overrides \`guidelines/objects.md\` for this project.
+It is **never overwritten** by \`abapgit-agent init --update\` — safe to customise.
+
+Searched by the \`ref\` command alongside all other guidelines.
+
+## Naming Conventions
+
+Uncomment and edit the rows that differ from the defaults in \`guidelines/objects.md\`:
+
+| Object Type | Prefix | Example |
+|---|---|---|
+| Class | ZCL_ | ZCL_MY_CLASS |
+| Interface | ZIF_ | ZIF_MY_INTERFACE |
+| Program | Z | ZMY_PROGRAM |
+| Package | $ | $MY_PACKAGE |
+| Table | Z | ZMY_TABLE |
+| CDS View | ZC_ | ZC_MY_VIEW |
+| CDS Entity | ZE_ | ZE_MY_ENTITY |
+| Data Element | Z | ZMY_ELEMENT |
+| Structure | Z | ZMY_STRUCTURE |
+| Table Type | Z | ZMY_TABLE_TYPE |
+`;
+        fs.writeFileSync(localNamingPath, localNamingStub);
+        console.log(`✅ Created guidelines/objects.local.md`);
+      } else {
+        console.log(`⚠️  guidelines/objects.local.md already exists, skipped`);
+      }
+
+      // Detect and offer to remove old numbered guideline files (legacy cleanup)
+      await cleanupOldGuidelineFiles(guidelinesDestPath);
 
       console.log(`
 📋 Update complete!
-   Run 'abapgit-agent ref --list-topics' to see available topics.
+   Standard guidelines are read from the package automatically — no local copies needed.
+   Run 'abapgit-agent guide --migrate' if you still have copied guideline files to remove.
 `);
       return;
     }
@@ -386,66 +434,55 @@ Examples:
       console.log(`✅ .gitignore already up to date`);
     }
 
-    // Copy CLAUDE.md
-    const claudeMdPath = pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.md');
+    // Copy CLAUDE.md (slim stub — tells Claude to run 'abapgit-agent guide')
+    const claudeMdPath = pathModule.join(__dirname, '..', '..', 'abap', 'CLAUDE.slim.md');
     const localClaudeMdPath = pathModule.join(process.cwd(), 'CLAUDE.md');
     try {
-      if (fs.existsSync(claudeMdPath)) {
+      if (fs.existsSync(localClaudeMdPath)) {
+        console.log(`⚠️  CLAUDE.md already exists, skipped`);
+      } else if (fs.existsSync(claudeMdPath)) {
         fs.copyFileSync(claudeMdPath, localClaudeMdPath);
         console.log(`✅ Created CLAUDE.md`);
       } else {
-        console.log(`⚠️  CLAUDE.md not found in abap/ directory`);
+        console.log(`⚠️  CLAUDE.slim.md not found in abap/ directory`);
       }
     } catch (error) {
       console.error(`Error copying CLAUDE.md: ${error.message}`);
     }
 
-    // Copy copilot-instructions.md for GitHub Copilot
-    const copilotMdPath = pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.md');
+    // Copy copilot-instructions.md for GitHub Copilot (slim stub)
+    const copilotMdPath = pathModule.join(__dirname, '..', '..', 'abap', '.github', 'copilot-instructions.slim.md');
     const githubDir = pathModule.join(process.cwd(), '.github');
     const localCopilotMdPath = pathModule.join(githubDir, 'copilot-instructions.md');
     try {
-      if (fs.existsSync(copilotMdPath)) {
-        // Ensure .github directory exists
+      if (fs.existsSync(localCopilotMdPath)) {
+        console.log(`⚠️  .github/copilot-instructions.md already exists, skipped`);
+      } else if (fs.existsSync(copilotMdPath)) {
         if (!fs.existsSync(githubDir)) {
           fs.mkdirSync(githubDir, { recursive: true });
         }
         fs.copyFileSync(copilotMdPath, localCopilotMdPath);
         console.log(`✅ Created .github/copilot-instructions.md`);
       } else {
-        console.log(`⚠️  copilot-instructions.md not found in abap/ directory`);
+        console.log(`⚠️  copilot-instructions.slim.md not found in abap/.github/ directory`);
       }
     } catch (error) {
       console.error(`Error copying copilot-instructions.md: ${error.message}`);
     }
 
-    // Copy guidelines folder to project root
-    const guidelinesSrcPath = pathModule.join(__dirname, '..', '..', 'abap', 'guidelines');
+    // Create guidelines/ directory and objects.local.md stub
+    // (Standard guidelines are bundled in the package — no need to copy them)
     const guidelinesDestPath = pathModule.join(process.cwd(), 'guidelines');
     try {
-      if (fs.existsSync(guidelinesSrcPath)) {
-        if (!fs.existsSync(guidelinesDestPath)) {
-          // Create guidelines directory
-          fs.mkdirSync(guidelinesDestPath, { recursive: true });
-          // Copy all files from guidelines folder
-          const files = fs.readdirSync(guidelinesSrcPath);
-          for (const file of files) {
-            if (file.endsWith('.md')) {
-              fs.copyFileSync(
-                pathModule.join(guidelinesSrcPath, file),
-                pathModule.join(guidelinesDestPath, file)
-              );
-            }
-          }
-          console.log(`✅ Created guidelines/ (${files.filter(f => f.endsWith('.md')).length} files)`);
-        } else {
-          console.log(`⚠️  guidelines/ already exists, skipped`);
-        }
+      if (!fs.existsSync(guidelinesDestPath)) {
+        fs.mkdirSync(guidelinesDestPath, { recursive: true });
+        console.log(`✅ Created guidelines/`);
+      }
 
-        // Create objects.local.md stub if not already present
-        const localNamingPath = pathModule.join(guidelinesDestPath, 'objects.local.md');
-        if (!fs.existsSync(localNamingPath)) {
-          const localNamingStub = `---
+      // Create objects.local.md stub if not already present
+      const localNamingPath = pathModule.join(guidelinesDestPath, 'objects.local.md');
+      if (!fs.existsSync(localNamingPath)) {
+        const localNamingStub = `---
 nav_order: 8
 ---
 
@@ -473,14 +510,11 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
 | Structure | Z | ZMY_STRUCTURE |
 | Table Type | Z | ZMY_TABLE_TYPE |
 `;
-          fs.writeFileSync(localNamingPath, localNamingStub);
-          console.log(`✅ Created guidelines/objects.local.md (project naming conventions)`);
-        }
-      } else {
-        console.log(`⚠️  guidelines folder not found in abap/ directory`);
+        fs.writeFileSync(localNamingPath, localNamingStub);
+        console.log(`✅ Created guidelines/objects.local.md (project naming conventions)`);
       }
     } catch (error) {
-      console.error(`Error copying guidelines: ${error.message}`);
+      console.error(`Error creating guidelines: ${error.message}`);
     }
 
     // Create folder
@@ -533,6 +567,11 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
    1. Edit .abapGitAgent with your ABAP credentials (host, user, password)
    2. Run 'abapgit-agent create --import' to create online repository
    3. Run 'abapgit-agent pull' to activate objects
+
+💡 Tips:
+   • Only guidelines/objects.local.md needs to live in your repo.
+     Standard guidelines are read from the package automatically via 'ref'.
+   • Run 'abapgit-agent guide' to read the full ABAP development guide.
 `);
   }
 };
