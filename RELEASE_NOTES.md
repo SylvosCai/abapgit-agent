@@ -2,6 +2,23 @@
 title: Release Notes
 ---
 
+## v1.13.0
+
+### New Features
+
+- `guide` command: view bundled ABAP guidelines ([docs](https://sapcai.github.io/abapgit-agent/guide-command))
+- `guide --migrate`: replace local guideline copies with slim stub
+
+### Improvements
+
+- `ref` command now reads guidelines from npm package (no local copies needed)
+- `init` no longer copies guideline files; use `guide` command instead
+
+---
+
+---
+
+
 ## v1.12.1
 
 ### New Features
