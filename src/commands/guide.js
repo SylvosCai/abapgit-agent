@@ -4,18 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-// Marker present in the old full-guide CLAUDE.md (copied by init before this feature)
-const FULL_GUIDE_MARKER = 'Claude Code Instructions';
-
-// Marker present in the slim stub (so we can detect it's already migrated)
-const SLIM_STUB_MARKER = 'abapgit-agent guide';
-
-// Marker present in the old full copilot-instructions.md
-const COPILOT_FULL_MARKER = '# ABAP Development with abapGit';
-
-// Marker present in the slim copilot stub
-const COPILOT_SLIM_MARKER = 'abapgit-agent guide';
-
 module.exports = {
   name: 'guide',
   description: 'Show bundled ABAP development guide',
@@ -45,18 +33,6 @@ module.exports = {
     return candidates.find(p => fs.existsSync(p)) || null;
   },
 
-  _getBundledGuidelineNames() {
-    const candidates = [
-      path.join(__dirname, '..', '..', 'abap', 'guidelines'),
-      path.join(__dirname, '..', '..', '..', 'abap', 'guidelines')
-    ];
-    const guidelinesDir = candidates.find(p => fs.existsSync(p));
-    if (!guidelinesDir) return new Set();
-    return new Set(
-      fs.readdirSync(guidelinesDir).filter(f => f.endsWith('.md'))
-    );
-  },
-
   async _confirm(question) {
     return new Promise((resolve) => {
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -73,78 +49,38 @@ module.exports = {
     const yes = args.includes('--yes') || args.includes('-y');
     const cwd = process.cwd();
 
-    const bundledNames = this._getBundledGuidelineNames();
     const slimStubPath = this._findSlimStub();
     const copilotSlimStubPath = this._findCopilotSlimStub();
 
-    // --- Scan guidelines/ ---
+    // --- Scan guidelines/: delete all *.md except *.local.md ---
     const guidelinesDir = path.join(cwd, 'guidelines');
-    const toDelete = [];    // standard files matching bundled names
-    const toKeep = [];      // *.local.md or other non-standard files
+    const toDelete = [];
+    const toKeep = [];
 
     if (fs.existsSync(guidelinesDir)) {
       for (const name of fs.readdirSync(guidelinesDir)) {
         if (!name.endsWith('.md')) continue;
-        if (bundledNames.has(name)) {
-          toDelete.push(path.join(guidelinesDir, name));
-        } else {
+        if (name.endsWith('.local.md')) {
           toKeep.push(name);
+        } else {
+          toDelete.push(path.join(guidelinesDir, name));
         }
       }
     }
 
-    // --- Scan CLAUDE.md ---
+    // --- CLAUDE.md: replace if it exists ---
     const claudeMdPath = path.join(cwd, 'CLAUDE.md');
-    let claudeMdAction = 'none'; // 'replace' | 'already-slim' | 'custom' | 'missing'
-    if (fs.existsSync(claudeMdPath)) {
-      const content = fs.readFileSync(claudeMdPath, 'utf8');
-      if (content.includes(SLIM_STUB_MARKER)) {
-        claudeMdAction = 'already-slim';
-      } else if (content.includes(FULL_GUIDE_MARKER)) {
-        claudeMdAction = 'replace';
-      } else {
-        claudeMdAction = 'custom';
-      }
-    } else {
-      claudeMdAction = 'missing';
-    }
+    const claudeExists = fs.existsSync(claudeMdPath);
 
-    // --- Scan .github/copilot-instructions.md ---
+    // --- .github/copilot-instructions.md: replace if it exists ---
     const copilotMdPath = path.join(cwd, '.github', 'copilot-instructions.md');
-    let copilotAction = 'none'; // 'replace' | 'already-slim' | 'custom' | 'missing'
-    if (fs.existsSync(copilotMdPath)) {
-      const content = fs.readFileSync(copilotMdPath, 'utf8');
-      if (content.includes(COPILOT_SLIM_MARKER)) {
-        copilotAction = 'already-slim';
-      } else if (content.includes(COPILOT_FULL_MARKER)) {
-        copilotAction = 'replace';
-      } else {
-        copilotAction = 'custom';
-      }
-    } else {
-      copilotAction = 'missing';
-    }
+    const copilotExists = fs.existsSync(copilotMdPath);
 
     // --- Nothing to do? ---
-    const nothingToDo = toDelete.length === 0 && claudeMdAction !== 'replace' && copilotAction !== 'replace';
+    const nothingToDo = toDelete.length === 0 && !claudeExists && !copilotExists;
     if (nothingToDo) {
       console.log('');
-      console.log('✅ Already clean — nothing to migrate.');
-      if (claudeMdAction === 'already-slim') {
-        console.log('   CLAUDE.md is already the slim stub.');
-      } else if (claudeMdAction === 'custom') {
-        console.log('   CLAUDE.md has custom content — left untouched.');
-      } else if (claudeMdAction === 'missing') {
-        console.log('   No CLAUDE.md found.');
-      }
-      if (copilotAction === 'already-slim') {
-        console.log('   .github/copilot-instructions.md is already the slim stub.');
-      } else if (copilotAction === 'custom') {
-        console.log('   .github/copilot-instructions.md has custom content — left untouched.');
-      }
-      if (toDelete.length === 0 && fs.existsSync(guidelinesDir)) {
-        console.log('   No standard guideline files found in guidelines/.');
-      }
+      console.log('✅ Nothing to migrate — no guideline files, CLAUDE.md, or copilot-instructions.md found.');
       console.log('');
       return;
     }
@@ -155,7 +91,7 @@ module.exports = {
     console.log('');
 
     if (toDelete.length > 0) {
-      console.log(`Files to remove (${toDelete.length} standard guideline file${toDelete.length > 1 ? 's' : ''}):`);
+      console.log(`Files to remove (${toDelete.length} guideline file${toDelete.length > 1 ? 's' : ''}):`);
       toDelete.forEach(f => console.log(`   ${path.relative(cwd, f)}`));
       console.log('');
     }
@@ -166,27 +102,25 @@ module.exports = {
       console.log('');
     }
 
-    if (claudeMdAction === 'replace') {
+    if (claudeExists) {
       if (slimStubPath) {
-        console.log('CLAUDE.md: detected as full guide → will replace with slim stub');
+        console.log('CLAUDE.md → will replace with slim stub');
         console.log("   (run 'abapgit-agent guide' to read the full guide on demand)");
       } else {
-        console.log('CLAUDE.md: detected as full guide → ⚠️  slim stub not found, will skip');
+        console.log('CLAUDE.md → ⚠️  slim stub not found, will skip');
       }
       console.log('');
     }
 
-    if (copilotAction === 'replace') {
+    if (copilotExists) {
       if (copilotSlimStubPath) {
-        console.log('.github/copilot-instructions.md: detected as full guide → will replace with slim stub');
-        console.log('   (Copilot uses the slim stub; full guide available online)');
+        console.log('.github/copilot-instructions.md → will replace with slim stub');
       } else {
-        console.log('.github/copilot-instructions.md: detected as full guide → ⚠️  slim stub not found, will skip');
+        console.log('.github/copilot-instructions.md → ⚠️  slim stub not found, will skip');
       }
       console.log('');
     }
 
-    // After deletions, would guidelines/ be empty?
     const dirWillBeEmpty = fs.existsSync(guidelinesDir) && toKeep.length === 0;
     if (dirWillBeEmpty) {
       console.log('guidelines/ will be removed (no project-specific files remain).');
@@ -211,16 +145,13 @@ module.exports = {
 
     // --- Execute ---
     console.log('');
-    let deletedCount = 0;
 
     for (const filePath of toDelete) {
       fs.unlinkSync(filePath);
       console.log(`🗑️  Removed ${path.relative(cwd, filePath)}`);
-      deletedCount++;
     }
 
     if (dirWillBeEmpty) {
-      // Verify no other files remain before removing the directory
       const remaining = fs.readdirSync(guidelinesDir);
       if (remaining.length === 0) {
         fs.rmdirSync(guidelinesDir);
@@ -228,13 +159,13 @@ module.exports = {
       }
     }
 
-    if (claudeMdAction === 'replace' && slimStubPath) {
+    if (claudeExists && slimStubPath) {
       const slimContent = fs.readFileSync(slimStubPath, 'utf8');
       fs.writeFileSync(claudeMdPath, slimContent);
       console.log('✅ Replaced CLAUDE.md with slim stub');
     }
 
-    if (copilotAction === 'replace' && copilotSlimStubPath) {
+    if (copilotExists && copilotSlimStubPath) {
       const slimContent = fs.readFileSync(copilotSlimStubPath, 'utf8');
       fs.writeFileSync(copilotMdPath, slimContent);
       console.log('✅ Replaced .github/copilot-instructions.md with slim stub');

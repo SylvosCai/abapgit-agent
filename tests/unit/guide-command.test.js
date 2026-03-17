@@ -207,15 +207,13 @@ describe('guide --migrate', () => {
   }
 
   test('--dry-run prints preview but makes no changes', async () => {
-    const bundledNames = guideCommand._getBundledGuidelineNames();
-    const [firstBundled] = [...bundledNames];
-    writeGuidelinesDir({ [firstBundled]: '# Standard file', 'objects.local.md': '# Local' });
+    writeGuidelinesDir({ 'sql.md': '# Standard file', 'objects.local.md': '# Local' });
     writeClaudeMd('# Claude Code Instructions\nFull guide content here.');
 
     await guideCommand.execute(['--migrate', '--dry-run', '--yes']);
 
     // Nothing should be deleted
-    expect(fs.existsSync(path.join(testDir, 'guidelines', firstBundled))).toBe(true);
+    expect(fs.existsSync(path.join(testDir, 'guidelines', 'sql.md'))).toBe(true);
     expect(fs.existsSync(path.join(testDir, 'guidelines', 'objects.local.md'))).toBe(true);
     // CLAUDE.md should not be changed
     expect(fs.readFileSync(path.join(testDir, 'CLAUDE.md'), 'utf8')).toContain('Full guide content here.');
@@ -224,26 +222,22 @@ describe('guide --migrate', () => {
     expect(output).toContain('Dry run');
   });
 
-  test('removes standard bundled files, keeps *.local.md', async () => {
-    const bundledNames = guideCommand._getBundledGuidelineNames();
-    const [fileA, fileB] = [...bundledNames];
+  test('removes all non-local files, keeps *.local.md', async () => {
     writeGuidelinesDir({
-      [fileA]: '# Standard A',
-      [fileB]: '# Standard B',
+      'sql.md': '# Standard SQL',
+      'cds.md': '# Standard CDS',
       'objects.local.md': '# My naming conventions'
     });
 
     await guideCommand.execute(['--migrate', '--yes']);
 
-    expect(fs.existsSync(path.join(testDir, 'guidelines', fileA))).toBe(false);
-    expect(fs.existsSync(path.join(testDir, 'guidelines', fileB))).toBe(false);
+    expect(fs.existsSync(path.join(testDir, 'guidelines', 'sql.md'))).toBe(false);
+    expect(fs.existsSync(path.join(testDir, 'guidelines', 'cds.md'))).toBe(false);
     expect(fs.existsSync(path.join(testDir, 'guidelines', 'objects.local.md'))).toBe(true);
   });
 
   test('removes guidelines/ directory when no project files remain', async () => {
-    const bundledNames = guideCommand._getBundledGuidelineNames();
-    const [firstBundled] = [...bundledNames];
-    writeGuidelinesDir({ [firstBundled]: '# Standard file' });
+    writeGuidelinesDir({ 'sql.md': '# Standard file' });
 
     await guideCommand.execute(['--migrate', '--yes']);
 
@@ -251,10 +245,8 @@ describe('guide --migrate', () => {
   });
 
   test('keeps guidelines/ directory when project files remain', async () => {
-    const bundledNames = guideCommand._getBundledGuidelineNames();
-    const [firstBundled] = [...bundledNames];
     writeGuidelinesDir({
-      [firstBundled]: '# Standard file',
+      'sql.md': '# Standard file',
       'objects.local.md': '# Keep me'
     });
 
@@ -264,53 +256,28 @@ describe('guide --migrate', () => {
     expect(fs.existsSync(path.join(testDir, 'guidelines', 'objects.local.md'))).toBe(true);
   });
 
-  test('replaces full CLAUDE.md with slim stub', async () => {
-    writeClaudeMd('# Claude Code Instructions\nThis is the old full guide. Very long content.');
+  test('replaces CLAUDE.md regardless of content', async () => {
+    writeClaudeMd('# My Custom Project Instructions\nNo guide marker here at all.');
 
     await guideCommand.execute(['--migrate', '--yes']);
 
     const newContent = fs.readFileSync(path.join(testDir, 'CLAUDE.md'), 'utf8');
     expect(newContent).toContain('abapgit-agent guide');
-    expect(newContent).not.toContain('This is the old full guide');
+    expect(newContent).not.toContain('No guide marker here at all');
   });
 
-  test('leaves CLAUDE.md untouched when it already has slim stub', async () => {
-    const slimContent = '# ABAP Development\nabapgit-agent guide\nCustom addition.';
-    writeClaudeMd(slimContent);
-
-    await guideCommand.execute(['--migrate', '--yes']);
-
-    expect(fs.readFileSync(path.join(testDir, 'CLAUDE.md'), 'utf8')).toBe(slimContent);
-    const output = consoleLogOutput.join('\n');
-    expect(output).toContain('Already clean');
-  });
-
-  test('leaves CLAUDE.md untouched when it has custom content', async () => {
-    const customContent = '# My Project\nCustom instructions with no full-guide marker.';
-    writeClaudeMd(customContent);
-
-    await guideCommand.execute(['--migrate', '--yes']);
-
-    expect(fs.readFileSync(path.join(testDir, 'CLAUDE.md'), 'utf8')).toBe(customContent);
-  });
-
-  test('reports nothing to do when already clean', async () => {
-    // Only objects.local.md, slim CLAUDE.md
-    writeGuidelinesDir({ 'objects.local.md': '# Local only' });
-    writeClaudeMd('# ABAP Development\nabapgit-agent guide');
-
+  test('reports nothing to do when no files exist', async () => {
+    // No guidelines/, no CLAUDE.md, no copilot-instructions.md
     await guideCommand.execute(['--migrate', '--yes']);
 
     const output = consoleLogOutput.join('\n');
-    expect(output).toContain('Already clean');
+    expect(output).toContain('Nothing to migrate');
   });
 
   test('does not remove non-.md files from guidelines/', async () => {
-    const bundledNames = guideCommand._getBundledGuidelineNames();
-    const [firstBundled] = [...bundledNames];
     const dir = path.join(testDir, 'guidelines');
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, firstBundled), '# Standard');
+    fs.writeFileSync(path.join(dir, 'sql.md'), '# Standard');
     fs.writeFileSync(path.join(dir, 'keep.txt'), 'not a md file');
 
     await guideCommand.execute(['--migrate', '--yes']);
@@ -331,20 +298,7 @@ describe('guide --migrate', () => {
     expect(newContent).not.toContain('This is the old full Copilot guide');
   });
 
-  test('leaves copilot-instructions.md untouched when already slim', async () => {
-    const githubDir = path.join(testDir, '.github');
-    fs.mkdirSync(githubDir, { recursive: true });
-    const slimContent = '# ABAP Development\nRun abapgit-agent guide for the full guide.';
-    fs.writeFileSync(path.join(githubDir, 'copilot-instructions.md'), slimContent);
-
-    await guideCommand.execute(['--migrate', '--yes']);
-
-    expect(fs.readFileSync(path.join(githubDir, 'copilot-instructions.md'), 'utf8')).toBe(slimContent);
-    const output = consoleLogOutput.join('\n');
-    expect(output).toContain('Already clean');
-  });
-
-  test('leaves copilot-instructions.md untouched when it has custom content', async () => {
+  test('replaces copilot-instructions.md regardless of content', async () => {
     const githubDir = path.join(testDir, '.github');
     fs.mkdirSync(githubDir, { recursive: true });
     const customContent = '# My Custom Copilot Instructions\nProject-specific content only.';
@@ -352,7 +306,9 @@ describe('guide --migrate', () => {
 
     await guideCommand.execute(['--migrate', '--yes']);
 
-    expect(fs.readFileSync(path.join(githubDir, 'copilot-instructions.md'), 'utf8')).toBe(customContent);
+    const newContent = fs.readFileSync(path.join(githubDir, 'copilot-instructions.md'), 'utf8');
+    expect(newContent).toContain('abapgit-agent guide');
+    expect(newContent).not.toContain('Project-specific content only');
   });
 
   test('migrates both CLAUDE.md and copilot-instructions.md in one pass', async () => {
