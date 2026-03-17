@@ -1,0 +1,392 @@
+<mxfile host="app.diagrams.net" modified="2026-03-18T00:00:00.000Z" agent="abapgit-agent" version="21.0.0">
+  <diagram name="abapgit-agent Architecture" id="architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITLE  y=20 h=40 -->
+        <mxCell id="title" value="abapgit-agent Architecture"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="427" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LAYER 1: USER / AI TOOL   y=80  h=90
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_user" value="User / AI Tool"
+          style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="1574" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="user_claude" value="Claude Code"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="layer_user">
+          <mxGeometry x="300" y="35" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user_copilot" value="GitHub Copilot"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="layer_user">
+          <mxGeometry x="480" y="35" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user_human" value="Developer (terminal)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="layer_user">
+          <mxGeometry x="660" y="35" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LAYER 2: NODE.JS CLI   y=210  h=330
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_cli" value="Node.js CLI  (abapgit-agent)"
+          style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="1574" height="330" as="geometry" />
+        </mxCell>
+
+        <!-- CLI entry + config (left column)  -->
+        <mxCell id="cli_bin" value="bin/abapgit-agent&#xa;CLI entry point"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;"
+          vertex="1" parent="layer_cli">
+          <mxGeometry x="30" y="50" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cli_config" value="src/config.js&#xa;.abapGitAgent&#xa;env vars&#xa;.abapgit-agent.json"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+          vertex="1" parent="layer_cli">
+          <mxGeometry x="30" y="160" width="170" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Commands group  x=230 y=30 w=880 h=285 -->
+        <mxCell id="cmds_group" value="src/commands/  (24 commands)"
+          style="swimlane;startSize=28;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=12;"
+          vertex="1" parent="layer_cli">
+          <mxGeometry x="230" y="30" width="880" height="285" as="geometry" />
+        </mxCell>
+        <!-- row 1: command boxes  y=40 h=70 -->
+        <mxCell id="cmd_setup" value="Setup&#xa;init, create&#xa;delete, import"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="20" y="40" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_dev" value="Development&#xa;pull, syntax&#xa;inspect, unit, run"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="170" y="40" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_explore" value="Explore&#xa;view, preview, tree&#xa;list, where, dump"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="320" y="40" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_debug" value="Debug&#xa;debug set/attach&#xa;step/vars/stack"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="470" y="40" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_transport" value="Transport&#xa;transport list&#xa;create/check&#xa;release"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="620" y="40" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_util" value="Utility&#xa;guide, ref&#xa;status, health&#xa;upgrade"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="760" y="40" width="100" height="70" as="geometry" />
+        </mxCell>
+        <!-- row 2: offline note  y=130 h=40 -->
+        <mxCell id="cmd_offline"
+          value="💡 guide / ref run offline — read bundled abap/CLAUDE.md + abap/guidelines/ (no ABAP connection needed)"
+          style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="20" y="130" width="840" height="35" as="geometry" />
+        </mxCell>
+        <!-- row 3: agent + logger  y=185 h=80 -->
+        <mxCell id="cli_agent" value="src/agent.js&#xa;ABAPGitAgent&#xa;REST client"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="20" y="185" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cli_server" value="src/server.js&#xa;Express HTTP&#xa;server (optional)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="170" y="185" width="130" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cli_logger" value="src/logger.js&#xa;Winston logger"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;"
+          vertex="1" parent="cmds_group">
+          <mxGeometry x="320" y="185" width="130" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Utils group  x=1140 y=30 w=410 h=285 -->
+        <mxCell id="utils_group" value="src/utils/"
+          style="swimlane;startSize=28;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;"
+          vertex="1" parent="layer_cli">
+          <mxGeometry x="1140" y="30" width="410" height="285" as="geometry" />
+        </mxCell>
+        <mxCell id="util_abaphttp" value="abap-http.js&#xa;CSRF + session cache&#xa;/sap/bc/z_abapgit_agent/*"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="utils_group">
+          <mxGeometry x="20" y="40" width="175" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="util_adthttp" value="adt-http.js&#xa;XML/AtomPub&#xa;/sap/bc/adt/*"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="utils_group">
+          <mxGeometry x="215" y="40" width="175" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="util_debug" value="debug-session / daemon&#xa;repl / render / state&#xa;(ADT debug API)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="utils_group">
+          <mxGeometry x="20" y="125" width="175" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="util_other" value="git-utils&#xa;validators&#xa;version-check&#xa;transport-selector&#xa;abap-reference"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="utils_group">
+          <mxGeometry x="215" y="125" width="175" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="util_bgpoller" value="backgroundJobPoller.js&#xa;Poll long-running jobs"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="utils_group">
+          <mxGeometry x="20" y="210" width="370" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             ARROW: User → CLI   (user_human → cli_bin)
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="arr_user_cli" value="CLI command"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;"
+          edge="1" source="user_human" target="cli_bin" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LAYER 3: HTTPS   y=590  h=60
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_network" value="HTTPS / HTTP"
+          style="swimlane;startSize=28;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=12;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="590" width="1574" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="net_rest" value="REST  /sap/bc/z_abapgit_agent/*  (JSON)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;"
+          vertex="1" parent="layer_network">
+          <mxGeometry x="250" y="14" width="420" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="net_adt" value="ADT  /sap/bc/adt/*  (XML / AtomPub)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;"
+          vertex="1" parent="layer_network">
+          <mxGeometry x="850" y="14" width="380" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: CLI → Network -->
+        <mxCell id="arr_cli_net" value="HTTP requests (CSRF token, cookies)"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;"
+          edge="1" source="layer_cli" target="layer_network" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LAYER 4: ABAP BACKEND   y=700  h=600
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_abap" value="ABAP Backend  (SAP System)"
+          style="swimlane;startSize=30;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=13;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="700" width="1574" height="600" as="geometry" />
+        </mxCell>
+
+        <!-- REST Handler  y=50 h=60 centered -->
+        <mxCell id="abap_handler" value="ZCL_ABGAGT_REST_HANDLER&#xa;Dynamic routing by command name"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=12;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="587" y="50" width="380" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Resource Layer  y=160 h=80 -->
+        <mxCell id="abap_resources" value="Resource Layer  ZCL_ABGAGT_RESOURCE_*"
+          style="swimlane;startSize=28;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="40" y="160" width="1494" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="res_list"
+          value="PULL   SYNTAX   INSPECT   UNIT   RUN   VIEW   PREVIEW   TREE   LIST   WHERE   STATUS   CREATE   DELETE   IMPORT   HEALTH   TRANSPORT"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;"
+          vertex="1" parent="abap_resources">
+          <mxGeometry x="10" y="28" width="1470" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Command Factory  y=290 h=60 centered -->
+        <mxCell id="abap_factory" value="ZCL_ABGAGT_CMD_FACTORY&#xa;Creates command instances by name"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="587" y="290" width="380" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Command Layer  y=400 h=80 -->
+        <mxCell id="abap_commands" value="Command Layer  ZCL_ABGAGT_COMMAND_*  (implements ZIF_ABGAGT_COMMAND)"
+          style="swimlane;startSize=28;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="40" y="400" width="1494" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cmd_list"
+          value="PULL   SYNTAX   INSPECT   UNIT   RUN   VIEW   PREVIEW   TREE   LIST   WHERE   STATUS   CREATE   DELETE   IMPORT   DUMP   TRANSPORT"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;"
+          vertex="1" parent="abap_commands">
+          <mxGeometry x="10" y="28" width="1470" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Row 3: Specialized factories + core agent + utils  y=530 h=70 -->
+        <!-- Syntax checker factory  x=40 -->
+        <mxCell id="abap_syn_factory" value="ZCL_ABGAGT_SYNTAX_CHK_FACTORY&#xa;CHK_CLAS / CHK_INTF&#xa;CHK_PROG / CHK_DDLS"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="40" y="530" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Util  x=260 -->
+        <mxCell id="abap_util" value="ZCL_ABGAGT_UTIL&#xa;Helper methods"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="260" y="530" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Core Agent  x=440  w=420 -->
+        <mxCell id="abap_agent" value="ZCL_ABGAGT_AGENT&#xa;Core logic: pull / activate, syntax, inspect, unit tests"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=12;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="440" y="530" width="440" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CTS API  x=900 -->
+        <mxCell id="abap_cts" value="ZCL_ABGAGT_CTS_API&#xa;Transport API"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="900" y="530" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Conflict detector  x=1080 -->
+        <mxCell id="abap_conflict" value="ZCL_ABGAGT_CONFLICT_DETECTOR&#xa;Multi-developer conflict detection"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="1080" y="530" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Viewer factory  x=1300 -->
+        <mxCell id="abap_view_factory" value="ZCL_ABGAGT_VIEWER_FACTORY&#xa;CLAS/INTF/PROG&#xa;TABL/STRU/DTEL/TTYP/DDLS"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="layer_abap">
+          <mxGeometry x="1300" y="530" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ABAP internal arrows -->
+        <mxCell id="arr_handler_res" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;"
+          edge="1" source="abap_handler" target="abap_resources" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_res_factory" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;"
+          edge="1" source="abap_resources" target="abap_factory" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_factory_cmd" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;"
+          edge="1" source="abap_factory" target="abap_commands" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_cmd_agent" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;"
+          edge="1" source="abap_commands" target="abap_agent" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_cmd_syn" value="syntax"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=9;exitX=0.07;exitY=1;exitDx=0;exitDy=0;"
+          edge="1" source="abap_commands" target="abap_syn_factory" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_cmd_view" value="view"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=9;exitX=0.95;exitY=1;exitDx=0;exitDy=0;"
+          edge="1" source="abap_commands" target="abap_view_factory" parent="layer_abap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: Network → ABAP handler -->
+        <mxCell id="arr_net_handler" value="HTTP POST/GET"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;"
+          edge="1" source="layer_network" target="abap_handler" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LAYER 5: SAP SYSTEM   y=1350  h=100
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_sap" value="SAP System  (abapGit + ABAP Runtime)"
+          style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="1350" width="1574" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sap_abapgit" value="abapGit library&#xa;ZCL_ABAPGIT_REPO, ZCL_ABAPGIT_OBJECTS&#xa;pull / serialize / deserialize"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="layer_sap">
+          <mxGeometry x="160" y="25" width="340" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="sap_ddic" value="ABAP DDIC / ADT API&#xa;syntax check, where-used, metadata"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="layer_sap">
+          <mxGeometry x="600" y="25" width="320" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="sap_ci" value="Code Inspector (SCI)&#xa;inspect / quality checks"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="layer_sap">
+          <mxGeometry x="1020" y="25" width="240" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: ABAP Agent → SAP -->
+        <mxCell id="arr_agent_sap" value="deserialize / activate"
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;"
+          edge="1" source="abap_agent" target="layer_sap" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LEGEND   y=1500  h=80
+             ═══════════════════════════════════════════════════════ -->
+        <mxCell id="legend" value="Legend"
+          style="swimlane;startSize=28;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=12;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="1500" width="720" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_user" value="User / AI"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="15" y="32" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_nodejs" value="Node.js"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="120" y="32" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_cmd" value="Commands"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#d6b656;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="225" y="32" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_util" value="Utils"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="330" y="32" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_abap" value="ABAP"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="435" y="32" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_sap" value="SAP Runtime"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;"
+          vertex="1" parent="legend">
+          <mxGeometry x="540" y="32" width="110" height="30" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
