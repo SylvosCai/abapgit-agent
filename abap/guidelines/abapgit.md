@@ -37,6 +37,10 @@ Key XML Settings:
   Local Classes:    <CLSCCINCL>X</CLSCCINCL>
 ```
 
+> **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
+> Without the BOM, abapGit shows the object as **"M" (modified)** after every pull because the
+> serializer always produces XML with BOM — and every byte matters.
+
 **Searchable keywords**: class xml, interface xml, table xml, cds xml, test class, exposure, serializer, abapgit
 
 ## Why XML Metadata?
@@ -53,7 +57,7 @@ abapGit needs XML files to:
 **Filename**: `src/zcl_my_class.clas.xml`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -98,7 +102,7 @@ abapGit needs XML files to:
 **Filename**: `src/zif_my_interface.intf.xml`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_INTF" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -122,7 +126,7 @@ abapGit needs XML files to:
 **Filename**: `src/zmy_program.prog.xml`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_PROG" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -150,7 +154,7 @@ abapGit needs XML files to:
 **Filename**: `src/zmy_table.tabl.xml`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -181,7 +185,7 @@ abapGit needs XML files to:
 The XML format is identical for both types — only `SOURCE_TYPE` differs:
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -208,7 +212,7 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
 **Filename**: `src/zmy_dtel.dtel.xml`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
