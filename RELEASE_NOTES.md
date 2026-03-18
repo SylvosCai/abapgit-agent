@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.13.2
+
+### Bug Fixes
+
+- Fixed stale endpoint URLs in `syntaxCheck` and `where` methods
+
+### Improvements
+
+- Refactored command registry into dedicated module
+- Expanded unit test coverage for `pull.js` and `view.js`
+
+### Documentation
+
+- Added project architecture diagram to README
+
+---
+
+---
+
+
 ## v1.13.1
 
 ### Bug Fixes
