@@ -13,9 +13,9 @@ Internal architecture and design documents for developers and maintainers.
 
 The diagram below shows the full project architecture — from the CLI layer through to the ABAP backend and SAP system.
 
-[![Architecture Diagram](architecture.drawio)](architecture.drawio)
+![Architecture Diagram](architecture.png)
 
-> **Tip:** Click the diagram to open the interactive draw.io view. You can also open `architecture.drawio` directly in [draw.io](https://app.diagrams.net) or in the VS Code draw.io extension.
+> **Tip:** To edit the diagram, open `architecture.drawio` in [draw.io](https://app.diagrams.net) or the VS Code draw.io extension.
 
 ## Background Job Infrastructure
 
