@@ -167,6 +167,8 @@ module.exports = {
   description: 'View ABAP object definitions from ABAP system',
   requiresAbapConfig: true,
   requiresVersionCheck: true,
+  _buildMethodLineMap: buildMethodLineMap,
+  _findFirstExecutableLine: findFirstExecutableLine,
 
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;

@@ -758,3 +758,327 @@ describe('Syntax Command - CLI Output Format', () => {
     expect(output).toMatch(/✅/);
   });
 });
+
+describe('Syntax Command - File Type Detection via execute()', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+  let syntaxCommand;
+
+  beforeAll(() => {
+    syntaxCommand = require('../../src/commands/syntax');
+  });
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+    jest.clearAllMocks();
+    // Default: main file exists, XML and companion files do not
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('.xml')) return false;
+      if (p.includes('locals_def') || p.includes('locals_imp')) return false;
+      return true;
+    });
+    fs.readFileSync = jest.fn().mockReturnValue('INTERFACE zif_test. ENDINTERFACE.');
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  const makeContext = (objType, objName) => ({
+    loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+    AbapHttp: jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+      post: jest.fn().mockResolvedValue({
+        SUCCESS: true,
+        RESULTS: [{ OBJECT_TYPE: objType, OBJECT_NAME: objName, SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+      })
+    }))
+  });
+
+  test('detects INTF type for .intf.abap file', async () => {
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], mockContext);
+
+    expect(postMock).toHaveBeenCalled();
+    const callBody = postMock.mock.calls[0][1];
+    const sentObj = (callBody.objects || callBody.OBJECTS || [callBody])[0];
+    expect(sentObj.type || sentObj.TYPE).toBe('INTF');
+    expect(sentObj.name || sentObj.NAME).toBe('ZIF_TEST');
+  });
+
+  test('detects PROG type for .prog.abap file', async () => {
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'PROG', OBJECT_NAME: 'ZMY_PROGRAM', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_program.prog.abap'], mockContext);
+
+    expect(postMock).toHaveBeenCalled();
+    const callBody = postMock.mock.calls[0][1];
+    const sentObj = (callBody.objects || callBody.OBJECTS || [callBody])[0];
+    expect(sentObj.type || sentObj.TYPE).toBe('PROG');
+    expect(sentObj.name || sentObj.NAME).toBe('ZMY_PROGRAM');
+  });
+
+  test('reads FIXPT from XML metadata for INTF when XML exists', async () => {
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('.intf.xml')) return true;
+      if (p.includes('locals_def') || p.includes('locals_imp')) return false;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('.intf.xml')) return '<FIXPT>X</FIXPT>';
+      return 'INTERFACE zif_test. ENDINTERFACE.';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], mockContext);
+
+    const callBody = postMock.mock.calls[0][1];
+    const sentObj = (callBody.objects || callBody.OBJECTS || [callBody])[0];
+    expect(sentObj.fixpt || sentObj.FIXPT).toBe('X');
+  });
+
+  test('sets fixpt to empty string when XML has no FIXPT tag', async () => {
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('.intf.xml')) return true;
+      if (p.includes('locals_def') || p.includes('locals_imp')) return false;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('.intf.xml')) return '<VSEOINTERF><NO_FIXPT_HERE/></VSEOINTERF>';
+      return 'INTERFACE zif_test. ENDINTERFACE.';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], mockContext);
+
+    const callBody = postMock.mock.calls[0][1];
+    const sentObj = (callBody.objects || callBody.OBJECTS || [callBody])[0];
+    const fixpt = sentObj.fixpt !== undefined ? sentObj.fixpt : sentObj.FIXPT;
+    expect(fixpt).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Output formatting branches — warnings, include/method/column display, JSON
+// ---------------------------------------------------------------------------
+
+describe('Syntax Command - Output Formatting via execute()', () => {
+  let logs;
+  let origLog, origError;
+  let syntaxCommand;
+
+  beforeAll(() => {
+    syntaxCommand = require('../../src/commands/syntax');
+  });
+
+  beforeEach(() => {
+    logs = [];
+    origLog = console.log;
+    origError = console.error;
+    console.log = (...a) => logs.push(a.join(' '));
+    console.error = (...a) => logs.push(a.join(' '));
+    jest.clearAllMocks();
+    fs.existsSync = jest.fn().mockReturnValue(true);
+    fs.readFileSync = jest.fn().mockReturnValue('INTERFACE zif_test. ENDINTERFACE.');
+  });
+
+  afterEach(() => {
+    console.log = origLog;
+    console.error = origError;
+  });
+
+  function makeContext(result) {
+    return {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockResolvedValue(result)
+      }))
+    };
+  }
+
+  test('shows warning count on success when warnings present', async () => {
+    const ctx = makeContext({
+      SUCCESS: true, MESSAGE: 'All OK',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: true, ERROR_COUNT: 0, ERRORS: [],
+        WARNINGS: [{ LINE: 1, TEXT: 'obsolete syntax' }]
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    const text = logs.join('\n');
+    expect(text).toMatch(/1 warning/);
+  });
+
+  test('shows include display name with filename in error output', async () => {
+    const ctx = makeContext({
+      SUCCESS: false, MESSAGE: 'Errors found',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: false, ERROR_COUNT: 1,
+        ERRORS: [{ LINE: 5, COLUMN: '', TEXT: 'syntax error', INCLUDE: 'main', METHOD_NAME: '' }],
+        WARNINGS: []
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    const text = logs.join('\n');
+    expect(text).toMatch(/Main class/);
+    expect(text).toMatch(/\.clas\.abap/);
+  });
+
+  test('shows unknown include label when not in includeMap', async () => {
+    const ctx = makeContext({
+      SUCCESS: false, MESSAGE: 'Errors found',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: false, ERROR_COUNT: 1,
+        ERRORS: [{ LINE: 5, COLUMN: '', TEXT: 'err', INCLUDE: 'unknown_inc', METHOD_NAME: '' }],
+        WARNINGS: []
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    expect(logs.join('\n')).toMatch(/unknown_inc/);
+  });
+
+  test('shows method name when provided in error', async () => {
+    const ctx = makeContext({
+      SUCCESS: false, MESSAGE: 'Errors found',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: false, ERROR_COUNT: 1,
+        ERRORS: [{ LINE: 10, COLUMN: '', TEXT: 'err', INCLUDE: '', METHOD_NAME: 'CONSTRUCTOR' }],
+        WARNINGS: []
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    expect(logs.join('\n')).toMatch(/Method: CONSTRUCTOR/);
+  });
+
+  test('shows column in error when column present', async () => {
+    const ctx = makeContext({
+      SUCCESS: false, MESSAGE: 'Errors found',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: false, ERROR_COUNT: 1,
+        ERRORS: [{ LINE: 7, COLUMN: 12, TEXT: 'err', INCLUDE: '', METHOD_NAME: '' }],
+        WARNINGS: []
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    expect(logs.join('\n')).toMatch(/Line 7, Column 12/);
+  });
+
+  test('shows warnings section on failure when warnings present', async () => {
+    const ctx = makeContext({
+      SUCCESS: false, MESSAGE: 'Errors found',
+      RESULTS: [{
+        OBJECT_TYPE: 'INTF', OBJECT_NAME: 'ZIF_TEST',
+        SUCCESS: false, ERROR_COUNT: 1,
+        ERRORS: [{ LINE: 1, COLUMN: '', TEXT: 'err', INCLUDE: '', METHOD_NAME: '' }],
+        WARNINGS: [{ LINE: 2, TEXT: 'obsolete syntax' }]
+      }]
+    });
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap'], ctx);
+    const text = logs.join('\n');
+    expect(text).toMatch(/Warnings:/);
+    expect(text).toMatch(/obsolete syntax/);
+  });
+
+  test('outputs JSON when --json flag set', async () => {
+    const resultPayload = { SUCCESS: true, RESULTS: [], MESSAGE: 'OK' };
+    const ctx = makeContext(resultPayload);
+    await syntaxCommand.execute(['--files', 'zif_test.intf.abap', '--json'], ctx);
+    const text = logs.join('\n');
+    // JSON output — parsed back to verify it's valid JSON
+    const parsed = JSON.parse(text);
+    expect(parsed.SUCCESS).toBe(true);
+  });
+
+  test('auto-detects main when only locals_def provided', async () => {
+    // locals_def file exists; main auto-detected
+    fs.existsSync = jest.fn().mockReturnValue(true);
+    fs.readFileSync = jest.fn().mockReturnValue('CLASS lcl DEFINITION. ENDCLASS.');
+    const ctx = makeContext({
+      SUCCESS: true, MESSAGE: 'OK',
+      RESULTS: [{ OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_TEST', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] }]
+    });
+    await syntaxCommand.execute(['--files', 'zcl_test.clas.locals_def.abap'], ctx);
+    expect(logs.join('\n')).toMatch(/Auto-detected/);
+  });
+
+  test('warns when only locals file given and no main exists on disk', async () => {
+    fs.existsSync = jest.fn((p) => {
+      // locals_def itself exists, main does NOT
+      if (p.endsWith('.clas.abap') && !p.includes('locals')) return false;
+      return true;
+    });
+    fs.readFileSync = jest.fn().mockReturnValue('CLASS lcl DEFINITION. ENDCLASS.');
+    const ctx = makeContext({
+      SUCCESS: true, MESSAGE: 'OK',
+      RESULTS: [{ OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_TEST', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] }]
+    });
+    // process.exit would be called since main missing → objects empty → exit(1)
+    // Catch the exit
+    const origExit = process.exit;
+    let exitCode = null;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await syntaxCommand.execute(['--files', 'zcl_test.clas.locals_def.abap'], ctx);
+    } catch (e) {
+      // expected
+    }
+    process.exit = origExit;
+    // Either warning printed or exit called
+    expect(exitCode === 1 || logs.join('\n').includes('Warning')).toBe(true);
+  });
+});

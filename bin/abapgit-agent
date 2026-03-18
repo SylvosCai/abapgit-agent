@@ -34,32 +34,7 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
-  // Load command modules (Phase 2 refactoring)
-  const commandModules = {
-    help: require('../src/commands/help'),
-    health: require('../src/commands/health'),
-    status: require('../src/commands/status'),
-    create: require('../src/commands/create'),
-    delete: require('../src/commands/delete'),
-    import: require('../src/commands/import'),
-    inspect: require('../src/commands/inspect'),
-    unit: require('../src/commands/unit'),
-    syntax: require('../src/commands/syntax'),
-    tree: require('../src/commands/tree'),
-    list: require('../src/commands/list'),
-    view: require('../src/commands/view'),
-    preview: require('../src/commands/preview'),
-    where: require('../src/commands/where'),
-    dump: require('../src/commands/dump'),
-    debug: require('../src/commands/debug'),
-    run: require('../src/commands/run'),
-    ref: require('../src/commands/ref'),
-    guide: require('../src/commands/guide'),
-    init: require('../src/commands/init'),
-    pull: require('../src/commands/pull'),
-    upgrade: require('../src/commands/upgrade'),
-    transport: require('../src/commands/transport')
-  };
+  const commandModules = require('../src/commands/index');
 
   // Check if this is a modular command
   if (commandModules[command] || command === '--help' || command === '-h') {

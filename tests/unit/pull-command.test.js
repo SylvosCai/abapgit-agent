@@ -1170,3 +1170,281 @@ describe('Pull Command - .abapgit.xml detection', () => {
     expect(consoleWarnOutput).toHaveLength(0);
   });
 });
+
+describe('Pull Command - calcWidth()', () => {
+  let pullCommand;
+
+  beforeEach(() => {
+    jest.resetModules();
+    pullCommand = require('../../src/commands/pull');
+  });
+
+  const calcWidth = () => pullCommand._calcWidth;
+
+  test('returns 0 for null/undefined/empty string', () => {
+    const fn = pullCommand._calcWidth;
+    expect(fn(null)).toBe(0);
+    expect(fn(undefined)).toBe(0);
+    expect(fn('')).toBe(0);
+  });
+
+  test('counts ASCII characters as width 1 each', () => {
+    expect(pullCommand._calcWidth('hello')).toBe(5);
+    expect(pullCommand._calcWidth('abc')).toBe(3);
+    expect(pullCommand._calcWidth('A')).toBe(1);
+  });
+
+  test('counts emoji as width 2', () => {
+    expect(pullCommand._calcWidth('✅')).toBe(2);
+    expect(pullCommand._calcWidth('❌')).toBe(2);
+    expect(pullCommand._calcWidth('⚠️')).toBe(2);
+  });
+
+  test('counts supplementary plane emoji (U+1F4XX) as width 2', () => {
+    // 🛑 is U+1F6D1 (> 0xFFFF) — two JS chars (surrogate pair), counts as width 2
+    expect(pullCommand._calcWidth('🛑')).toBe(2);
+  });
+
+  test('skips variation selectors (zero-width)', () => {
+    // ⚠️ is ⚠ (U+26A0) + variation selector U+FE0F
+    // Total visual width = 2 (one wide char, variation selector adds 0)
+    const w = pullCommand._calcWidth('⚠️');
+    expect(w).toBe(2);
+  });
+
+  test('handles mixed ASCII + emoji string', () => {
+    // '✅ OK' = emoji (2) + space (1) + 'O' (1) + 'K' (1) = 5
+    expect(pullCommand._calcWidth('✅ OK')).toBe(5);
+  });
+});
+
+describe('Pull Command - padToWidth()', () => {
+  let pullCommand;
+
+  beforeEach(() => {
+    jest.resetModules();
+    pullCommand = require('../../src/commands/pull');
+  });
+
+  test('pads short string to exact width with spaces', () => {
+    const result = pullCommand._padToWidth('hi', 6);
+    expect(result).toBe('hi    ');
+    expect(result.length).toBe(6);
+  });
+
+  test('does not truncate string already at target width', () => {
+    const result = pullCommand._padToWidth('hello', 5);
+    expect(result).toBe('hello');
+  });
+
+  test('does not add negative padding (string wider than target)', () => {
+    const result = pullCommand._padToWidth('hello world', 5);
+    expect(result).toBe('hello world');
+  });
+
+  test('treats null/undefined as empty string', () => {
+    expect(pullCommand._padToWidth(null, 3)).toBe('   ');
+    expect(pullCommand._padToWidth(undefined, 3)).toBe('   ');
+  });
+
+  test('accounts for emoji display width when padding', () => {
+    // '✅' has visual width 2, target 5 → needs 3 spaces
+    const result = pullCommand._padToWidth('✅', 5);
+    expect(result).toBe('✅   ');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Conflict detection logic
+// ---------------------------------------------------------------------------
+
+describe('Pull Command - Conflict Detection', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+  let fs;
+
+  beforeEach(() => {
+    jest.resetModules();
+    jest.mock('fs', () => ({ existsSync: jest.fn(() => true), readFileSync: jest.fn(() => 'mock content') }));
+    jest.mock('path', () => ({ isAbsolute: jest.fn(() => false), join: jest.fn((...args) => args.join('/')), resolve: jest.fn((...args) => '/' + args.join('/')), basename: jest.fn((p) => p.split('/').pop()) }));
+    jest.mock('../../src/utils/format-error', () => ({ printHttpError: jest.fn() }));
+    jest.mock('../../src/utils/transport-selector', () => ({ selectTransport: jest.fn(), isNonInteractive: jest.fn(() => false), _getTransportHookConfig: jest.fn(() => null), interactivePicker: jest.fn(() => Promise.resolve(null)) }));
+    fs = require('fs');
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  function makeContext({ conflictSettingsMode = 'abort', postResult, postMock = null }) {
+    const resolvedPost = postMock || jest.fn().mockResolvedValue(postResult);
+    return {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: resolvedPost
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'main'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: conflictSettingsMode, reason: null })),
+      _postMock: resolvedPost
+    };
+  }
+
+  // ── conflict_mode sent in request body ────────────────────────────────────
+
+  test('sends conflict_mode: abort by default (from getConflictSettings)', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const successResult = { success: 'X', message: 'Pull completed', activated_objects: [], failed_objects: [], pull_log: [] };
+    const ctx = makeContext({ conflictSettingsMode: 'abort', postResult: successResult });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    // post() is called twice: first for status check, second for the actual pull
+    const pullCallBody = ctx._postMock.mock.calls.find(c => c[0].includes('/pull'))[1];
+    expect(pullCallBody.conflict_mode).toBe('abort');
+  });
+
+  test('sends conflict_mode: ignore when project config returns ignore', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const successResult = { success: 'X', message: 'Pull completed', activated_objects: [], failed_objects: [], pull_log: [] };
+    const ctx = makeContext({ conflictSettingsMode: 'ignore', postResult: successResult });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const pullCallBody = ctx._postMock.mock.calls.find(c => c[0].includes('/pull'))[1];
+    expect(pullCallBody.conflict_mode).toBe('ignore');
+  });
+
+  test('--conflict-mode flag overrides project config', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const successResult = { success: 'X', message: 'Pull completed', activated_objects: [], failed_objects: [], pull_log: [] };
+    // project config says abort, CLI flag says ignore
+    const ctx = makeContext({ conflictSettingsMode: 'abort', postResult: successResult });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--conflict-mode', 'ignore'], ctx);
+
+    const pullCallBody = ctx._postMock.mock.calls.find(c => c[0].includes('/pull'))[1];
+    expect(pullCallBody.conflict_mode).toBe('ignore');
+  });
+
+  test('--conflict-mode abort overrides project config ignore', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const successResult = { success: 'X', message: 'Pull completed', activated_objects: [], failed_objects: [], pull_log: [] };
+    const ctx = makeContext({ conflictSettingsMode: 'ignore', postResult: successResult });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--conflict-mode', 'abort'], ctx);
+
+    const pullCallBody = ctx._postMock.mock.calls.find(c => c[0].includes('/pull'))[1];
+    expect(pullCallBody.conflict_mode).toBe('abort');
+  });
+
+  // ── conflict response handling ────────────────────────────────────────────
+
+  test('throws and prints warning when API returns conflict_count > 0', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeContext({
+      postResult: {
+        success: '',
+        message: 'Pull aborted due to conflicts',
+        conflict_count: 2,
+        conflict_report: 'ZCL_FOO changed by USER1\nZCL_BAR changed by USER2'
+      }
+    });
+
+    await expect(
+      pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx)
+    ).rejects.toThrow(/conflict/i);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Pull aborted/i);
+    expect(output).toMatch(/2 conflict/i);
+  });
+
+  test('includes conflict_report text in output', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeContext({
+      postResult: {
+        success: '',
+        message: 'Pull aborted due to conflicts',
+        conflict_count: 1,
+        conflict_report: 'ZCL_MY_CLASS last changed by DEVELOPER1 on branch feature/x'
+      }
+    });
+
+    await expect(
+      pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx)
+    ).rejects.toThrow();
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/ZCL_MY_CLASS/);
+    expect(output).toMatch(/DEVELOPER1/);
+  });
+
+  test('uses CONFLICT_COUNT / CONFLICT_REPORT uppercase keys (ABAP response style)', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeContext({
+      postResult: {
+        SUCCESS: '',
+        MESSAGE: 'Aborted',
+        CONFLICT_COUNT: 1,
+        CONFLICT_REPORT: 'Conflict on ZCL_FOO'
+      }
+    });
+
+    await expect(
+      pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx)
+    ).rejects.toThrow();
+
+    expect(consoleOutput.join('\n')).toMatch(/Conflict on ZCL_FOO/);
+  });
+
+  test('does NOT throw when conflict_count is 0 even if conflict_report present', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed',
+        conflict_count: 0,
+        conflict_report: '',
+        activated_objects: [], failed_objects: [], pull_log: []
+      }
+    });
+
+    await expect(
+      pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx)
+    ).resolves.not.toThrow();
+  });
+
+  test('error has _isPullError flag set', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeContext({
+      postResult: {
+        success: '',
+        message: 'Conflict detected',
+        conflict_count: 1,
+        conflict_report: 'ZCL_X changed by USER'
+      }
+    });
+
+    let thrownError;
+    try {
+      await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+    } catch (e) {
+      thrownError = e;
+    }
+
+    expect(thrownError._isPullError).toBe(true);
+  });
+});

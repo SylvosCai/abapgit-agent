@@ -6,11 +6,38 @@ const { printHttpError } = require('../utils/format-error');
 const fs = require('fs');
 const pathModule = require('path');
 
+// Calculate display width accounting for emoji (2 cells) vs ASCII (1 cell)
+function calcWidth(str) {
+  if (!str) return 0;
+  let width = 0;
+  let i = 0;
+  while (i < str.length) {
+    const code = str.codePointAt(i);
+    if (!code) break;
+    // Variation selectors (FE00-FE0F) and ZWJ (200D) take 0 width
+    if (code >= 0xFE00 && code <= 0xFE0F) { i += 1; continue; }
+    if (code === 0x200D) { i += 1; continue; }  // Zero width joiner
+    // Emoji and wide characters take 2 cells
+    if (code > 0xFFFF) { width += 2; i += 2; }  // Skip surrogate pair
+    else if (code > 127) { width += 2; i += 1; }
+    else { width += 1; i += 1; }
+  }
+  return width;
+}
+
+// Pad string to display width
+function padToWidth(str, width) {
+  const s = str || '';
+  const currentWidth = calcWidth(s);
+  return s + ' '.repeat(Math.max(0, width - currentWidth));
+}
 module.exports = {
   name: 'pull',
   description: 'Pull and activate ABAP objects from git repository',
   requiresAbapConfig: true,
   requiresVersionCheck: true,
+  _calcWidth: calcWidth,
+  _padToWidth: padToWidth,
 
   async execute(args, context) {
     const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings, getTransportSettings } = context;
@@ -281,44 +308,6 @@ module.exports = {
         return icons[type] || '';
       };
 
-      // Calculate display width accounting for emoji (2 cells) vs ASCII (1 cell)
-      const calcWidth = (str) => {
-        if (!str) return 0;
-        let width = 0;
-        let i = 0;
-        while (i < str.length) {
-          const code = str.codePointAt(i);
-          if (!code) break;
-          // Variation selectors (FE00-FE0F) and ZWJ (200D) take 0 width
-          if (code >= 0xFE00 && code <= 0xFE0F) {
-            i += 1;
-            continue;
-          }
-          if (code === 0x200D) {  // Zero width joiner
-            i += 1;
-            continue;
-          }
-          // Emoji and wide characters take 2 cells
-          if (code > 0xFFFF) {
-            width += 2;
-            i += 2;  // Skip surrogate pair
-          } else if (code > 127) {
-            width += 2;
-            i += 1;
-          } else {
-            width += 1;
-            i += 1;
-          }
-        }
-        return width;
-      };
-
-      // Pad string to display width
-      const padToWidth = (str, width) => {
-        const s = str || '';
-        const currentWidth = calcWidth(s);
-        return s + ' '.repeat(Math.max(0, width - currentWidth));
-      };
 
       if (success === 'X' || success === true) {
         console.log(`✅ Pull completed successfully!`);

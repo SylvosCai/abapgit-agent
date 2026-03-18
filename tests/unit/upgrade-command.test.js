@@ -222,3 +222,211 @@ describe('Upgrade Command', () => {
     });
   });
 });
+
+describe('Upgrade Command - showCheckReport()', () => {
+  let logs;
+  let origLog;
+
+  beforeEach(() => {
+    logs = [];
+    origLog = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = origLog;
+  });
+
+  test('prints CLI and ABAP versions when both available', () => {
+    upgradeCommand.showCheckReport('1.8.6', '1.8.5', '1.9.0');
+    const text = logs.join('\n');
+    expect(text).toMatch(/CLI:.*v1\.8\.6/);
+    expect(text).toMatch(/ABAP:.*v1\.8\.5/);
+    expect(text).toMatch(/Latest available:.*v1\.9\.0/);
+  });
+
+  test('omits ABAP line when abapVersion is null', () => {
+    upgradeCommand.showCheckReport('1.8.6', null, '1.9.0');
+    const text = logs.join('\n');
+    expect(text).toMatch(/CLI:.*v1\.8\.6/);
+    expect(text).not.toMatch(/ABAP:/);
+  });
+
+  test('omits latest version line when latestVersion is null', () => {
+    upgradeCommand.showCheckReport('1.8.6', '1.8.6', null);
+    const text = logs.join('\n');
+    expect(text).not.toMatch(/Latest available/);
+  });
+
+  test('shows "all up to date" when CLI and ABAP match latest', () => {
+    upgradeCommand.showCheckReport('1.9.0', '1.9.0', '1.9.0');
+    expect(logs.join('\n')).toMatch(/up to date/i);
+  });
+
+  test('shows version mismatch warning when CLI and ABAP differ', () => {
+    upgradeCommand.showCheckReport('1.9.0', '1.8.5', '1.9.0');
+    expect(logs.join('\n')).toMatch(/mismatch/i);
+  });
+
+  test('shows upgrade instructions when updates are available', () => {
+    upgradeCommand.showCheckReport('1.8.6', '1.8.5', '1.9.0');
+    const text = logs.join('\n');
+    expect(text).toMatch(/To upgrade/i);
+    expect(text).toMatch(/--cli-only/);
+    expect(text).toMatch(/--abap-only/);
+  });
+
+  test('omits ABAP upgrade options when abapVersion is null', () => {
+    upgradeCommand.showCheckReport('1.8.6', null, '1.9.0');
+    const text = logs.join('\n');
+    expect(text).not.toMatch(/--abap-only/);
+    expect(text).not.toMatch(/--match/);
+  });
+});
+
+describe('Upgrade Command - showDryRunPlan()', () => {
+  let logs;
+  let origLog;
+
+  beforeEach(() => {
+    logs = [];
+    origLog = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = origLog;
+  });
+
+  test('shows DRY RUN banner', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: '1.9.0', abapTarget: '1.9.0' }, {});
+    expect(logs.join('\n')).toMatch(/DRY RUN/);
+  });
+
+  test('shows npm install command for CLI target', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: '1.9.0', abapTarget: null }, {});
+    expect(logs.join('\n')).toMatch(/npm install -g abapgit-agent@1\.9\.0/);
+  });
+
+  test('shows pull command for ABAP target', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: null, abapTarget: '1.9.0' }, {});
+    expect(logs.join('\n')).toMatch(/pull --url.*v1\.9\.0/);
+  });
+
+  test('shows both commands when both targets set', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: '1.9.0', abapTarget: '1.9.0' }, {});
+    const text = logs.join('\n');
+    expect(text).toMatch(/npm install/);
+    expect(text).toMatch(/pull --url/);
+  });
+
+  test('shows current versions in dry run output', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: '1.9.0', abapTarget: '1.9.0' }, {});
+    const text = logs.join('\n');
+    expect(text).toMatch(/1\.8\.6/);
+    expect(text).toMatch(/1\.8\.5/);
+  });
+
+  test('omits ABAP current version line when abapVersion is null', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', null, { cliTarget: '1.9.0', abapTarget: null }, {});
+    const text = logs.join('\n');
+    expect(text).not.toMatch(/ABAP:.*v/);
+  });
+
+  test('ends with "No changes made"', () => {
+    upgradeCommand.showDryRunPlan('1.8.6', '1.8.5', { cliTarget: '1.9.0', abapTarget: null }, {});
+    expect(logs.join('\n')).toMatch(/No changes made/);
+  });
+});
+
+describe('Upgrade Command - verifyUpgrade()', () => {
+  let logs;
+  let origLog;
+
+  beforeEach(() => {
+    logs = [];
+    origLog = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = origLog;
+  });
+
+  test('shows CLI version verified when versions match', async () => {
+    const context = {
+      versionCheck: { getCliVersion: jest.fn(() => '1.9.0'), checkCompatibility: jest.fn() },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: '1.9.0', abapTarget: null }, {}, context);
+    expect(logs.join('\n')).toMatch(/CLI version verified.*1\.9\.0/);
+  });
+
+  test('shows CLI version mismatch warning when versions differ', async () => {
+    const context = {
+      versionCheck: { getCliVersion: jest.fn(() => '1.8.6'), checkCompatibility: jest.fn() },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: '1.9.0', abapTarget: null }, {}, context);
+    expect(logs.join('\n')).toMatch(/CLI version mismatch/);
+  });
+
+  test('shows ABAP version verified when versions match', async () => {
+    const context = {
+      versionCheck: {
+        getCliVersion: jest.fn(() => '1.9.0'),
+        checkCompatibility: jest.fn().mockResolvedValue({ apiVersion: '1.9.0' })
+      },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: null, abapTarget: '1.9.0' }, {}, context);
+    expect(logs.join('\n')).toMatch(/ABAP version verified.*1\.9\.0/);
+  });
+
+  test('shows ABAP version mismatch when versions differ', async () => {
+    const context = {
+      versionCheck: {
+        getCliVersion: jest.fn(() => '1.9.0'),
+        checkCompatibility: jest.fn().mockResolvedValue({ apiVersion: '1.8.5' })
+      },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: null, abapTarget: '1.9.0' }, {}, context);
+    expect(logs.join('\n')).toMatch(/ABAP version mismatch/);
+  });
+
+  test('shows warning when ABAP verify throws (unreachable system)', async () => {
+    const context = {
+      versionCheck: {
+        getCliVersion: jest.fn(() => '1.9.0'),
+        checkCompatibility: jest.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+      },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: null, abapTarget: '1.9.0' }, {}, context);
+    expect(logs.join('\n')).toMatch(/Could not verify ABAP version/);
+  });
+
+  test('skips ABAP check when cliOnly flag is set', async () => {
+    const mockCheckCompatibility = jest.fn();
+    const context = {
+      versionCheck: {
+        getCliVersion: jest.fn(() => '1.9.0'),
+        checkCompatibility: mockCheckCompatibility
+      },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: '1.9.0', abapTarget: '1.9.0' }, { cliOnly: true }, context);
+    expect(mockCheckCompatibility).not.toHaveBeenCalled();
+  });
+
+  test('always ends with "Upgrade complete!" message', async () => {
+    const context = {
+      versionCheck: { getCliVersion: jest.fn(() => '1.9.0'), checkCompatibility: jest.fn() },
+      loadConfig: jest.fn(() => ({}))
+    };
+    await upgradeCommand.verifyUpgrade({ cliTarget: null, abapTarget: null }, {}, context);
+    expect(logs.join('\n')).toMatch(/Upgrade complete/);
+  });
+});
+

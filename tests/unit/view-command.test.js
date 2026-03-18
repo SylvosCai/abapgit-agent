@@ -579,3 +579,128 @@ describe('View Command - CLI Output Format', () => {
     expect(output).not.toMatch(/^\s+\d+\s+\[/m);
   });
 });
+
+describe('View Command - buildMethodLineMap()', () => {
+  let viewCommand;
+
+  beforeEach(() => {
+    jest.resetModules();
+    viewCommand = require('../../src/commands/view');
+  });
+
+  test('maps METHOD statement to 1-based line number', () => {
+    const lines = [
+      'CLASS zcl_test DEFINITION.',
+      '  METHOD do_something.',
+      '    WRITE hello.',
+      '  ENDMETHOD.',
+      'ENDCLASS.'
+    ];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(map['DO_SOMETHING']).toBe(2);
+  });
+
+  test('uppercases method names as keys', () => {
+    const lines = ['  METHOD my_method.', '    WRITE x.', '  ENDMETHOD.'];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(map['MY_METHOD']).toBe(1);
+  });
+
+  test('supports interface~method syntax', () => {
+    const lines = ['  METHOD if_some_interface~do_it.'];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(map['IF_SOME_INTERFACE~DO_IT']).toBe(1);
+  });
+
+  test('handles leading whitespace before METHOD keyword', () => {
+    const lines = ['    METHOD constructor.'];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(map['CONSTRUCTOR']).toBe(1);
+  });
+
+  test('does not match METHOD keyword inside a string or comment', () => {
+    const lines = [
+      "* This is a comment about method foo",
+      '  " Another comment: METHOD bar',
+      '  METHOD real_method.'
+    ];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(Object.keys(map)).toEqual(['REAL_METHOD']);
+    expect(map['REAL_METHOD']).toBe(3);
+  });
+
+  test('returns empty map for source with no methods', () => {
+    const lines = ['CLASS zcl_empty DEFINITION.', 'ENDCLASS.'];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(Object.keys(map)).toHaveLength(0);
+  });
+
+  test('maps multiple methods to correct line numbers', () => {
+    const lines = [
+      '  METHOD alpha.',
+      '    WRITE 1.',
+      '  ENDMETHOD.',
+      '  METHOD beta.',
+      '    WRITE 2.',
+      '  ENDMETHOD.'
+    ];
+    const map = viewCommand._buildMethodLineMap(lines);
+    expect(map['ALPHA']).toBe(1);
+    expect(map['BETA']).toBe(4);
+  });
+});
+
+describe('View Command - findFirstExecutableLine()', () => {
+  let viewCommand;
+
+  beforeEach(() => {
+    jest.resetModules();
+    viewCommand = require('../../src/commands/view');
+  });
+
+  test('skips METHOD statement and blank lines', () => {
+    const lines = [
+      '  METHOD do_it.',
+      '',
+      '  DATA lv_x TYPE i.',
+      '  lv_x = 1.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(3);
+  });
+
+  test('skips DATA, FINAL, TYPES, CONSTANTS, CLASS-DATA declarations', () => {
+    const lines = [
+      '  METHOD run.',
+      '  DATA lv_a TYPE i.',
+      '  FINAL lv_b TYPE i.',
+      '  TYPES ty_t TYPE i.',
+      '  CONSTANTS c_max TYPE i VALUE 10.',
+      '  CLASS-DATA gv_count TYPE i.',
+      '  WRITE hello.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(6);
+  });
+
+  test('returns 0 when all lines are declarations/blank', () => {
+    const lines = [
+      '  METHOD run.',
+      '',
+      '  DATA lv_x TYPE i.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(0);
+  });
+
+  test('returns 0 for empty lines array', () => {
+    expect(viewCommand._findFirstExecutableLine([])).toBe(0);
+  });
+
+  test('returns index of first non-declaration line immediately', () => {
+    const lines = ['  WRITE hello.'];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(0);
+  });
+
+  test('handles case-insensitive DATA keyword', () => {
+    const lines = ['  method foo.', '  data x type i.', '  WRITE x.'];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
+});

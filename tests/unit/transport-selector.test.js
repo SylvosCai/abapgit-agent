@@ -420,6 +420,63 @@ describe('Transport Selector - buildRun()', () => {
   });
 });
 
+describe('Transport Selector - _getTransportHookConfig()', () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('returns null when project config file does not exist', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(false);
+    const selector = require('../../src/utils/transport-selector');
+    expect(selector._getTransportHookConfig()).toBeNull();
+  });
+
+  test('returns null when JSON is malformed (parse error silently ignored)', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('{invalid json}');
+    const selector = require('../../src/utils/transport-selector');
+    expect(selector._getTransportHookConfig()).toBeNull();
+  });
+
+  test('returns null when config has no transports.hook', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({ project: { name: 'Test' } }));
+    const selector = require('../../src/utils/transport-selector');
+    expect(selector._getTransportHookConfig()).toBeNull();
+  });
+
+  test('returns hook config when transports.hook is present', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      transports: {
+        hook: { path: './scripts/get-transport.js', description: 'My hook' }
+      }
+    }));
+    const selector = require('../../src/utils/transport-selector');
+    const result = selector._getTransportHookConfig();
+    expect(result).toEqual({ hook: './scripts/get-transport.js', description: 'My hook' });
+  });
+
+  test('returns null hook path when path is missing', () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      transports: { hook: { description: 'hook without path' } }
+    }));
+    const selector = require('../../src/utils/transport-selector');
+    const result = selector._getTransportHookConfig();
+    expect(result).toEqual({ hook: null, description: 'hook without path' });
+  });
+});
+
 describe('Pull command integration - selectTransport hook', () => {
   let pullCommand;
   let mockContext;

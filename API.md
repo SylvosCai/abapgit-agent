@@ -9,6 +9,27 @@ parent: Reference
 
 The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agent`
 
+## Table of Contents
+
+- [Endpoints](#endpoints)
+- [GET /health](#get-health)
+- [POST /pull](#post-pull)
+- [POST /create](#post-create)
+- [POST /delete](#post-delete)
+- [POST /import (Async)](#post-import-async)
+- [GET /import?jobNumber=X](#get-importjobnumberx)
+- [POST /status](#post-status)
+- [POST /syntax](#post-syntax)
+- [POST /inspect](#post-inspect)
+- [POST /unit](#post-unit)
+- [POST /tree](#post-tree)
+- [POST /list](#post-list)
+- [POST /view](#post-view)
+- [POST /preview](#post-preview)
+- [POST /where](#post-where)
+
+---
+
 ## Endpoints
 
 | Method | Endpoint | Description |
