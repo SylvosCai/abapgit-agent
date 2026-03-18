@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_COMMAND_VIEW</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>VIEW command - view ABAP object definitions</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_VIEWER_FACTORY</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>Factory for Creating Object Viewers</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

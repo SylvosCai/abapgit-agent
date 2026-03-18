@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_COMMAND_UNIT</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>Unit Command for ABAP Git Agent</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

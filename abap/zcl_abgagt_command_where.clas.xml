@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_COMMAND_WHERE</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>WHERE command - where-used list for ABAP objects</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

@@ -6,11 +6,10 @@
     <CLSNAME>ZCL_ABGAGT_COMMAND_SYNTAX</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>Syntax Command - Check source without activation</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
     <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
-    <CLSCCINCL>X</CLSCCINCL>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

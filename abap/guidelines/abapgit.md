@@ -26,20 +26,12 @@ Structure          | z*.stru.abap                | z*.stru.xml
 Table Type         | z*.ttyp.abap                | z*.ttyp.xml
 ```
 
-```
-Key XML Settings:
-  Class EXPOSURE:   2=Public, 3=Protected, 4=Private
-  Class STATE:      1=Active
-  Table TABCLASS:   TRANSP, POOL, CLUSTER
-  Table DELIVERY:   A=Application, C=Customizing
-  CDS SOURCE_TYPE:  W=View Entity (modern), V=View (legacy)
-  Test Class XML:   <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
-  Local Classes:    <CLSCCINCL>X</CLSCCINCL>
-```
-
 > **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
 > Without the BOM, abapGit shows the object as **"M" (modified)** after every pull because the
 > serializer always produces XML with BOM — and every byte matters.
+
+> **CRITICAL: Only include fields that abapGit's serializer actually writes. Never add fields with
+> default values.** Extra fields cause a permanent "M" (modified) diff. Follow the exact templates below.
 
 **Searchable keywords**: class xml, interface xml, table xml, cds xml, test class, exposure, serializer, abapgit
 
@@ -50,11 +42,47 @@ abapGit needs XML files to:
 - Store object attributes (description, exposure, state, etc.)
 - Handle object-specific configurations
 
+## Field Presence Rules (CRITICAL)
+
+abapGit's serializer **omits fields that have their default value**. Writing extra fields causes permanent
+"M" (modified) status in abapGit UI. Follow these rules strictly:
+
+### CLAS — Field Presence Rules
+
+| Field | Include when | Omit when |
+|---|---|---|
+| `CLSNAME` | Always | — |
+| `LANGU` | Always | — |
+| `DESCRIPT` | Always | — |
+| `CATEGORY` | Non-standard class (`40`=exception, `05`=test double) | Standard class (default `00`) — **omit** |
+| `EXPOSURE` | **Never for CLAS** | **Always omit** — public (`2`) is the default and is never written |
+| `STATE` | Always (`1`) | — |
+| `CLSCCINCL` | `.clas.locals_def.abap` file exists | No local class files — **omit** |
+| `FIXPT` | Always (`X`) | — |
+| `UNICODE` | Always (`X`) | — |
+| `WITH_UNIT_TESTS` | `.clas.testclasses.abap` file exists | No test class file — **omit** |
+| `MSG_ID` | Class has a message class | No message class — **omit** |
+
+**Field order**: `CLSNAME → LANGU → DESCRIPT → [CATEGORY] → STATE → [CLSCCINCL] → FIXPT → UNICODE → [WITH_UNIT_TESTS] → [MSG_ID]`
+
+### INTF — Field Presence Rules
+
+| Field | Include when | Omit when |
+|---|---|---|
+| `CLSNAME` | Always | — |
+| `LANGU` | Always | — |
+| `DESCRIPT` | Always | — |
+| `EXPOSURE` | Always (`2`) | — (interfaces always have EXPOSURE, unlike classes) |
+| `STATE` | Always (`1`) | — |
+| `UNICODE` | Always (`X`) | — |
+
 ## Object Types and XML Templates
 
 ### Class (CLAS)
 
 **Filename**: `src/zcl_my_class.clas.xml`
+
+**Standard public class** (no local includes, no test class):
 
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
@@ -65,29 +93,85 @@ abapGit needs XML files to:
     <CLSNAME>ZCL_MY_CLASS</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>Description of the class</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
-    <UNICODE>X</UNICODE>
     <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>
 </abapGit>
 ```
 
-**Key Fields**:
-- `CLSNAME`: Class name (must match filename)
-- `DESCRIPT`: Class description
-- `EXPOSURE`: Exposure (2 = Public, 3 = Protected, 4 = Private)
-- `STATE`: State (1 = Active)
-- `UNICODE`: Unicode encoding (X = Yes)
-- `FIXPT`: Fixed-point arithmetic (X = Yes) - **Always include for correct decimal arithmetic**
+**Class with test class** (`.clas.testclasses.abap` exists — add `WITH_UNIT_TESTS`):
 
-**Note**: `<FIXPT>X</FIXPT>` is default for modern ABAP. Without it, decimals treated as integers.
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_MY_CLASS</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Description of the class</DESCRIPT>
+    <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
 
-**Local Classes**: If the class has local classes (e.g., test doubles), add:
-- `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` - for test classes
-- `<CLSCCINCL>X</CLSCCINCL>` - for local class definitions
+**Class with local includes** (`.clas.locals_def.abap` exists — add `CLSCCINCL` before `FIXPT`):
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_MY_CLASS</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>Description of the class</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Exception class** (`CATEGORY>40` — add `CATEGORY` after `DESCRIPT`):
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCX_MY_EXCEPTION</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>My exception</DESCRIPT>
+    <CATEGORY>40</CATEGORY>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key rules**:
+- ❌ **Never include `<EXPOSURE>`** in a CLAS XML — public (2) is the default and abapGit omits it
+- ✅ Always include `<FIXPT>X</FIXPT>` and `<UNICODE>X</UNICODE>`
+- ✅ Add `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` only when `.clas.testclasses.abap` exists
+- ✅ Add `<CLSCCINCL>X</CLSCCINCL>` only when `.clas.locals_def.abap` exists
 
 **Local Class Files**:
 | File | Purpose |
@@ -119,6 +203,9 @@ abapGit needs XML files to:
 </abapGit>
 ```
 
+**Key rules**:
+- ✅ `<EXPOSURE>2</EXPOSURE>` is **always present** for interfaces (unlike classes where it is omitted)
+
 ---
 
 ### Program (PROG)
@@ -132,7 +219,7 @@ abapGit needs XML files to:
   <asx:values>
    <PROGDIR>
     <NAME>ZMY_PROGRAM</NAME>
-    <SUBC>I</SUBC>
+    <SUBC>1</SUBC>
     <RLOAD>E</RLOAD>
     <FIXPT>X</FIXPT>
     <UCCHECK>X</UCCHECK>
@@ -144,8 +231,12 @@ abapGit needs XML files to:
 
 **Key Fields**:
 - `NAME`: Program name
-- `SUBC`: Subc (I = Include, 1 = Executable, F = Function Group, M = Module Pool, S = Subroutine Pool)
-- `RLOAD`: Rload (E = External, I = Internal)
+- `SUBC`: Program type (`1`=Executable, `I`=Include, `F`=Function Group, `M`=Module Pool, `S`=Subroutine Pool)
+- `RLOAD`: `E`=External
+- `FIXPT`: Fixed-point arithmetic (`X`=Yes) — include for executables
+- `UCCHECK`: Unicode checks active (`X`=Yes)
+
+**Note**: The serializer may also write a `<TPOOL>` section after `<PROGDIR>` if the program has a title text. You do not need to write this when creating new programs — abapGit will add it on the next pull if needed.
 
 ---
 
@@ -172,9 +263,11 @@ abapGit needs XML files to:
 
 **Key Fields**:
 - `TABNAME`: Table name
-- `DDTEXT`: Description (NOT DESCRIPT)
-- `TABCLASS`: Table class (TRANSP = Transparent)
-- `CONTFLAG`: Delivery class (A = Application table)
+- `DDTEXT`: Description (**not** `DESCRIPT`)
+- `TABCLASS`: `TRANSP`=Transparent (most common), `POOL`, `CLUSTER`
+- `CONTFLAG`: Delivery class — `A`=Application, `C`=Customizing, `S`=System, `G`=Customizing protected
+
+**Note**: When abapGit serializes an existing table it also writes `<DD09L>` (technical settings) and `<DD03P_TABLE>` (field definitions). These sections are generated automatically from the ABAP Dictionary on pull — you only need the `<DD02V>` header when creating a new table. After the first pull the XML will be expanded with those sections.
 
 ---
 
@@ -235,9 +328,9 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
 
 **Key Fields**:
 - `ROLLNAME`: Data element name
-- `DDTEXT`: Description (NOT DESCRIPT)
-- `DATATYPE`: Data type (CHAR, NUMC, etc.)
-- `LENG`: Length (e.g., 000010 for 10 characters)
+- `DDTEXT`: Description (**not** `DESCRIPT`)
+- `DATATYPE`: Data type (`CHAR`, `NUMC`, `DATS`, `TIMS`, `INT4`, etc.)
+- `LENG`: Length padded to 6 digits (e.g. `000010` for 10 characters)
 
 ---
 

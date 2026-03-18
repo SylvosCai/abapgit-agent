@@ -6,10 +6,9 @@
     <CLSNAME>ZCL_ABGAGT_CTS_API</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>CTS API Implementation for ABAP Git Agent</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
-    <UNICODE>X</UNICODE>
     <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_RESOURCE_CREATE</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>ABAP Git Agent - Create Resource</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_RESOURCE_DUMP</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>Dump command REST resource handler</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

@@ -6,10 +6,9 @@
     <CLSNAME>ZCL_ABGAGT_COMMAND_STATUS</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>ABAP Git Agent - Status Command</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
-    <UNICODE>X</UNICODE>
     <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

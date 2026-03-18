@@ -6,8 +6,8 @@
     <CLSNAME>ZCL_ABGAGT_RESOURCE_IMPORT</CLSNAME>
     <LANGU>E</LANGU>
     <DESCRIPT>REST resource handler for /import endpoint</DESCRIPT>
-    <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
+    <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
   </asx:values>

@@ -7,7 +7,6 @@
     <LANGU>E</LANGU>
     <DESCRIPT>Integration Tests for Background Job Infrastructure</DESCRIPT>
     <STATE>1</STATE>
-    <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
     <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
