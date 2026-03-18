@@ -15,8 +15,6 @@ The diagram below shows the full project architecture — from the CLI layer thr
 
 ![Architecture Diagram](architecture.png)
 
-> **Tip:** To edit the diagram, open `architecture.drawio` in [draw.io](https://app.diagrams.net) or the VS Code draw.io extension.
-
 ## Background Job Infrastructure
 
 | Document | Description |
