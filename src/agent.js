@@ -101,7 +101,7 @@ class ABAPGitAgent {
         object_name: objectName
       };
 
-      const result = await this.http.post('/sap/bc/z_abapgit_agent/syntax-check', data, { csrfToken });
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/syntax', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         object_type: result.OBJECT_TYPE || result.object_type,
@@ -491,7 +491,7 @@ class ABAPGitAgent {
         data.type = type;
       }
 
-      const result = await this.http.post('/sap/bc/z_abapgit_agent/where-used', data, { csrfToken });
+      const result = await this.http.post('/sap/bc/z_abapgit_agent/where', data, { csrfToken });
       return {
         success: result.SUCCESS === 'X' || result.success === 'X' || result.success === true,
         command: result.COMMAND || result.command || 'WHERE',
