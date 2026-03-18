@@ -269,6 +269,15 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 **Note**: When abapGit serializes an existing table it also writes `<DD09L>` (technical settings) and `<DD03P_TABLE>` (field definitions). These sections are generated automatically from the ABAP Dictionary on pull — you only need the `<DD02V>` header when creating a new table. After the first pull the XML will be expanded with those sections.
 
+**`DD03P` field-level rules** (apply when editing an existing table XML that includes `<DD03P_TABLE>`):
+
+| Rule | Detail |
+|---|---|
+| `SHLPORIGIN` | Include `<SHLPORIGIN>D</SHLPORIGIN>` on fields where the Dictionary provides a value help (e.g. fields with a domain that has fixed values or a search help). Omit on fields with no value help. |
+| Field order for raw-type fields | For fields with no `ROLLNAME` (raw type, e.g. `CHAR`, `NUMC`), the serializer writes `<MASK>` **before** `<DDTEXT>`. For fields with a `ROLLNAME`, only `ROLLNAME` appears (no `MASK` or `DDTEXT`). |
+
+**Why this matters**: Missing `SHLPORIGIN` or wrong `MASK`/`DDTEXT` order causes a permanent diff between git and the system-serialized XML.
+
 ---
 
 ### CDS View / View Entity (DDLS)
