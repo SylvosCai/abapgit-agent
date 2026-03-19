@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.13.3
+
+### New Features
+
+- `--sync-xml`: post-pull XML sync via abapGit status diff
+
+### Bug Fixes
+
+- Normalize class XMLs to match abapGit serializer output
+- Add UTF-8 BOM to all abapGit XML metadata files
+
+### Documentation
+
+- Add DD03P field-level rules to TABL serializer guidelines
+
+---
+
+---
+
+
 ## v1.13.2
 
 ### Bug Fixes
