@@ -31,6 +31,13 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
     DATA: mo_obj_filter        TYPE REF TO zif_abapgit_object_filter.
     DATA: mo_rtti              TYPE REF TO zif_abgagt_rtti_provider.
+    " Remote files fetched pre-pull in build_file_entries_from_remote.
+    " Reused in get_local_xml_files — get_files_remote() after the pull may
+    " re-fetch from GitHub (invalidated cache) causing a slow second round-trip.
+    " Pre-pull remote content is exactly what we need: the git file as committed.
+    DATA: mt_remote_files      TYPE zif_abapgit_git_definitions=>ty_files_tt.
+    " Error text from get_files_remote() failure, stored for diagnostics.
+    DATA: mv_remote_fetch_error TYPE string.
 
     METHODS configure_credentials
       IMPORTING
@@ -126,6 +133,10 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       CHANGING
         cs_result       TYPE zif_abgagt_agent=>ty_result.
 
+    METHODS get_local_xml_files
+      RETURNING
+        VALUE(rt_xml_files) TYPE zif_abgagt_agent=>ty_xml_files.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_agent IMPLEMENTATION.
@@ -196,6 +207,24 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           iv_transport_request = iv_transport_request ).
 
         run_deserialize( ls_checks ).
+
+        " Populate mt_remote_files after deserialize — abapGit's internal remote
+        " cache (mt_remote) is warm at this point (populated by find_remote_dot_abapgit
+        " inside deserialize). get_files_remote() here reads from memory only, no
+        " network call. Pre-pull fetch in build_file_entries_from_remote may fail
+        " with transient git errors (e.g. "Unexpected pack header") so we refresh
+        " here as a reliable fallback.
+        IF mt_remote_files IS INITIAL.
+          TRY.
+              IF mo_obj_filter IS BOUND.
+                mt_remote_files = mo_repo->get_files_remote( mo_obj_filter ).
+              ELSE.
+                mt_remote_files = mo_repo->get_files_remote( ).
+              ENDIF.
+            CATCH zcx_abapgit_exception.
+              " Still unavailable — XML sync will be skipped
+          ENDTRY.
+        ENDIF.
 
         build_pull_result(
           EXPORTING
@@ -653,6 +682,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       cs_result-success = abap_true.
       cs_result-message = 'Pull completed successfully'.
 
+      cs_result-local_xml_files = get_local_xml_files( ).
+
       " Store baseline metadata for future conflict detection.
       IF it_file_entries IS NOT INITIAL.
         mo_conflict_detector->store_pull_metadata(
@@ -663,18 +694,19 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_file_entries_from_remote.
-    DATA lt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
+    CLEAR mt_remote_files.
 
     TRY.
         " Pass the object filter when available so fetch_remote uses the gitv2
         " two-phase fetch (fast) instead of downloading the full pack.
         IF mo_obj_filter IS BOUND.
-          lt_remote = mo_repo->get_files_remote( mo_obj_filter ).
+          mt_remote_files = mo_repo->get_files_remote( mo_obj_filter ).
         ELSE.
-          lt_remote = mo_repo->get_files_remote( ).
+          mt_remote_files = mo_repo->get_files_remote( ).
         ENDIF.
-      CATCH zcx_abapgit_exception.
-        " Cannot read remote files — skip conflict check
+      CATCH zcx_abapgit_exception INTO DATA(lx_remote).
+        " Cannot read remote files — skip conflict check (e.g. auth error pre-pull)
+        mv_remote_fetch_error = lx_remote->get_text( ).
         RETURN.
     ENDTRY.
 
@@ -696,7 +728,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    LOOP AT lt_remote INTO DATA(ls_remote_file).
+    LOOP AT mt_remote_files INTO DATA(ls_remote_file).
       DATA(lv_filename) = ls_remote_file-filename.
 
       " Only process ABAP source files
@@ -751,7 +783,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " Read local ABAP system files to enable content-based change detection.
     DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
     TRY.
-        lt_local = mo_repo->get_files_local( ).
+        IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
+          lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
+        ELSE.
+          lt_local = mo_repo->get_files_local( ).
+        ENDIF.
       CATCH zcx_abapgit_exception.
         " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
         RETURN.
@@ -795,6 +831,65 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       IF sy-subrc = 0.
         <ls_entry>-local_content = ls_idx-local_content.
       ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD get_local_xml_files.
+    " Compare post-pull serializer output against pre-pull git remote files.
+    " mt_remote_files was fetched in build_file_entries_from_remote (before the
+    " pull) — this is exactly the git content we want to compare against.
+    " Calling get_files_remote() again after the pull would re-fetch from GitHub
+    " (abapGit invalidates its mt_remote cache during deserialize), causing a
+    " slow second network round-trip and often an auth exception.
+
+    " Step 1: Build hashed lookup of pre-pull remote XML files.
+    DATA lt_remote_idx TYPE HASHED TABLE OF zif_abapgit_git_definitions=>ty_file
+      WITH UNIQUE KEY path filename.
+    LOOP AT mt_remote_files INTO DATA(ls_remote).
+      IF to_upper( ls_remote-filename ) NS '.XML'.
+        CONTINUE.
+      ENDIF.
+      INSERT ls_remote INTO TABLE lt_remote_idx.
+    ENDLOOP.
+
+    IF lt_remote_idx IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " Step 2: Fetch post-pull serializer output — filtered to pulled objects only.
+    DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    TRY.
+        IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
+          lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
+        ELSE.
+          lt_local = mo_repo->get_files_local( ).
+        ENDIF.
+      CATCH zcx_abapgit_exception.
+        RETURN.
+    ENDTRY.
+
+    " Step 3: Compare — emit only files where bytes differ.
+    LOOP AT lt_local INTO DATA(ls_item).
+      IF to_upper( ls_item-file-filename ) NS '.XML'.
+        CONTINUE.
+      ENDIF.
+
+      READ TABLE lt_remote_idx WITH TABLE KEY
+        path     = ls_item-file-path
+        filename = ls_item-file-filename
+      INTO DATA(ls_remote_file).
+      IF sy-subrc <> 0.
+        " File exists in serializer but not in git — always report it.
+      ELSEIF ls_item-file-data = ls_remote_file-data.
+        " Bytes identical — nothing to sync.
+        CONTINUE.
+      ENDIF.
+
+      DATA ls_xml TYPE zif_abgagt_agent=>ty_xml_file.
+      ls_xml-filename = ls_item-file-filename.
+      ls_xml-path     = ls_item-file-path.
+      ls_xml-data     = cl_http_utility=>encode_x_base64( unencoded = ls_item-file-data ).
+      APPEND ls_xml TO rt_xml_files.
     ENDLOOP.
   ENDMETHOD.
 

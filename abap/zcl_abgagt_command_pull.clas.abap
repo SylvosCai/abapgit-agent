@@ -70,6 +70,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
             failed_objects TYPE zif_abgagt_agent=>ty_object_list,
             conflict_report TYPE string,
             conflict_count TYPE i,
+            local_xml_files TYPE zif_abgagt_agent=>ty_xml_files,
           END OF ls_response.
 
     ls_response-success = COND string( WHEN ls_pull_result-success = abap_true THEN 'X' ELSE '' ).
@@ -84,6 +85,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
     ls_response-failed_objects = ls_pull_result-failed_objects.
     ls_response-conflict_report = ls_pull_result-conflict_report.
     ls_response-conflict_count = ls_pull_result-conflict_count.
+    ls_response-local_xml_files = ls_pull_result-local_xml_files.
 
     rv_result = /ui2/cl_json=>serialize( data = ls_response ).
   ENDMETHOD.

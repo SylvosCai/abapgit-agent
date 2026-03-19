@@ -5,6 +5,7 @@
 const { printHttpError } = require('../utils/format-error');
 const fs = require('fs');
 const pathModule = require('path');
+const { execSync } = require('child_process');
 
 // Calculate display width accounting for emoji (2 cells) vs ASCII (1 cell)
 function calcWidth(str) {
@@ -42,6 +43,7 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings, getTransportSettings } = context;
     const verbose = args.includes('--verbose');
+    const syncXml = args.includes('--sync-xml');
 
     // Check project-level safeguards
     const safeguards = getSafeguards();
@@ -198,13 +200,13 @@ module.exports = {
       }
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode, verbose);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode, verbose, syncXml);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort', verbose = false) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort', verbose = false, syncXml = false, isRepull = false) {
     const TERM_WIDTH = process.stdout.columns || 80;
 
-    if (!jsonOutput) {
+    if (!jsonOutput && !isRepull) {
       console.log(`\n🚀 Starting pull for: ${gitUrl}`);
       console.log(`   Branch: ${branch}`);
       if (files && files.length > 0) {
@@ -436,6 +438,71 @@ module.exports = {
         const err = new Error(message || 'Pull completed with errors');
         err._isPullError = true;
         throw err;
+      }
+
+      // --- Post-pull XML sync ---
+      // abapGit's status calculation already identified which XML files differ
+      // (match=false) — only those are returned in local_xml_files.
+      const localXmlFiles = result.local_xml_files || result.LOCAL_XML_FILES || [];
+
+      if (localXmlFiles.length > 0) {
+        const diffFiles = [];
+        for (const f of localXmlFiles) {
+          const relPath = ((f.path || f.PATH || '') + (f.filename || f.FILENAME || '')).replace(/^\//, '');
+          const absPath = pathModule.join(process.cwd(), relPath);
+          if (!fs.existsSync(absPath)) continue;
+          const incoming = Buffer.from(f.data || f.DATA, 'base64');
+          // Double-check: only write if bytes actually differ (guard against encoding quirks)
+          const current = fs.readFileSync(absPath);
+          if (!current.equals(incoming)) {
+            diffFiles.push({ relPath, absPath, incoming });
+          }
+        }
+
+        if (diffFiles.length > 0 && !syncXml) {
+          console.log(`\n⚠️  ${diffFiles.length} XML file(s) differ from serializer output:`);
+          for (const f of diffFiles) console.log(`   ${f.relPath}`);
+          console.log(`   Run with --sync-xml to accept serializer output and amend the last commit`);
+        } else if (diffFiles.length > 0 && syncXml) {
+          console.log(`\n🔄 Syncing ${diffFiles.length} XML file(s) to match serializer output:`);
+          for (const f of diffFiles) console.log(`   ${f.relPath}`);
+
+          // 1. Write serializer XML to disk
+          for (const f of diffFiles) fs.writeFileSync(f.absPath, f.incoming);
+
+          // 2. Stage changed XML files
+          const quotedPaths = diffFiles.map(f => `"${f.relPath}"`).join(' ');
+          execSync(`git add ${quotedPaths}`, { cwd: process.cwd() });
+
+          // 3. Amend last commit
+          execSync('git commit --amend --no-edit', { cwd: process.cwd() });
+
+          // 4. Push with force-with-lease; if no upstream, set it automatically
+          let pushed = false;
+          try {
+            execSync('git push --force-with-lease', { cwd: process.cwd(), stdio: 'pipe' });
+            pushed = true;
+          } catch (pushErr) {
+            const msg = (pushErr.stderr || pushErr.stdout || pushErr.message || '').toString();
+            if (msg.includes('no upstream branch') || msg.includes('has no upstream')) {
+              // Branch not yet pushed — set upstream and force push (amend requires force)
+              execSync(`git push --force-with-lease --set-upstream origin ${branch}`, { cwd: process.cwd(), stdio: 'pipe' });
+              pushed = true;
+            }
+            // Any other push error (no remote at all, auth failure, etc.) → skip silently
+          }
+
+          if (pushed) {
+            console.log(`   Re-pulling so ABAP system matches the amended commit...`);
+            // 5. Re-pull so ABAP system matches the amended commit (no sync loop)
+            await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, gitCredentials, conflictMode, verbose, false, true);
+            console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit, re-pulled`);
+          } else {
+            // No remote at all — files are written and committed locally
+            console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit`);
+            console.log(`   Push skipped (no remote). Push manually to sync with remote.`);
+          }
+        }
       }
 
       return result;

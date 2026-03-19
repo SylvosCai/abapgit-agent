@@ -16,6 +16,13 @@ INTERFACE zif_abgagt_agent PUBLIC.
 
   TYPES: ty_object_list TYPE STANDARD TABLE OF ty_object WITH NON-UNIQUE DEFAULT KEY.
 
+  TYPES: BEGIN OF ty_xml_file,
+           filename TYPE string,
+           path     TYPE string,
+           data     TYPE string,
+         END OF ty_xml_file.
+  TYPES: ty_xml_files TYPE STANDARD TABLE OF ty_xml_file WITH DEFAULT KEY.
+
   TYPES: BEGIN OF ty_result,
     success TYPE abap_bool,
     job_id TYPE string,
@@ -31,6 +38,7 @@ INTERFACE zif_abgagt_agent PUBLIC.
     finished_at TYPE timestampl,
     conflict_report TYPE string,
     conflict_count TYPE i,
+    local_xml_files TYPE ty_xml_files,
   END OF ty_result.
 
   METHODS pull

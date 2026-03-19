@@ -27,6 +27,7 @@
     "test:cmd:demo": "node tests/run-all.js --cmd --demo",
     "test:cmd:syntax": "node tests/run-all.js --cmd --command=syntax",
     "test:cmd:pull": "node tests/run-all.js --cmd --command=pull",
+    "test:sync-xml": "node tests/run-all.js --sync-xml",
     "test:cmd:inspect": "node tests/run-all.js --cmd --command=inspect",
     "test:cmd:unit": "node tests/run-all.js --cmd --command=unit",
     "test:cmd:view": "node tests/run-all.js --cmd --command=view",
