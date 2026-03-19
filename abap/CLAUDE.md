@@ -359,7 +359,7 @@ edit src/zcl_auth_handler.clas.abap
 abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
 git add . && git commit -m "feat: add authentication handler"
 git push origin main
-abapgit-agent pull --files src/zcl_auth_handler.clas.abap
+abapgit-agent pull --files src/zcl_auth_handler.clas.abap --sync-xml
 ```
 
 ### AI Tool Guidelines
@@ -425,6 +425,11 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 1. ✗ Do not run `abapgit-agent transport release`
 2. ✓ Inform the user that transport release is disabled for this project
 
+**After every pull that creates or modifies ABAP objects:**
+1. ✓ Always pass `--sync-xml` — rewrites any XML metadata files that differ from the ABAP serializer output, amends the commit, and re-pulls so git and the ABAP system stay in sync
+2. ✓ If pull output shows `⚠️  X XML file(s) differ from serializer output`, re-run immediately with `--sync-xml`
+3. ✗ Never leave a pull without `--sync-xml` when you authored the objects — abapGit will show **M (modified)** permanently otherwise
+
 ---
 
 ### Quick Decision Tree for AI
@@ -435,11 +440,11 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 Modified ABAP files?
 ├─ CLAS/INTF/PROG/DDLS files?
 │  ├─ Independent files (no cross-dependencies)?
-│  │  └─ ✅ Use: syntax → commit → push → pull
+│  │  └─ ✅ Use: syntax → commit → push → pull --sync-xml
 │  └─ Dependent files (interface + class, class uses class)?
-│     └─ ✅ Use: skip syntax → commit → push → pull
+│     └─ ✅ Use: skip syntax → commit → push → pull --sync-xml
 └─ Other types (DDLS, FUGR, TABL, etc.)?
-   └─ ✅ Use: skip syntax → commit → push → pull → (if errors: inspect)
+   └─ ✅ Use: skip syntax → commit → push → pull --sync-xml → (if errors: inspect)
 ```
 
 → See `guidelines/workflow-detailed.md` — run: `abapgit-agent ref --topic workflow-detailed`

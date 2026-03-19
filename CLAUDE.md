@@ -6,7 +6,17 @@ nav_exclude: true
 
 This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
 
-## Quick Reference
+## IMPORTANT: Before Writing Any ABAP Code
+
+Read the full ABAP development guide by running:
+
+```bash
+abapgit-agent guide
+```
+
+---
+
+
 
 ```bash
 # Quick commands

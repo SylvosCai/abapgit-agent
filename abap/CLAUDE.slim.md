@@ -10,6 +10,8 @@ Read the full ABAP development guide by running:
 abapgit-agent guide
 ```
 
+**Never pipe `abapgit-agent guide` or `abapgit-agent ref` through `head`, `tail`, or any other truncation command. Always read the full output.**
+
 This guide covers: development workflow, ABAP syntax guidelines, object naming, unit testing, and debugging.
 
 > **Humans:** Full guide online at https://sylvoscai.github.io/abapgit-agent/pages/abap-coding-guidelines.html

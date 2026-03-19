@@ -1448,3 +1448,409 @@ describe('Pull Command - Conflict Detection', () => {
     expect(thrownError._isPullError).toBe(true);
   });
 });
+
+// ─── XML Sync Tests ───────────────────────────────────────────────────────────
+
+describe('Pull Command - XML Sync (--sync-xml)', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  // Base64 helper
+  const encode = (str) => Buffer.from(str).toString('base64');
+
+  // Stable holder for execSync mock — prefixed "mock" so Jest's hoist allows it.
+  const mockExecSyncHolder = { fn: jest.fn() };
+
+  beforeEach(() => {
+    jest.resetModules();
+    mockExecSyncHolder.fn = jest.fn();
+
+    jest.mock('child_process', () => ({ execSync: (...a) => mockExecSyncHolder.fn(...a) }));
+    jest.mock('fs', () => ({
+      existsSync: jest.fn(() => true),
+      readFileSync: jest.fn(() => Buffer.from('original content')),
+      writeFileSync: jest.fn()
+    }));
+    jest.mock('path', () => ({
+      isAbsolute: jest.fn(() => false),
+      join: jest.fn((...args) => args.join('/')),
+      resolve: jest.fn((...args) => '/' + args.join('/')),
+      basename: jest.fn((p) => p.split('/').pop())
+    }));
+    jest.mock('../../src/utils/format-error', () => ({ printHttpError: jest.fn() }));
+    jest.mock('../../src/utils/transport-selector', () => ({
+      selectTransport: jest.fn(),
+      isNonInteractive: jest.fn(() => false),
+      _getTransportHookConfig: jest.fn(() => null),
+      interactivePicker: jest.fn(() => Promise.resolve(null))
+    }));
+
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  function makeXmlContext({ postResult, postMock = null }) {
+    const resolvedPost = postMock || jest.fn().mockResolvedValue(postResult);
+    return {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: resolvedPost
+      })),
+      gitUtils: {
+        getBranch: jest.fn(() => 'main'),
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git')
+      },
+      getTransport: jest.fn(() => null),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransportSettings: jest.fn(() => ({})),
+      _postMock: resolvedPost
+    };
+  }
+
+  // ── no local_xml_files in response ─────────────────────────────────────────
+
+  test('no warning when local_xml_files is absent', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeXmlContext({
+      postResult: { success: 'X', message: 'Pull completed successfully' }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toMatch(/XML file/i);
+    expect(output).not.toMatch(/sync-xml/i);
+  });
+
+  test('no warning when local_xml_files is empty array', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const ctx = makeXmlContext({
+      postResult: { success: 'X', message: 'Pull completed successfully', local_xml_files: [] }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toMatch(/XML file/i);
+  });
+
+  // ── files differ, no --sync-xml ────────────────────────────────────────────
+
+  test('prints warning when XML files differ and --sync-xml not passed', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+
+    const serializedXml = '<xml>serialized</xml>';
+    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+
+    const ctx = makeXmlContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode(serializedXml) }
+        ]
+      }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/1 XML file\(s\) differ/);
+    expect(output).toMatch(/src\/zcl_test\.clas\.xml/);
+    expect(output).toMatch(/--sync-xml/);
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  test('lists all differing XML files in the warning', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+
+    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+
+    const ctx = makeXmlContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_a.clas.xml', data: encode('new-a') },
+          { path: '/src/', filename: 'zcl_b.clas.xml', data: encode('new-b') }
+        ]
+      }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_a.clas.abap,zcl_b.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/2 XML file\(s\) differ/);
+    expect(output).toMatch(/zcl_a\.clas\.xml/);
+    expect(output).toMatch(/zcl_b\.clas\.xml/);
+  });
+
+  // ── file not on disk ────────────────────────────────────────────────────────
+
+  test('skips XML file that does not exist on disk', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+
+    fs.existsSync.mockImplementation((p) => !p.includes('zcl_test.clas.xml'));
+
+    const ctx = makeXmlContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode('<xml>new</xml>') }
+        ]
+      }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toMatch(/XML file/i);
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  // ── bytes match after decode ────────────────────────────────────────────────
+
+  test('no warning when bytes on disk already match serializer output', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+
+    const content = '<xml>identical</xml>';
+    fs.readFileSync.mockReturnValue(Buffer.from(content));
+
+    const ctx = makeXmlContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode(content) }
+        ]
+      }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toMatch(/XML file/i);
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  // ── --sync-xml: write + amend + push + re-pull ──────────────────────────────
+
+  test('--sync-xml writes files, stages, amends, pushes and re-pulls', async () => {
+    const statusResponse = { status: 'Found', transport_required: false };
+    const postMock = jest.fn()
+      .mockResolvedValueOnce(statusResponse)           // status check (execute)
+      .mockResolvedValueOnce({                          // pull
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode('<xml>serialized</xml>') }
+        ]
+      })
+      .mockResolvedValueOnce({                          // re-pull (this.pull() skips status check)
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: []
+      });
+
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+
+    const ctx = makeXmlContext({ postMock });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
+
+    // 1. File written with serializer content
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      expect.stringContaining('zcl_test.clas.xml'),
+      Buffer.from('<xml>serialized</xml>')
+    );
+
+    // 2. git add called with the file path
+    expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+      expect.stringMatching(/git add.*zcl_test\.clas\.xml/),
+      expect.any(Object)
+    );
+
+    // 3. git commit --amend called
+    expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+      'git commit --amend --no-edit',
+      expect.any(Object)
+    );
+
+    // 4. git push --force-with-lease called
+    expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+      'git push --force-with-lease',
+      expect.any(Object)
+    );
+
+    // 5. ABAP HTTP post: status + pull + re-pull = 3
+    // (re-pull calls this.pull() directly, skipping the status check in execute())
+    expect(postMock).toHaveBeenCalledTimes(3);
+
+    // 6. Success message printed
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Synced 1 XML file\(s\)/);
+    expect(output).toMatch(/amended commit/);
+    expect(output).toMatch(/re-pulled/);
+  });
+
+  test('--sync-xml retries with --set-upstream when branch has no upstream', async () => {
+    const statusResponse = { status: 'Found', transport_required: false };
+    const postMock = jest.fn()
+      .mockResolvedValueOnce(statusResponse)
+      .mockResolvedValueOnce({
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode('<xml>new</xml>') }
+        ]
+      })
+      .mockResolvedValueOnce({
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: []
+      });
+
+    mockExecSyncHolder.fn.mockImplementation((cmd) => {
+      if (cmd === 'git push --force-with-lease') {
+        const err = new Error('no upstream branch');
+        err.stderr = 'fatal: The current branch feature/foo has no upstream branch.';
+        throw err;
+      }
+      // --set-upstream push succeeds
+    });
+
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+
+    const ctx = makeXmlContext({ postMock });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
+
+    // --force-with-lease --set-upstream push was called
+    expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+      expect.stringMatching(/git push --force-with-lease --set-upstream origin/),
+      expect.any(Object)
+    );
+
+    // Re-pull happened: status + pull + re-pull = 3
+    expect(postMock).toHaveBeenCalledTimes(3);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Synced 1 XML file\(s\)/);
+    expect(output).toMatch(/re-pulled/);
+  });
+
+  test('--sync-xml skips push and re-pull when no remote exists', async () => {
+    const statusResponse = { status: 'Found', transport_required: false };
+    const postMock = jest.fn()
+      .mockResolvedValueOnce(statusResponse)
+      .mockResolvedValueOnce({
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode('<xml>new</xml>') }
+        ]
+      });
+
+    mockExecSyncHolder.fn.mockImplementation((cmd) => {
+      if (cmd === 'git push --force-with-lease') throw new Error('remote: not found');
+      // --set-upstream would also fail for truly no remote, but we never reach it
+    });
+
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+
+    const ctx = makeXmlContext({ postMock });
+
+    await expect(
+      pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx)
+    ).resolves.not.toThrow();
+
+    // No re-pull — only 2 HTTP calls (status + pull)
+    expect(postMock).toHaveBeenCalledTimes(2);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Synced 1 XML file\(s\)/);
+    expect(output).toMatch(/Push skipped/);
+    expect(output).not.toMatch(/re-pulled/);
+  });
+
+  test('--sync-xml does nothing when no files differ', async () => {
+    const content = '<xml>same</xml>';
+
+    const postMock = jest.fn().mockResolvedValue({
+      success: 'X',
+      message: 'Pull completed successfully',
+      local_xml_files: [
+        { path: '/src/', filename: 'zcl_test.clas.xml', data: encode(content) }
+      ]
+    });
+
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from(content));
+
+    const ctx = makeXmlContext({ postMock });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
+
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+    expect(mockExecSyncHolder.fn).not.toHaveBeenCalled();
+    // postMock is called twice: once for status check, once for the actual pull
+    expect(postMock).toHaveBeenCalledTimes(2);  });
+
+  // ── uppercase keys (ABAP JSON) ──────────────────────────────────────────────
+
+  test('handles uppercase LOCAL_XML_FILES from ABAP JSON serialization', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+
+    const ctx = makeXmlContext({
+      postResult: {
+        success: 'X',
+        message: 'Pull completed successfully',
+        LOCAL_XML_FILES: [
+          { PATH: '/src/', FILENAME: 'zcl_test.clas.xml', DATA: encode('new') }
+        ]
+      }
+    });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap'], ctx);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/1 XML file\(s\) differ/);
+  });
+
+  // ── --sync-xml flag detection ───────────────────────────────────────────────
+
+  test('--sync-xml flag is detected in args', () => {
+    const args = ['--files', 'zcl_test.clas.abap', '--sync-xml'];
+    expect(args.includes('--sync-xml')).toBe(true);
+  });
+
+  test('--sync-xml flag absent by default', () => {
+    const args = ['--files', 'zcl_test.clas.abap'];
+    expect(args.includes('--sync-xml')).toBe(false);
+  });
+});
