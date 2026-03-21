@@ -2,6 +2,34 @@
 title: Release Notes
 ---
 
+## v1.13.4
+
+### New Features
+
+- `--files` now accepts XML-only objects (TABL, STRU, DTEL, TTYP) via `.type.xml` files
+- Added probe vs PoC concept split with `pocWorkspace` config support
+
+### Bug Fixes
+
+- Fixed `CX_SY_RANGE_OUT_OF_BOUNDS` crash caused by `.abapgit.xml` passing ABAP file filter
+- Guard empty object name in `parse_file_to_object` before string access
+- "Activation cancelled" no longer blocks `--sync-xml` diff for already-active objects
+
+### Improvements
+
+- Pull handles abapGit runtime exceptions per-object instead of aborting entire pull
+
+### Documentation
+
+- Updated ABAP guide with XML-only object templates (DTEL, TABL, STRU, TTYP)
+- Added object creation workflow diagram covering namespace and PoC/probe branches
+- Expanded naming and package assignment rules for SAP vs customer namespace projects
+
+---
+
+---
+
+
 ## v1.13.3
 
 ### New Features
