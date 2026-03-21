@@ -98,21 +98,31 @@ module.exports = {
     if (filesArgIndex !== -1 && filesArgIndex + 1 < args.length) {
       files = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
-      // Validate that every file has a recognised ABAP source extension
-      // (.abap or .asddls) — XML metadata files must NOT be passed here
+      // Validate that every file has a recognised extension:
+      // - .abap / .asddls  — ABAP source files
+      // - name.type.xml    — XML-only objects (TABL, STRU, DTEL, TTYP, ...)
+      //   Must have exactly 3 dot-separated parts with a non-empty name part
+      //   to exclude .abapgit.xml, package.devc.xml, plain .xml, etc.
       const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+      const isXmlOnlyObject = (f) => {
+        const base = f.split('/').pop();
+        const parts = base.split('.');
+        return parts.length === 3 && parts[0].length > 0 && parts[2].toLowerCase() === 'xml';
+      };
       const nonSourceFiles = files.filter(f => {
         const base = f.split('/').pop(); // strip directory
         const parts = base.split('.');
         const ext = parts[parts.length - 1].toLowerCase();
-        return parts.length < 3 || !ABAP_SOURCE_EXTS.has(ext);
+        if (ABAP_SOURCE_EXTS.has(ext)) return false;  // .abap / .asddls — valid
+        if (isXmlOnlyObject(f)) return false;          // name.type.xml — valid
+        return true;                                   // everything else — invalid
       });
       if (nonSourceFiles.length > 0) {
-        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls).');
-        console.error('   The following file(s) are not ABAP source files:');
+        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls) or XML-only object files (name.type.xml).');
+        console.error('   The following file(s) are not recognised:');
         nonSourceFiles.forEach(f => console.error(`     ${f}`));
-        console.error('   Tip: pass the source file, not the XML metadata file.');
-        console.error('   Example: --files src/zcl_my_class.clas.abap');
+        console.error('   Tip: for source objects pass the .abap file; for XML-only objects (TABL, STRU, DTEL, TTYP)');
+        console.error('   pass the .xml file, e.g. --files abap/ztable.tabl.xml');
         process.exit(1);
       }
 

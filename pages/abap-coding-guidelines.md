@@ -39,7 +39,9 @@ Detailed ABAP coding guidelines for development in this project.
 
 | Guide | Description |
 |-------|-------------|
+| [Object Creation Workflow](object-creation-workflow) | Decision diagram: customer vs SAP namespace, package assignment, probe vs PoC |
 | [Branch Workflow](../abap/guidelines/branch-workflow) | Feature branch workflow with rebase-before-pull and PR creation |
 | [Development Workflow (Detailed)](../abap/guidelines/workflow-detailed) | Full workflow decision tree, error indicators, command reference |
 | [Object Creation](../abap/guidelines/object-creation) | XML metadata templates and local class setup |
+| [Probe and PoC](../abap/guidelines/probe-poc) | Full decision flow for throwaway probe classes and persistent PoC objects |
 | [CDS Testing](../abap/guidelines/cds-testing) | CDS test double framework (`CL_CDS_TEST_ENVIRONMENT`) |

@@ -24,6 +24,19 @@
  *   Step 7:    pull (no --files) → no warning (already in sync)
  *
  *   Restore:   git reset --hard + force-push to restore hand-crafted XML
+ *
+ * PART C: XML-only object (DTEL) — no .abap source file
+ *   The DTEL fixture (zabgagt_xo_dtel.dtel.xml) has a hand-crafted <PARAMID></PARAMID>
+ *   field the serializer never writes. restoreDtel() re-injects it and bumps DDTEXT
+ *   with a timestamp so abapGit always deserializes and returns local_xml_files.
+ *
+ *   Restore:   restoreDtel() — re-injects PARAMID, bumps DDTEXT, force-pushes
+ *
+ *   Step 8:    pull --files DTEL_XML → warning shown, local XML still hand-crafted
+ *   Step 9:    pull --files DTEL_XML --sync-xml → XML rewritten, commit amended, re-pulled
+ *   Step 10:   pull --files DTEL_XML → no warning (already in sync)
+ *
+ *   Restore:   restoreDtel()
  */
 
 const { execSync } = require('child_process');
@@ -35,6 +48,7 @@ const TEST_REPO_URL  = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
 const TEST_BRANCH    = 'feature/sync-xml-test';
 const TEST_FILE      = 'src/zif_simple_test.intf.abap';
 const TEST_XML_FILE  = 'src/zif_simple_test.intf.xml';
+const DTEL_XML_FILE  = 'src/zabgagt_xo_dtel.dtel.xml';
 
 /**
  * Run a pull command against the test repo using --url (works from any cwd).
@@ -104,6 +118,56 @@ function restoreBranch(cloneDir, printInfo, printError) {
     execSync(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
   } catch (e) {
     printError(`  Warning: could not restore remote branch: ${e.message}`);
+  }
+}
+
+/**
+ * Restore the DTEL XML to the hand-crafted state (with PARAMID field).
+ * Also bumps DDTEXT with a timestamp so abapGit always deserializes the
+ * object (forcing local_xml_files to be returned) and the commit is
+ * never empty relative to its parent.
+ */
+function restoreDtel(cloneDir, printInfo, printError) {
+  printInfo(` Restoring DTEL XML to hand-crafted state (with PARAMID)...`);
+  try {
+    const xmlPath = path.join(cloneDir, DTEL_XML_FILE);
+
+    // Write the full hand-crafted XML unconditionally.
+    // --sync-xml may have reduced the file to a minimal skeleton, so patching
+    // in-place is unreliable — always start from the known template.
+    // Bump DDTEXT with ms-precision timestamp so abapGit sees a content change
+    // and deserializes → local_xml_files is populated → sync-xml diff fires.
+    const ts = new Date().toISOString().replace('T', ' ').slice(0, 23);
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD04V>
+    <ROLLNAME>ZABGAGT_XO_DTEL</ROLLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>XML-only DTEL ${ts}</DDTEXT>
+    <REPTEXT>XML-only DTEL</REPTEXT>
+    <SCRTEXT_S>XML DTEL</SCRTEXT_S>
+    <SCRTEXT_M>XML-only DTEL</SCRTEXT_M>
+    <SCRTEXT_L>XML-only test data element</SCRTEXT_L>
+    <DTELMASTER>E</DTELMASTER>
+    <PARAMID>BUK</PARAMID>
+    <DATATYPE>CHAR</DATATYPE>
+    <LENG>000010</LENG>
+   </DD04V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+`;
+    fs.writeFileSync(xmlPath, xml);
+
+    // Stage, commit, and force-push
+    execSync(`git add ${DTEL_XML_FILE}`, { cwd: cloneDir, encoding: 'utf8' });
+    execSync('git commit -m "test: restore hand-crafted DTEL XML with PARAMID for sync-xml test"',
+             { cwd: cloneDir, encoding: 'utf8' });
+    execSync(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
+  } catch (e) {
+    printError(`  Warning: could not restore DTEL: ${e.message}`);
   }
 }
 
@@ -343,6 +407,103 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
 
   // Final restore
   restoreBranch(cloneDir, printInfo, printError);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PART C: XML-only object (DTEL) — no .abap source file
+  // ════════════════════════════════════════════════════════════════════════════
+  // The DTEL fixture has a hand-crafted <PARAMID></PARAMID> field that the
+  // abapGit serializer never writes for a plain CHAR element. restoreDtel()
+  // re-injects it and bumps DDTEXT with a timestamp so abapGit always
+  // deserializes the object and returns local_xml_files on every run.
+
+  restoreDtel(cloneDir, printInfo, printError);
+  printInfo('');
+
+  // ── Step 8: pull DTEL --files → warning, local XML still hand-crafted ────────
+  printInfo(colorize('cyan', 'Step 8 [DTEL --files]: pull without --sync-xml — expect "differ" warning'));
+  {
+    const { output, exitCode } = runPull(agentBin, cloneDir, false, ['--files', DTEL_XML_FILE]);
+
+    addResult('[DTEL] pull succeeds',
+      exitCode === 0 && output.includes('Pull completed'),
+      `exitCode=${exitCode}`);
+
+    addResult('[DTEL] warning: XML file(s) differ from serializer output',
+      output.includes('XML file(s) differ from serializer output'),
+      output.split('\n').find(l => l.includes('differ') || l.includes('⚠')) || '(no warning)');
+
+    addResult('[DTEL] warning lists the DTEL XML file',
+      output.includes(DTEL_XML_FILE),
+      `${DTEL_XML_FILE} not mentioned in output`);
+
+    const dtelXmlHasParamId = () => {
+      const p = path.join(cloneDir, DTEL_XML_FILE);
+      return fs.existsSync(p) && fs.readFileSync(p, 'utf8').includes('<PARAMID>');
+    };
+    addResult('[DTEL] local XML still has hand-crafted PARAMID (not yet rewritten)',
+      dtelXmlHasParamId(),
+      'PARAMID already missing — XML may have been rewritten prematurely');
+  }
+  printInfo('');
+
+  // ── Step 9: pull DTEL --files --sync-xml → rewrite + amend + re-pull ─────────
+  // Re-run restoreDtel to bump DDTEXT with a fresh timestamp so abapGit sees
+  // a content change and deserializes (returning local_xml_files). Without this,
+  // step 8's activation leaves the DTEL in sync with the remote and step 9
+  // would get "Activation cancelled" with no XML diff to sync.
+  restoreDtel(cloneDir, printInfo, printError);
+  printInfo('');
+  printInfo(colorize('cyan', 'Step 9 [DTEL --files]: pull --sync-xml — expect rewrite + amend + re-pull'));
+  {
+    const shaBefore = execSync('git rev-parse HEAD', { cwd: cloneDir, encoding: 'utf8' }).trim();
+
+    const { output, exitCode } = runPull(agentBin, cloneDir, false, ['--files', DTEL_XML_FILE, '--sync-xml']);
+
+    addResult('[DTEL] --sync-xml pull succeeds',
+      exitCode === 0 && output.includes('Pull completed'),
+      `exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+
+    addResult('[DTEL] "Syncing N XML file(s)" message appears',
+      output.includes('Syncing') && output.includes('XML file(s)'),
+      output.split('\n').find(l => l.includes('Sync')) || '(no Syncing message)');
+
+    addResult('[DTEL] "Synced … amended commit, re-pulled" message appears',
+      output.includes('Synced') && output.includes('amended commit') && output.includes('re-pulled'),
+      output.split('\n').find(l => l.includes('Synced')) || '(no Synced message)');
+
+    addResult('[DTEL] local XML PARAMID field removed (serializer output accepted)',
+      !fs.readFileSync(path.join(cloneDir, DTEL_XML_FILE), 'utf8').includes('<PARAMID>'),
+      'PARAMID field still present — XML was not rewritten');
+
+    const shaAfter = execSync('git rev-parse HEAD', { cwd: cloneDir, encoding: 'utf8' }).trim();
+    addResult('[DTEL] git commit was amended (SHA changed)',
+      shaAfter !== shaBefore,
+      `SHA before=${shaBefore.slice(0, 7)} after=${shaAfter.slice(0, 7)}`);
+
+    const gitStatus = execSync('git status --porcelain', { cwd: cloneDir, encoding: 'utf8' }).trim();
+    addResult('[DTEL] working tree is clean after sync',
+      gitStatus === '',
+      `git status: ${gitStatus}`);
+  }
+  printInfo('');
+
+  // ── Step 10: pull DTEL --files again → no warning (already in sync) ──────────
+  printInfo(colorize('cyan', 'Step 10 [DTEL --files]: pull again — no warning (already in sync)'));
+  {
+    const { output, exitCode } = runPull(agentBin, cloneDir, false, ['--files', DTEL_XML_FILE]);
+
+    addResult('[DTEL] pull succeeds',
+      exitCode === 0 && output.includes('Pull completed'),
+      `exitCode=${exitCode}`);
+
+    addResult('[DTEL] no "differ" warning when already in sync',
+      !output.includes('differ from serializer output'),
+      output.split('\n').find(l => l.includes('differ')) || '');
+  }
+  printInfo('');
+
+  // Final restore of DTEL
+  restoreDtel(cloneDir, printInfo, printError);
 
   const duration    = ((Date.now() - startTime) / 1000).toFixed(1);
   const passedCount = results.filter(r => r.passed).length;

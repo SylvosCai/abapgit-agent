@@ -70,24 +70,93 @@ abapgit-agent ref --list-topics
 ```
 
 The folder is configured in `.abapGitAgent` (property: `folder`):
-- If `folder` is `/src/` → files go in `src/` (e.g., `src/zcl_my_class.clas.abap`)
-- If `folder` is `/abap/` → files go in `abap/` (e.g., `abap/zcl_my_class.clas.abap`)
+- If `folder` is `/src/` → files go in `src/`
+- If `folder` is `/abap/` → files go in `abap/`
 
 **Also check naming conventions before creating any new object:**
 
 ```
-1. Check guidelines/objects.local.md  ← project-specific overrides (if file exists)
-2. Fall back to guidelines/objects.md ← default Z/Y prefix conventions
+1. Check guidelines/objects.local.md  ← this project's actual conventions (if file exists)
+2. No objects.local.md?               ← customer namespace project, use Z/Y defaults
 ```
 
-`objects.local.md` is created by `abapgit-agent init` and is never overwritten by updates — it holds project-specific prefixes (e.g. `YCL_` instead of `ZCL_`).
+`objects.local.md` is never overwritten by updates. It specifies the production naming
+pattern — which may be customer namespace (`ZCL_*`, `YCL_*`), SAP namespace (`CL_*`),
+or SAP registered namespace (`/NAMESPACE/CL_*` — also SAP namespace, not customer).
+Never assume Z/Y prefix without checking.
+
+**SAP namespace vs customer namespace:**
+- **Customer namespace**: `Z*`, `Y*` objects; `Z*`, `Y*`, `$*` packages — owned by the customer
+- **SAP namespace**: everything else (`CL_*`, `IF_*`, `/NAMESPACE/*`) — delivered by SAP
 
 ---
 
-### 3. Create XML Metadata / Local Classes
+### 3. Creating a New ABAP Object — Files to Write and Package Assignment
 
-Each ABAP object needs an XML metadata file. Local helper/test-double classes use separate `.locals_def.abap` / `.locals_imp.abap` files.
-→ See `guidelines/object-creation.md` — run: `abapgit-agent ref --topic object-creation`
+```
+❌ WRONG: Only write the .abap source file
+✅ CORRECT: Every object needs both a source file AND an XML metadata file
+           XML-only objects (TABL, STRU, DTEL, TTYP) need ONLY the XML file
+```
+
+Use the object name from `objects.local.md` (or `objects.md` as fallback) in place of `<name>`:
+
+| Object Type | Source File | XML File |
+|-------------|-------------|----------|
+| Class (CLAS) | `<name>.clas.abap` | `<name>.clas.xml` |
+| Interface (INTF) | `<name>.intf.abap` | `<name>.intf.xml` |
+| Program (PROG) | `<name>.prog.abap` | `<name>.prog.xml` |
+| CDS View (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` |
+| Table (TABL) | *(none)* | `<name>.tabl.xml` |
+| Structure (STRU) | *(none)* | `<name>.stru.xml` |
+| Data Element (DTEL) | *(none)* | `<name>.dtel.xml` |
+| Table Type (TTYP) | *(none)* | `<name>.ttyp.xml` |
+
+**Package assignment — determine the package, then follow the confirmation rule below:**
+
+```
+1. Check objects.local.md for package rules  ← use them directly
+2. No package rules in objects.local.md?
+   └── Read .abapGitAgent → get the package property → use as root
+       Run: abapgit-agent tree --package <root>
+       ├── Only one package found   →  use it directly
+       └── Multiple packages found  →  present options, ask user to choose
+3. No package in .abapGitAgent?
+   └── Ask the user for the root package
+```
+
+**Confirmation before writing files — depends on namespace:**
+
+```
+Object name starts with Z* or Y*  AND  package starts with Z*, Y*, or $*?
+  └── Customer namespace object in customer package
+      → Write files directly. No confirmation needed.
+
+Anything else (SAP namespace object, or SAP-delivered package)?
+  └── Show a creation summary and wait for explicit confirmation:
+
+      "I'm going to create the following:
+
+        Object:   <NAME> (<Type>)
+        Package:  <PACKAGE>
+        Files:    <folder>/<name>.<ext>.abap
+                  <folder>/<name>.<ext>.xml
+
+      Shall I proceed?"
+```
+
+```
+❌ WRONG: Write files without showing the summary for SAP namespace objects
+❌ WRONG: Run abapgit-agent tree and pick a package yourself
+✅ CORRECT: Customer namespace → write directly
+✅ CORRECT: SAP namespace → always show summary, wait for confirmation
+```
+
+> **Tip for project setup**: Add package rules to `objects.local.md` so Claude never
+> needs to ask. See `guidelines/objects.md` for examples.
+
+→ For exact XML templates: `abapgit-agent ref --topic abapgit`
+→ For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
 
 ---
 
@@ -102,14 +171,15 @@ Each ABAP object needs an XML metadata file. Local helper/test-double classes us
 
 ```bash
 # Check syntax of local code (no commit/push needed)
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
-abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+# Use the actual filename from your project (name comes from objects.local.md)
+abapgit-agent syntax --files src/<name>.clas.abap
+abapgit-agent syntax --files src/<name>.ddls.asddls
 
 # Check multiple INDEPENDENT files
-abapgit-agent syntax --files src/zcl_utils.clas.abap,src/zcl_logger.clas.abap
+abapgit-agent syntax --files src/<name1>.clas.abap,src/<name2>.clas.abap
 ```
 
-**For other types (DDLS, FUGR, TABL, etc.)**: Skip syntax, proceed to commit/push/pull.
+**For other types (FUGR, TABL, etc.)**: Skip syntax, proceed to commit/push/pull.
 
 **Why use syntax command?**
 - Catches syntax errors BEFORE polluting git history with fix commits
@@ -126,11 +196,11 @@ When checking multiple files, each is validated in isolation:
 **For dependent files, skip `syntax` and use `pull` instead:**
 ```bash
 # ❌ BAD - Interface and implementing class (may show false errors)
-abapgit-agent syntax --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
+abapgit-agent syntax --files src/<intf_name>.intf.abap,src/<class_name>.clas.abap
 
 # ✅ GOOD - Use pull instead for dependent files
 git add . && git commit && git push
-abapgit-agent pull --files src/zif_my_intf.intf.abap,src/zcl_my_class.clas.abap
+abapgit-agent pull --files src/<intf_name>.intf.abap,src/<class_name>.clas.abap
 ```
 
 **Note**: `inspect` still runs against ABAP system (requires pull first). Use `syntax` for pre-commit checking.
@@ -256,11 +326,29 @@ After activating a class, stop and tell the user: `"Class is activated. Run with
 
 ---
 
-### 10. Probe Classes — Use `scratchWorkspace` When Required
+### 10. Probe and PoC Objects — Always Z/Y, Never in SAP Packages
 
-By default, probe/throwaway classes may be created in the current project. When `disableProbeClasses: true` is set in `.abapgit-agent.json`, they must go to `scratchWorkspace` instead. If `scratchWorkspace` is also not configured, refuse and guide the user to set it up.
+```
+❌ WRONG: Create a probe/PoC object with the project's SAP namespace prefix
+❌ WRONG: Assign a probe/PoC object to an SAP-delivered package
+✅ CORRECT: Probe/PoC objects always use Z* or Y* prefix
+✅ CORRECT: Always assign to a customer namespace package (Z*, Y*, or $*)
+```
 
-→ See `guidelines/run-probe-classes.md` — run: `abapgit-agent ref --topic run-probe-classes`
+This rule applies even on projects where production objects use SAP namespace (`CL_*`, `/NAMESPACE/*`).
+
+**Trigger — when `objects.local.md` shows a SAP namespace prefix (`CL_*`, `IF_*`, `/NAMESPACE/*`)
+and the user asks to create a new object, always ask first:**
+
+```
+"Is this a production object, a PoC (will persist, needs its own package/repo),
+ or a probe (throwaway, run once)?"
+```
+
+Never assume — wait for the user's answer before proceeding.
+
+→ For full decision flow (how to determine namespace, probe vs PoC, scratchWorkspace,
+  pocWorkspace, setup instructions): `abapgit-agent ref --topic probe-poc`
 
 ---
 
@@ -355,11 +443,11 @@ If workflow mode is `"trunk"` or not set, commit directly to the default branch:
 ```bash
 git checkout main  # or master/develop (auto-detected)
 git pull origin main
-edit src/zcl_auth_handler.clas.abap
-abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
-git add . && git commit -m "feat: add authentication handler"
+# edit your ABAP file (name from objects.local.md)
+abapgit-agent syntax --files src/<name>.clas.abap
+git add . && git commit -m "feat: description"
 git push origin main
-abapgit-agent pull --files src/zcl_auth_handler.clas.abap --sync-xml
+abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 ```
 
 ### AI Tool Guidelines
@@ -400,7 +488,14 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap --sync-xml
 2. ✓ Inform the user that run is disabled for this project
 
 **When `safeguards.disableProbeClasses = true`:**
-1. ✗ Do not create probe classes in the current project — see Rule 10 and `guidelines/run-command.md`
+1. ✗ Do not create probe classes in the current project
+2. ✓ If `scratchWorkspace` is configured → create probe class there (see Rule 10)
+3. ✗ If `scratchWorkspace` is NOT configured → refuse, tell user to configure it in `.abapGitAgent`
+
+**When user requests a PoC object:**
+1. ✓ Read `pocWorkspace.path` from `.abapGitAgent`
+2. ✓ If configured → read `{path}/.abapGitAgent` for package, show confirmation summary, wait for user
+3. ✗ If NOT configured → refuse, tell user to set up a PoC repo and configure `pocWorkspace.path`
 
 **When `conflictDetection.mode = "ignore"` or not set:**
 1. ✓ Run `pull` normally — no conflict flags needed
@@ -443,10 +538,14 @@ Modified ABAP files?
 │  │  └─ ✅ Use: syntax → commit → push → pull --sync-xml
 │  └─ Dependent files (interface + class, class uses class)?
 │     └─ ✅ Use: skip syntax → commit → push → pull --sync-xml
-└─ Other types (DDLS, FUGR, TABL, etc.)?
-   └─ ✅ Use: skip syntax → commit → push → pull --sync-xml → (if errors: inspect)
+└─ Other types (FUGR, TABL, STRU, DTEL, TTYP, etc.)?
+   ├─ XML-only objects (TABL, STRU, DTEL, TTYP)?
+   │  └─ ✅ Use: skip syntax → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
+   └─ FUGR and other complex objects?
+      └─ ✅ Use: skip syntax → commit → push → pull --sync-xml → (if errors: inspect)
 ```
 
+→ For creating new objects (what files to write): `abapgit-agent ref --topic object-creation`
 → See `guidelines/workflow-detailed.md` — run: `abapgit-agent ref --topic workflow-detailed`
 
 ---
@@ -479,6 +578,7 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/debug-session.md` | Debug Session Guide |
 | `guidelines/debug-dump.md` | Dump Analysis Guide |
 | `guidelines/run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
+| `guidelines/probe-poc.md` | Probe and PoC — Full Decision Flow |
 | `guidelines/branch-workflow.md` | Branch Workflow |
 | `guidelines/workflow-detailed.md` | Development Workflow (Detailed) |
 | `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |

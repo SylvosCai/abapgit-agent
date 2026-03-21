@@ -8,67 +8,78 @@ grand_parent: ABAP Development
 
 # ABAP Object Naming Conventions
 
-> **Project-specific overrides**: Add your naming conventions to `guidelines/objects.local.md`.
-> That file is never overwritten by `abapgit-agent init --update` and is searched by the `ref` command.
+**Searchable keywords**: naming convention, prefix, namespace, object type, CLAS, INTF, PROG, TABL, DDLS, SAP namespace, customer namespace, PoC, probe
 
-**Searchable keywords**: naming convention, Z prefix, namespace, object type, CLAS, INTF, PROG, TABL, DDLS
+## SAP Namespace vs Customer Namespace
 
-## TOPICS IN THIS FILE
-1. Naming Conventions
-2. ABAP Object Types
-3. XML Metadata (see guidelines/abapgit.md)
+| | SAP Namespace | Customer Namespace |
+|---|---|---|
+| **Object prefix** | `CL_*`, `IF_*`, `/NAME/CL_*`, `/NAME/IF_*`, etc. | `Z*`, `Y*` |
+| **Package prefix** | SAP-delivered (e.g. `SFIN`, `CA_*`, `/NAME/*`) | `Z*`, `Y*`, `$*` |
+| **Ownership** | Delivered and maintained by SAP | Owned by the customer |
+| **In git repo** | Objects from an SAP-delivered package | Custom development objects |
 
-## Naming Conventions
+> **Rule**: Never add customer-created objects (including PoC/probe classes) into SAP namespace
+> packages. PoC objects always use `Z*`/`Y*` prefix and always go in a `Z*`, `Y*`, or `$*` package
+> — even on a project where production objects use SAP namespace.
 
-Use `Z_` or `Y_` prefix for custom objects:
-
-| Object Type | Prefix | Example |
-|-------------|--------|---------|
-| Class | ZCL_ | ZCL_MY_CLASS |
-| Interface | ZIF_ | ZIF_MY_INTERFACE |
-| Program | Z | ZMY_PROGRAM |
-| Package | $ | $MY_PACKAGE |
-| Table | Z | ZMY_TABLE |
-| CDS View | ZC | ZC_MY_VIEW |
-| CDS Entity | ZE | ZE_MY_ENTITY |
-| Data Element | Z | ZMY_ELEMENT |
-| Structure | Z | ZMY_STRUCTURE |
-| Table Type | Z | ZMY_TABLE_TYPE |
-
-## ABAP Object Types
-
-Common object types in this project:
-
-| Type | Description | File Suffix |
-|------|-------------|-------------|
-| CLAS | Classes | .clas.abap |
-| PROG | Programs | .prog.abap |
-| FUGR | Function Groups | .fugr.abap |
-| INTF | Interfaces | .intf.abap |
-| TABL | Tables | .tabl.abap |
-| STRU | Structures | .stru.abap |
-| DTEL | Data Elements | .dtel.abap |
-| TTYP | Table Types | .ttyp.abap |
-| DDLS | CDS Views | .ddls.asddls |
-| DDLX | CDS Entities | .ddlx.asddlx |
-
-## XML Metadata
-
-**See guidelines/abapgit.md for XML templates.**
-
-Each ABAP object requires an XML metadata file for abapGit. Quick reference:
+## How to Determine This Project's Naming Convention
 
 ```
-Class:         zcl_*.clas.xml
-Interface:     zif_*.intf.xml
-Table:         z*.tabl.xml
-CDS View:      zc_*.ddls.xml
+1. Check guidelines/objects.local.md  ← this project's actual conventions (always check first)
+2. No objects.local.md exists?        ← assume customer namespace project, use Z/Y defaults below
 ```
 
-**Important**: Always push to git BEFORE running pull:
-```bash
-git add .
-git commit -m "Changes"
-git push           # CRITICAL: Push FIRST
-abapgit-agent pull --files abap/zcl_my_class.clas.abap
+`objects.local.md` is never overwritten by `abapgit-agent init --update`. It specifies the
+naming pattern for production objects in this project — which could be customer namespace
+(`ZCL_*`, `YCL_*`) or SAP namespace (`CL_*`, `/NAMESPACE/CL_*`).
+
+## Default Naming Conventions (Z/Y customer namespace)
+
+Applied when no `objects.local.md` exists:
+
+| Object Type | Default Prefix | Default Example |
+|-------------|---------------|-----------------|
+| Class | `ZCL_` | `ZCL_MY_CLASS` |
+| Interface | `ZIF_` | `ZIF_MY_INTERFACE` |
+| Program | `Z` | `ZMY_PROGRAM` |
+| Package | `$` | `$MY_PACKAGE` |
+| Table | `Z` | `ZMY_TABLE` |
+| CDS View Entity | `ZC_` | `ZC_MY_VIEW` |
+| Data Element | `Z` | `ZMY_ELEMENT` |
+| Structure | `Z` | `ZMY_STRUCTURE` |
+| Table Type | `Z` | `ZMY_TABLE_TYPE` |
+
+## Project-Specific Conventions (`objects.local.md`)
+
+`objects.local.md` should define both the naming prefix **and the correct package(s)** for
+new objects. When package rules are present, Claude uses them directly without asking. When
+absent, Claude must ask the user which package to use.
+
+Examples of what `objects.local.md` might contain:
+
 ```
+# Customer namespace — Y prefix
+Class prefix:     YCL_    e.g. YCL_MY_CLASS
+Interface prefix: YIF_    e.g. YIF_MY_INTERFACE
+Default package:  YMYPROJECT
+
+# SAP namespace project — single package
+Class prefix:     CL_     e.g. CL_MY_CLASS
+Interface prefix: IF_     e.g. IF_MY_INTERFACE
+Default package:  MY_PACKAGE
+
+# SAP namespace project — multiple packages
+Class prefix:     CL_     e.g. CL_MY_CLASS
+Interface prefix: IF_     e.g. IF_MY_INTERFACE
+Packages:
+  - Feature A objects → MY_PACKAGE_A
+  - Feature B objects → MY_PACKAGE_B
+
+# SAP registered namespace
+Class prefix:     /MYNAMESPACE/CL_
+Default package:  /MYNAMESPACE/MAIN
+```
+
+→ For file structure (what files to create): `abapgit-agent ref --topic object-creation`
+→ For XML templates: `abapgit-agent ref --topic abapgit`

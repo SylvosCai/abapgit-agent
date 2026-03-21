@@ -343,6 +343,10 @@ Create `.abapGitAgent` in repository root:
 
   "scratchWorkspace": {
     "path": "/absolute/path/to/scratch-repo"
+  },
+
+  "pocWorkspace": {
+    "path": "/absolute/path/to/poc-repo"
   }
 }
 ```
@@ -369,6 +373,26 @@ The `scratchWorkspace` section tells AI tools where to create probe/throwaway AB
 `{USER}` is derived from the `user` field in `.abapGitAgent` (e.g. user `JOHN` → `ZCL_JOHN_`).
 
 > **Note**: `scratchWorkspace` lives in `.abapGitAgent` (personal, per-machine) — never in `.abapgit-agent.json` (shared team config).
+
+#### PoC Workspace Configuration
+
+The `pocWorkspace` section tells AI tools where to create PoC objects that need a proper home
+and may persist longer than a throwaway probe:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `path` | string | — | **Required.** Absolute path to the PoC git repository |
+
+**Setup** (one-time, manual):
+1. Create a git repo for the PoC
+2. Run `abapgit-agent init --package <POC_PACKAGE>` from that repo to link it to an ABAP package
+3. Add `pocWorkspace.path` to `.abapGitAgent` in the main project
+
+**Switching PoCs**: update `pocWorkspace.path` to point to the new PoC repo. Claude always
+shows the current repo and package (from that repo's `.abapGitAgent`) and asks for confirmation
+before creating any objects — so a stale path is caught before anything is written.
+
+> **Note**: `pocWorkspace` lives in `.abapGitAgent` (personal, per-machine) — never in `.abapgit-agent.json` (shared team config).
 
 **Workflow Modes:**
 

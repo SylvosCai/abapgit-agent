@@ -1,0 +1,419 @@
+<mxfile host="65bd71144e">
+    <diagram name="Object Creation Workflow" id="object-creation-flow">
+        <mxGraphModel dx="1800" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="2400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+
+                <!-- Title -->
+                <mxCell id="title" value="ABAP Object Creation — Decision Workflow" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="30" width="2600" height="50" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     ROW 1  y=120  —  Start
+                     ════════════════════════════════════ -->
+                <mxCell id="start" value="User asks to create an ABAP object" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="120" width="380" height="60" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     ROW 2  y=250  —  Namespace check
+                     ════════════════════════════════════ -->
+                <mxCell id="check_local" value="Check guidelines/objects.local.md" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="1040" y="240" width="500" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN A  x=80
+                     Customer namespace branch
+                     ════════════════════════════════════ -->
+
+                <!-- A1  y=420 -->
+                <mxCell id="cust_pkg" value="Determine package:&lt;br&gt;1. Check objects.local.md for package rules&lt;br&gt;2. No rules? Read .abapGitAgent → run tree&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;• 1 package found → use directly&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;• Multiple found → ask user to choose&lt;br&gt;3. No package in .abapGitAgent? → ask user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="420" width="400" height="110" as="geometry"/>
+                </mxCell>
+
+                <!-- A2  y=600 -->
+                <mxCell id="cust_write" value="Write object files directly&lt;br&gt;(no confirmation needed)&lt;br&gt;&lt;br&gt;e.g. name.clas.abap + name.clas.xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="600" width="340" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- A3  y=750 -->
+                <mxCell id="cust_deploy" value="syntax → commit → push → pull --sync-xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="750" width="340" height="50" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN B  x=900
+                     SAP namespace — ask prod/PoC/probe
+                     ════════════════════════════════════ -->
+
+                <!-- B0  y=420  Z*/Y* name mismatch guard -->
+                <mxCell id="sap_zname" value="Z*/Y* name on SAP namespace project&lt;br&gt;&lt;br&gt;Ask: &quot;Did you mean CL_MY_HELPER?&lt;br&gt;Or is this a PoC / probe?&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="900" y="420" width="340" height="90" as="geometry"/>
+                </mxCell>
+
+                <!-- B1  y=590  Ask prod/PoC/probe -->
+                <mxCell id="sap_ask" value="Ask: &quot;Is this a production object,&lt;br&gt;a PoC (persistent), or a probe (throwaway)?&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="910" y="590" width="380" height="70" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN B-PROD  x=700
+                     Production sub-branch
+                     ════════════════════════════════════ -->
+
+                <!-- BP1  y=750 -->
+                <mxCell id="sap_pkg" value="Determine package:&lt;br&gt;1. Check objects.local.md for package rules&lt;br&gt;2. No rules? Read .abapGitAgent → run tree&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;• 1 package found → use directly&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;• Multiple found → ask user to choose&lt;br&gt;3. No package in .abapGitAgent? → ask user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="580" y="750" width="400" height="110" as="geometry"/>
+                </mxCell>
+
+                <!-- BP2  y=940 -->
+                <mxCell id="sap_summary" value="Show creation summary and wait for confirmation:&lt;br&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;Object:&amp;nbsp;&amp;nbsp;&amp;nbsp;NAME (Type)&lt;br&gt;&amp;nbsp;&amp;nbsp;Package: PACKAGE&lt;br&gt;&amp;nbsp;&amp;nbsp;Files:&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;folder/name.clas.abap&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;folder/name.clas.xml&lt;br&gt;&lt;br&gt;Shall I proceed?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="940" width="360" height="160" as="geometry"/>
+                </mxCell>
+
+                <!-- BP3  y=1180 -->
+                <mxCell id="sap_confirmed" value="User confirms?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="620" y="1180" width="260" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- BP4  y=1350 -->
+                <mxCell id="sap_write" value="Write object files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="1350" width="220" height="50" as="geometry"/>
+                </mxCell>
+
+                <!-- BP5  y=1480 -->
+                <mxCell id="sap_deploy" value="syntax → commit → push → pull --sync-xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="615" y="1480" width="280" height="50" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN C  x=1400
+                     PoC sub-branch
+                     ════════════════════════════════════ -->
+
+                <!-- C1  y=750 -->
+                <mxCell id="poc_check" value="pocWorkspace.path configured&lt;br&gt;in .abapGitAgent?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1340" y="750" width="320" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- C1-NO  y=750  (right of C1) -->
+                <mxCell id="poc_stop" value="STOP&lt;br&gt;Tell user to set up a PoC repo&lt;br&gt;and configure pocWorkspace.path&lt;br&gt;in .abapGitAgent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1740" y="750" width="260" height="90" as="geometry"/>
+                </mxCell>
+
+                <!-- C2  y=930 -->
+                <mxCell id="poc_read" value="Read {pocWorkspace.path}/.abapGitAgent&lt;br&gt;→ get package" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1360" y="930" width="280" height="60" as="geometry"/>
+                </mxCell>
+
+                <!-- C3  y=1070 -->
+                <mxCell id="poc_confirm" value="Show confirmation:&lt;br&gt;&amp;nbsp;&amp;nbsp;Repo:&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;{pocWorkspace.path}&lt;br&gt;&amp;nbsp;&amp;nbsp;Package: {package}&lt;br&gt;&lt;br&gt;&quot;Is this correct?&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="1360" y="1070" width="280" height="110" as="geometry"/>
+                </mxCell>
+
+                <!-- C4  y=1270 -->
+                <mxCell id="poc_ok" value="Write to pocWorkspace&lt;br&gt;commit → push → pull --sync-xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1370" y="1270" width="260" height="60" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN D  x=2100
+                     Probe sub-branch — SAP path
+                     ════════════════════════════════════ -->
+
+                <!-- D1  y=750 -->
+                <mxCell id="probe_ns" value="SAP namespace project?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2080" y="750" width="300" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- D2-SAP  y=930  (left of D1) -->
+                <mxCell id="probe_sap_scratch" value="scratchWorkspace configured&lt;br&gt;in .abapGitAgent?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1960" y="930" width="300" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- D2-SAP-NO  y=930  (right of probe_sap_scratch) -->
+                <mxCell id="probe_stop_sap" value="STOP&lt;br&gt;Configure scratchWorkspace&lt;br&gt;in .abapGitAgent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2340" y="940" width="240" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- D2-SAP-YES  y=1150 -->
+                <mxCell id="probe_write_scratch_sap" value="Write probe to scratchWorkspace&lt;br&gt;Auto-name: ZCL_{USER}_PURPOSE&lt;br&gt;commit → push&lt;br&gt;pull --files src/name.clas.abap&lt;br&gt;Tell user: run --class NAME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="1960" y="1120" width="280" height="110" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     COLUMN E  x=2680
+                     Probe sub-branch — Customer path
+                     ════════════════════════════════════ -->
+
+                <!-- E1  y=930 -->
+                <mxCell id="probe_disable" value="disableProbeClasses = true?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2660" y="930" width="300" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- E1-FALSE  y=1120 (left) -->
+                <mxCell id="probe_current" value="Create probe in current project&lt;br&gt;Z*/Y* prefix, Z*/Y*/$* package&lt;br&gt;Auto-name: ZCL_{USER}_PURPOSE&lt;br&gt;&lt;br&gt;commit → push → pull --sync-xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2540" y="1120" width="300" height="100" as="geometry"/>
+                </mxCell>
+
+                <!-- E1-TRUE  y=930  → scratchWorkspace check -->
+                <mxCell id="probe_scratch_check2" value="scratchWorkspace configured&lt;br&gt;in .abapGitAgent?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="3020" y="930" width="300" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- E2-NO  y=1120 -->
+                <mxCell id="probe_stop_cust" value="STOP&lt;br&gt;Configure scratchWorkspace&lt;br&gt;in .abapGitAgent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="3020" y="1120" width="240" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- E2-YES  y=1120 (write to scratch) -->
+                <mxCell id="probe_write_scratch_cust" value="Write probe to scratchWorkspace&lt;br&gt;Auto-name: ZCL_{USER}_PURPOSE&lt;br&gt;commit → push&lt;br&gt;pull --files src/name.clas.abap&lt;br&gt;Tell user: run --class NAME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="2860" y="1280" width="280" height="110" as="geometry"/>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     EDGES
+                     ════════════════════════════════════ -->
+
+                <!-- start → check_local -->
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="start" target="check_local" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- check_local → cust_pkg  (Customer, left) -->
+                <mxCell id="e2" value="Customer namespace&lt;br&gt;(Z*/Y* or no file)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="check_local" target="cust_pkg" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="280" y="280"/>
+                            <mxPoint x="280" y="475"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- check_local → sap_zname  (SAP + Z name) -->
+                <mxCell id="e28" value="SAP namespace +&lt;br&gt;Z*/Y* name given" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="check_local" target="sap_zname" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1070" y="280"/>
+                            <mxPoint x="1070" y="465"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- check_local → sap_ask  (SAP namespace, centre-right) -->
+                <mxCell id="e3" value="SAP namespace&lt;br&gt;(CL_*, IF_*, /NS/*)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="check_local" target="sap_ask" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1290" y="280"/>
+                            <mxPoint x="1290" y="560"/>
+                            <mxPoint x="1100" y="560"/>
+                            <mxPoint x="1100" y="625"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- sap_zname → sap_ask  (PoC/probe loop down) -->
+                <mxCell id="e27" value="PoC / probe" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_zname" target="sap_ask" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1100" y="510"/>
+                            <mxPoint x="1100" y="625"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- cust_pkg → cust_write -->
+                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="cust_pkg" target="cust_write" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- cust_write → cust_deploy -->
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="cust_write" target="cust_deploy" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- sap_ask → sap_pkg  (Production, left) -->
+                <mxCell id="e6" value="Production" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_ask" target="sap_pkg" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="780" y="625"/>
+                            <mxPoint x="780" y="805"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- sap_ask → poc_check  (PoC, right) -->
+                <mxCell id="e7" value="PoC" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_ask" target="poc_check" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1500" y="625"/>
+                            <mxPoint x="1500" y="790"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- sap_ask → probe_ns  (Probe, far right) -->
+                <mxCell id="e8" value="Probe" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_ask" target="probe_ns" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2230" y="625"/>
+                            <mxPoint x="2230" y="790"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- sap_pkg → sap_summary -->
+                <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_pkg" target="sap_summary" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- sap_summary → sap_confirmed -->
+                <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_summary" target="sap_confirmed" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- sap_confirmed → sap_write  (Yes) -->
+                <mxCell id="e11" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_confirmed" target="sap_write" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- sap_confirmed → sap_summary  (No, loop back) -->
+                <mxCell id="e12" value="No — adjust" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_confirmed" target="sap_summary" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="1220"/>
+                            <mxPoint x="500" y="1020"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- sap_write → sap_deploy -->
+                <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="sap_write" target="sap_deploy" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- poc_check → poc_stop  (No, right) -->
+                <mxCell id="e14" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="poc_check" target="poc_stop" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- poc_check → poc_read  (Yes, down) -->
+                <mxCell id="e15" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="poc_check" target="poc_read" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- poc_read → poc_confirm -->
+                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="poc_read" target="poc_confirm" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- poc_confirm → poc_ok  (Confirmed) -->
+                <mxCell id="e17" value="Confirmed" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="poc_confirm" target="poc_ok" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- poc_confirm → poc_read  (Different repo, loop back) -->
+                <mxCell id="e18" value="Different repo" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="poc_confirm" target="poc_read" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1690" y="1125"/>
+                            <mxPoint x="1690" y="960"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- probe_ns → probe_sap_scratch  (SAP, left-down) -->
+                <mxCell id="e19" value="SAP namespace" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_ns" target="probe_sap_scratch" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2110" y="830"/>
+                            <mxPoint x="2110" y="970"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- probe_ns → probe_disable  (Customer, right-down) -->
+                <mxCell id="e20" value="Customer namespace" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_ns" target="probe_disable" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2810" y="830"/>
+                            <mxPoint x="2810" y="970"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- probe_sap_scratch → probe_stop_sap  (No, right) -->
+                <mxCell id="e21" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_sap_scratch" target="probe_stop_sap" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- probe_sap_scratch → probe_write_scratch_sap  (Yes, down) -->
+                <mxCell id="e22" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_sap_scratch" target="probe_write_scratch_sap" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- probe_disable → probe_current  (false, left-down) -->
+                <mxCell id="e23" value="false" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_disable" target="probe_current" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2690" y="1010"/>
+                            <mxPoint x="2690" y="1170"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- probe_disable → probe_scratch_check2  (true, right) -->
+                <mxCell id="e24" value="true" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_disable" target="probe_scratch_check2" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="3170" y="970"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- probe_scratch_check2 → probe_stop_cust  (No, down) -->
+                <mxCell id="e25" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_scratch_check2" target="probe_stop_cust" parent="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- probe_scratch_check2 → probe_write_scratch_cust  (Yes, down-left) -->
+                <mxCell id="e26" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="probe_scratch_check2" target="probe_write_scratch_cust" parent="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="3000" y="1240"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- ════════════════════════════════════
+                     LEGEND  (bottom-left)
+                     ════════════════════════════════════ -->
+                <mxCell id="legend_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#999999;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="950" width="230" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_title" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="962" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_green" value="Write / Deploy action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="990" width="190" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_yellow_box" value="Decision / Confirmation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="1026" width="190" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_blue" value="Configuration / Setup step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="1062" width="190" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_red" value="STOP — user action required" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="1098" width="190" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_orange" value="SAP namespace — ask first" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="1134" width="190" height="28" as="geometry"/>
+                </mxCell>
+
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

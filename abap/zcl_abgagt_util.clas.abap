@@ -35,9 +35,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Last part should be 'ABAP' or 'ASDDLS' for verification
+    " Last part should be 'ABAP', 'ASDDLS', or 'XML' (XML-only objects: TABL, STRU, DTEL, TTYP, ...)
     READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS'.
+    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS' AND lv_last <> 'XML'.
       RETURN.
     ENDIF.
 
@@ -76,6 +76,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     ENDIF.
 
     " Remove leading '/' if present
+    CHECK lv_obj_name IS NOT INITIAL.
     IF lv_obj_name(1) = '/'.
       lv_obj_name = lv_obj_name+1.
     ENDIF.

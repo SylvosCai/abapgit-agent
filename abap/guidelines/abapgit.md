@@ -19,12 +19,16 @@ Class              | zcl_*.clas.abap              | zcl_*.clas.xml
 Test Class         | zcl_*.clas.testclasses.abap | zcl_*.clas.xml
 Interface          | zif_*.intf.abap             | zif_*.intf.xml
 Program            | z*.prog.abap                | z*.prog.xml
-Table              | z*.tabl.abap                | z*.tabl.xml
 CDS View (DDLS)    | zc_*.ddls.asddls            | zc_*.ddls.xml
-Data Element       | z*.dtel.abap                | z*.dtel.xml
-Structure          | z*.stru.abap                | z*.stru.xml
-Table Type         | z*.ttyp.abap                | z*.ttyp.xml
+Table (TABL)       | (no .abap file)             | z*.tabl.xml
+Structure (STRU)   | (no .abap file)             | z*.stru.xml
+Data Element (DTEL)| (no .abap file)             | z*.dtel.xml
+Table Type (TTYP)  | (no .abap file)             | z*.ttyp.xml
 ```
+
+> **XML-only objects (TABL, STRU, DTEL, TTYP)** have **no ABAP source file**. abapGit serializes
+> them as XML metadata only. When using `--files`, pass the `.xml` file directly:
+> `abapgit-agent pull --files abap/zmy_table.tabl.xml --sync-xml`
 
 > **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
 > Without the BOM, abapGit shows the object as **"M" (modified)** after every pull because the
@@ -244,6 +248,8 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 **Filename**: `src/zmy_table.tabl.xml`
 
+> **XML-only object** — no `.abap` source file. Pull with: `pull --files src/zmy_table.tabl.xml`
+
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
@@ -313,6 +319,8 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
 
 **Filename**: `src/zmy_dtel.dtel.xml`
 
+> **XML-only object** — no `.abap` source file. Pull with: `pull --files src/zmy_dtel.dtel.xml`
+
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
@@ -323,9 +331,9 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
     <DDLANGUAGE>E</DDLANGUAGE>
     <DDTEXT>Description of data element</DDTEXT>
     <REPTEXT>Description</REPTEXT>
-    <SCRTEXT_S>Short</SCRTEXT_S>
-    <SCRTEXT_M>Medium</SCRTEXT_M>
-    <SCRTEXT_L>Long Description</SCRTEXT_L>
+    <SCRTEXT_S>Short text</SCRTEXT_S>
+    <SCRTEXT_M>Medium text</SCRTEXT_M>
+    <SCRTEXT_L>Long description text</SCRTEXT_L>
     <DTELMASTER>E</DTELMASTER>
     <DATATYPE>CHAR</DATATYPE>
     <LENG>000010</LENG>
@@ -338,8 +346,83 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
 **Key Fields**:
 - `ROLLNAME`: Data element name
 - `DDTEXT`: Description (**not** `DESCRIPT`)
+- `REPTEXT` / `SCRTEXT_S` / `SCRTEXT_M` / `SCRTEXT_L`: Field labels (report heading, short, medium, long)
+- `DTELMASTER`: Language key for label master (`E` for English)
 - `DATATYPE`: Data type (`CHAR`, `NUMC`, `DATS`, `TIMS`, `INT4`, etc.)
 - `LENG`: Length padded to 6 digits (e.g. `000010` for 10 characters)
+
+**Omit `<PARAMID>`** unless you specifically need a SET/GET parameter ID — the serializer omits it when empty, so including an empty tag causes a permanent diff.
+
+---
+
+### Structure (STRU)
+
+**Filename**: `src/zmy_struct.stru.xml`
+
+> **XML-only object** — no `.abap` source file. abapGit uses the same TABL serializer for STRU.
+> Pull with: `pull --files src/zmy_struct.stru.xml`
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>ZMY_STRUCT</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>INTTAB</TABCLASS>
+    <DDTEXT>Description of the structure</DDTEXT>
+    <CONTFLAG>A</CONTFLAG>
+   </DD02V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key difference from TABL**: `TABCLASS` is `INTTAB` (internal table / structure) instead of `TRANSP`.
+
+**Note**: Like TABL, after the first pull abapGit expands the XML with `<DD03P_TABLE>` field definitions. When creating a new structure you only need the `<DD02V>` header.
+
+---
+
+### Table Type (TTYP)
+
+**Filename**: `src/zmy_ttyp.ttyp.xml`
+
+> **XML-only object** — no `.abap` source file.
+> Pull with: `pull --files src/zmy_ttyp.ttyp.xml`
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD40V>
+    <TYPENAME>ZMY_TTYP</TYPENAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Description of table type</DDTEXT>
+    <ROWTYPE>ZMY_STRUCT</ROWTYPE>
+    <ROWKIND>S</ROWKIND>
+    <DATATYPE>TABLE_T</DATATYPE>
+    <ACCESSMODE>T</ACCESSMODE>
+    <KEYDEF>D</KEYDEF>
+    <KEYKIND>N</KEYKIND>
+   </DD40V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key Fields**:
+- `TYPENAME`: Table type name
+- `ROWTYPE`: Row type (a structure or data element name)
+- `ROWKIND`: Row kind — `S`=Structure/Type, `D`=Data element, `R`=Reference
+- `DATATYPE`: Always `TABLE_T` for table types
+- `ACCESSMODE`: Table kind — `T`=Standard, `S`=Sorted, `H`=Hashed
+- `KEYDEF`: Key definition — `D`=Default (standard key), `K`=User-defined
+- `KEYKIND`: Key uniqueness — `N`=Non-unique, `U`=Unique
+
+**Note**: After the first pull abapGit may expand the XML with `<DD42V>` (component definitions) if key fields are explicitly defined.
 
 ---
 

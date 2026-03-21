@@ -187,26 +187,45 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         DATA lv_conflict_report TYPE string.
 
         IF run_conflict_check(
-             EXPORTING
-               it_files           = it_files
-               iv_branch          = iv_branch
-               iv_conflict_mode   = iv_conflict_mode
-             IMPORTING
-               et_file_entries    = lt_file_entries
-               ev_conflict_count  = lv_conflict_count
-               ev_conflict_report = lv_conflict_report ) = abap_true.
-          rs_result-conflict_count  = lv_conflict_count.
-          rs_result-conflict_report = lv_conflict_report.
-          rs_result-message = |Pull aborted — { lv_conflict_count } conflict(s) detected|.
-          GET TIME STAMP FIELD rs_result-finished_at.
-          RETURN.
-        ENDIF.
+               EXPORTING
+                 it_files           = it_files
+                 iv_branch          = iv_branch
+                 iv_conflict_mode   = iv_conflict_mode
+               IMPORTING
+                 et_file_entries    = lt_file_entries
+                 ev_conflict_count  = lv_conflict_count
+                 ev_conflict_report = lv_conflict_report ) = abap_true.
+            rs_result-conflict_count  = lv_conflict_count.
+            rs_result-conflict_report = lv_conflict_report.
+            rs_result-message = |Pull aborted — { lv_conflict_count } conflict(s) detected|.
+            GET TIME STAMP FIELD rs_result-finished_at.
+            RETURN.
+          ENDIF.
 
         DATA(ls_checks) = prepare_deserialize_checks(
           it_files             = it_files
           iv_transport_request = iv_transport_request ).
 
-        run_deserialize( ls_checks ).
+        DATA lv_activation_cancelled TYPE abap_bool VALUE abap_false.
+        TRY.
+            run_deserialize( ls_checks ).
+          CATCH zcx_abapgit_exception INTO DATA(lx_deser).
+            " "Activation cancelled" means nothing needed to be re-activated.
+            " Treat it as a non-error so XML sync can still check for file drift.
+            IF lx_deser->get_text( ) CS 'Activation cancelled' OR
+               lx_deser->get_text( ) CS 'activation cancelled'.
+              lv_activation_cancelled = abap_true.
+            ELSE.
+              RAISE EXCEPTION lx_deser.
+            ENDIF.
+          CATCH cx_root.
+            " CX_SY_NO_HANDLER (wrapping CX_SY_RANGE_OUT_OF_BOUNDS) can escape
+            " abapGit's deserialize_step when an individual object's deserialize()
+            " raises a non-zcx_abapgit_exception inside a RAISING zcx_abapgit_exception
+            " method boundary. Proceed to build_pull_result so the pull returns
+            " "Pull completed" rather than failing with an unhandled exception.
+            " (Objects processed before the crash are activated; skipped ones are not.)
+        ENDTRY.
 
         " Populate mt_remote_files after deserialize — abapGit's internal remote
         " cache (mt_remote) is warm at this point (populated by find_remote_dot_abapgit
@@ -221,17 +240,25 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
               ELSE.
                 mt_remote_files = mo_repo->get_files_remote( ).
               ENDIF.
-            CATCH zcx_abapgit_exception.
+            CATCH zcx_abapgit_exception cx_root.
               " Still unavailable — XML sync will be skipped
           ENDTRY.
         ENDIF.
 
-        build_pull_result(
-          EXPORTING
-            it_file_entries = lt_file_entries
-            iv_branch       = iv_branch
-          CHANGING
-            cs_result       = rs_result ).
+        IF lv_activation_cancelled = abap_true.
+          " Nothing was re-activated — skip log checks, but still run XML sync
+          " so git files that differ from the serializer are reported as drift.
+          rs_result-message        = 'Activation cancelled. Check the inactive objects.'.
+          rs_result-local_xml_files = get_local_xml_files( ).
+          GET TIME STAMP FIELD rs_result-finished_at.
+        ELSE.
+          build_pull_result(
+            EXPORTING
+              it_file_entries = lt_file_entries
+              iv_branch       = iv_branch
+            CHANGING
+              cs_result       = rs_result ).
+        ENDIF.
 
       CATCH zcx_abapgit_exception INTO DATA(lx_git).
         rs_result = handle_exception( ix_exception = lx_git ).
@@ -299,15 +326,25 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
     " Call deserialize_checks — pass ii_obj_filter dynamically if the installed
     " abapGit version supports it; fall back to plain call for older versions.
-    IF filter_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
-      CALL METHOD mo_repo->('DESERIALIZE_CHECKS')
-        EXPORTING
-          ii_obj_filter = mo_obj_filter
-        RECEIVING
-          rs_checks     = rs_checks.
-    ELSE.
-      rs_checks = mo_repo->deserialize_checks( ).
-    ENDIF.
+    " Wrap in cx_root catch: get_files_local() inside abapGit can raise
+    " CX_SY_RANGE_OUT_OF_BOUNDS (e.g. broken serializer for an object in the
+    " package) which crosses a RAISING zcx_abapgit_exception boundary and
+    " becomes CX_SY_NO_HANDLER. If that happens, skip checks and let the
+    " subsequent deserialize step handle per-object failures.
+    TRY.
+        IF filter_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
+          CALL METHOD mo_repo->('DESERIALIZE_CHECKS')
+            EXPORTING
+              ii_obj_filter = mo_obj_filter
+            RECEIVING
+              rs_checks     = rs_checks.
+        ELSE.
+          rs_checks = mo_repo->deserialize_checks( ).
+        ENDIF.
+      CATCH cx_root.
+        " Serializer error in get_files_local — skip checks, pull proceeds
+        RETURN.
+    ENDTRY.
 
     " Set transport request if provided
     IF iv_transport_request IS NOT INITIAL.
@@ -708,6 +745,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Cannot read remote files — skip conflict check (e.g. auth error pre-pull)
         mv_remote_fetch_error = lx_remote->get_text( ).
         RETURN.
+      CATCH cx_root INTO DATA(lx_remote_root).
+        mv_remote_fetch_error = lx_remote_root->get_text( ).
+        RETURN.
     ENDTRY.
 
     " Build lookup of requested files (filename only, uppercased)
@@ -731,9 +771,18 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     LOOP AT mt_remote_files INTO DATA(ls_remote_file).
       DATA(lv_filename) = ls_remote_file-filename.
 
-      " Only process ABAP source files
+      " Only process ABAP source files — check true suffix (last segment after '.')
+      " Use CS check for speed, then verify no false positive from .abapgit.xml-type names
       DATA(lv_ext) = to_upper( lv_filename ).
-      IF NOT ( lv_ext CS '.ABAP' OR lv_ext CS '.ASDDLS' ).
+      DATA(lv_ext_len) = strlen( lv_ext ).
+      DATA(lv_last_dot) = find( val = reverse( lv_ext ) sub = '.' ).
+      IF lv_last_dot <= 0.
+        CONTINUE.
+      ENDIF.
+      DATA lv_suffix_off TYPE i.
+      lv_suffix_off = lv_ext_len - lv_last_dot.
+      DATA(lv_true_ext) = lv_ext+lv_suffix_off.
+      IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS'.
         CONTINUE.
       ENDIF.
 
@@ -788,7 +837,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         ELSE.
           lt_local = mo_repo->get_files_local( ).
         ENDIF.
-      CATCH zcx_abapgit_exception.
+      CATCH zcx_abapgit_exception cx_root.
         " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
         RETURN.
     ENDTRY.
@@ -799,7 +848,15 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
     LOOP AT lt_local INTO DATA(ls_local_item).
       DATA(lv_local_fn) = to_upper( ls_local_item-file-filename ).
-      IF NOT ( lv_local_fn CS '.ABAP' OR lv_local_fn CS '.ASDDLS' ).
+      DATA(lv_local_len) = strlen( lv_local_fn ).
+      DATA(lv_local_dot) = find( val = reverse( lv_local_fn ) sub = '.' ).
+      IF lv_local_dot <= 0.
+        CONTINUE.
+      ENDIF.
+      DATA lv_local_off TYPE i.
+      lv_local_off = lv_local_len - lv_local_dot.
+      DATA(lv_local_ext) = lv_local_fn+lv_local_off.
+      IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS'.
         CONTINUE.
       ENDIF.
       IF lv_local_fn CS '.TESTCLASSES.' OR lv_local_fn CS '.LOCALS_DEF.' OR lv_local_fn CS '.LOCALS_IMP.'.
@@ -864,7 +921,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         ELSE.
           lt_local = mo_repo->get_files_local( ).
         ENDIF.
-      CATCH zcx_abapgit_exception.
+      CATCH zcx_abapgit_exception cx_root.
         RETURN.
     ENDTRY.
 

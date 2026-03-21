@@ -2,7 +2,7 @@
  * Command test cases with specific assertions (runs against real ABAP system)
  *
  * These are isolated command tests. For workflow tests (multi-step sequences),
- * see pull-runner.js and lifecycle-runner.js.
+ * see pull-runner.js, lifecycle-runner.js, and xml-only-runner.js.
  *
  * Test Distribution:
  *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)

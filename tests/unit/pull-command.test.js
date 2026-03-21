@@ -74,11 +74,18 @@ describe('Pull Command - Logic Tests', () => {
   // Helper that mirrors the --files validation in pull.js
   function findNonSourceFiles(files) {
     const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+    const isXmlOnlyObject = (f) => {
+      const base = f.split('/').pop();
+      const parts = base.split('.');
+      return parts.length === 3 && parts[0].length > 0 && parts[2].toLowerCase() === 'xml';
+    };
     return files.filter(f => {
       const base = f.split('/').pop();
       const parts = base.split('.');
       const ext = parts[parts.length - 1].toLowerCase();
-      return parts.length < 3 || !ABAP_SOURCE_EXTS.has(ext);
+      if (ABAP_SOURCE_EXTS.has(ext)) return false;
+      if (isXmlOnlyObject(f)) return false;
+      return true;
     });
   }
 
@@ -99,27 +106,41 @@ describe('Pull Command - Logic Tests', () => {
       expect(findNonSourceFiles(['zcl_foo.clas.testclasses.abap'])).toHaveLength(0);
     });
 
-    test('rejects .clas.xml files', () => {
-      const bad = findNonSourceFiles(['abap/zcl_abgagt_agent.clas.xml']);
-      expect(bad).toHaveLength(1);
-      expect(bad[0]).toBe('abap/zcl_abgagt_agent.clas.xml');
+    test('accepts .tabl.xml files (XML-only objects)', () => {
+      expect(findNonSourceFiles(['abap/ztable.tabl.xml'])).toHaveLength(0);
     });
 
-    test('rejects .intf.xml files', () => {
-      expect(findNonSourceFiles(['zif_foo.intf.xml'])).toHaveLength(1);
+    test('accepts .dtel.xml files (XML-only objects)', () => {
+      expect(findNonSourceFiles(['zdtel.dtel.xml'])).toHaveLength(0);
+    });
+
+    test('accepts .clas.xml files (companion XML — abapGit handles them)', () => {
+      expect(findNonSourceFiles(['abap/zcl_abgagt_agent.clas.xml'])).toHaveLength(0);
+    });
+
+    test('accepts .intf.xml files (companion XML — abapGit handles them)', () => {
+      expect(findNonSourceFiles(['zif_foo.intf.xml'])).toHaveLength(0);
     });
 
     test('rejects files with only one dot-segment', () => {
-      expect(findNonSourceFiles(['zcl_foo.abap'])).toHaveLength(1);
+      expect(findNonSourceFiles(['zcl_foo.txt'])).toHaveLength(1);
     });
 
     test('rejects mixed list — flags only the invalid file', () => {
       const bad = findNonSourceFiles([
         'src/zcl_good.clas.abap',
-        'abap/zcl_abgagt_agent.clas.xml',
+        'zcl_foo.txt',  // unknown extension — invalid
       ]);
       expect(bad).toHaveLength(1);
-      expect(bad[0]).toBe('abap/zcl_abgagt_agent.clas.xml');
+      expect(bad[0]).toBe('zcl_foo.txt');
+    });
+
+    test('accepts mixed list of source and XML-only object files', () => {
+      expect(findNonSourceFiles([
+        'src/zcl_good.clas.abap',
+        'abap/ztable.tabl.xml',
+        'zdtel.dtel.xml',
+      ])).toHaveLength(0);
     });
 
     test('accepts a list where every file is a valid source file', () => {

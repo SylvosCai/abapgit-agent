@@ -34,6 +34,7 @@ const { runPullTests } = require('./integration/pull-runner');
 const { runFullPullTests } = require('./integration/pull-full-runner');
 const { runConflictTests } = require('./integration/conflict-runner');
 const { runSyncXmlTests } = require('./integration/sync-xml-runner');
+const { runXmlOnlyTests } = require('./integration/xml-only-runner');
 
 // Colors for output
 const colors = {
@@ -178,6 +179,16 @@ function runSyncXmlTestsWrapper() {
     printError,
     colorize,
     colors
+  });
+}
+
+function runXmlOnlyTestsWrapper() {
+  return runXmlOnlyTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize
   });
 }
 
@@ -483,6 +494,15 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       totalCount += syncXmlResults.totalCount || 0;
       printInfo(`  (Including ${syncXmlResults.passedCount || 0}/${syncXmlResults.totalCount || 0} sync-xml tests)`);
     }
+
+    // Run XML-only object pull tests (TABL, DTEL, TTYP via --files name.type.xml)
+    const xmlOnlyResults = runXmlOnlyTestsWrapper();
+    if (xmlOnlyResults && !xmlOnlyResults.skipped && xmlOnlyResults.results) {
+      results.push(...xmlOnlyResults.results);
+      passedCount += xmlOnlyResults.passedCount || 0;
+      totalCount += xmlOnlyResults.totalCount || 0;
+      printInfo(`  (Including ${xmlOnlyResults.passedCount || 0}/${xmlOnlyResults.totalCount || 0} xml-only tests)`);
+    }
   }
 
   if (passedCount === totalCount) {
@@ -667,7 +687,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -676,7 +696,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runSyncXml;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runSyncXml, runXmlOnly;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -687,6 +707,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
@@ -697,6 +718,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
@@ -707,6 +729,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
@@ -717,6 +740,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--pull')) {
     runJest = false;
@@ -727,6 +751,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
@@ -737,6 +762,7 @@ async function main() {
     runFullPull = true;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
@@ -747,6 +773,7 @@ async function main() {
     runFullPull = false;
     runConflict = true;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
@@ -757,6 +784,18 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = true;
+    runXmlOnly = false;
+    runDebug = false;
+  } else if (args.includes('--xml-only')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = true;
     runDebug = false;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
@@ -767,6 +806,7 @@ async function main() {
     runFullPull = false;
     runConflict = false;
     runSyncXml = false;
+    runXmlOnly = false;
     runDebug = true;
   } else {
     // Run all tests
@@ -778,6 +818,7 @@ async function main() {
     runFullPull = false;    // Full pull tests run as part of cmd tests
     runConflict = false;    // Conflict tests run standalone (stateful, sequential)
     runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
+    runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
     runDebug = true;
   }
 
@@ -843,6 +884,13 @@ async function main() {
     printSubHeader('Running --sync-xml Integration Tests Only');
     const syncXmlResults = runSyncXmlTestsWrapper();
     results.syncXml = syncXmlResults;
+  }
+
+  // Run XML-only object pull tests only
+  if (runXmlOnly) {
+    printSubHeader('Running XML-Only Object Pull Tests Only');
+    const xmlOnlyResults = runXmlOnlyTestsWrapper();
+    results.xmlOnly = xmlOnlyResults;
   }
 
   // Run Debug scenario tests (REPL + scripted AI/--json)

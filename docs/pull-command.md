@@ -262,6 +262,10 @@ Files are parsed to extract `(obj_type, obj_name)`:
 | `zcl_my_class.clas.abap` | CLAS | ZCL_MY_CLASS |
 | `zif_my_intf.intf.abap` | INTF | ZIF_MY_INTF |
 | `src/zcl_my_class.clas.abap` | CLAS | ZCL_MY_CLASS |
+| `ztable.tabl.xml` | TABL | ZTABLE |
+| `zdtel.dtel.xml` | DTEL | ZDTEL |
+| `zstru.stru.xml` | STRU | ZSTRU |
+| `src/ztable.tabl.xml` | TABL | ZTABLE |
 
 ---
 
@@ -525,6 +529,10 @@ Files are parsed to extract `(obj_type, obj_name)`:
 | `zcl_my_class.clas.abap` | CLAS | ZCL_MY_CLASS |
 | `zif_my_intf.intf.abap` | INTF | ZIF_MY_INTF |
 | `src/zcl_my_class.clas.abap` | CLAS | ZCL_MY_CLASS |
+| `ztable.tabl.xml` | TABL | ZTABLE |
+| `zdtel.dtel.xml` | DTEL | ZDTEL |
+| `zstru.stru.xml` | STRU | ZSTRU |
+| `src/ztable.tabl.xml` | TABL | ZTABLE |
 
 ---
 
