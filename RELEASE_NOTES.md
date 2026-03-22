@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.13.5
+
+### New Features
+
+- Add `--version` / `-v` flag to CLI
+- Show current version in help output
+
+### Bug Fixes
+
+- Fix version check for `http://` npm registry URLs
+
+---
+
+---
+
+
 ## v1.13.4
 
 ### New Features
