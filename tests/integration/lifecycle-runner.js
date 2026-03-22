@@ -154,9 +154,10 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
       addResult('status after delete', afterDelete, output);
     }
 
-    // Step 10: Commit init changes
+    // Step 10: Commit init changes (exclude .abapGitAgent — contains credentials)
     printInfo('Committing init changes...');
     execSync('git add .', { cwd: testDir });
+    execSync('git reset HEAD .abapGitAgent 2>/dev/null || true', { cwd: testDir, shell: true });
     execSync('git commit -m "chore: init project"', { cwd: testDir });
 
     // Step 11: Run create command
@@ -218,6 +219,7 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
 
       // Commit and push
       execSync('git add .', { cwd: testDir });
+      execSync('git reset HEAD .abapGitAgent 2>/dev/null || true', { cwd: testDir, shell: true });
       execSync('git commit -m "test: minor interface change"', { cwd: testDir });
       execSync('git push origin main', { cwd: testDir });
 
