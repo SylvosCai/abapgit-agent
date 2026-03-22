@@ -36,6 +36,12 @@ async function main() {
 
   const commandModules = require('../src/commands/index');
 
+  // Handle --version / -v
+  if (command === '--version' || command === '-v') {
+    console.log(versionCheck.getCliVersion());
+    return;
+  }
+
   // Check if this is a modular command
   if (commandModules[command] || command === '--help' || command === '-h') {
     const cmd = command === '--help' || command === '-h' ? commandModules.help : commandModules[command];

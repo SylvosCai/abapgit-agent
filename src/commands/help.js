@@ -9,8 +9,10 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
+    const { versionCheck } = context;
+    const version = versionCheck.getCliVersion();
     console.log(`
-ABAP Git Agent
+ABAP Git Agent v${version}
 
 Usage:
   abapgit-agent <command> [options]
