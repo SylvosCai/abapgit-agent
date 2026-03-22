@@ -163,6 +163,32 @@ describe('version-check', () => {
 });
 
 // ---------------------------------------------------------------------------
+// --version / -v flag (tested via the CLI entry point)
+// ---------------------------------------------------------------------------
+
+describe('--version / -v flag', () => {
+  const { execSync } = require('child_process');
+  const binPath = require('path').join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+
+  test('--version prints a valid semver string', () => {
+    const output = execSync(`node ${binPath} --version`, { encoding: 'utf8' }).trim();
+    expect(output).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test('-v prints the same version as --version', () => {
+    const v1 = execSync(`node ${binPath} --version`, { encoding: 'utf8' }).trim();
+    const v2 = execSync(`node ${binPath} -v`, { encoding: 'utf8' }).trim();
+    expect(v1).toBe(v2);
+  });
+
+  test('--version matches getCliVersion()', () => {
+    const versionCheck = require('../../src/utils/version-check');
+    const output = execSync(`node ${binPath} --version`, { encoding: 'utf8' }).trim();
+    expect(output).toBe(versionCheck.getCliVersion());
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Mocked tests — cover branches that require controlled I/O
 // ---------------------------------------------------------------------------
 
