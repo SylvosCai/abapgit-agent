@@ -168,8 +168,13 @@ module.exports = {
         const csrfToken = await http.fetchCsrfToken();
         statusResult = await http.post('/sap/bc/z_abapgit_agent/status', { url: gitUrl }, { csrfToken });
       } catch (e) {
+        const isNetworkError = e.code && ['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET'].includes(e.code);
         console.error(`❌ Repository status check failed: ${e.message}`);
-        console.error('   Make sure the repository is registered with abapgit-agent (run "abapgit-agent create").');
+        if (isNetworkError) {
+          console.error('   Cannot reach the ABAP system. Check your network connection and the host in .abapGitAgent.');
+        } else {
+          console.error('   Make sure the repository is registered with abapgit-agent (run "abapgit-agent create").');
+        }
         process.exit(1);
       }
 
