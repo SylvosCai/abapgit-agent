@@ -135,7 +135,8 @@ async function getLatestNpmVersion() {
       const baseUrl = registry.endsWith('/') ? registry : registry + '/';
       const url = `${baseUrl}abapgit-agent/latest`;
 
-      https.get(url, (res) => {
+      const client = url.startsWith('http://') ? http : https;
+      client.get(url, (res) => {
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
