@@ -8,7 +8,9 @@ const verifiers = require('../helpers/output-verifiers');
 // Mock fs module
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content')
+  readFileSync: jest.fn(() => 'mock content'),
+  mkdirSync: jest.fn(),
+  writeFileSync: jest.fn()
 }));
 
 // Mock path module
@@ -16,7 +18,8 @@ jest.mock('path', () => ({
   isAbsolute: jest.fn(() => false),
   join: jest.fn((...args) => args.join('/')),
   resolve: jest.fn((...args) => '/' + args.join('/')),
-  basename: jest.fn((p) => p.split('/').pop())
+  basename: jest.fn((p) => p.split('/').pop()),
+  dirname: jest.fn((p) => p.split('/').slice(0, -1).join('/') || '.')
 }));
 
 // Mock process.exit
@@ -166,7 +169,9 @@ describe('Unit Command - CLI Output Format', () => {
       }))
     };
 
-    await unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap'], mockContext);
+    await expect(
+      unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
 
     const output = consoleOutput.join('\n');
 
@@ -280,9 +285,13 @@ describe('Unit Command - CLI Output Format', () => {
       }))
     };
 
-    await unitCommand.execute(['--files', 'zcl_test.clas.testclasses.abap', '--json', '--coverage'], mockContext);
+    let output;
+    await expect(async () => {
+      await unitCommand.execute(['--files', 'zcl_test.clas.testclasses.abap', '--json', '--coverage'], mockContext);
+    }).rejects.toThrow('process.exit(1)');
 
-    const output = consoleOutput.join('\n');
+    output = consoleOutput.join('\n');
+    // JSON output is the entire console output in JSON mode (pretty-printed array)
     const parsed = JSON.parse(output);
 
     // Verify structure
@@ -529,3 +538,203 @@ describe('Unit Command - Error Handling', () => {
   });
 });
 
+
+describe('Unit Command - JUnit Output', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+  let originalConsoleError;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    originalConsoleError = console.error;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+    jest.resetModules();
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+    fs.mkdirSync.mockReset();
+    fs.writeFileSync.mockReset();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('writes JUnit XML file when --junit-output is specified', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X', TEST_COUNT: 5, PASSED_COUNT: 5, FAILED_COUNT: 0, ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(
+      ['--files', 'zcl_my_test.clas.testclasses.abap', '--junit-output', 'reports/unit.xml'],
+      mockContext
+    );
+
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      expect.stringContaining('unit.xml'),
+      expect.stringContaining('<?xml version="1.0"'),
+      'utf8'
+    );
+  });
+
+  test('JUnit XML contains testsuite with class name', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X', TEST_COUNT: 3, PASSED_COUNT: 3, FAILED_COUNT: 0, ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(
+      ['--files', 'zcl_my_test.clas.testclasses.abap', '--junit-output', 'out.xml'],
+      mockContext
+    );
+
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('ZCL_MY_TEST');
+    expect(writtenXml).toContain('<testsuite');
+    expect(writtenXml).toContain('<testsuites>');
+  });
+
+  test('JUnit XML contains failure element for failed tests', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: '', TEST_COUNT: 3, PASSED_COUNT: 1, FAILED_COUNT: 2,
+          ERRORS: [
+            { CLASS_NAME: 'ZCL_MY_TEST', METHOD_NAME: 'TEST_CALC', ERROR_KIND: 'FAILURE', ERROR_TEXT: 'Expected 5 but got 3' },
+            { CLASS_NAME: 'ZCL_MY_TEST', METHOD_NAME: 'TEST_NULL', ERROR_KIND: 'ERROR',   ERROR_TEXT: 'Null pointer exception' }
+          ]
+        })
+      }))
+    };
+
+    await expect(
+      unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap', '--junit-output', 'out.xml'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('<failure');
+    expect(writtenXml).toContain('TEST_CALC');
+    expect(writtenXml).toContain('TEST_NULL');
+    expect(writtenXml).toContain('Expected 5 but got 3');
+    expect(writtenXml).toContain('failures="2"');
+  });
+
+  test('JUnit XML is written before process.exit on failure', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: '', TEST_COUNT: 1, PASSED_COUNT: 0, FAILED_COUNT: 1,
+          ERRORS: [{ CLASS_NAME: 'ZCL_T', METHOD_NAME: 'M1', ERROR_KIND: 'FAILURE', ERROR_TEXT: 'Fail' }]
+        })
+      }))
+    };
+
+    await expect(
+      unitCommand.execute(['--files', 'zcl_t.clas.testclasses.abap', '--junit-output', 'out.xml'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    // XML must have been written even though we exit(1)
+    expect(fs.writeFileSync).toHaveBeenCalled();
+  });
+
+  test('creates output directory if it does not exist', async () => {
+    const fs = require('fs');
+    // Only the junit output dir doesn't exist; source file still exists
+    fs.existsSync.mockImplementation((p) => !String(p).includes('reports'));
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X', TEST_COUNT: 1, PASSED_COUNT: 1, FAILED_COUNT: 0, ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(
+      ['--files', 'zcl_my_test.clas.testclasses.abap', '--junit-output', 'reports/deep/unit.xml'],
+      mockContext
+    );
+
+    expect(fs.mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+  });
+
+  test('still prints normal output when --junit-output is set', async () => {
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X', TEST_COUNT: 3, PASSED_COUNT: 3, FAILED_COUNT: 0, ERRORS: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(
+      ['--files', 'zcl_my_test.clas.testclasses.abap', '--junit-output', 'out.xml'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('All tests passed');
+    expect(output).toContain('JUnit report written to');
+  });
+
+  test('JUnit XML escapes special XML characters in error text', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: '', TEST_COUNT: 1, PASSED_COUNT: 0, FAILED_COUNT: 1,
+          ERRORS: [{ CLASS_NAME: 'ZCL_T', METHOD_NAME: 'M', ERROR_KIND: 'FAILURE', ERROR_TEXT: '<value> & "expected"' }]
+        })
+      }))
+    };
+
+    await expect(
+      unitCommand.execute(['--files', 'zcl_t.clas.testclasses.abap', '--junit-output', 'out.xml'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('&lt;value&gt;');
+    expect(writtenXml).toContain('&amp;');
+    expect(writtenXml).toContain('&quot;expected&quot;');
+  });
+});
