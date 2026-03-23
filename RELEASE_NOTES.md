@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.13.6
+
+### New Features
+
+- `--junit-output <file>` flag for `inspect` and `unit` commands
+
+### Bug Fixes
+
+- Show network error hint on ENOTFOUND/ECONNREFUSED instead of registration hint
+
+---
+
+---
+
+
 ## v1.13.5
 
 ### New Features
