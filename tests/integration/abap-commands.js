@@ -17,12 +17,12 @@
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
  *   - pull:    1 test  (--files)
- *   - unit:    1 test  (test class)
+ *   - unit:    2 tests  (test class, --junit-output)
  *   - run:     2 tests (run program, run class)
  *   - status:  1 test  (config check)
- *   - inspect: 1 test  (code inspector)
+ *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    62 tests
+ *   Total:    64 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -55,7 +55,7 @@ const commandTestCases = [
   },
 
   // ===================================================================
-  // INSPECT COMMAND - 1 test
+  // INSPECT COMMAND - 2 tests
   // Purpose: Run Code Inspector checks on activated objects
   // ===================================================================
   {
@@ -71,9 +71,33 @@ const commandTestCases = [
       return hasResult && hasObject;
     }
   },
+  {
+    command: 'inspect',
+    name: 'inspect --junit-output writes valid JUnit XML',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap',
+           '--junit-output', '/tmp/abapgit-agent-test-inspect.xml'],
+    expectSuccess: true,
+    verify: (output) => {
+      const fs = require('fs');
+      // CLI output still shows normal results
+      if (!(output.includes('Syntax check passed') || output.includes('Syntax check failed'))) return false;
+      // File must exist
+      if (!fs.existsSync('/tmp/abapgit-agent-test-inspect.xml')) return false;
+      // File must be valid JUnit XML
+      const xml = fs.readFileSync('/tmp/abapgit-agent-test-inspect.xml', 'utf8');
+      return xml.includes('<?xml') &&
+             xml.includes('<testsuites') &&
+             xml.includes('<testsuite') &&
+             xml.includes('ZCL_ABGAGT_UTIL');
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      try { fs.unlinkSync('/tmp/abapgit-agent-test-inspect.xml'); } catch (_) {}
+    }
+  },
 
   // ===================================================================
-  // UNIT COMMAND - 1 test
+  // UNIT COMMAND - 2 tests
   // Purpose: Run ABAP unit tests
   // ===================================================================
   {
@@ -87,6 +111,30 @@ const commandTestCases = [
         (output.includes('Passed:') || output.includes('Failed:'));
       const hasClass = output.includes('ZCL_ABGAGT_UTIL');
       return hasResult && hasClass;
+    }
+  },
+  {
+    command: 'unit',
+    name: 'unit --junit-output writes valid JUnit XML',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.testclasses.abap',
+           '--junit-output', '/tmp/abapgit-agent-test-unit.xml'],
+    expectSuccess: true,
+    verify: (output) => {
+      const fs = require('fs');
+      // CLI output still shows normal results
+      if (!output.includes('Tests:')) return false;
+      // File must exist
+      if (!fs.existsSync('/tmp/abapgit-agent-test-unit.xml')) return false;
+      // File must be valid JUnit XML
+      const xml = fs.readFileSync('/tmp/abapgit-agent-test-unit.xml', 'utf8');
+      return xml.includes('<?xml') &&
+             xml.includes('<testsuites') &&
+             xml.includes('<testsuite') &&
+             xml.includes('ZCL_ABGAGT_UTIL');
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      try { fs.unlinkSync('/tmp/abapgit-agent-test-unit.xml'); } catch (_) {}
     }
   },
 
