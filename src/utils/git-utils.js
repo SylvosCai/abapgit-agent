@@ -42,9 +42,14 @@ function getBranch() {
   const match = content.match(/ref: refs\/heads\/(.+)/);
   if (match) return match[1];
 
-  // Detached HEAD (e.g. Jenkins PR checkout) — use CHANGE_BRANCH env var
-  // which Jenkins sets to the actual PR head branch name.
+  // Detached HEAD (e.g. Jenkins checkout) — use Jenkins env vars:
+  // CHANGE_BRANCH is set in PR builds (actual head branch name),
+  // BRANCH_NAME is set in all builds (branch name or "PR-N" for PRs).
+  // For PR builds BRANCH_NAME is "PR-N" so prefer CHANGE_BRANCH first.
   if (process.env.CHANGE_BRANCH) return process.env.CHANGE_BRANCH;
+  if (process.env.BRANCH_NAME && !process.env.BRANCH_NAME.startsWith('PR-')) {
+    return process.env.BRANCH_NAME;
+  }
 
   return 'main';
 }
