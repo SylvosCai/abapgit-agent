@@ -16,23 +16,19 @@ CLASS zcl_abgagt_syntax_chk_prog DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~get_object_type.
     rv_type = 'PROG'.
   ENDMETHOD.
 
-
   METHOD set_uccheck.
     mv_uccheck = iv_uccheck.
   ENDMETHOD.
 
-
   METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
-
 
   METHOD zif_abgagt_syntax_checker~check.
     DATA: ls_dir      TYPE trdir,

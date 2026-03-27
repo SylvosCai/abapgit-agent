@@ -142,7 +142,6 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-
   METHOD parse_request.
 
     /ui2/cl_json=>deserialize(

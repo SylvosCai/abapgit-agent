@@ -1060,12 +1060,16 @@ where carrid = $parameters.p_carrid
   {
     command: 'ref',
     name: 'ref --list-repos',
-    args: ['--list-repos'],
+    args: ['--list-repos', '--json'],
     expectSuccess: true,
     verify: (output) => {
-      // Should list repositories or show error if not configured
-      const hasResult = output.includes('Repository') || output.includes('Reference folder') || output.includes('Not configured');
-      return hasResult;
+      // Should list repositories (JSON to stdout) or error object if referenceFolder not configured
+      try {
+        const result = JSON.parse(output);
+        return result.repositories !== undefined || result.error !== undefined;
+      } catch (e) {
+        return false;
+      }
     }
   },
   {

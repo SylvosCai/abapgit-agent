@@ -40,7 +40,13 @@ function getBranch() {
 
   const content = fs.readFileSync(headPath, 'utf8').trim();
   const match = content.match(/ref: refs\/heads\/(.+)/);
-  return match ? match[1] : 'main';
+  if (match) return match[1];
+
+  // Detached HEAD (e.g. Jenkins PR checkout) — use CHANGE_BRANCH env var
+  // which Jenkins sets to the actual PR head branch name.
+  if (process.env.CHANGE_BRANCH) return process.env.CHANGE_BRANCH;
+
+  return 'main';
 }
 
 /**

@@ -33,7 +33,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
 
   METHOD setup.
     go_env->clear_doubles( ).
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW #( ).
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -45,9 +45,9 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_interface.
-    DATA lo_interface TYPE REF TO zif_abgagt_command.
-    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_preview.
-    lo_interface = mo_cut.
+
+    mo_cut = NEW zcl_abgagt_command_preview( ).
+    DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
       msg = 'Object should implement zif_abgagt_command interface' ).

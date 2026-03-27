@@ -33,7 +33,7 @@ CLASS zcl_abgagt_resource_status IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_delete=>ty_delete_params.
     ls_request = is_request.
-    rv_valid = boolc( ls_request-url IS NOT INITIAL ).
+    rv_valid = xsdbool( ls_request-url IS NOT INITIAL ).
   ENDMETHOD.
 
   METHOD get_error_message.

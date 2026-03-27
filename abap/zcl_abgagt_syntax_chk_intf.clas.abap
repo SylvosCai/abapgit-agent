@@ -10,18 +10,15 @@ CLASS zcl_abgagt_syntax_chk_intf DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_syntax_chk_intf IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~get_object_type.
     rv_type = 'INTF'.
   ENDMETHOD.
 
-
   METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
-
 
   METHOD zif_abgagt_syntax_checker~check.
     DATA: ls_dir       TYPE trdir,

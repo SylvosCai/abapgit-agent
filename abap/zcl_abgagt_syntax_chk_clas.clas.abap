@@ -41,26 +41,21 @@ CLASS zcl_abgagt_syntax_chk_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~get_object_type.
     rv_type = 'CLAS'.
   ENDMETHOD.
 
-
   METHOD zif_abgagt_syntax_checker~check.
     DATA: lt_skeleton  TYPE string_table,
-          lv_classname TYPE seoclsname,
-          lv_prepended TYPE i,
-          lv_main_lines TYPE i,
-          lv_locals_imp_lines TYPE i.
+          lv_classname TYPE seoclsname.
 
     lv_classname = to_upper( iv_name ).
 
     " Build skeleton: CLASS-POOL + locals_def + main source + locals_imp + testclasses
     APPEND 'CLASS-POOL.' TO lt_skeleton.
-    lv_prepended = 1.  " CLASS-POOL. line
+    DATA(lv_prepended) = 1.  " CLASS-POOL. line
 
     " Add local class definitions first (they need to be defined before used)
     IF mt_locals_def IS NOT INITIAL.
@@ -69,12 +64,12 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     ENDIF.
 
     " Add main class source
-    lv_main_lines = lines( it_source ).
+    DATA(lv_main_lines) = lines( it_source ).
     APPEND LINES OF it_source TO lt_skeleton.
 
     " Add local class implementations
     IF mt_locals_imp IS NOT INITIAL.
-      lv_locals_imp_lines = lines( mt_locals_imp ).
+      DATA(lv_locals_imp_lines) = lines( mt_locals_imp ).
       APPEND LINES OF mt_locals_imp TO lt_skeleton.
     ENDIF.
 
@@ -92,40 +87,32 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       iv_locals_imp_lines = lv_locals_imp_lines ).
   ENDMETHOD.
 
-
   METHOD set_locals_def.
     mt_locals_def = it_locals_def.
   ENDMETHOD.
-
 
   METHOD set_locals_imp.
     mt_locals_imp = it_locals_imp.
   ENDMETHOD.
 
-
   METHOD set_testclasses.
     mt_testclasses = it_testclasses.
   ENDMETHOD.
-
 
   METHOD zif_abgagt_syntax_checker~set_fixpt.
     mv_fixpt = iv_fixpt.
   ENDMETHOD.
 
-
   METHOD clear_locals.
     CLEAR: mt_locals_def, mt_locals_imp, mt_testclasses, mv_fixpt.
   ENDMETHOD.
-
 
   METHOD run_check.
     DATA: ls_dir       TYPE trdir,
           lv_msg       TYPE string,
           lv_line      TYPE i,
           lv_word      TYPE string,
-          lv_classpool TYPE syrepid,
-          lv_testclasses_start TYPE i,
-          lv_include TYPE string.
+          lv_classpool TYPE syrepid.
 
     rs_result-object_type = 'CLAS'.
     rs_result-object_name = iv_class_name.
@@ -166,7 +153,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
     ELSE.
       " Calculate where testclasses section starts
       " Skeleton: CLASS-POOL (1) + locals_def + main + locals_imp + testclasses
-      lv_testclasses_start = iv_prepended_lines + iv_main_lines + iv_locals_imp_lines.
+      DATA(lv_testclasses_start) = iv_prepended_lines + iv_main_lines + iv_locals_imp_lines.
 
       DATA(lv_adjusted_line) = lv_line.
 
@@ -174,7 +161,7 @@ CLASS zcl_abgagt_syntax_chk_clas IMPLEMENTATION.
       IF lv_line > lv_testclasses_start.
         " Error is in testclasses section
         lv_adjusted_line = lv_line - lv_testclasses_start.
-        lv_include = 'testclasses'.
+        DATA(lv_include) = 'testclasses'.
       ELSEIF lv_line > iv_prepended_lines + iv_main_lines.
         " Error is in locals_imp section
         lv_adjusted_line = lv_line - ( iv_prepended_lines + iv_main_lines ).

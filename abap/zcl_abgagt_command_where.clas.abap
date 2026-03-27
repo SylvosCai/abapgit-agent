@@ -87,9 +87,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     DATA: ls_params TYPE ty_where_params,
           ls_result TYPE ty_where_result,
           lt_objects TYPE ty_where_objects,
-          lv_object TYPE string,
-          ls_where_obj TYPE ty_where_object,
-          lt_references TYPE ty_references.
+          ls_where_obj TYPE ty_where_object.
 
     ls_result-command = zif_abgagt_command=>gc_where.
 
@@ -117,7 +115,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     " Track total references before pagination (for pagination info)
     DATA lv_total_references TYPE i.
 
-    LOOP AT ls_params-objects INTO lv_object.
+    LOOP AT ls_params-objects INTO DATA(lv_object).
       ls_where_obj-name = lv_object.
 
       DATA(lv_type) = ls_params-type.
@@ -162,7 +160,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       DATA(lv_total) = lines( lt_all_references ).
 
       " Then get paginated results
-      lt_references = get_where_used_list(
+      DATA(lt_references) = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name
         iv_limit    = ls_params-limit
@@ -272,9 +270,9 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         CONV string( <ls_ref>-sub_name ) ).
 
       " Get method name if it's a method include
+
+      DATA(lv_include_len) = strlen( <ls_ref>-sub_name ).
       DATA lv_include TYPE string.
-      DATA lv_include_len TYPE i.
-      lv_include_len = strlen( <ls_ref>-sub_name ).
       IF lv_include_len >= 35.
         lv_include = <ls_ref>-sub_name+30(5).
       ELSEIF lv_include_len >= 34.

@@ -81,7 +81,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
     IF io_cts_api IS BOUND.
       mo_cts_api = io_cts_api.
     ELSE.
-      CREATE OBJECT mo_cts_api TYPE zcl_abgagt_cts_api.
+      mo_cts_api = NEW zcl_abgagt_cts_api( ).
     ENDIF.
   ENDMETHOD.
 
@@ -277,7 +277,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
     DATA(lv_check_subrc) = mo_cts_api->check_transport( iv_number ).
 
     rs_result-success = abap_true.
-    rs_result-passed  = boolc( lv_check_subrc = 0 ).
+    rs_result-passed  = xsdbool( lv_check_subrc = 0 ).
     rs_result-message = COND #(
       WHEN lv_check_subrc = 0
       THEN |Transport { iv_number } passed check|

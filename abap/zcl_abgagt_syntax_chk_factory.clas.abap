@@ -24,18 +24,15 @@ CLASS zcl_abgagt_syntax_chk_factory DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_syntax_chk_factory IMPLEMENTATION.
 
   METHOD create.
-    DATA: lv_class_name TYPE string,
-          lv_type       TYPE string.
 
     " Normalize object type to uppercase
-    lv_type = to_upper( iv_object_type ).
+    DATA(lv_type) = to_upper( iv_object_type ).
 
     " Build class name from naming convention
-    lv_class_name = gc_checker_prefix && lv_type.
+    DATA(lv_class_name) = gc_checker_prefix && lv_type.
 
     " Try to create instance dynamically
     TRY.
@@ -45,7 +42,6 @@ CLASS zcl_abgagt_syntax_chk_factory IMPLEMENTATION.
         CLEAR ro_checker.
     ENDTRY.
   ENDMETHOD.
-
 
   METHOD is_supported.
     DATA(lo_checker) = create( iv_object_type ).

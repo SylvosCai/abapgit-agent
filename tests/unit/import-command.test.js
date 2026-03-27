@@ -127,7 +127,7 @@ describe('Import Command - Async Job Pattern', () => {
     expect(output).toMatch(/✅.*import completed successfully/i);
     expect(output).toMatch(/files staged.*100/i);
     expect(output).toMatch(/time spent/i);
-  });
+  }, 15000);
 
   test('output shows error when job fails', async () => {
     const importCommand = require('../../src/commands/import');

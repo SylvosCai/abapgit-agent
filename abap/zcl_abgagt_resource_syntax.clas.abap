@@ -13,30 +13,26 @@ CLASS zcl_abgagt_resource_syntax DEFINITION PUBLIC FINAL
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
 
   METHOD get_command_constant.
     rv_constant = zcl_abgagt_command_syntax=>gc_syntax.
   ENDMETHOD.
 
-
   METHOD get_command_name.
     rv_name = 'Syntax'.
   ENDMETHOD.
 
-
   METHOD create_request_data.
     CREATE DATA rr_request_data TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
   ENDMETHOD.
-
 
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
     ls_request = is_request.
 
     " Validate that objects array is provided and not empty
-    rv_valid = boolc( ls_request-objects IS NOT INITIAL AND lines( ls_request-objects ) > 0 ).
+    rv_valid = xsdbool( ls_request-objects IS NOT INITIAL AND lines( ls_request-objects ) > 0 ).
 
     " Validate each object has required fields
     IF rv_valid = abap_true.
@@ -54,7 +50,6 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
   ENDMETHOD.
-
 
   METHOD get_error_message.
     DATA: ls_request TYPE zcl_abgagt_command_syntax=>ty_syntax_params.

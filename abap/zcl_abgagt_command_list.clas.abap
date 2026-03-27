@@ -112,7 +112,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     SELECT SINGLE devclass FROM tdevc
       INTO lv_package
       WHERE devclass = iv_package.
-    rv_valid = boolc( sy-subrc = 0 ).
+    rv_valid = xsdbool( sy-subrc = 0 ).
   ENDMETHOD.
 
   METHOD validate_type.
@@ -123,18 +123,15 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
   METHOD execute_list.
     DATA: lt_objects TYPE ty_objects,
           lt_counts TYPE ty_type_counts,
-          ls_object TYPE ty_object,
           ls_count TYPE ty_type_count,
           lv_package TYPE tdevc-devclass,
-          lv_limit TYPE i,
-          lv_offset TYPE i,
           lv_name_pattern TYPE tadir-obj_name,
           lt_type_range TYPE RANGE OF tadir-object,
           ls_type LIKE LINE OF lt_type_range.
 
     lv_package = is_params-package.
-    lv_limit = is_params-limit.
-    lv_offset = is_params-offset.
+    DATA(lv_limit) = is_params-limit.
+    DATA(lv_offset) = is_params-offset.
     lv_name_pattern = is_params-name.
 
     " Build type range table
@@ -215,7 +212,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Build BY_TYPE aggregation
     SORT lt_objects BY type.
-    LOOP AT lt_objects INTO ls_object.
+    LOOP AT lt_objects INTO DATA(ls_object).
       AT NEW type.
         CLEAR ls_count.
         ls_count-type = ls_object-type.

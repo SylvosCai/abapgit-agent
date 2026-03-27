@@ -79,6 +79,11 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
+    IF li_repo IS NOT BOUND.
+      rv_result = '{"success":"","error":"Repository not found"}'.
+      RETURN.
+    ENDIF.
+
     " Delete the repository
     TRY.
         get_repo_srv( )->delete( ii_repo = li_repo ).
@@ -89,12 +94,8 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
     ENDTRY.
 
     " Success response
-    DATA lv_response TYPE string.
-    lv_response = '{"success":"X",'.
-    lv_response = lv_response && '"repo_key":"' && li_repo->get_key( ) && '",'.
-    lv_response = lv_response && '"message":"Repository deleted successfully"}'.
-
-    rv_result = lv_response.
+    DATA(lv_key) = condense( val = CONV string( li_repo->get_key( ) ) ).
+    rv_result = |\{"success":"X","repo_key":"{ lv_key }","message":"Repository deleted successfully"\}|.
   ENDMETHOD.
 
 ENDCLASS.

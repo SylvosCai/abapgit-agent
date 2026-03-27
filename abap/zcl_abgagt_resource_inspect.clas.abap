@@ -32,7 +32,7 @@ CLASS zcl_abgagt_resource_inspect IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_inspect=>ty_inspect_params.
     ls_request = is_request.
-    rv_valid = boolc( ls_request-files IS NOT INITIAL AND lines( ls_request-files ) > 0 ).
+    rv_valid = xsdbool( ls_request-files IS NOT INITIAL AND lines( ls_request-files ) > 0 ).
   ENDMETHOD.
 
   METHOD get_error_message.

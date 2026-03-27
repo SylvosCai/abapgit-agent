@@ -859,6 +859,9 @@ async function main() {
     runDebug = true;
   } else {
     // Run all tests
+    // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
+    // they require interactive ADT sessions that are not available in CI pods.
+    const isCI = !!(process.env.BUILD_NUMBER || process.env.CI || process.env.GITHUB_ACTIONS);
     runJest = true;
     runAunit = true;
     runCmd = true;
@@ -869,7 +872,10 @@ async function main() {
     runConflict = false;    // Conflict tests run standalone (stateful, sequential)
     runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
-    runDebug = true;
+    runDebug = !isCI;       // Skip debug scenarios in CI (require interactive ADT sessions)
+    if (isCI) {
+      printInfo('  ⚠️  CI environment detected — skipping debug scenarios (require interactive ADT)');
+    }
   }
 
   printHeader('UNIFIED TEST SUITE');

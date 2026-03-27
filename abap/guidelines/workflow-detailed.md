@@ -24,9 +24,22 @@ grand_parent: ABAP Development
        │       │
        │       ├─► Errors? → Fix locally (no commit needed), re-run syntax
        │       │
+       │       └─► Clean ✅ → Proceed to 4b
+       │
+       └─► Other types (FUGR, TABL, etc.) → Skip syntax, go to 4b
+               │
+               ▼
+4b. abaplint (OPTIONAL — only if .abaplint.json exists in repo root)
+       │
+       ├─► .abaplint.json exists → npx @abaplint/cli .abaplint.json
+       │       │
+       │       ├─► Issues? → Fix locally, re-run abaplint
+       │       │   ⚠️  Before applying any quickfix: run abapgit-agent ref --topic abaplint
+       │       │       Quickfixes for prefer_inline can introduce silent type truncation bugs.
+       │       │
        │       └─► Clean ✅ → Proceed to commit
        │
-       └─► Other types (FUGR, TABL, etc.) → Skip syntax, go to commit
+       └─► No .abaplint.json → Skip, go to commit
                │
                ▼
 5. Commit and push → git add . && git commit && git push
@@ -140,8 +153,9 @@ git push
 abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
 ```
 
-**When to use syntax vs inspect vs view**:
-- **syntax**: Check LOCAL code BEFORE commit (CLAS, INTF, PROG, DDLS)
+**When to use syntax vs abaplint vs inspect vs view**:
+- **syntax**: Check LOCAL ABAP syntax BEFORE commit (CLAS, INTF, PROG, DDLS)
+- **abaplint**: Check LOCAL code style/quality BEFORE commit (only if .abaplint.json present)
 - **inspect**: Check ACTIVATED code AFTER pull (all types, runs Code Inspector)
 - **view**: Understand object STRUCTURE (not for debugging errors)
 
@@ -164,22 +178,25 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
    └─ Unrelated bug fixes across files? → INDEPENDENT
 
 3. For SUPPORTED types (CLAS/INTF/PROG/DDLS):
-   ├─ INDEPENDENT files → Run syntax → Fix errors → Commit → Push → Pull
+   ├─ INDEPENDENT files → Run syntax → [abaplint if enabled] → Fix errors → Commit → Push → Pull
    │
    └─ DEPENDENT files (NEW objects):
        ├─ RECOMMENDED: Create underlying object first (interface, base class, etc.)
-       │   1. Create underlying object → Syntax → Commit → Push → Pull
-       │   2. Create dependent object → Syntax (works!) → Commit → Push → Pull
+       │   1. Create underlying object → Syntax → [abaplint] → Commit → Push → Pull
+       │   2. Create dependent object → Syntax (works!) → [abaplint] → Commit → Push → Pull
        │   ✅ Benefits: Both syntax checks work, cleaner workflow
        │
        └─ ALTERNATIVE: If interface design uncertain, commit both together
-           → Skip syntax → Commit both → Push → Pull → (if errors: inspect)
+           → Skip syntax → [abaplint] → Commit both → Push → Pull → (if errors: inspect)
 
 4. For UNSUPPORTED types (FUGR, TABL, etc.):
-   Write code → Skip syntax → Commit → Push → Pull → (if errors: inspect)
+   Write code → Skip syntax → [abaplint] → Commit → Push → Pull → (if errors: inspect)
 
 5. For MIXED types (some supported + some unsupported):
-   Write all code → Run syntax on independent supported files ONLY → Commit ALL → Push → Pull ALL
+   Write all code → Run syntax on independent supported files ONLY → [abaplint] → Commit ALL → Push → Pull ALL
+
+[abaplint] = run npx @abaplint/cli .abaplint.json only if .abaplint.json exists in repo root
+             before applying any quickfix: run abapgit-agent ref --topic abaplint
 ```
 
 **Example workflows:**

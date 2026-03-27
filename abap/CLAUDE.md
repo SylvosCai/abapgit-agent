@@ -211,6 +211,21 @@ abapgit-agent pull --files src/<intf_name>.intf.abap,src/<class_name>.clas.abap
 
 → See `guidelines/object-creation.md` — run: `abapgit-agent ref --topic object-creation`
 
+**XML metadata when adding test classes:**
+
+```
+Adding .clas.testclasses.abap to an existing class?
+  └── Update the .clas.xml → set WITH_UNIT_TESTS flag:
+        <clas:abapClassProperties ... abpUnitTestable="true" ... />
+      WITHOUT this flag, abapGit will not push/activate the test include.
+
+Adding .clas.locals_def.abap (local type definitions)?
+  └── Update the .clas.xml → set CLSCCINCL flag:
+        <CLSCCINCL>X</CLSCCINCL>
+```
+
+→ For exact XML flag placement: `abapgit-agent ref --topic abapgit` (search "WITH_UNIT_TESTS")
+
 ---
 
 ### 6. Use `guide`, `ref`, `view` and `where` Commands to Learn About Unknown Classes/Methods
@@ -299,7 +314,47 @@ Use `CL_CDS_TEST_ENVIRONMENT` for unit tests that read CDS views.
 
 ---
 
-### 8. Use `unit` Command for Unit Tests
+### 8. Writing and Running Unit Tests
+
+#### Writing tests — use ABAP Test Double Framework by default
+
+```
+❌ WRONG: Write a manual test double class (ltd_mock_xxx) when the framework can do it
+✅ CORRECT: Use cl_abap_testdouble=>create / configure_call for all interface mocking
+```
+
+**Decision — which double pattern to use:**
+
+```
+Does the mock need stateful behaviour (e.g. count calls, vary results per call, complex logic)?
+  └── YES → manual test double class (ltd_mock_xxx DEFINITION FOR TESTING)
+  └── NO  → ABAP Test Double Framework (cl_abap_testdouble=>create / configure_call)
+             This covers 90 %+ of cases — simple return value / exception mocking
+```
+
+**ABAP Test Double Framework — quick pattern:**
+
+```abap
+" 1. Create double (declare with interface type)
+DATA lo_agent TYPE REF TO zif_abgagt_agent.
+lo_agent ?= cl_abap_testdouble=>create( 'ZIF_ABGAGT_AGENT' ).
+
+" 2. Configure return value
+cl_abap_testdouble=>configure_call( lo_agent )->returning( ls_result ).
+lo_agent->pull( iv_url = 'https://...' ).   " registers config for these params
+
+" 3. Inject and call
+DATA(lo_cut) = NEW zcl_my_class( io_agent = lo_agent ).
+DATA(ls_actual) = lo_cut->execute( ).
+```
+
+→ Full API reference (EXPORT params, exceptions, inherited methods, common mistakes):
+  `abapgit-agent ref --topic unit-testable-code`
+
+→ For class design rules (constructor injection, interfaces for dependencies):
+  `abapgit-agent ref --topic unit-testable-code`
+
+#### Running tests — use `unit` command
 
 **Use `abapgit-agent unit` to run ABAP unit tests (AUnit).**
 
@@ -396,6 +451,56 @@ abapgit-agent debug step --type continue --json     # 4. release
 ```
 
 → See `guidelines/debug-session.md` — run: `abapgit-agent ref --topic debug-session`
+
+---
+
+### 12. abaplint — Static Analysis (Optional, Project-Controlled)
+
+abaplint is **optional**. Only run it if `.abaplint.json` exists in the project root.
+Each project defines its own rules — never assume which rules are active.
+
+**Detection:**
+```bash
+# Check whether this project uses abaplint
+ls .abaplint.json 2>/dev/null && echo "abaplint enabled" || echo "no abaplint"
+```
+
+**When to run:**
+
+Run abaplint as step 4b — after `syntax`, before `git commit`:
+
+```bash
+# Only if .abaplint.json exists
+npx @abaplint/cli .abaplint.json
+```
+
+Fix any reported issues, then commit.
+
+**Before applying any quickfix:**
+
+```
+❌ WRONG: Accept abaplint quickfixes without checking
+✅ CORRECT: Run abapgit-agent ref --topic abaplint FIRST, then decide
+```
+
+The `prefer_inline` quickfix is known to introduce a **silent type truncation bug**
+when applied to variables that are later extended with `&&`. Read the guidelines
+before applying it.
+
+**When abaplint flags an issue you don't understand:**
+```bash
+abapgit-agent ref --topic abaplint        # bundled rule guidance
+abapgit-agent ref "prefer_inline"         # search for specific rule
+abapgit-agent ref "no_inline"             # search by keyword
+```
+
+**Project-specific rule guidance:**
+
+Projects can add their own abaplint notes to `guidelines/abaplint-local.md` in the
+project repository. After running `abapgit-agent ref export`, the `ref` command
+surfaces both bundled and project-specific guidance together.
+
+→ See `guidelines/abaplint.md` — run: `abapgit-agent ref --topic abaplint`
 
 ---
 
@@ -535,14 +640,17 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 Modified ABAP files?
 ├─ CLAS/INTF/PROG/DDLS files?
 │  ├─ Independent files (no cross-dependencies)?
-│  │  └─ ✅ Use: syntax → commit → push → pull --sync-xml
+│  │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --sync-xml
 │  └─ Dependent files (interface + class, class uses class)?
-│     └─ ✅ Use: skip syntax → commit → push → pull --sync-xml
+│     └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml
 └─ Other types (FUGR, TABL, STRU, DTEL, TTYP, etc.)?
    ├─ XML-only objects (TABL, STRU, DTEL, TTYP)?
-   │  └─ ✅ Use: skip syntax → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
+   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
    └─ FUGR and other complex objects?
-      └─ ✅ Use: skip syntax → commit → push → pull --sync-xml → (if errors: inspect)
+      └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
+
+[abaplint] = run npx @abaplint/cli .abaplint.json only if .abaplint.json exists in repo root
+             before applying any quickfix: run abapgit-agent ref --topic abaplint
 ```
 
 → For creating new objects (what files to write): `abapgit-agent ref --topic object-creation`
@@ -583,6 +691,7 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/workflow-detailed.md` | Development Workflow (Detailed) |
 | `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |
 | `guidelines/cds-testing.md` | CDS Testing (Test Double Framework) |
+| `guidelines/abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
 
 These guidelines are automatically searched by the `ref` command.
 

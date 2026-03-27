@@ -130,7 +130,6 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA ls_params   TYPE ty_dump_params.
     DATA ls_result   TYPE ty_dump_result.
-    DATA lv_limit    TYPE i.
 
     ls_result-command = zif_abgagt_command=>gc_dump.
 
@@ -142,7 +141,7 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     IF ls_params-limit <= 0 OR ls_params-limit > 100.
       ls_params-limit = 20.
     ENDIF.
-    lv_limit = ls_params-limit.
+    DATA(lv_limit) = ls_params-limit.
 
     " Detail mode: load full dump text for a specific dump ID
     IF ls_params-detail IS NOT INITIAL.
@@ -296,9 +295,9 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
         FROM snap_adt
         WHERE mandt     = @sy-mandt
           AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
-          AND ( @ls_params-user    IS INITIAL OR uname         = @ls_params-user    )
+          AND ( @ls_params-user    IS INITIAL OR uname         = @ls_params-user )
           AND ( @ls_params-program IS INITIAL OR mainprog      = @ls_params-program )
-          AND ( @ls_params-error   IS INITIAL OR runtime_error = @ls_params-error   )
+          AND ( @ls_params-error   IS INITIAL OR runtime_error = @ls_params-error )
         ORDER BY timestamp DESCENDING
         INTO TABLE @lt_adt
         UP TO @lv_limit ROWS.
@@ -316,11 +315,11 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
         FROM snap_adt
         WHERE mandt  = @sy-mandt
           AND datum  BETWEEN @ls_params-date_from AND @ls_params-date_to
-          AND ( @ls_params-user      IS INITIAL OR uname         = @ls_params-user      )
-          AND ( @ls_params-program   IS INITIAL OR mainprog      = @ls_params-program   )
-          AND ( @ls_params-error     IS INITIAL OR runtime_error = @ls_params-error     )
+          AND ( @ls_params-user      IS INITIAL OR uname         = @ls_params-user )
+          AND ( @ls_params-program   IS INITIAL OR mainprog      = @ls_params-program )
+          AND ( @ls_params-error     IS INITIAL OR runtime_error = @ls_params-error )
           AND ( @ls_params-time_from IS INITIAL OR uzeit        >= @ls_params-time_from )
-          AND ( @ls_params-time_to   IS INITIAL OR uzeit        <= @ls_params-time_to   )
+          AND ( @ls_params-time_to   IS INITIAL OR uzeit        <= @ls_params-time_to )
         ORDER BY datum DESCENDING, uzeit DESCENDING
         INTO TABLE @lt_adt
         UP TO @lv_limit ROWS.

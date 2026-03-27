@@ -18,8 +18,6 @@ CLASS zcl_abgagt_viewer_stob IMPLEMENTATION.
     DATA: lv_ddls_name TYPE ddlname,
           lv_devclass TYPE tadir-devclass,
           lv_obj_name TYPE tadir-obj_name,
-          lo_viewer TYPE REF TO zif_abgagt_viewer,
-          lo_factory TYPE REF TO zcl_abgagt_viewer_factory,
           ls_ddls_info TYPE zcl_abgagt_command_view=>ty_view_object.
 
     rs_info-name = iv_name.
@@ -58,8 +56,8 @@ CLASS zcl_abgagt_viewer_stob IMPLEMENTATION.
     IF lv_ddls_name IS NOT INITIAL.
       " Found DDLS - delegate to DDLS viewer
       TRY.
-          lo_factory = zcl_abgagt_viewer_factory=>get_instance( ).
-          lo_viewer = lo_factory->get_viewer( 'DDLS' ).
+          DATA(lo_factory) = zcl_abgagt_viewer_factory=>get_instance( ).
+          DATA(lo_viewer) = lo_factory->get_viewer( 'DDLS' ).
           " Convert DDLNAME to string for viewer interface
           ls_ddls_info = lo_viewer->get_info(
             iv_name = CONV string( lv_ddls_name )

@@ -15,7 +15,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
 
   METHOD setup.
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW #( ).
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -49,23 +49,24 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
     " Step 3: Configure get_repo_from_url to return mock repo via set_parameter
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double
+      )->ignore_all_parameters( )->set_parameter(
       EXPORTING
         name  = 'EI_REPO'
         value = lo_mock_repo ).
-
-    " Step 4: Register the method call with matching parameters
     lo_repo_srv_double->get_repo_from_url(
       EXPORTING iv_url = 'https://github.com/test/repo.git' ).
 
-    " Step 5: Configure get_key method
-    cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( 'TEST_KEY' ).
+    " Step 4: Configure get_key method to return repo key
+    DATA lv_key TYPE zif_abapgit_persistence=>ty_value.
+    lv_key = 'TEST_KEY'.
+    cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( lv_key ).
     lo_mock_repo->get_key( ).
 
-    " Step 6: Create CUT with test double
+    " Step 5: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 7: Execute
+    " Step 6: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/repo.git',
           END OF ls_param.
@@ -91,27 +92,25 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
     lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
 
     " Step 3: Configure get_repo_from_url to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->set_parameter(
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double
+      )->ignore_all_parameters( )->set_parameter(
       EXPORTING
         name  = 'EI_REPO'
         value = lo_mock_repo ).
-
-    " Step 4: Register the method call with matching parameters
     lo_repo_srv_double->get_repo_from_url(
       EXPORTING iv_url = 'https://github.com/test/repo.git' ).
 
-    " Step 5: Configure delete on repo service to raise exception
+    " Step 4: Configure delete on repo service to raise exception
     DATA lx_error TYPE REF TO zcx_abapgit_exception.
-    CREATE OBJECT lx_error.
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
-
-    " Step 6: Register delete call
+    lx_error = NEW #( ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double
+      )->ignore_all_parameters( )->raise_exception( lx_error ).
     lo_repo_srv_double->delete( ii_repo = lo_mock_repo ).
 
-    " Step 7: Create CUT with test double
+    " Step 5: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 8: Execute
+    " Step 6: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/repo.git',
           END OF ls_param.
@@ -134,17 +133,16 @@ CLASS ltcl_zcl_abgagt_command_delete IMPLEMENTATION.
 
     " Step 2: Configure to raise exception
     DATA lx_error TYPE REF TO zcx_abapgit_exception.
-    CREATE OBJECT lx_error.
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
-
-    " Step 3: Register the method call with matching parameters
+    lx_error = NEW #( ).
+    cl_abap_testdouble=>configure_call( lo_repo_srv_double
+      )->ignore_all_parameters( )->raise_exception( lx_error ).
     lo_repo_srv_double->get_repo_from_url(
       EXPORTING iv_url = 'https://github.com/test/nonexistent.git' ).
 
-    " Step 4: Create CUT with test double
+    " Step 3: Create CUT with test double
     mo_cut = NEW zcl_abgagt_command_delete( io_repo_srv = lo_repo_srv_double ).
 
-    " Step 5: Execute
+    " Step 4: Execute
     DATA: BEGIN OF ls_param,
             url TYPE string VALUE 'https://github.com/test/nonexistent.git',
           END OF ls_param.

@@ -18,15 +18,12 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
       INTO (lv_obj_name, lv_devclass)
       WHERE obj_name = iv_name
         AND object = 'TABL'.
+    rs_info-name      = iv_name.
+    rs_info-type      = 'TABL'.
+    rs_info-type_text = 'Table'.
     IF sy-subrc = 0.
-      rs_info-name = iv_name.
-      rs_info-type = 'TABL'.
-      rs_info-type_text = 'Table'.
       rs_info-description = |Table { iv_name } in { lv_devclass }|.
     ELSE.
-      rs_info-name = iv_name.
-      rs_info-type = 'TABL'.
-      rs_info-type_text = 'Table'.
       rs_info-not_found = abap_true.
     ENDIF.
 

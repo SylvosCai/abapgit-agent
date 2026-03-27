@@ -15,7 +15,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
 
   METHOD setup.
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW #( ).
   ENDMETHOD.
 
   METHOD test_get_name.

@@ -15,7 +15,7 @@ ENDCLASS.
 CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
   METHOD get_instance.
     DATA lo_factory TYPE REF TO zcl_abgagt_cmd_factory.
-    CREATE OBJECT lo_factory.
+    lo_factory = NEW #( ).
     ro_factory = lo_factory.
   ENDMETHOD.
 

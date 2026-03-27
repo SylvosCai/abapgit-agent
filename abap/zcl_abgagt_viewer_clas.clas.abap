@@ -11,12 +11,10 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
-    DATA: lo_util TYPE REF TO zif_abgagt_util,
-          ls_include_info TYPE zif_abgagt_util=>ty_include_info,
+    DATA: ls_include_info TYPE zif_abgagt_util=>ty_include_info,
           ls_obj_info TYPE zif_abgagt_util=>ty_object_info,
           lv_prog TYPE program,
           lt_source TYPE TABLE OF string,
-          lv_line TYPE string,
           lv_clsname TYPE seoclsname,
           lv_obj_name TYPE tadir-obj_name.
 
@@ -25,7 +23,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
     rs_info-type_text = 'Class'.
 
     " Use util to detect source include
-    lo_util = zcl_abgagt_util=>get_instance( ).
+    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
     ls_include_info = lo_util->detect_include_info( iv_name ).
 
     IF ls_include_info-is_source_include = abap_true.
@@ -58,14 +56,10 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
     IF iv_full = abap_false.
       " Default: return public section source only
-      CALL METHOD cl_oo_classname_service=>get_pubsec_name
-        EXPORTING
-          clsname = lv_clsname
-        RECEIVING
-          result  = lv_prog.
+      cl_oo_classname_service=>get_pubsec_name( EXPORTING clsname = lv_clsname RECEIVING result = lv_prog ).
 
       READ REPORT lv_prog INTO lt_source.
-      LOOP AT lt_source INTO lv_line.
+      LOOP AT lt_source INTO DATA(lv_line).
         IF rs_info-source IS INITIAL.
           rs_info-source = lv_line.
         ELSE.
@@ -78,7 +72,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       " by the Node.js CLI from the local .clas.abap file or ADT source fetch.
       DATA: ls_section     TYPE zcl_abgagt_command_view=>ty_section,
             lv_pubsec      TYPE program,
-            lv_cm_suffix   TYPE string,
             lv_include_pad TYPE program.
 
       " Build padded class name prefix (30 chars) for direct include reads
@@ -88,9 +81,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         lv_pad30 = lv_pad30 && '='.
       ENDWHILE.
 
-      CALL METHOD cl_oo_classname_service=>get_pubsec_name
-        EXPORTING  clsname = lv_clsname
-        RECEIVING  result  = lv_pubsec.
+      cl_oo_classname_service=>get_pubsec_name( EXPORTING clsname = lv_clsname RECEIVING result = lv_pubsec ).
 
       " Public section (CU)
       CLEAR ls_section.
@@ -134,7 +125,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ORDER BY methodindx.
 
       LOOP AT lt_methods INTO DATA(ls_method).
-        lv_cm_suffix   = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
+        DATA(lv_cm_suffix)   = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
         CLEAR ls_section.

@@ -23,19 +23,16 @@ CLASS zcl_abgagt_syntax_chk_ddls DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
 
   METHOD zif_abgagt_syntax_checker~get_object_type.
     rv_type = 'DDLS'.
   ENDMETHOD.
 
-
   METHOD zif_abgagt_syntax_checker~set_fixpt.
     " DDLS doesn't use FIXPT flag - do nothing
-    RETURN.
-  ENDMETHOD.
 
+  ENDMETHOD.
 
   METHOD zif_abgagt_syntax_checker~check.
     DATA: lo_handler  TYPE REF TO if_dd_ddl_handler,
@@ -128,7 +125,6 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-
   METHOD convert_ddl_errors.
     DATA lv_msg TYPE string.
 
@@ -150,7 +146,6 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
       ) TO rt_errors.
     ENDLOOP.
   ENDMETHOD.
-
 
   METHOD convert_ddl_warnings.
     DATA lv_msg TYPE string.

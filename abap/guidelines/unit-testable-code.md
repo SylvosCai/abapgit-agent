@@ -257,31 +257,11 @@ ENDMETHOD.
 
 ## Test Double Patterns
 
-### Manual Test Double (Local Class)
+**Prefer the ABAP Test Double Framework** (`cl_abap_testdouble`) over manual doubles.
+Use manual doubles only when stateful logic is required (e.g. call-count tracking, results that
+vary per call, or complex setup that configure_call cannot express).
 
-```abap
-" Create test double class
-CLASS ltd_mock_reader DEFINITION FOR TESTING.
-  PUBLIC SECTION.
-    INTERFACES zif_data_reader PARTIALLY IMPLEMENTED.
-    METHODS set_result_data
-      IMPORTING it_data TYPE ANY TABLE.
-  PRIVATE SECTION.
-    DATA mt_data TYPE ANY TABLE.
-ENDCLASS.
-
-CLASS ltd_mock_reader IMPLEMENTATION.
-  METHOD set_result_data.
-    mt_data = it_data.
-  ENDMETHOD.
-
-  METHOD zif_data_reader~read_all.
-    rt_data = mt_data.
-  ENDMETHOD.
-ENDCLASS.
-```
-
-### Using ABAP Test Double Framework
+### Using ABAP Test Double Framework (Recommended)
 
 ```abap
 " Step 1: Declare with correct interface type, then assign
@@ -314,6 +294,30 @@ lo_mock->my_method( ... ).
 - Always declare variable with interface type first: `DATA lo_mock TYPE REF TO zif_xxx`
 - Use `returning(value = ...)` not `IMPORTING`
 - Call method after configure_call to register the configuration
+
+### Manual Test Double (Local Class — use only when stateful logic is needed)
+
+```abap
+" Create test double class
+CLASS ltd_mock_reader DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_data_reader PARTIALLY IMPLEMENTED.
+    METHODS set_result_data
+      IMPORTING it_data TYPE ANY TABLE.
+  PRIVATE SECTION.
+    DATA mt_data TYPE ANY TABLE.
+ENDCLASS.
+
+CLASS ltd_mock_reader IMPLEMENTATION.
+  METHOD set_result_data.
+    mt_data = it_data.
+  ENDMETHOD.
+
+  METHOD zif_data_reader~read_all.
+    rt_data = mt_data.
+  ENDMETHOD.
+ENDCLASS.
+```
 
 ### Mocking EXPORT Parameters
 

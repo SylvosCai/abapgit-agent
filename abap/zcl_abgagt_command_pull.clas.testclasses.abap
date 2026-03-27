@@ -14,7 +14,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
 
   METHOD setup.
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW #( ).
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -28,9 +28,9 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
 
   METHOD test_interface.
     " Test that the class implements the command interface
-    DATA lo_interface TYPE REF TO zif_abgagt_command.
-    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_pull.
-    lo_interface = mo_cut.
+
+    mo_cut = NEW zcl_abgagt_command_pull( ).
+    DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
       msg = 'Object should implement zif_abgagt_command interface' ).
@@ -76,8 +76,8 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
       msg = 'Result should not be initial' ).
 
     " Result should be valid JSON
-    DATA lv_json TYPE string.
-    lv_json = lv_result.
+
+    DATA(lv_json) = lv_result.
     cl_abap_unit_assert=>assert_char_cp(
       act = lv_json
       exp = '*{"success"*' " JSON-like structure

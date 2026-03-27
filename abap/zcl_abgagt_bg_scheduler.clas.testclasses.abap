@@ -23,11 +23,10 @@ CLASS ltc_bg_scheduler IMPLEMENTATION.
 
   METHOD test_schedule_command.
     " Given: Command type and data
-    DATA lv_command_type TYPE string.
-    DATA ls_command_data TYPE string.
 
+    DATA lv_command_type TYPE string.
     lv_command_type = 'IMPORT'.
-    ls_command_data = ''.
+    DATA(ls_command_data) = ''.
 
     " When: Scheduling a command
     DATA(ls_result) = mo_cut->schedule_command(

@@ -53,13 +53,11 @@ CLASS ltc_ddls_syntax_checker DEFINITION FINAL FOR TESTING
 
 ENDCLASS.
 
-
 CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
 
   METHOD setup.
-    CREATE OBJECT mo_cut.
+    mo_cut = NEW #( ).
   ENDMETHOD.
-
 
   METHOD test_valid_ddl_with_sflight.
     " Test with valid DDL referencing standard table SFLIGHT
@@ -103,7 +101,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-
   METHOD test_syntax_error_incomplete.
     " Test with incomplete DDL statement (missing fields)
     DATA(lt_source) = build_source(
@@ -134,7 +131,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-
   METHOD test_syntax_error_invalid_kw.
     " Test with invalid DDL keyword
     DATA(lt_source) = build_source(
@@ -155,7 +151,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
       msg = 'Should return error details' ).
   ENDMETHOD.
 
-
   METHOD test_annotation_error.
     " Test with invalid annotation syntax
     DATA(lt_source) = build_source(
@@ -174,7 +169,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
         msg = 'Should report annotation errors' ).
     ENDIF.
   ENDMETHOD.
-
 
   METHOD test_nonexistent_table.
     " Test with non-existent table reference
@@ -204,7 +198,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-
   METHOD test_empty_source.
     " Test with empty source
     DATA(lt_source) = VALUE string_table( ).
@@ -223,7 +216,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
       act = ls_result-message
       msg = 'Should provide error message' ).
   ENDMETHOD.
-
 
   METHOD test_valid_ddl_multi_fields.
     " Test with valid DDL with multiple fields and calculations
@@ -256,7 +248,6 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-
   METHOD test_ddl_with_association.
     " Test with association (may require DB context)
     DATA(lt_source) = build_source(
@@ -288,12 +279,10 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-
   METHOD build_source.
     " Convert string with \n to string table
-    DATA lv_source TYPE string.
 
-    lv_source = iv_source.
+    DATA(lv_source) = iv_source.
 
     " Replace \n with actual newlines
     REPLACE ALL OCCURRENCES OF |\n| IN lv_source WITH cl_abap_char_utilities=>newline.

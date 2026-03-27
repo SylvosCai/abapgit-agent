@@ -111,10 +111,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_unit_params,
           lv_package TYPE devclass,
-          lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
-          lo_util TYPE REF TO zif_abgagt_util,
           ls_result TYPE ty_unit_result,
           lt_keys TYPE ty_keys,
           ls_key TYPE ty_key.
@@ -131,8 +129,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Parse files to get object keys
     IF ls_params-files IS NOT INITIAL.
-      lo_util = zcl_abgagt_util=>get_instance( ).
-      LOOP AT ls_params-files INTO lv_file.
+      DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+      LOOP AT ls_params-files INTO DATA(lv_file).
         CLEAR: lv_obj_type, lv_obj_name.
         lo_util->parse_file_to_object(
           EXPORTING iv_file = lv_file

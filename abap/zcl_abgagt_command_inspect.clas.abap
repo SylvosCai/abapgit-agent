@@ -196,10 +196,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_inspect_params,
-          lv_file TYPE string,
           lv_obj_type TYPE string,
           lv_obj_name TYPE string,
-          lo_util TYPE REF TO zif_abgagt_util,
           lt_results TYPE ty_inspect_results,
           lt_objects TYPE ty_object_keys,
           lt_ddls_names TYPE ty_ddls_names,
@@ -222,9 +220,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Parse all files to objects
-    lo_util = zcl_abgagt_util=>get_instance( ).
+    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
 
-    LOOP AT ls_params-files INTO lv_file.
+    LOOP AT ls_params-files INTO DATA(lv_file).
       CLEAR: lv_obj_type, lv_obj_name.
       lo_util->parse_file_to_object(
         EXPORTING iv_file = lv_file
@@ -328,10 +326,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD read_ddls_source.
     " Read DDLS source - first try inactive, then active
-    DATA: lo_handler TYPE REF TO zif_abgagt_ddl_handler,
-          ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
+    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
 
-    lo_handler = get_ddl_handler( ).
+    DATA(lo_handler) = get_ddl_handler( ).
 
     " First try to read inactive version (get_state = 'M')
     TRY.
@@ -371,8 +368,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD validate_ddls_check.
     " Validate DDLS and build result
-    DATA: lo_handler TYPE REF TO zif_abgagt_ddl_handler,
-          ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
+    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
           lx_error TYPE REF TO cx_dd_ddl_check,
           ls_warning TYPE ty_warning,
           lv_warn_msg TYPE string,
@@ -383,7 +379,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     rs_result-object_name = iv_ddls_name.
     rs_result-success = abap_true.
 
-    lo_handler = get_ddl_handler( ).
+    DATA(lo_handler) = get_ddl_handler( ).
 
     " Run validation check
     TRY.
@@ -473,11 +469,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           lo_objset TYPE REF TO cl_ci_objectset,
           lo_variant TYPE REF TO cl_ci_checkvariant,
           lo_inspection TYPE REF TO cl_ci_inspection,
-          lt_list TYPE scit_alvlist,
-          ls_result TYPE ty_inspect_result,
-          lo_util TYPE REF TO zif_abgagt_util.
+          lt_list TYPE scit_alvlist.
 
-    lo_util = io_util.
+    DATA(lo_util) = io_util.
 
     rt_results = VALUE #( ).
 
@@ -554,7 +548,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Build result for each object
     LOOP AT it_objects INTO DATA(ls_obj).
-      ls_result = build_object_result(
+      DATA(ls_result) = build_object_result(
         is_object = ls_obj
         it_list   = lt_list
         io_util   = lo_util ).
@@ -625,17 +619,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Extract include name from SOBJNAME (format: CLASSNAME{multiple====}INCLUDE)
     " Split by '=' to get class name and include name
     DATA: lt_parts TYPE TABLE OF string,
-          lv_part TYPE string,
-          lv_left TYPE string,
-          lv_right TYPE string.
+          lv_left TYPE string.
 
     SPLIT iv_sobjname AT '=' INTO TABLE lt_parts.
 
-    LOOP AT lt_parts INTO lv_part WHERE table_line IS NOT INITIAL.
+    LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
       IF lv_left IS INITIAL.
         lv_left = lv_part.
       ELSE.
-        lv_right = lv_part.
+        DATA(lv_right) = lv_part.
       ENDIF.
     ENDLOOP.
 

@@ -11,7 +11,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
 
   METHOD get_instance.
     DATA lo_instance TYPE REF TO zcl_abgagt_conflict_detector.
-    CREATE OBJECT lo_instance.
+    lo_instance = NEW #( ).
     ro_instance = lo_instance.
   ENDMETHOD.
 
@@ -40,9 +40,9 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       " Determine whether the local ABAP system has been modified since last pull.
       " Compare local content SHA against the stored baseline git SHA.
       " If local_content is not provided (old callers), default to unchanged (safe).
-      DATA lv_local_sha TYPE string.
+
       IF ls_file-local_content IS NOT INITIAL.
-        lv_local_sha = zif_abgagt_conflict_detector~calculate_sha( ls_file-local_content ).
+        DATA(lv_local_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-local_content ).
       ELSE.
         lv_local_sha = ls_baseline-last_git_sha.
       ENDIF.
@@ -218,8 +218,8 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
     DATA lv_hash TYPE string.
 
     TRY.
-        DATA lv_key TYPE xstring.
-        lv_key = cl_abap_codepage=>convert_to( source   = 'abapgit-agent'
+
+        DATA(lv_key) = cl_abap_codepage=>convert_to( source   = 'abapgit-agent'
                                                codepage = '4110' ).
         cl_abap_hmac=>calculate_hmac_for_char(
           EXPORTING

@@ -14,8 +14,7 @@ CLASS zcl_abgagt_viewer_ddls IMPLEMENTATION.
     DATA: lv_ddls_name TYPE ddlname,
           lo_handler TYPE REF TO if_dd_ddl_handler,
           ls_ddlsrcv TYPE ddddlsrcv,
-          lv_devclass TYPE tadir-devclass,
-          lv_found TYPE abap_bool.
+          lv_devclass TYPE tadir-devclass.
 
     rs_info-name = iv_name.
     rs_info-type = 'DDLS'.
@@ -47,7 +46,7 @@ CLASS zcl_abgagt_viewer_ddls IMPLEMENTATION.
             ddddlsrcv_wa = ls_ddlsrcv ).
 
         IF ls_ddlsrcv-source IS NOT INITIAL.
-          lv_found = abap_true.
+          DATA(lv_found) = abap_true.
         ENDIF.
 
       CATCH cx_dd_ddl_check.

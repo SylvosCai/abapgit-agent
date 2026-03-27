@@ -64,10 +64,6 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           lo_stage TYPE REF TO zcl_abapgit_stage,
           lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt,
           lv_package TYPE devclass,
-          lv_message TYPE string,
-          lv_files_staged TYPE i,
-          lv_committer_name TYPE string,
-          lv_committer_email TYPE string,
           ls_comment TYPE zif_abapgit_git_definitions=>ty_comment.
 
     TRY.
@@ -87,6 +83,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
           IF lv_param_type = 'g' OR lv_param_type = 'C'.
             " String type - deserialize JSON
+
             DATA lv_json_string TYPE string.
             lv_json_string = is_param.
             /ui2/cl_json=>deserialize(
@@ -159,14 +156,14 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 60.
 
         lt_files = li_repo->get_files_local( ).
-        lv_files_staged = lines( lt_files ).
+        DATA(lv_files_staged) = lines( lt_files ).
 
         IF lv_files_staged = 0.
           rv_result = '{"success":"","error":"No objects found in package"}'.
           RETURN.
         ENDIF.
 
-        CREATE OBJECT lo_stage.
+        lo_stage = NEW #( ).
         DATA(lv_total_files) = lines( lt_files ).
 
         LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_file>).
@@ -199,11 +196,11 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 75.
 
         li_user = get_user( ).
-        lv_committer_name = li_user->get_default_git_user_name( ).
-        lv_committer_email = li_user->get_default_git_user_email( ).
+        DATA(lv_committer_name) = li_user->get_default_git_user_name( ).
+        DATA(lv_committer_email) = li_user->get_default_git_user_email( ).
 
         IF ls_params-message IS NOT INITIAL.
-          lv_message = ls_params-message.
+          DATA(lv_message) = ls_params-message.
         ELSE.
           lv_message = |feat: initial import from ABAP package { lv_package }|.
         ENDIF.

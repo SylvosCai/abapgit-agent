@@ -58,18 +58,15 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-
 CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
   METHOD zif_abgagt_command~get_name.
     rv_name = gc_syntax.
   ENDMETHOD.
 
-
   METHOD zif_abgagt_command~execute.
     DATA: ls_params   TYPE ty_syntax_params,
           ls_response TYPE ty_response,
-          ls_object   TYPE ty_source_object,
           lv_uccheck  TYPE trdir-uccheck.
 
     " Initialize response
@@ -99,7 +96,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     ENDIF.
 
     " Check each object
-    LOOP AT ls_params-objects INTO ls_object.
+    LOOP AT ls_params-objects INTO DATA(ls_object).
       DATA(ls_result) = check_object(
         is_object  = ls_object
         iv_uccheck = lv_uccheck ).
@@ -128,11 +125,9 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     rv_result = /ui2/cl_json=>serialize( data = ls_response ).
   ENDMETHOD.
 
-
   METHOD parse_source.
-    DATA lv_source TYPE string.
 
-    lv_source = iv_source.
+    DATA(lv_source) = iv_source.
 
     " Replace CRLF with LF
     REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf
@@ -142,19 +137,15 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     SPLIT lv_source AT cl_abap_char_utilities=>newline INTO TABLE rt_lines.
   ENDMETHOD.
 
-
   METHOD check_object.
-    DATA: lt_source     TYPE string_table,
-          lo_checker    TYPE REF TO zif_abgagt_syntax_checker,
-          lv_type       TYPE string,
-          lv_name       TYPE string.
+    DATA: lt_source     TYPE string_table.
 
     " Normalize type and name
-    lv_type = to_upper( is_object-type ).
-    lv_name = to_upper( is_object-name ).
+    DATA(lv_type) = to_upper( is_object-type ).
+    DATA(lv_name) = to_upper( is_object-name ).
 
     " Get checker for this object type
-    lo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
+    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
 
     IF lo_checker IS NOT BOUND.
       " Unsupported object type

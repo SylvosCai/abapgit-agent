@@ -102,14 +102,12 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
 
   METHOD build_tree.
     DATA: lv_package TYPE tdevc-devclass,
-          lv_max_depth TYPE i,
-          lv_total_objects TYPE i,
           lt_all_types TYPE ty_object_counts,
           lt_nodes TYPE ty_package_nodes,
           ls_package TYPE tdevc.
 
     lv_package = is_params-package.
-    lv_max_depth = is_params-depth.
+    DATA(lv_max_depth) = is_params-depth.
 
     SELECT SINGLE devclass parentcl FROM tdevc
       INTO ls_package
@@ -137,7 +135,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
       object_count = get_object_count( lv_package ) ).
     APPEND ls_root TO lt_nodes.
 
-    lv_total_objects = ls_root-object_count.
+    DATA(lv_total_objects) = ls_root-object_count.
 
     " Get object types for root
     IF is_params-include_objects = abap_true.

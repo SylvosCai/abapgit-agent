@@ -7,7 +7,7 @@ CLASS ltcl_zcl_abgagt_command_import DEFINITION FOR TESTING DURATION SHORT RISK 
     METHODS setup.
     METHODS test_get_name FOR TESTING.
     METHODS test_url_required FOR TESTING.
-    METHODS test_repo_not_found FOR TESTING.
+    METHODS test_repo_not_found FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
@@ -54,8 +54,8 @@ CLASS ltcl_zcl_abgagt_command_import IMPLEMENTATION.
       EXPORTING iv_url = 'https://github.com/test/repo.git' ).
 
     " Inject test double into command
-    DATA lo_import_cmd TYPE REF TO zcl_abgagt_command_import.
-    lo_import_cmd = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
+
+    DATA(lo_import_cmd) = NEW zcl_abgagt_command_import( io_repo_srv = lo_repo_srv_double ).
     mo_cut = lo_import_cmd.
 
     " Execute command with test URL

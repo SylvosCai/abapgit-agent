@@ -135,13 +135,9 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    DATA lv_response TYPE string.
-    lv_response = '{"success":"X",'.
-    lv_response = lv_response && '"repo_key":"' && li_repo->get_key( ) && '",'.
-    lv_response = lv_response && '"repo_name":"' && li_repo->get_name( ) && '",'.
-    lv_response = lv_response && '"message":"Repository created successfully"}'.
-
-    rv_result = lv_response.
+    DATA(lv_key) = condense( val = CONV string( li_repo->get_key( ) ) ).
+    DATA(lv_name) = condense( val = CONV string( li_repo->get_name( ) ) ).
+    rv_result = |\{"success":"X","repo_key":"{ lv_key }","repo_name":"{ lv_name }","message":"Repository created successfully"\}|.
   ENDMETHOD.
 
 ENDCLASS.

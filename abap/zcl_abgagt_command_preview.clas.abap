@@ -141,11 +141,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     " Process each object
     DATA lt_objects TYPE ty_preview_objects.
-    DATA lv_object TYPE string.
+
     DATA lv_total_rows TYPE i.
     DATA lv_total_count TYPE i.
 
-    LOOP AT ls_params-objects INTO lv_object.
+    LOOP AT ls_params-objects INTO DATA(lv_object).
       DATA(ls_obj) = get_table_data(
         iv_name    = lv_object
         iv_type    = ls_params-type
@@ -161,10 +161,10 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     " Build result
     " Check if any objects have errors
-    DATA lv_has_error TYPE abap_bool.
+
     LOOP AT lt_objects INTO DATA(ls_obj_check).
       IF ls_obj_check-error IS NOT INITIAL.
-        lv_has_error = abap_true.
+        DATA(lv_has_error) = abap_true.
         EXIT.
       ENDIF.
     ENDLOOP.
@@ -210,13 +210,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_data.
-    DATA: ls_result TYPE ty_preview_object,
-          lv_tabname TYPE string,
-          lv_type TYPE string.
+    DATA: ls_result TYPE ty_preview_object.
 
     ls_result-name = iv_name.
-    lv_tabname = to_upper( iv_name ).
-    lv_type = to_upper( iv_type ).
+    DATA(lv_tabname) = to_upper( iv_name ).
+    DATA(lv_type) = to_upper( iv_type ).
 
     IF lv_tabname IS INITIAL.
       lv_tabname = iv_name.
@@ -260,8 +258,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    DATA lv_name TYPE string.
-    lv_name = to_upper( iv_name ).
+
+    DATA(lv_name) = to_upper( iv_name ).
 
     " Check if table or CDS view exists in TADIR
     SELECT SINGLE object FROM tadir
@@ -276,24 +274,21 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fetch_table_data.
-    DATA: lv_error TYPE string,
-          lr_data TYPE REF TO data,
+    DATA: lr_data TYPE REF TO data,
           lo_tabdescr TYPE REF TO cl_abap_tabledescr,
           lo_strucdescr TYPE REF TO cl_abap_structdescr,
           lt_components TYPE abap_component_tab,
           lv_field_list TYPE string,
-          lv_limit TYPE i,
-          lv_offset TYPE i,
           lv_total_count TYPE i.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
 
-    lv_limit = iv_limit.
+    DATA(lv_limit) = iv_limit.
     IF lv_limit <= 0.
       lv_limit = 10.
     ENDIF.
 
-    lv_offset = iv_offset.
+    DATA(lv_offset) = iv_offset.
     IF lv_offset < 0.
       lv_offset = 0.
     ENDIF.
@@ -370,8 +365,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         " Add OFFSET for pagination (requires ORDER BY in ABAP SQL)
         IF lv_offset > 0.
           " Get first field name for ORDER BY (must use character type)
-          DATA lv_first_field TYPE c LENGTH 30.
-          lv_first_field = lt_components[ 1 ]-name.
+
+          DATA(lv_first_field) = lt_components[ 1 ]-name.
           IF lv_first_field IS INITIAL.
             lv_first_field = 'MANDT'.
           ENDIF.
@@ -419,7 +414,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         cs_result-columns_displayed = lines( cs_result-fields ).
 
       CATCH cx_root INTO DATA(lx_error).
-        lv_error = lx_error->get_text( ).
+        DATA(lv_error) = lx_error->get_text( ).
         cs_result-error = lv_error.
         cs_result-row_count = 0.
     ENDTRY.

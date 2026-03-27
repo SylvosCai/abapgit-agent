@@ -12,7 +12,7 @@ ENDCLASS.
 CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD get_instance.
     DATA lo_util TYPE REF TO zcl_abgagt_util.
-    CREATE OBJECT lo_util.
+    lo_util = NEW #( ).
     ro_util = lo_util.
   ENDMETHOD.
 
@@ -21,15 +21,14 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     " Example: "zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
     " Example: "src/zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
 
-    DATA lv_upper TYPE string.
-    lv_upper = iv_file.
+    DATA(lv_upper) = iv_file.
     TRANSLATE lv_upper TO UPPER CASE.
 
     " Split filename by '.' to get parts
     DATA lt_parts TYPE TABLE OF string.
     SPLIT lv_upper AT '.' INTO TABLE lt_parts.
-    DATA lv_part_count TYPE i.
-    lv_part_count = lines( lt_parts ).
+
+    DATA(lv_part_count) = lines( lt_parts ).
 
     IF lv_part_count < 3.
       RETURN.
@@ -42,10 +41,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     ENDIF.
 
     " First part is obj_name (may contain path), second part is obj_type
-    DATA lv_obj_name TYPE string.
-    DATA lv_obj_type_raw TYPE string.
-    READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-    READ TABLE lt_parts INDEX 2 INTO lv_obj_type_raw.
+
+    READ TABLE lt_parts INDEX 1 INTO DATA(lv_obj_name).
+    READ TABLE lt_parts INDEX 2 INTO DATA(lv_obj_type_raw).
 
     " Convert file extension to object type
     CASE lv_obj_type_raw.
@@ -66,10 +64,10 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     ENDCASE.
 
     " Extract file name from obj_name (remove path prefix)
-    DATA lv_len TYPE i.
-    lv_len = strlen( lv_obj_name ).
-    DATA lv_offs TYPE i.
-    lv_offs = find( val = reverse( lv_obj_name ) sub = '/' ).
+
+    DATA(lv_len) = strlen( lv_obj_name ).
+
+    DATA(lv_offs) = find( val = reverse( lv_obj_name ) sub = '/' ).
     IF lv_offs > 0.
       lv_offs = lv_len - lv_offs - 1.
       lv_obj_name = lv_obj_name+lv_offs.
@@ -95,19 +93,16 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD zif_abgagt_util~convert_method_index.
     " Convert base-36 string to integer
     " CM001 -> 1, CM00F -> 15, CM00A -> 10
-    DATA lv_len TYPE i.
-    DATA lv_idx TYPE i.
-    DATA lv_val TYPE i.
-    DATA lv_digit TYPE c.
 
     rv_method_index = 0.
-    lv_len = strlen( iv_include_name ).
+    DATA(lv_len) = strlen( iv_include_name ).
 
     IF lv_len = 0.
       RETURN.
     ENDIF.
 
     " Extract the numeric part (after 'CM')
+
     DATA lv_num_str TYPE string.
     IF lv_len >= 2.
       lv_num_str = iv_include_name+2.
@@ -116,16 +111,16 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     ENDIF.
 
     " Convert base-36 string to integer (0-9 = 0-9, A-Z = 10-35)
-    DATA lv_num_len TYPE i.
-    lv_num_len = strlen( lv_num_str ).
+
+    DATA(lv_num_len) = strlen( lv_num_str ).
 
     DO lv_num_len TIMES.
-      lv_idx = sy-index - 1.
-      lv_digit = lv_num_str+lv_idx(1).
+      DATA(lv_idx) = sy-index - 1.
+      DATA(lv_digit) = lv_num_str+lv_idx(1).
       lv_digit = to_upper( lv_digit ).
 
       IF lv_digit CO '0123456789'.
-        lv_val = CONV i( lv_digit ).
+        DATA(lv_val) = CONV i( lv_digit ).
       ELSEIF lv_digit CO 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
         " Convert A-Z to 10-35 using CASE
         CASE lv_digit.
@@ -167,16 +162,12 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD zif_abgagt_util~convert_index_to_cm_suffix.
     " Convert integer to 3-digit base-36 string for CM include suffix
     " 1 -> 'CM001', 10 -> 'CM00A', 35 -> 'CM00Z', 36 -> 'CM010'
-    DATA: lv_remainder TYPE i,
-          lv_quotient  TYPE i,
-          lv_digits    TYPE string,
-          lv_val       TYPE i.
 
-    lv_quotient = iv_method_index.
-    lv_digits = ''.
+    DATA(lv_quotient) = iv_method_index.
+    DATA lv_digits TYPE string.
 
     DO 3 TIMES.
-      lv_remainder = lv_quotient MOD 36.
+      DATA(lv_remainder) = lv_quotient MOD 36.
       lv_quotient  = lv_quotient DIV 36.
       IF lv_remainder < 10.
         CASE lv_remainder.
@@ -192,7 +183,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           WHEN 9. lv_digits = '9' && lv_digits.
         ENDCASE.
       ELSE.
-        lv_val = lv_remainder - 10.
+        DATA(lv_val) = lv_remainder - 10.
         CASE lv_val.
           WHEN 0.  lv_digits = 'A' && lv_digits.
           WHEN 1.  lv_digits = 'B' && lv_digits.
@@ -241,13 +232,11 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     " Example: ZCL_CLASS=============CM001 -> Class Method
     " Example: ZCL_CLASS=============CCAU -> Unit Test
 
-    DATA lv_include_len TYPE i.
-    DATA lv_include TYPE string.
-
     rv_description = 'Unknown'.
 
-    lv_include_len = strlen( iv_include_name ).
+    DATA(lv_include_len) = strlen( iv_include_name ).
     " Check from longest to shortest (35, 34, 32)
+    DATA lv_include TYPE string.
     IF lv_include_len >= 35.
       lv_include = iv_include_name+30(5).
     ELSEIF lv_include_len >= 34.
@@ -292,8 +281,6 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
     DATA: lv_name TYPE tadir-obj_name,
           lv_obj_name TYPE tadir-obj_name,
-          lv_name_len TYPE i,
-          lv_suffix TYPE string,
           lt_source_check TYPE STANDARD TABLE OF string.
 
     rs_info-is_source_include = abap_false.
@@ -303,7 +290,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     rs_info-type_text = ''.
 
     lv_name = iv_name.
-    lv_name_len = strlen( lv_name ).
+    DATA(lv_name_len) = strlen( lv_name ).
 
     " Check if name looks like a source include (>= 32 chars)
     IF lv_name_len >= 32.
@@ -313,6 +300,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       READ REPORT lv_prog INTO lt_source_check.
       IF sy-subrc = 0.
         " This is a source include - extract suffix
+        DATA lv_suffix TYPE string.
         lv_suffix = lv_name+30.
         rs_info-is_source_include = abap_true.
 

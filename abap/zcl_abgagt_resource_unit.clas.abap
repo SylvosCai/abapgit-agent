@@ -32,7 +32,7 @@ CLASS zcl_abgagt_resource_unit IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_unit=>ty_unit_params.
     ls_request = is_request.
-    rv_valid = boolc( ls_request-package IS NOT INITIAL OR ( ls_request-files IS NOT INITIAL AND lines( ls_request-files ) > 0 ) ).
+    rv_valid = xsdbool( ls_request-package IS NOT INITIAL OR ( ls_request-files IS NOT INITIAL AND lines( ls_request-files ) > 0 ) ).
   ENDMETHOD.
 
   METHOD get_error_message.

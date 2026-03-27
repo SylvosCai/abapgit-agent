@@ -1,0 +1,69 @@
+{
+  "global": {
+    "files": "/abap/**/*.{abap,xml}",
+    "skipGeneratedFunctionGroups": true
+  },
+  "syntax": {
+    "version": "v758",
+    "errorNamespace": "^(ZCL_ABGAGT_|ZIF_ABGAGT_|Z_ABGAGT_)"
+  },
+  "rules": {
+    "begin_end_names": true,
+    "cds_parser_error": true,
+    "check_include": true,
+    "identical_form_names": true,
+    "global_class": true,
+    "implement_methods": { "exclude": [".*.testclasses.abap"] },
+    "method_implemented_twice": true,
+    "parser_error": true,
+    "superclass_final": false,
+    "xml_consistency": true,
+
+    "keyword_case": { "style": "upper" },
+    "sequential_blank": { "lines": 2 },
+    "whitespace_end": true,
+    "double_space": true,
+
+    "use_new": true,
+    "prefer_inline": { "exclude": [
+      "abap/zcl_abgagt_bg_scheduler.clas.testclasses.abap",
+      "abap/zcl_abgagt_command_import.clas.abap",
+      "abap/zcl_abgagt_command_where.clas.abap",
+      "abap/zcl_abgagt_util.clas.abap"
+    ] },
+    "prefer_is_not": true,
+    "prefer_xsdbool": true,
+    "functional_writing": { "ignoreExceptions": true },
+    "unnecessary_return": true,
+    "no_aliases": { "exclude": [".*.testclasses.abap"] },
+
+    "empty_structure": true,
+    "unreachable_code": true,
+    "try_without_catch": true,
+    "identical_contents": true,
+    "db_operation_in_loop": {
+      "exclude": [
+        "abap/zcl_abgagt_command_where.clas.abap",
+        "abap/zcl_abgagt_conflict_detector.clas.abap",
+        "abap/zcl_abgagt_viewer_stru.clas.abap",
+        "abap/zcl_abgagt_viewer_tabl.clas.abap"
+      ]
+    },
+
+    "method_length": { "statements": 150, "errorWhenEmpty": false },
+    "cyclomatic_complexity": { "max": 25 },
+    "nesting": { "max": 5 },
+
+    "local_variable_names": {
+      "expectedData":     "^(lv|lt|ls|lo|li|lx|lr)_.+$",
+      "expectedConstant": "^lc_.+$",
+      "expectedFS":       "^<(l(v|t|s|o|i)_.+|comp)>$"
+    },
+    "method_parameter_names": {
+      "importing": "^(iv|it|is|io|ii|ix)_.+$",
+      "returning": "^(rv|rs|rt|ro|ri|rr)_.+$",
+      "exporting": "^(ev|es|et)_.+$",
+      "changing":  "^(cv|cs|ct)_.+$"
+    }
+  }
+}

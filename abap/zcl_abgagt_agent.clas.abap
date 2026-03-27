@@ -935,10 +935,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         path     = ls_item-file-path
         filename = ls_item-file-filename
       INTO DATA(ls_remote_file).
-      IF sy-subrc <> 0.
-        " File exists in serializer but not in git — always report it.
-      ELSEIF ls_item-file-data = ls_remote_file-data.
-        " Bytes identical — nothing to sync.
+      IF sy-subrc = 0 AND ls_item-file-data = ls_remote_file-data.
+        " Bytes identical and file exists in git — nothing to sync.
         CONTINUE.
       ENDIF.
 

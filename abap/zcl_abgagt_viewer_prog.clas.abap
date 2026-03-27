@@ -12,7 +12,6 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
     DATA: lt_source TYPE TABLE OF string,
-          lv_line TYPE string,
           lv_prog TYPE program.
 
     lv_prog = iv_name.
@@ -31,7 +30,7 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
           lines       = lt_source ).
         APPEND ls_section TO rs_info-sections.
       ELSE.
-        LOOP AT lt_source INTO lv_line.
+        LOOP AT lt_source INTO DATA(lv_line).
           IF rs_info-source IS INITIAL.
             rs_info-source = lv_line.
           ELSE.

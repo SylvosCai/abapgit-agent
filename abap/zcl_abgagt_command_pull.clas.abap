@@ -25,7 +25,6 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_pull_params,
-          lo_agent TYPE REF TO zcl_abgagt_agent,
           ls_pull_result TYPE zif_abgagt_agent=>ty_result,
           lx_error TYPE REF TO zcx_abapgit_exception.
 
@@ -40,7 +39,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
     ENDIF.
 
     " Get agent instance and execute pull
-    lo_agent = NEW zcl_abgagt_agent( ).
+    DATA(lo_agent) = NEW zcl_abgagt_agent( ).
 
     TRY.
         ls_pull_result = lo_agent->zif_abgagt_agent~pull(

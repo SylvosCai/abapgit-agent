@@ -15,13 +15,11 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
           lv_devclass TYPE tadir-devclass,
           lv_prog TYPE program,
           lt_source TYPE TABLE OF string,
-          lv_line TYPE string,
           lv_name TYPE tadir-obj_name,
-          lv_name_len TYPE i,
           lv_intfname TYPE seoclsname.
 
     lv_name = iv_name.
-    lv_name_len = strlen( lv_name ).
+    DATA(lv_name_len) = strlen( lv_name ).
 
     " Check if this is a source include (interface section)
     IF lv_name_len >= 32.
@@ -55,7 +53,7 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
             lines       = lt_source ).
           APPEND ls_section TO rs_info-sections.
         ELSE.
-          LOOP AT lt_source INTO lv_line.
+          LOOP AT lt_source INTO DATA(lv_line).
             IF rs_info-source IS INITIAL.
               rs_info-source = lv_line.
             ELSE.
@@ -72,25 +70,18 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
       INTO (lv_obj_name, lv_devclass)
       WHERE obj_name = iv_name
         AND object = 'INTF'.
+    rs_info-name      = iv_name.
+    rs_info-type      = 'INTF'.
+    rs_info-type_text = 'Interface'.
     IF sy-subrc = 0.
-      rs_info-name = iv_name.
-      rs_info-type = 'INTF'.
-      rs_info-type_text = 'Interface'.
       rs_info-description = |Interface { iv_name } in { lv_devclass }|.
     ELSE.
-      rs_info-name = iv_name.
-      rs_info-type = 'INTF'.
-      rs_info-type_text = 'Interface'.
       rs_info-not_found = abap_true.
     ENDIF.
 
     " Get interface section program name using CL_OO_CLASSNAME_SERVICE
     lv_intfname = iv_name.
-    CALL METHOD cl_oo_classname_service=>get_intfsec_name
-      EXPORTING
-        clsname = lv_intfname
-      RECEIVING
-        result  = lv_prog.
+    cl_oo_classname_service=>get_intfsec_name( EXPORTING clsname = lv_intfname RECEIVING result = lv_prog ).
 
     " Read source from program
     READ REPORT lv_prog INTO lt_source.

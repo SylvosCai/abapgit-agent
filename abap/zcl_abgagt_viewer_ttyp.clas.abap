@@ -15,9 +15,7 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
           lv_devclass TYPE tadir-devclass,
           lv_linetype TYPE string,
           lv_tabprottype TYPE string,
-          lv_keydef TYPE string,
-          lv_access_mode TYPE string,
-          lv_key_definition TYPE string.
+          lv_keydef TYPE string.
 
     rs_info-name = iv_name.
     rs_info-type = 'TTYP'.
@@ -54,7 +52,7 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
     " Convert access mode to text
     CASE lv_tabprottype.
-      WHEN 'T'. lv_access_mode = 'STANDARD'.
+      WHEN 'T'. DATA(lv_access_mode) = 'STANDARD'.
       WHEN 'S'. lv_access_mode = 'SORTED'.
       WHEN 'H'. lv_access_mode = 'HASHED'.
       WHEN OTHERS. lv_access_mode = lv_tabprottype.
@@ -73,7 +71,7 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
     " Convert key definition to text
     CASE lv_keydef.
-      WHEN 'D'. lv_key_definition = 'WITH KEY'.
+      WHEN 'D'. DATA(lv_key_definition) = 'WITH KEY'.
       WHEN 'N'. lv_key_definition = 'NO KEY'.
       WHEN OTHERS. lv_key_definition = lv_keydef.
     ENDCASE.

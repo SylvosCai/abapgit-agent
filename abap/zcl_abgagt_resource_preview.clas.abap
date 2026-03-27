@@ -32,7 +32,7 @@ CLASS zcl_abgagt_resource_preview IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_preview=>ty_preview_params.
     ls_request = is_request.
-    rv_valid = boolc( ls_request-objects IS NOT INITIAL ).
+    rv_valid = xsdbool( ls_request-objects IS NOT INITIAL ).
   ENDMETHOD.
 
   METHOD get_error_message.

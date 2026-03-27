@@ -198,12 +198,25 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
 
   // Clone or reset the temp working directory
   try {
+    // Detect whether the existing directory is a valid git repo before trying fetch.
+    // It may exist as an empty dir or a non-repo leftover from a previous failed run.
+    let needsClone = true;
     if (fs.existsSync(cloneDir)) {
-      execSync(`git fetch origin ${TEST_BRANCH}`,            { cwd: cloneDir, encoding: 'utf8' });
-      execSync(`git checkout ${TEST_BRANCH}`,                { cwd: cloneDir, encoding: 'utf8' });
-      execSync(`git reset --hard origin/${TEST_BRANCH}`,     { cwd: cloneDir, encoding: 'utf8' });
-      printInfo('Reset existing clone to remote state');
-    } else {
+      try {
+        execSync('git rev-parse --git-dir', { cwd: cloneDir, encoding: 'utf8', stdio: 'pipe' });
+        // Valid git repo — fetch and reset
+        execSync(`git fetch origin ${TEST_BRANCH}`,        { cwd: cloneDir, encoding: 'utf8' });
+        execSync(`git checkout ${TEST_BRANCH}`,            { cwd: cloneDir, encoding: 'utf8' });
+        execSync(`git reset --hard origin/${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
+        printInfo('Reset existing clone to remote state');
+        needsClone = false;
+      } catch (_) {
+        // Not a valid repo — remove and re-clone below
+        printInfo('Existing directory is not a valid git repo — removing and re-cloning');
+        fs.rmSync(cloneDir, { recursive: true, force: true });
+      }
+    }
+    if (needsClone) {
       execSync(`git clone --branch ${TEST_BRANCH} ${TEST_REPO_URL} ${cloneDir}`, { encoding: 'utf8' });
       printInfo('Cloned fresh copy');
     }

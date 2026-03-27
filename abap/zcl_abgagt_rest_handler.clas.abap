@@ -17,7 +17,7 @@ CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
     " e.g., /sap/bc/z_abapgit_agent/health -> health
     " Then register the specific resource class dynamically
     DATA lo_router TYPE REF TO cl_rest_router.
-    CREATE OBJECT lo_router.
+    lo_router = NEW #( ).
 
     " Get the current request path from the server
     DATA lv_path TYPE string.

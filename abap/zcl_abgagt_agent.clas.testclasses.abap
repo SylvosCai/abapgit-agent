@@ -174,17 +174,17 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_parse_file_invalid    FOR TESTING.
 
     " --- pull ---
-    METHODS test_pull_no_url           FOR TESTING.
-    METHODS test_pull_success          FOR TESTING.
-    METHODS test_pull_with_errors      FOR TESTING.
-    METHODS test_pull_activated_objs   FOR TESTING.
-    METHODS test_pull_failed_objects   FOR TESTING.
-    METHODS test_pull_transport        FOR TESTING.
-    METHODS test_pull_conflict_ignored FOR TESTING.
+    METHODS test_pull_no_url           FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_success          FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_with_errors      FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_activated_objs   FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_failed_objects   FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_transport        FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_pull_conflict_ignored FOR TESTING RAISING zcx_abapgit_exception.
 
     " --- RTTI alias parameter detection ---
     METHODS test_rtti_alias_filter_param FOR TESTING.
-    METHODS test_pull_alias_repo_filter  FOR TESTING.
+    METHODS test_pull_alias_repo_filter  FOR TESTING RAISING zcx_abapgit_exception.
 
     " --- get_repo_status ---
     METHODS test_get_repo_status_found FOR TESTING.
