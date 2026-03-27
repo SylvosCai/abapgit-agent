@@ -2,6 +2,28 @@
 title: Release Notes
 ---
 
+## v1.13.7
+
+### New Features
+
+- Add Jenkinsfile with CI pipeline (abaplint, activate, unit, inspect)
+
+### Improvements
+
+- Enforce 18+ abaplint rules across all 179 ABAP source files
+- Add `local_variable_names` and `method_parameter_names` naming rules
+
+### Documentation
+
+- Add abaplint guide with safe/unsafe `prefer_inline` patterns
+- Clarify unit test writing: prefer `cl_abap_testdouble`, document XML flags
+- Add abaplint naming conventions reference (`ref --topic abaplint-local`)
+
+---
+
+---
+
+
 ## v1.13.6
 
 ### New Features
