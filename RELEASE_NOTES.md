@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.14.3
+
+### Bug Fixes
+
+- Fix abaplint dependency resolution in nested project layouts
+
+---
+
+---
+
+
 ## v1.14.2
 
 ### Bug Fixes
