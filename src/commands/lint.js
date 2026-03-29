@@ -172,6 +172,21 @@ function resolveDependencies(abapFiles, abapDir) {
               visited.add(abapFile);
               queue.push(abapFile);
             }
+            // For interfaces, also include the canonical concrete implementation
+            // (zif_foo → zcl_foo) so rules like unused_variables can fully type-check.
+            if (suffix.endsWith('.intf')) {
+              const implName   = name.replace(/^zif_/, 'zcl_');
+              const implFile   = path.join(abapDir, `${implName}.clas.abap`);
+              const implXml    = path.join(abapDir, `${implName}.clas.xml`);
+              if (fs.existsSync(implFile)) {
+                deps.add(implFile);
+                if (fs.existsSync(implXml)) deps.add(implXml);
+                if (!visited.has(implFile)) {
+                  visited.add(implFile);
+                  queue.push(implFile);
+                }
+              }
+            }
             break; // intf matched — don't also try clas
           }
         }

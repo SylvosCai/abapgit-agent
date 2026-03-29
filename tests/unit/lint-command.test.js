@@ -677,4 +677,53 @@ describe('lint command — dependency resolution', () => {
     expect(writtenConfig.global.files).toContain('/abap/zif_a.intf.abap');
     expect(writtenConfig.global.files).toContain('/abap/zif_b.intf.abap');
   });
+
+  test('includes concrete implementation class alongside resolved interface (zif_→zcl_)', () => {
+    // When zif_foo is resolved, also include zcl_foo if it exists —
+    // needed so rules like unused_variables can fully type-check method bodies.
+    const clsSource  = 'CLASS zcl_bar DEFINITION.\n  INTERFACES zif_foo.\nENDCLASS.';
+    const intfSource = 'INTERFACE zif_foo PUBLIC. ENDINTERFACE.';
+    const implSource = 'CLASS zcl_foo DEFINITION. ENDCLASS.';
+
+    const existingFiles = [
+      '.abaplint.json',
+      'abap/zcl_bar.clas.abap',
+      'abap/zif_foo.intf.abap',
+      'abap/zcl_foo.clas.abap',  // concrete impl of zif_foo
+    ];
+    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json')        return JSON.stringify(config);
+      if (p === 'abap/zcl_bar.clas.abap') return clsSource;
+      if (p === 'abap/zif_foo.intf.abap') return intfSource;
+      if (p === 'abap/zcl_foo.clas.abap') return implSource;
+      return '';
+    });
+
+    lint.execute(['--files', 'abap/zcl_bar.clas.abap']);
+
+    const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    expect(writtenConfig.global.files).toContain('/abap/zif_foo.intf.abap');
+    expect(writtenConfig.global.files).toContain('/abap/zcl_foo.clas.abap');
+  });
+
+  test('skips concrete impl lookup when no matching zcl_ class exists', () => {
+    const clsSource  = 'CLASS zcl_bar DEFINITION.\n  INTERFACES zif_external.\nENDCLASS.';
+    const intfSource = 'INTERFACE zif_external PUBLIC. ENDINTERFACE.';
+
+    const existingFiles = ['.abaplint.json', 'abap/zcl_bar.clas.abap', 'abap/zif_external.intf.abap'];
+    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json')           return JSON.stringify(config);
+      if (p === 'abap/zcl_bar.clas.abap')  return clsSource;
+      if (p === 'abap/zif_external.intf.abap') return intfSource;
+      return '';
+    });
+
+    expect(() => lint.execute(['--files', 'abap/zcl_bar.clas.abap'])).not.toThrow();
+    const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    // zcl_external does not exist — should not appear
+    expect(writtenConfig.global.files).not.toContain('/abap/zcl_external.clas.abap');
+    expect(writtenConfig.global.files).toContain('/abap/zif_external.intf.abap');
+  });
 });
