@@ -129,7 +129,6 @@ CLASS lcl_ddl_handler_mock DEFINITION.
     " Mock data to return
     DATA ms_mock_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
     DATA mt_mock_warnings TYPE zif_abgagt_ddl_handler=>ty_warnings.
-    DATA mt_mock_errors TYPE zif_abgagt_ddl_handler=>ty_errors.
     DATA mx_check_exception TYPE REF TO cx_dd_ddl_check.
 
     METHODS constructor.

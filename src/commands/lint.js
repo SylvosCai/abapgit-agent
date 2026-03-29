@@ -57,7 +57,13 @@ module.exports = {
     }
 
     const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    cfg.global.files = abapFiles.map(f => `/${f}`);
+
+    // Scope to changed files + their direct dependencies (interfaces, superclasses)
+    // so abaplint can resolve cross-references without including the whole repo.
+    const abapDir = cfg.global.files.replace(/\/\*\*.*$/, '').replace(/^\//, '') || 'abap';
+    const depFiles = resolveDependencies(abapFiles, abapDir);
+    const allFiles = [...new Set([...abapFiles, ...depFiles])];
+    cfg.global.files = allFiles.map(f => `/${f}`);
 
     const scopedConfig = '.abaplint-local.json';
     fs.writeFileSync(scopedConfig, JSON.stringify(cfg, null, 2));
@@ -115,6 +121,69 @@ function runGit(cmd) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Resolve direct dependencies of the given ABAP files by scanning their source
+ * for interface/superclass/type references and mapping them to local files.
+ *
+ * Handles:
+ *   INTERFACES <name>.              → <name>.intf.abap + <name>.intf.xml
+ *   INHERITING FROM <name>          → <name>.clas.abap + <name>.clas.xml
+ *   TYPE REF TO <name>              → <name>.intf.abap or <name>.clas.abap (whichever exists)
+ *
+ * Only resolves one level deep — enough for abaplint to check the changed files.
+ * XML companion files are always included alongside their .abap counterpart
+ * so xml_consistency checks can run.
+ */
+function resolveDependencies(abapFiles, abapDir) {
+  const deps    = new Set();
+  const visited = new Set(abapFiles); // don't re-scan changed files as deps
+
+  // Patterns to extract referenced object names from ABAP source
+  const patterns = [
+    /^\s*INTERFACES\s+(\w+)\s*\./gim,
+    /INHERITING\s+FROM\s+(\w+)/gim,
+    /TYPE\s+REF\s+TO\s+(\w+)/gim,
+  ];
+
+  // BFS queue — seed with the changed files, then expand transitively
+  const queue = [...abapFiles];
+
+  while (queue.length > 0) {
+    const file = queue.shift();
+
+    let source;
+    try { source = fs.readFileSync(file, 'utf8'); } catch { continue; }
+
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0;
+      let match;
+      while ((match = pattern.exec(source)) !== null) {
+        const name = match[1].toLowerCase();
+        for (const suffix of [`${name}.intf`, `${name}.clas`]) {
+          const abapFile = path.join(abapDir, `${suffix}.abap`);
+          const xmlFile  = path.join(abapDir, `${suffix}.xml`);
+          if (fs.existsSync(abapFile)) {
+            deps.add(abapFile);
+            if (fs.existsSync(xmlFile)) deps.add(xmlFile);
+            // Recurse into this dep if not yet visited
+            if (!visited.has(abapFile)) {
+              visited.add(abapFile);
+              queue.push(abapFile);
+            }
+            break; // intf matched — don't also try clas
+          }
+        }
+      }
+    }
+
+    // Always include the XML companion of each scanned file
+    const xmlCompanion = file.replace(/\.abap$/, '.xml');
+    if (fs.existsSync(xmlCompanion)) deps.add(xmlCompanion);
+  }
+
+  return [...deps];
 }
 
 /**

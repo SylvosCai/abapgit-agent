@@ -73,9 +73,46 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 abapgit-agent unit --files src/zcl_auth_handler.clas.testclasses.abap
 
 # 3. Create PR (squash merge enabled on GitHub/GitLab)
-# Go to GitHub and create PR from feature/user-authentication to main
-# Select "Squash and merge" option to combine all commits into one
+# See "Creating a PR" section below for transport handling
 ```
+
+#### Creating a PR
+
+When creating a PR with `gh pr create`:
+
+**Check `.abapgit-agent.json` for `transports.hook`.**
+
+```
+transports.hook present?
+├─ NO  → create PR normally, no transport line needed. STOP here.
+└─ YES → continue below
+```
+
+**If hook is configured — resolve which transport to include:**
+
+```bash
+abapgit-agent transport list --scope task --json
+```
+
+- **One result** → use it directly, no need to ask the user
+- **Multiple results** → show the list to the user and ask which one to use for this PR
+- **No results** → ask the user to provide a transport number manually, or confirm to skip
+
+**Append `transport: <number>` as the last line of the PR body:**
+
+```
+## Summary
+- Implemented user authentication handler
+
+## Changed Objects
+- ZCL_AUTH_HANDLER (CLAS)
+
+transport: DEVK900001
+```
+
+**Why:** The CI pipeline reads this line from the PR description and uses it for the
+Activate stage, overriding the automatic hook selection. This lets the user control
+which transport request receives the activated changes.
 
 #### Why Rebase Before Pull?
 
@@ -137,5 +174,6 @@ abapgit-agent pull --files src/zcl_auth_handler.clas.abap
 abapgit-agent unit --files src/zcl_auth_handler.clas.testclasses.abap
 git fetch origin main && git rebase origin/main
 git push origin feature/user-authentication --force-with-lease
-# Create PR on GitHub/GitLab (squash 3 commits into 1)
+# Create PR: check transport hook, resolve transport, include in PR body
+# abapgit-agent transport list --scope task --json  → pick transport → append to PR body
 ```

@@ -64,6 +64,8 @@
       "returning": "^(rv|rs|rt|ro|ri|rr)_.+$",
       "exporting": "^(ev|es|et)_.+$",
       "changing":  "^(cv|cs|ct)_.+$"
-    }
+    },
+
+    "unused_variables": { "exclude": ["abap/zcl_abgagt_command_list.clas.abap"] }
   }
 }

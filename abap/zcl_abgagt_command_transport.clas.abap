@@ -154,10 +154,14 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
 
       WHEN 'task'.
         " Step 1: find parent transport orders of user's tasks
+        " Note: task types include T (Development/Correction), S (Repair), X (Unclassified), etc.
+        " Do not filter by trfunction — any task type belonging to the user qualifies.
+        " The parent transport (strkorr) is what matters; Step 4 filters for K (orders) only.
         SELECT DISTINCT strkorr
           FROM e070
           WHERE trstatus   = 'D'
-            AND trfunction = 'T'
+            AND trfunction <> 'K'
+            AND strkorr    <> ''
             AND as4user    = @sy-uname
           INTO TABLE @DATA(lt_from_tasks).
 

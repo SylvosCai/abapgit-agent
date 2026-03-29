@@ -59,7 +59,6 @@ CLASS zcl_abgagt_command_unit DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS run_aunit_tests
       IMPORTING
-        iv_package TYPE devclass OPTIONAL
         it_keys TYPE ty_keys OPTIONAL
         iv_coverage TYPE abap_bool DEFAULT abap_false
       RETURNING
@@ -165,7 +164,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Run tests and get result directly from str_results
     ls_result = run_aunit_tests(
-      iv_package = lv_package
       it_keys = lt_keys
       iv_coverage = ls_params-coverage ).
 
