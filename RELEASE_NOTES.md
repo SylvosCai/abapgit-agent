@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.14.2
+
+### Bug Fixes
+
+- Include concrete impl class when scoping abaplint to changed files
+
+---
+
+---
+
+
 ## v1.14.1
 
 ### Bug Fixes
