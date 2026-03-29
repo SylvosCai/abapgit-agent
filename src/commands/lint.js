@@ -61,9 +61,20 @@ module.exports = {
     // Scope to changed files + their direct dependencies (interfaces, superclasses)
     // so abaplint can resolve cross-references without including the whole repo.
     const abapDir = cfg.global.files.replace(/\/\*\*.*$/, '').replace(/^\//, '') || 'abap';
-    const depFiles = resolveDependencies(abapFiles, abapDir);
+    const fileIndex = buildFileIndex(abapDir);
+    const depFiles = resolveDependencies(abapFiles, fileIndex);
     const allFiles = [...new Set([...abapFiles, ...depFiles])];
     cfg.global.files = allFiles.map(f => `/${f}`);
+
+    // Exclude dependency files from reporting — they are included only for
+    // cross-reference resolution. Only the originally changed files are reported on.
+    const abapFilesSet = new Set(abapFiles);
+    const excludedDeps = depFiles
+      .filter(f => !abapFilesSet.has(f))
+      .map(f => `/${f}`);
+    if (excludedDeps.length > 0) {
+      cfg.global.exclude = [...new Set([...(cfg.global.exclude || []), ...excludedDeps])];
+    }
 
     const scopedConfig = '.abaplint-local.json';
     fs.writeFileSync(scopedConfig, JSON.stringify(cfg, null, 2));
@@ -124,6 +135,30 @@ function runGit(cmd) {
 }
 
 /**
+ * Build a map of basename → full path for all .abap and .xml files
+ * found recursively under abapDir. Used for dependency resolution so
+ * that projects with nested folder structures (e.g. src/module/pkg/foo.clas.abap)
+ * are handled correctly — not just flat abap/ layouts.
+ */
+function buildFileIndex(abapDir) {
+  const index = new Map(); // basename (lowercase) → full path
+  function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.name.endsWith('.abap') || entry.name.endsWith('.xml')) {
+        index.set(entry.name.toLowerCase(), full);
+      }
+    }
+  }
+  walk(abapDir);
+  return index;
+}
+
+/**
  * Resolve direct dependencies of the given ABAP files by scanning their source
  * for interface/superclass/type references and mapping them to local files.
  *
@@ -132,11 +167,12 @@ function runGit(cmd) {
  *   INHERITING FROM <name>          → <name>.clas.abap + <name>.clas.xml
  *   TYPE REF TO <name>              → <name>.intf.abap or <name>.clas.abap (whichever exists)
  *
- * Only resolves one level deep — enough for abaplint to check the changed files.
+ * Uses a filename index built from a recursive walk of abapDir so that
+ * deeply nested project structures are handled correctly.
  * XML companion files are always included alongside their .abap counterpart
  * so xml_consistency checks can run.
  */
-function resolveDependencies(abapFiles, abapDir) {
+function resolveDependencies(abapFiles, fileIndex) {
   const deps    = new Set();
   const visited = new Set(abapFiles); // don't re-scan changed files as deps
 
@@ -162,11 +198,11 @@ function resolveDependencies(abapFiles, abapDir) {
       while ((match = pattern.exec(source)) !== null) {
         const name = match[1].toLowerCase();
         for (const suffix of [`${name}.intf`, `${name}.clas`]) {
-          const abapFile = path.join(abapDir, `${suffix}.abap`);
-          const xmlFile  = path.join(abapDir, `${suffix}.xml`);
-          if (fs.existsSync(abapFile)) {
+          const abapFile = fileIndex.get(`${suffix}.abap`);
+          const xmlFile  = fileIndex.get(`${suffix}.xml`);
+          if (abapFile) {
             deps.add(abapFile);
-            if (fs.existsSync(xmlFile)) deps.add(xmlFile);
+            if (xmlFile) deps.add(xmlFile);
             // Recurse into this dep if not yet visited
             if (!visited.has(abapFile)) {
               visited.add(abapFile);
@@ -175,12 +211,12 @@ function resolveDependencies(abapFiles, abapDir) {
             // For interfaces, also include the canonical concrete implementation
             // (zif_foo → zcl_foo) so rules like unused_variables can fully type-check.
             if (suffix.endsWith('.intf')) {
-              const implName   = name.replace(/^zif_/, 'zcl_');
-              const implFile   = path.join(abapDir, `${implName}.clas.abap`);
-              const implXml    = path.join(abapDir, `${implName}.clas.xml`);
-              if (fs.existsSync(implFile)) {
+              const implName  = name.replace(/^zif_/, 'zcl_');
+              const implFile  = fileIndex.get(`${implName}.clas.abap`);
+              const implXml   = fileIndex.get(`${implName}.clas.xml`);
+              if (implFile) {
                 deps.add(implFile);
-                if (fs.existsSync(implXml)) deps.add(implXml);
+                if (implXml) deps.add(implXml);
                 if (!visited.has(implFile)) {
                   visited.add(implFile);
                   queue.push(implFile);
@@ -194,8 +230,9 @@ function resolveDependencies(abapFiles, abapDir) {
     }
 
     // Always include the XML companion of each scanned file
-    const xmlCompanion = file.replace(/\.abap$/, '.xml');
-    if (fs.existsSync(xmlCompanion)) deps.add(xmlCompanion);
+    const xmlBasename = path.basename(file).replace(/\.abap$/, '.xml').toLowerCase();
+    const xmlCompanion = fileIndex.get(xmlBasename);
+    if (xmlCompanion) deps.add(xmlCompanion);
   }
 
   return [...deps];

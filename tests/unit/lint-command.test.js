@@ -11,6 +11,7 @@ const mockFsExistsSync = jest.fn();
 const mockFsReadFileSync = jest.fn();
 const mockFsWriteFileSync = jest.fn();
 const mockFsUnlinkSync = jest.fn();
+const mockFsReaddirSync = jest.fn();
 
 jest.mock('child_process', () => ({
   execSync: (...args) => mockExecSync(...args),
@@ -22,6 +23,7 @@ jest.mock('fs', () => ({
   readFileSync: (...args) => mockFsReadFileSync(...args),
   writeFileSync: (...args) => mockFsWriteFileSync(...args),
   unlinkSync: (...args) => mockFsUnlinkSync(...args),
+  readdirSync: (...args) => mockFsReaddirSync(...args),
 }));
 
 // Mock process.exit
@@ -52,10 +54,33 @@ afterEach(() => {
 function setupConfigExists(content = '{"global":{"files":"/src/**/*.abap"},"rules":{}}') {
   mockFsExistsSync.mockReturnValue(true);
   mockFsReadFileSync.mockReturnValue(content);
+  // readdirSync returns empty by default — no dep files to index
+  mockFsReaddirSync.mockReturnValue([]);
 }
 
 function setupConfigMissing() {
   mockFsExistsSync.mockReturnValue(false);
+  mockFsReaddirSync.mockReturnValue([]);
+}
+
+/**
+ * Set up fs mocks from a list of known file paths.
+ * - existsSync returns true only for listed paths
+ * - readdirSync returns Dirent-like objects for files under a given dir
+ */
+function mockFileSystem(knownFiles) {
+  mockFsExistsSync.mockImplementation((p) => knownFiles.includes(p));
+  mockFsReaddirSync.mockImplementation((dir, opts) => {
+    // Return flat Dirent-like entries for files directly under `dir`
+    // (buildFileIndex only recurses into directories, so we return no subdirs here
+    //  — all test files are in a single flat directory)
+    return knownFiles
+      .filter(f => f.startsWith(dir + '/') && !f.slice(dir.length + 1).includes('/'))
+      .map(f => ({
+        name: f.slice(dir.length + 1),
+        isDirectory: () => false,
+      }));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -489,9 +514,8 @@ describe('lint command — dependency resolution', () => {
   });
 
   test('includes XML companion of changed file when it exists', () => {
-    mockFsExistsSync.mockImplementation((p) =>
-      p === '.abaplint.json' || p === 'abap/zcl_foo.clas.abap' || p === 'abap/zcl_foo.clas.xml'
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zcl_foo.clas.xml'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : 'CLASS zcl_foo DEFINITION. ENDCLASS.'
     );
@@ -504,9 +528,8 @@ describe('lint command — dependency resolution', () => {
   });
 
   test('does not add XML companion when it does not exist', () => {
-    mockFsExistsSync.mockImplementation((p) =>
-      p === '.abaplint.json' || p === 'abap/zcl_foo.clas.abap'
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : 'CLASS zcl_foo DEFINITION. ENDCLASS.'
     );
@@ -519,9 +542,8 @@ describe('lint command — dependency resolution', () => {
 
   test('resolves INTERFACES statement to .intf.abap + .intf.xml', () => {
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap', 'abap/zif_bar.intf.xml'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap', 'abap/zif_bar.intf.xml'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -535,9 +557,8 @@ describe('lint command — dependency resolution', () => {
 
   test('resolves INHERITING FROM to superclass .clas.abap + .clas.xml', () => {
     const source = 'CLASS zcl_child DEFINITION INHERITING FROM zcl_parent. ENDCLASS.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_child.clas.abap', 'abap/zcl_parent.clas.abap', 'abap/zcl_parent.clas.xml'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_child.clas.abap', 'abap/zcl_parent.clas.abap', 'abap/zcl_parent.clas.xml'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -551,9 +572,8 @@ describe('lint command — dependency resolution', () => {
 
   test('resolves TYPE REF TO to interface file when it exists', () => {
     const source = 'DATA lo_obj TYPE REF TO zif_agent.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_agent.intf.abap'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_agent.intf.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -566,9 +586,8 @@ describe('lint command — dependency resolution', () => {
 
   test('resolves TYPE REF TO to class file when interface does not exist but class does', () => {
     const source = 'DATA lo_obj TYPE REF TO zcl_helper.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zcl_helper.clas.abap'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zcl_helper.clas.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -582,10 +601,8 @@ describe('lint command — dependency resolution', () => {
 
   test('silently skips referenced objects that do not exist on disk', () => {
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_missing.\nENDCLASS.';
-    mockFsExistsSync.mockImplementation((p) =>
-      p === '.abaplint.json' || p === 'abap/zcl_foo.clas.abap'
-      // zif_missing.intf.abap does NOT exist
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -597,9 +614,8 @@ describe('lint command — dependency resolution', () => {
 
   test('deduplicates dependency files when multiple changed files share the same dep', () => {
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_shared.\nENDCLASS.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_a.clas.abap', 'abap/zcl_b.clas.abap', 'abap/zif_shared.intf.abap'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_a.clas.abap', 'abap/zcl_b.clas.abap', 'abap/zif_shared.intf.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -613,9 +629,8 @@ describe('lint command — dependency resolution', () => {
 
   test('includes all changed files in global.files alongside resolved deps', () => {
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
-    mockFsExistsSync.mockImplementation((p) =>
-      ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'].includes(p)
-    );
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) =>
       p === '.abaplint.json' ? JSON.stringify(config) : source
     );
@@ -634,13 +649,13 @@ describe('lint command — dependency resolution', () => {
     const intfSource = 'INTERFACE zif_bar PUBLIC.\n  METHODS run IMPORTING io_x TYPE REF TO zif_baz.\nENDINTERFACE.';
     const bazSource  = 'INTERFACE zif_baz PUBLIC. ENDINTERFACE.';
 
-    const existingFiles = [
+    const knownFiles = [
       '.abaplint.json',
       'abap/zcl_foo.clas.abap',
       'abap/zif_bar.intf.abap',
       'abap/zif_baz.intf.abap',
     ];
-    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) => {
       if (p === '.abaplint.json')        return JSON.stringify(config);
       if (p === 'abap/zcl_foo.clas.abap') return clsSource;
@@ -662,8 +677,8 @@ describe('lint command — dependency resolution', () => {
     const aSource = 'INTERFACE zif_a PUBLIC.\n  METHODS m IMPORTING io TYPE REF TO zif_b.\nENDINTERFACE.';
     const bSource = 'INTERFACE zif_b PUBLIC.\n  METHODS m IMPORTING io TYPE REF TO zif_a.\nENDINTERFACE.';
 
-    const existingFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_a.intf.abap', 'abap/zif_b.intf.abap'];
-    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_a.intf.abap', 'abap/zif_b.intf.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) => {
       if (p === '.abaplint.json')        return JSON.stringify(config);
       if (p === 'abap/zcl_foo.clas.abap') return 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_a.\nENDCLASS.';
@@ -685,13 +700,13 @@ describe('lint command — dependency resolution', () => {
     const intfSource = 'INTERFACE zif_foo PUBLIC. ENDINTERFACE.';
     const implSource = 'CLASS zcl_foo DEFINITION. ENDCLASS.';
 
-    const existingFiles = [
+    const knownFiles = [
       '.abaplint.json',
       'abap/zcl_bar.clas.abap',
       'abap/zif_foo.intf.abap',
       'abap/zcl_foo.clas.abap',  // concrete impl of zif_foo
     ];
-    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) => {
       if (p === '.abaplint.json')        return JSON.stringify(config);
       if (p === 'abap/zcl_bar.clas.abap') return clsSource;
@@ -711,8 +726,8 @@ describe('lint command — dependency resolution', () => {
     const clsSource  = 'CLASS zcl_bar DEFINITION.\n  INTERFACES zif_external.\nENDCLASS.';
     const intfSource = 'INTERFACE zif_external PUBLIC. ENDINTERFACE.';
 
-    const existingFiles = ['.abaplint.json', 'abap/zcl_bar.clas.abap', 'abap/zif_external.intf.abap'];
-    mockFsExistsSync.mockImplementation((p) => existingFiles.includes(p));
+    const knownFiles = ['.abaplint.json', 'abap/zcl_bar.clas.abap', 'abap/zif_external.intf.abap'];
+    mockFileSystem(knownFiles);
     mockFsReadFileSync.mockImplementation((p) => {
       if (p === '.abaplint.json')           return JSON.stringify(config);
       if (p === 'abap/zcl_bar.clas.abap')  return clsSource;
@@ -725,5 +740,88 @@ describe('lint command — dependency resolution', () => {
     // zcl_external does not exist — should not appear
     expect(writtenConfig.global.files).not.toContain('/abap/zcl_external.clas.abap');
     expect(writtenConfig.global.files).toContain('/abap/zif_external.intf.abap');
+  });
+
+  test('resolves deps in nested subdirectories (non-flat project layout)', () => {
+    // Simulates a project like aud-abap where files live in deep subdirs
+    // e.g. src/module/pkg/cl_foo.clas.abap  INHERITING FROM  cl_base.clas.abap
+    // cl_base lives in a different subdir: src/shared/cl_base.clas.abap
+    const clsSource = 'CLASS cl_child DEFINITION INHERITING FROM cl_base. ENDCLASS.';
+    const baseSource = 'CLASS cl_base DEFINITION. ENDCLASS.';
+
+    // readdirSync will be called for 'src', 'src/module', 'src/shared'
+    mockFsExistsSync.mockImplementation((p) => [
+      '.abaplint.json',
+      'src/module/cl_child.clas.abap',
+      'src/shared/cl_base.clas.abap',
+    ].includes(p));
+    mockFsReaddirSync.mockImplementation((dir) => {
+      if (dir === 'src') return [
+        { name: 'module', isDirectory: () => true },
+        { name: 'shared', isDirectory: () => true },
+      ];
+      if (dir === 'src/module') return [
+        { name: 'cl_child.clas.abap', isDirectory: () => false },
+      ];
+      if (dir === 'src/shared') return [
+        { name: 'cl_base.clas.abap', isDirectory: () => false },
+      ];
+      return [];
+    });
+    const nestedConfig = { global: { files: '/src/**/*.abap' }, rules: {} };
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json')             return JSON.stringify(nestedConfig);
+      if (p === 'src/module/cl_child.clas.abap') return clsSource;
+      if (p === 'src/shared/cl_base.clas.abap')  return baseSource;
+      return '';
+    });
+
+    lint.execute(['--files', 'src/module/cl_child.clas.abap']);
+
+    const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    expect(writtenConfig.global.files).toContain('/src/module/cl_child.clas.abap');
+    expect(writtenConfig.global.files).toContain('/src/shared/cl_base.clas.abap');
+  });
+
+  test('excludes dependency files from reporting but keeps them in global.files', () => {
+    const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
+    const intfSource = 'INTERFACE zif_bar PUBLIC. ENDINTERFACE.';
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'];
+    mockFileSystem(knownFiles);
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json') return JSON.stringify(config);
+      if (p === 'abap/zcl_foo.clas.abap') return source;
+      if (p === 'abap/zif_bar.intf.abap') return intfSource;
+      return '';
+    });
+
+    lint.execute(['--files', 'abap/zcl_foo.clas.abap']);
+
+    const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    // changed file is in global.files and NOT excluded
+    expect(writtenConfig.global.files).toContain('/abap/zcl_foo.clas.abap');
+    expect(writtenConfig.global.exclude || []).not.toContain('/abap/zcl_foo.clas.abap');
+    // dep is in global.files for resolution but excluded from reporting
+    expect(writtenConfig.global.files).toContain('/abap/zif_bar.intf.abap');
+    expect(writtenConfig.global.exclude).toContain('/abap/zif_bar.intf.abap');
+  });
+
+  test('preserves existing global.exclude entries when adding dep exclusions', () => {
+    const configWithExclude = { global: { files: '/abap/**/*.abap', exclude: ['/abap/generated/**'] }, rules: {} };
+    const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
+    const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'];
+    mockFileSystem(knownFiles);
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json') return JSON.stringify(configWithExclude);
+      if (p === 'abap/zcl_foo.clas.abap') return source;
+      if (p === 'abap/zif_bar.intf.abap') return 'INTERFACE zif_bar PUBLIC. ENDINTERFACE.';
+      return '';
+    });
+
+    lint.execute(['--files', 'abap/zcl_foo.clas.abap']);
+
+    const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    expect(writtenConfig.global.exclude).toContain('/abap/generated/**');
+    expect(writtenConfig.global.exclude).toContain('/abap/zif_bar.intf.abap');
   });
 });
