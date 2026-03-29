@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.14.1
+
+### Bug Fixes
+
+- Transport list `--scope task` now includes all task types (S, X, R)
+
+### Documentation
+
+- Added PR creation transport instructions to branch workflow guide
+- Transport hook check added as explicit gate before listing transports
+
+---
+
+---
+
+
 ## v1.14.0
 
 ### New Features
