@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.14.0
+
+### New Features
+
+- New `lint` command for abaplint static analysis on changed files
+
+### Documentation
+
+- Added local abaplint workflow guide for changed files
+
+---
+
+---
+
+
 ## v1.13.7
 
 ### New Features
