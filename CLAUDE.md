@@ -21,6 +21,7 @@ abapgit-agent guide
 ```bash
 # Quick commands
 abapgit-agent syntax --files src/zcl_my_class.clas.abap    # Check syntax BEFORE commit (local files)
+abapgit-agent lint                                          # abaplint static analysis on changed files (only if .abaplint.json exists)
 abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull and activate (AFTER push)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap   # Code Inspector check (AFTER pull)
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run unit tests
@@ -211,7 +212,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 
 | Category | Commands | Purpose |
 |----------|----------|---------|
-| **Development** | `syntax`, `pull`, `inspect`, `unit`, `run` | Core development workflow |
+| **Development** | `syntax`, `lint`, `pull`, `inspect`, `unit`, `run` | Core development workflow |
 | **Exploration** | `view`, `preview`, `tree`, `list`, `where` | Explore ABAP system |
 | **Setup** | `init`, `create`, `import`, `delete` | Repository setup |
 | **Utility** | `ref`, `status`, `health` | Reference & diagnostics |
@@ -221,6 +222,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 | Scenario | Command | Documentation |
 |----------|---------|---------------|
 | Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG only) | `syntax` | [docs/syntax-command.md](docs/syntax-command.md) |
+| Run abaplint static analysis on changed files (offline) | `lint` | [docs/lint-command.md](docs/lint-command.md) |
 | Activate code AFTER push to git | `pull` | [docs/pull-command.md](docs/pull-command.md) |
 | Check activated code with Code Inspector | `inspect` | [docs/inspect-command.md](docs/inspect-command.md) |
 | Run unit tests | `unit` | [docs/unit-command.md](docs/unit-command.md) |

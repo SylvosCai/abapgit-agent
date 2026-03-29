@@ -21,6 +21,7 @@ edit src/zcl_auth_handler.clas.abap
 
 # 3. Check syntax (CLAS/INTF/PROG/DDLS only, if independent)
 abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
+ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 
 # 4. Commit
 git add src/zcl_auth_handler.clas.abap
@@ -112,6 +113,7 @@ git checkout main && git pull origin main
 git checkout -b feature/user-authentication
 edit src/zcl_auth_handler.clas.abap
 abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
+ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 git add . && git commit -m "wip: add basic auth logic"
 git push origin feature/user-authentication
 git fetch origin main && git rebase origin/main
@@ -123,6 +125,8 @@ git fetch origin main && git rebase origin/main
 # If conflicts: resolve, git add, git rebase --continue
 git push origin feature/user-authentication --force-with-lease
 edit src/zcl_auth_handler.clas.abap
+abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
+ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 git add . && git commit -m "feat: complete auth logic"
 git push origin feature/user-authentication
 git fetch origin main && git rebase origin/main

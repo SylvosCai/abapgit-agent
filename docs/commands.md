@@ -47,6 +47,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
+| [lint](lint-command.md) | ✅ | Run abaplint static analysis on changed ABAP files (no ABAP connection) |
 | [guide](guide-command.md) | ✅ | Show full bundled ABAP development guide |
 | [ref](ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
 
@@ -102,6 +103,11 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap --conflict-mode ignore
 
 # Syntax check LOCAL source BEFORE commit (fast, no pull needed)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Run abaplint static analysis on changed files (offline, no ABAP connection)
+abapgit-agent lint
+abapgit-agent lint --base main                          # diff against specific branch
+abapgit-agent lint --files src/zcl_my_class.clas.abap   # explicit files
 
 # Syntax check ACTIVATED code AFTER pull (uses Code Inspector)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap

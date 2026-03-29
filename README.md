@@ -97,14 +97,17 @@ abapgit-agent health                  # Verify ABAP connection
 
 ```bash
 # Install dependencies
-cd abapgit-agent
 npm install
 
-# Run from package directory (auto-detects from git)
-node bin/abapgit-agent pull
+# Run unit tests (no ABAP system needed)
+npm test
 
-# Or use npm script
-npm run pull -- --url <git-url> --branch main
+# Test a command manually
+node bin/abapgit-agent --help
+node bin/abapgit-agent syntax --files src/zcl_my_class.clas.abap
+
+# Run integration tests against a real ABAP system (requires .abapGitAgent)
+npm run test:integration
 ```
 
 ## Documentation

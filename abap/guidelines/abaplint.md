@@ -9,7 +9,9 @@ grand_parent: ABAP Development
 # abaplint Rule Guidelines
 
 **Searchable keywords**: abaplint, prefer_inline, inline declaration, char literal, string truncation,
-no_inline_in_optional_branches, fully_type_constants, linting, static analysis
+no_inline_in_optional_branches, fully_type_constants, linting, static analysis,
+run abaplint locally, check changed file, abapgit-agent lint,
+keyword_case, sequential_blank, double_space, use_new, local_variable_names
 
 This file covers rules that have **non-obvious or dangerous implications** — cases where applying
 a rule mechanically (or accepting its quickfix) can introduce subtle bugs.
@@ -166,8 +168,57 @@ on rv_result — no intermediate lv_response variable at all.
 
 ---
 
+## Running abaplint Locally Against Changed Files
+
+Run this before pushing to catch issues early, matching what CI does.
+
+```bash
+abapgit-agent lint
+```
+
+This automatically detects changed `.abap` files (via `git diff`), creates a scoped
+abaplint config for just those files, runs the check, and cleans up.
+
+### Options
+
+```bash
+# Diff against a specific base branch (useful on a feature branch)
+abapgit-agent lint --base main
+
+# Check specific files explicitly
+abapgit-agent lint --files src/zcl_foo.clas.abap,src/zcl_foo.clas.testclasses.abap
+
+# Use a different abaplint config (default: .abaplint.json)
+abapgit-agent lint --config .abaplint.json
+```
+
+Run repeatedly after each fix until you see:
+
+```
+abaplint: 0 issue(s) found, 1 file(s) analyzed
+```
+
+---
+
+### Common Issues and Fixes
+
+| Rule | Error message | Fix |
+|------|--------------|-----|
+| `keyword_case` | `Keyword should be upper case: "class"` | Uppercase the keyword: `CLASS` |
+| `sequential_blank` | `Remove sequential blank lines` | Max 1 blank line between blocks |
+| `local_variable_names` | `<fs_data> does not match pattern` | Use `l`-prefixed name: `<ls_data>` |
+| `double_space` | `Remove double space` | Single space around `=` in parameters |
+| `use_new` | `Use NEW #() to instantiate` | Replace `CREATE OBJECT mo_foo` → `mo_foo = NEW #( )` |
+| `method_parameter_names` | `Parameter name does not match pattern` | Use `iv_`, `it_`, `is_`, `io_` etc. prefixes |
+
+See **abaplint-local.md** for the full naming convention prefix reference.
+
+---
+
+
 ## See Also
 
 - **common-errors.md** — char-literal truncation listed as a known error pattern
 - **json.md** — safe patterns for building JSON strings in ABAP
 - **workflow-detailed.md** — where abaplint fits in the development workflow
+- **abaplint-local.md** — naming convention reference (prefixes for variables, parameters, field-symbols)

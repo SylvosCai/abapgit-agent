@@ -471,7 +471,7 @@ Run abaplint as step 4b — after `syntax`, before `git commit`:
 
 ```bash
 # Only if .abaplint.json exists
-npx @abaplint/cli .abaplint.json
+abapgit-agent lint
 ```
 
 Fix any reported issues, then commit.
@@ -539,6 +539,21 @@ See **AI Tool Guidelines** below for how to react to each setting.
 ### Branch Workflow (`"mode": "branch"`)
 
 Always work on feature branches. Before every `pull`: rebase to default branch. On completion: create PR with squash merge.
+
+```bash
+git checkout main  # or master/develop (auto-detected)
+git pull origin main
+git checkout -b feature/my-change
+# edit your ABAP file (name from objects.local.md)
+abapgit-agent syntax --files src/<name>.clas.abap
+ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
+git add . && git commit -m "feat: description"
+git push origin feature/my-change
+git fetch origin main && git rebase origin/main
+git push origin feature/my-change --force-with-lease
+abapgit-agent pull --files src/<name>.clas.abap --sync-xml
+```
+
 → See `guidelines/branch-workflow.md` — run: `abapgit-agent ref --topic branch-workflow`
 
 ### Trunk Workflow (`"mode": "trunk"`)
@@ -550,6 +565,7 @@ git checkout main  # or master/develop (auto-detected)
 git pull origin main
 # edit your ABAP file (name from objects.local.md)
 abapgit-agent syntax --files src/<name>.clas.abap
+ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 git add . && git commit -m "feat: description"
 git push origin main
 abapgit-agent pull --files src/<name>.clas.abap --sync-xml
@@ -649,7 +665,7 @@ Modified ABAP files?
    └─ FUGR and other complex objects?
       └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
 
-[abaplint] = run npx @abaplint/cli .abaplint.json only if .abaplint.json exists in repo root
+[abaplint] = run abapgit-agent lint only if .abaplint.json exists in repo root
              before applying any quickfix: run abapgit-agent ref --topic abaplint
 ```
 

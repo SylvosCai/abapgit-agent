@@ -29,5 +29,6 @@ module.exports = {
   init:      require('./init'),
   pull:      require('./pull'),
   upgrade:   require('./upgrade'),
-  transport: require('./transport')
+  transport: require('./transport'),
+  lint:      require('./lint')
 };
