@@ -125,8 +125,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       APPEND ls_section TO rs_info-sections.
 
       " Method implementations (CM*) in methodindx order (= assembled-source order)
-      SELECT methodname, methodindx FROM tmdir
-        INTO TABLE @lt_methods
+      SELECT methodindx, methodname FROM tmdir
+        INTO CORRESPONDING FIELDS OF TABLE @lt_methods
         WHERE classname = @lv_clsname
         ORDER BY methodindx.
 
@@ -139,9 +139,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ls_section-suffix      = lv_cm_suffix.
         ls_section-description = 'Class Method'.
         ls_section-method_name = ls_method-methodname.
-        IF ls_section-method_name IS INITIAL.
-          ls_section-description = |Class Method [DEBUG:mname_empty idx={ ls_method-methodindx } clsname={ lv_clsname } mname_raw={ ls_method-methodname }]|.
-        ENDIF.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
         IF sy-subrc = 0.
