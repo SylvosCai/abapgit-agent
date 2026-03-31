@@ -74,9 +74,9 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
     mv_raise_exception = abap_false.
 
     " Create mock objects to avoid null reference issues
-    mo_mock_objset = NEW #( ).
-    mo_mock_inspection = NEW #( ).
-    mo_mock_variant = NEW #( ).
+    CREATE OBJECT mo_mock_objset.
+    CREATE OBJECT mo_mock_inspection.
+    CREATE OBJECT mo_mock_variant.
   ENDMETHOD.
 
   METHOD zif_abgagt_code_inspector~create_object_set.
@@ -103,7 +103,10 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
   METHOD zif_abgagt_code_inspector~get_results.
     " Return mock results - filter by objname if set
     IF mv_objname IS NOT INITIAL.
-      rt_list = VALUE #( FOR ls IN mt_mock_results WHERE ( objname = mv_objname ) ( ls ) ).
+      DATA ls TYPE LINE OF scit_alvlist.
+      LOOP AT mt_mock_results INTO ls WHERE objname = mv_objname.
+        APPEND ls TO rt_list.
+      ENDLOOP.
     ELSE.
       rt_list = mt_mock_results.
     ENDIF.
@@ -177,7 +180,7 @@ ENDCLASS.
 CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -192,7 +195,7 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
   METHOD test_interface.
     " Test that the class implements the command interface
 
-    mo_cut = NEW zcl_abgagt_command_inspect( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
@@ -449,11 +452,13 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
   METHOD test_mock_success.
     " Test with mock returning success - mock returns empty results (no issues found)
     " This exercises the code path where there are no inspection results
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #( ). " Empty results = success
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+    CLEAR lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -475,13 +480,22 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_errors.
     " Test with mock returning errors - covers categorize_message for E
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'E' line = '010' col = '012' text = 'Variable "LV_UNKNOWN" is not defined' code = 'LV_UNKNOWN' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CM001'.
+    ls_result_row-kind     = 'E'.
+    ls_result_row-line     = '010'.
+    ls_result_row-col      = '012'.
+    ls_result_row-text     = 'Variable "LV_UNKNOWN" is not defined'.
+    ls_result_row-code     = 'LV_UNKNOWN'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -509,13 +523,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_warnings.
     " Test with mock returning warnings - covers categorize_message for W
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'W' line = '015' col = '001' text = 'Avoid using obsolete statement' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CM001'.
+    ls_result_row-kind     = 'W'.
+    ls_result_row-line     = '015'.
+    ls_result_row-col      = '001'.
+    ls_result_row-text     = 'Avoid using obsolete statement'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -537,13 +559,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_info.
     " Test with mock returning info - covers categorize_message for I
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'I' line = '020' col = '001' text = 'Information message' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CM001'.
+    ls_result_row-kind     = 'I'.
+    ls_result_row-line     = '020'.
+    ls_result_row-col      = '001'.
+    ls_result_row-text     = 'Information message'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -565,13 +595,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_unittest_include.
     " Test with CCAU (unit test include) - covers extract_method_name
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCAU' kind = 'N' line = 0 col = 0 text = 'OK' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CCAU'.
+    ls_result_row-kind     = 'N'.
+    ls_result_row-line     = 0.
+    ls_result_row-col      = 0.
+    ls_result_row-text     = 'OK'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -587,13 +625,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_local_defs.
     " Test with CCDEF (local definitions) - covers extract_method_name
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCDEF' kind = 'N' line = 0 col = 0 text = 'OK' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CCDEF'.
+    ls_result_row-kind     = 'N'.
+    ls_result_row-line     = 0.
+    ls_result_row-col      = 0.
+    ls_result_row-text     = 'OK'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -609,13 +655,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_local_impl.
     " Test with CCIMP (local implementations) - covers extract_method_name
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCIMP' kind = 'N' line = 0 col = 0 text = 'OK' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CCIMP'.
+    ls_result_row-kind     = 'N'.
+    ls_result_row-line     = 0.
+    ls_result_row-col      = 0.
+    ls_result_row-text     = 'OK'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -631,13 +685,21 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_macros.
     " Test with CCINC (macros) - covers extract_method_name
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CCINC' kind = 'N' line = 0 col = 0 text = 'OK' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CCINC'.
+    ls_result_row-kind     = 'N'.
+    ls_result_row-line     = 0.
+    ls_result_row-col      = 0.
+    ls_result_row-text     = 'OK'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -653,14 +715,26 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_multi_errors.
     " Test with multiple errors for same object - covers build_object_result sorting
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
-    lo_mock->mt_mock_results = VALUE #(
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM001' kind = 'E' line = '010' col = '001' text = 'Error 1' )
-      ( objname = 'ZCL_TEST_CLASS' sobjname = 'ZCL_TEST_CLASS========CM002' kind = 'E' line = '020' col = '002' text = 'Error 2' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
+
+    DATA ls_result_row TYPE LINE OF scit_alvlist.
+    ls_result_row-objname  = 'ZCL_TEST_CLASS'.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CM001'.
+    ls_result_row-kind     = 'E'.
+    ls_result_row-line     = '010'.
+    ls_result_row-col      = '001'.
+    ls_result_row-text     = 'Error 1'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
+    ls_result_row-sobjname = 'ZCL_TEST_CLASS========CM002'.
+    ls_result_row-line     = '020'.
+    ls_result_row-col      = '002'.
+    ls_result_row-text     = 'Error 2'.
+    APPEND ls_result_row TO lo_mock->mt_mock_results.
     lo_mock->mv_objname = 'ZCL_TEST_CLASS'.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -682,10 +756,12 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_var_not_found.
     " Test with mock returning variant not found
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
     lo_mock->mv_variant_not_found = abap_true.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -714,11 +790,13 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_mock_exception.
     " Test exception handling - covers build_error_result
-    DATA(lo_mock) = NEW lcl_code_inspector_mock( ).
+    DATA lo_mock TYPE REF TO lcl_code_inspector_mock.
+    CREATE OBJECT lo_mock TYPE lcl_code_inspector_mock.
     lo_mock->mv_raise_exception = abap_true.
-    lo_mock->mx_exception = NEW cx_demo_exception( ).
+    CREATE OBJECT lo_mock->mx_exception TYPE cx_demo_exception.
 
-    mo_cut = NEW #( io_inspector = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_inspector = lo_mock.
 
     DATA: BEGIN OF ls_param,
             files TYPE string_table,
@@ -747,13 +825,17 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_validate_ddls_success.
     " Test validate_ddls with success (no warnings)
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
-    lo_mock->mt_mock_warnings = VALUE #( ). " No warnings
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->ms_mock_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    lo_mock->ms_mock_ddlsrcv-source  = 'SELECT * FROM tdevc'.
+    CLEAR lo_mock->mt_mock_warnings.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
 
-    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    DATA lt_ddls_names TYPE ty_ddls_names.
+    APPEND 'ZC_TEST_VIEW' TO lt_ddls_names.
     DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
 
     cl_abap_unit_assert=>assert_not_initial(
@@ -784,12 +866,15 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_validate_ddls_not_found.
     " Test validate_ddls when DDLS is not found
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->mv_raise_not_found = abap_true. " Simulate not found
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->mv_raise_not_found = abap_true.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
 
-    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_NONEXISTENT' ) ).
+    DATA lt_ddls_names TYPE ty_ddls_names.
+    APPEND 'ZC_NONEXISTENT' TO lt_ddls_names.
     DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
 
     cl_abap_unit_assert=>assert_not_initial(
@@ -810,15 +895,26 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_ddls_with_warnings.
     " Test validate_ddls with warnings
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
-    lo_mock->mt_mock_warnings = VALUE #(
-      ( type = 'W' line = 10 column = 1 severity = 'W' arbgb = 'DD' msgnr = 001 var1 = 'Warning text' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->ms_mock_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    lo_mock->ms_mock_ddlsrcv-source  = 'SELECT * FROM tdevc'.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    DATA ls_warning TYPE LINE OF zif_abgagt_ddl_handler=>ty_warnings.
+    ls_warning-type     = 'W'.
+    ls_warning-line     = 10.
+    ls_warning-column   = 1.
+    ls_warning-severity = 'W'.
+    ls_warning-arbgb    = 'DD'.
+    ls_warning-msgnr    = 001.
+    ls_warning-var1     = 'Warning text'.
+    APPEND ls_warning TO lo_mock->mt_mock_warnings.
 
-    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
+
+    DATA lt_ddls_names TYPE ty_ddls_names.
+    APPEND 'ZC_TEST_VIEW' TO lt_ddls_names.
     DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
 
     DATA(ls_result) = lt_results[ 1 ].
@@ -835,17 +931,22 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_ddls_with_errors.
     " Test validate_ddls when check throws exception with errors
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->ms_mock_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    lo_mock->ms_mock_ddlsrcv-source  = 'SELECT * FROM tdevc'.
     lo_mock->mv_raise_check_error = abap_true.
 
     " Create exception with errors
-    DATA(lo_error) = NEW cx_dd_ddl_check( ).
+    DATA lo_error TYPE REF TO cx_dd_ddl_check.
+    CREATE OBJECT lo_error TYPE cx_dd_ddl_check.
     lo_mock->mx_check_exception = lo_error.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
 
-    DATA(lt_ddls_names) = VALUE ty_ddls_names( ( 'ZC_TEST_VIEW' ) ).
+    DATA lt_ddls_names TYPE ty_ddls_names.
+    APPEND 'ZC_TEST_VIEW' TO lt_ddls_names.
     " This should catch the exception and return error result
     DATA(lt_results) = mo_cut->validate_ddls( lt_ddls_names ).
 
@@ -862,10 +963,13 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_read_ddls_source.
     " Test read_ddls_source method directly
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->ms_mock_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    lo_mock->ms_mock_ddlsrcv-source  = 'SELECT * FROM tdevc'.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
 
     DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
 
@@ -888,17 +992,24 @@ CLASS ltcl_cmd_inspect IMPLEMENTATION.
 
   METHOD test_validate_ddls_chk.
     " Test validate_ddls_check method directly
-    DATA(lo_mock) = NEW lcl_ddl_handler_mock( ).
-    lo_mock->ms_mock_ddlsrcv = VALUE #( ddlname = 'ZC_TEST_VIEW' source = 'SELECT * FROM tdevc' ).
-    lo_mock->mt_mock_warnings = VALUE #(
-      ( type = 'W' line = 5 column = 1 severity = 'W' )
-    ).
+    DATA lo_mock TYPE REF TO lcl_ddl_handler_mock.
+    CREATE OBJECT lo_mock TYPE lcl_ddl_handler_mock.
+    lo_mock->ms_mock_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    lo_mock->ms_mock_ddlsrcv-source  = 'SELECT * FROM tdevc'.
 
-    mo_cut = NEW #( io_ddl_handler = lo_mock ).
+    DATA ls_warning TYPE LINE OF zif_abgagt_ddl_handler=>ty_warnings.
+    ls_warning-type     = 'W'.
+    ls_warning-line     = 5.
+    ls_warning-column   = 1.
+    ls_warning-severity = 'W'.
+    APPEND ls_warning TO lo_mock->mt_mock_warnings.
 
-    DATA(ls_ddlsrcv) = VALUE zif_abgagt_ddl_handler=>ty_ddlsrcv(
-      ddlname = 'ZC_TEST_VIEW'
-      source  = 'SELECT * FROM tdevc' ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_inspect
+      EXPORTING io_ddl_handler = lo_mock.
+
+    DATA ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
+    ls_ddlsrcv-ddlname = 'ZC_TEST_VIEW'.
+    ls_ddlsrcv-source  = 'SELECT * FROM tdevc'.
 
     DATA(ls_result) = mo_cut->validate_ddls_check(
       iv_ddls_name = 'ZC_TEST_VIEW'

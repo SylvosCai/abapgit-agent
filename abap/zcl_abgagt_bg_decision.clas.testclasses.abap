@@ -25,17 +25,17 @@ ENDCLASS.
 CLASS ltc_bg_decision IMPLEMENTATION.
   METHOD setup.
     " Create class under test
-    mo_cut = NEW zcl_abgagt_bg_decision( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_bg_decision.
   ENDMETHOD.
 
   METHOD test_force_background.
     " Given: Config forces background execution
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config(
-      force_background = abap_true
-    ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
+    ls_config-force_background = abap_true.
 
     " And: A simple command (doesn't matter which)
-    DATA(lo_command) = NEW lcl_command_stub( ).
+    DATA lo_command TYPE REF TO lcl_command_stub.
+    CREATE OBJECT lo_command.
 
     " And: Empty request data
     DATA ls_request TYPE string.
@@ -56,12 +56,12 @@ CLASS ltc_bg_decision IMPLEMENTATION.
 
   METHOD test_force_sync.
     " Given: Config forces synchronous execution
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config(
-      force_sync = abap_true
-    ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
+    ls_config-force_sync = abap_true.
 
     " And: A progressable command (should be ignored due to force_sync)
-    DATA(lo_command) = NEW lcl_progressable_command_stub( ).
+    DATA lo_command TYPE REF TO lcl_progressable_command_stub.
+    CREATE OBJECT lo_command.
 
     " And: Empty request data
     DATA ls_request TYPE string.
@@ -82,10 +82,11 @@ CLASS ltc_bg_decision IMPLEMENTATION.
 
   METHOD test_progressable_command.
     " Given: No forced config
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config( ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
 
     " And: A command that implements progressable interface
-    DATA(lo_command) = NEW lcl_progressable_command_stub( ).
+    DATA lo_command TYPE REF TO lcl_progressable_command_stub.
+    CREATE OBJECT lo_command.
 
     " And: Empty request data
     DATA ls_request TYPE string.
@@ -106,10 +107,11 @@ CLASS ltc_bg_decision IMPLEMENTATION.
 
   METHOD test_non_progressable_command.
     " Given: No forced config
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config( ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
 
     " And: A command that does NOT implement progressable interface
-    DATA(lo_command) = NEW lcl_command_stub( ).
+    DATA lo_command TYPE REF TO lcl_command_stub.
+    CREATE OBJECT lo_command.
 
     " And: Empty request data
     DATA ls_request TYPE string.
@@ -130,10 +132,11 @@ CLASS ltc_bg_decision IMPLEMENTATION.
 
   METHOD test_default_synchronous.
     " Given: Empty config
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config( ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
 
     " And: A simple command
-    DATA(lo_command) = NEW lcl_command_stub( ).
+    DATA lo_command TYPE REF TO lcl_command_stub.
+    CREATE OBJECT lo_command.
 
     " And: Empty request data
     DATA ls_request TYPE string.

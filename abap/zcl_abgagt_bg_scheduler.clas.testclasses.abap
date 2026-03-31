@@ -18,7 +18,7 @@ ENDCLASS.
 CLASS ltc_bg_scheduler IMPLEMENTATION.
   METHOD setup.
     " Create scheduler under test
-    mo_cut = NEW zcl_abgagt_bg_scheduler( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_bg_scheduler.
   ENDMETHOD.
 
   METHOD test_schedule_command.
@@ -53,11 +53,13 @@ CLASS ltc_bg_scheduler IMPLEMENTATION.
              files    TYPE string_table,
            END OF ty_test_data.
 
-    DATA(ls_data) = VALUE ty_test_data(
-      repo_key = 'test_repo'
-      files    = VALUE #( ( CONV string( 'file1.abap' ) )
-                         ( CONV string( 'file2.abap' ) ) )
-    ).
+    DATA ls_data TYPE ty_test_data.
+    DATA ls_file TYPE string.
+    ls_data-repo_key = 'test_repo'.
+    ls_file = 'file1.abap'.
+    APPEND ls_file TO ls_data-files.
+    ls_file = 'file2.abap'.
+    APPEND ls_file TO ls_data-files.
 
     " When: Scheduling with complex data
     DATA(ls_result) = mo_cut->schedule_command(

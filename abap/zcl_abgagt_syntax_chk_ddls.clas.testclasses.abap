@@ -56,7 +56,7 @@ ENDCLASS.
 CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_valid_ddl_with_sflight.
@@ -200,7 +200,8 @@ CLASS ltc_ddls_syntax_checker IMPLEMENTATION.
 
   METHOD test_empty_source.
     " Test with empty source
-    DATA(lt_source) = VALUE string_table( ).
+    DATA lt_source TYPE string_table.
+    CLEAR lt_source.
 
     DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
       iv_name = 'ZTEST_EMPTY'

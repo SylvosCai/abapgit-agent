@@ -23,16 +23,16 @@ ENDCLASS.
 CLASS ltc_bg_logger IMPLEMENTATION.
   METHOD setup.
     " Create status manager stub
-    mo_status_mgr = NEW lcl_status_mgr_stub( ).
+    CREATE OBJECT mo_status_mgr TYPE lcl_status_mgr_stub.
 
     " Create logger under test
-    mo_cut = NEW zcl_abgagt_bg_logger(
-      io_status_mgr = mo_status_mgr
-      iv_job_number = '12345678'
-    ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_bg_logger
+      EXPORTING
+        io_status_mgr = mo_status_mgr
+        iv_job_number = '12345678'.
 
     " Create progressable command stub
-    mo_progressable = NEW lcl_progressable_stub( ).
+    CREATE OBJECT mo_progressable TYPE lcl_progressable_stub.
 
     " Register logger as event handler
     SET HANDLER mo_cut->on_progress FOR mo_progressable.

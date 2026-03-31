@@ -20,13 +20,13 @@ ENDCLASS.
 
 CLASS ltc_import_is_progressable IMPLEMENTATION.
   METHOD setup.
-    mo_decision = NEW zcl_abgagt_bg_decision( ).
-    mo_command = NEW zcl_abgagt_command_import( ).
+    CREATE OBJECT mo_decision TYPE zcl_abgagt_bg_decision.
+    CREATE OBJECT mo_command TYPE zcl_abgagt_command_import.
   ENDMETHOD.
 
   METHOD test_import_cmd_progressable.
     " Given: Import command (which implements progressable)
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config( ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
     DATA ls_request TYPE string.
 
     " When: Decision maker evaluates it
@@ -63,13 +63,13 @@ ENDCLASS.
 
 CLASS ltc_non_progressable_cmd IMPLEMENTATION.
   METHOD setup.
-    mo_decision = NEW zcl_abgagt_bg_decision( ).
-    mo_command = NEW zcl_abgagt_command_pull( ).
+    CREATE OBJECT mo_decision TYPE zcl_abgagt_bg_decision.
+    CREATE OBJECT mo_command TYPE zcl_abgagt_command_pull.
   ENDMETHOD.
 
   METHOD test_pull_cmd_synchronous.
     " Given: Pull command (does NOT implement progressable)
-    DATA(ls_config) = VALUE zif_abgagt_bg_decision=>ty_bg_config( ).
+    DATA ls_config TYPE zif_abgagt_bg_decision=>ty_bg_config.
     DATA ls_request TYPE string.
 
     " When: Decision maker evaluates it
@@ -105,19 +105,18 @@ ENDCLASS.
 
 CLASS ltc_bg_status_flow IMPLEMENTATION.
   METHOD setup.
-    mo_status_mgr = NEW zcl_abgagt_bg_status_mgr( ).
+    CREATE OBJECT mo_status_mgr TYPE zcl_abgagt_bg_status_mgr.
   ENDMETHOD.
 
   METHOD test_status_roundtrip.
     " Given: A job status
     DATA(lv_job_number) = '99999999'.
-    DATA(ls_status) = VALUE zif_abgagt_job_status_mgr=>ty_job_status(
-      job_number = lv_job_number
-      status     = 'running'
-      stage      = 'TEST_STAGE'
-      message    = 'Integration test'
-      progress   = 50
-    ).
+    DATA ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status.
+    ls_status-job_number = lv_job_number.
+    ls_status-status     = 'running'.
+    ls_status-stage      = 'TEST_STAGE'.
+    ls_status-message    = 'Integration test'.
+    ls_status-progress   = 50.
 
     " When: Status is written and read back
     mo_status_mgr->update_status( ls_status ).

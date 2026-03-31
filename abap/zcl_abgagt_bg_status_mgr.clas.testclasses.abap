@@ -25,7 +25,7 @@ ENDCLASS.
 CLASS ltc_bg_status_mgr IMPLEMENTATION.
   METHOD setup.
     " Create status manager under test
-    mo_cut = NEW zcl_abgagt_bg_status_mgr( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_bg_status_mgr.
   ENDMETHOD.
 
   METHOD teardown.
@@ -36,16 +36,15 @@ CLASS ltc_bg_status_mgr IMPLEMENTATION.
 
   METHOD test_update_and_get_status.
     " Given: A job status
-    DATA(ls_status) = VALUE zif_abgagt_job_status_mgr=>ty_job_status(
-      job_name     = 'TEST_JOB'
-      job_number   = '99999999'
-      status       = 'RUNNING'
-      stage        = 'STAGE1'
-      message      = 'Processing files'
-      progress     = 50
-      current      = 5
-      total        = 10
-    ).
+    DATA ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status.
+    ls_status-job_name   = 'TEST_JOB'.
+    ls_status-job_number = '99999999'.
+    ls_status-status     = 'RUNNING'.
+    ls_status-stage      = 'STAGE1'.
+    ls_status-message    = 'Processing files'.
+    ls_status-progress   = 50.
+    ls_status-current    = 5.
+    ls_status-total      = 10.
 
     " When: Status is updated
     mo_cut->update_status( ls_status ).
@@ -91,19 +90,17 @@ CLASS ltc_bg_status_mgr IMPLEMENTATION.
 
   METHOD test_update_overwrites.
     " Given: Initial status
-    DATA(ls_status1) = VALUE zif_abgagt_job_status_mgr=>ty_job_status(
-      job_number = '99999999'
-      status     = 'RUNNING'
-      progress   = 25
-    ).
+    DATA ls_status1 TYPE zif_abgagt_job_status_mgr=>ty_job_status.
+    ls_status1-job_number = '99999999'.
+    ls_status1-status     = 'RUNNING'.
+    ls_status1-progress   = 25.
     mo_cut->update_status( ls_status1 ).
 
     " When: Status is updated again
-    DATA(ls_status2) = VALUE zif_abgagt_job_status_mgr=>ty_job_status(
-      job_number = '99999999'
-      status     = 'RUNNING'
-      progress   = 75
-    ).
+    DATA ls_status2 TYPE zif_abgagt_job_status_mgr=>ty_job_status.
+    ls_status2-job_number = '99999999'.
+    ls_status2-status     = 'RUNNING'.
+    ls_status2-progress   = 75.
     mo_cut->update_status( ls_status2 ).
 
     " Then: New status should overwrite old
@@ -118,10 +115,9 @@ CLASS ltc_bg_status_mgr IMPLEMENTATION.
 
   METHOD test_delete_status.
     " Given: A stored status
-    DATA(ls_status) = VALUE zif_abgagt_job_status_mgr=>ty_job_status(
-      job_number = '99999999'
-      status     = 'COMPLETED'
-    ).
+    DATA ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status.
+    ls_status-job_number = '99999999'.
+    ls_status-status     = 'COMPLETED'.
     mo_cut->update_status( ls_status ).
 
     " When: Status is deleted

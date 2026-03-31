@@ -23,10 +23,10 @@ ENDCLASS.
 CLASS ltcl_cmd_tree IMPLEMENTATION.
 
   METHOD class_setup.
-    go_env = cl_osql_test_environment=>create(
-      i_dependency_list = VALUE #(
-        ( 'TDEVC' )
-        ( 'TADIR' ) ) ).
+    DATA lt_deps TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+    APPEND 'TDEVC' TO lt_deps.
+    APPEND 'TADIR' TO lt_deps.
+    go_env = cl_osql_test_environment=>create( i_dependency_list = lt_deps ).
   ENDMETHOD.
 
   METHOD class_teardown.
@@ -35,7 +35,7 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
 
   METHOD setup.
     go_env->clear_doubles( ).
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -48,7 +48,7 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
 
   METHOD test_interface.
 
-    mo_cut = NEW zcl_abgagt_command_tree( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_tree.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
@@ -108,15 +108,33 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_exec_single_package.
     " Test execute with valid package but no subpackages
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$TEST'.
+    ls_tdevc-parentcl = ''.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries for the package
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_TEST' devclass = '$TEST' )
-      ( object = 'INTF' obj_name = 'ZIF_TEST' devclass = '$TEST' )
-      ( object = 'PROG' obj_name = 'ZTEST_PROG' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'INTF'.
+    ls_tadir-obj_name = 'ZIF_TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'PROG'.
+    ls_tadir-obj_name = 'ZTEST_PROG'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA: BEGIN OF ls_param,
@@ -155,20 +173,50 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_exec_with_subpackages.
     " Test execute with subpackages
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #(
-      ( devclass = '$PARENT' parentcl = '$SAP' )
-      ( devclass = '$CHILD1' parentcl = '$PARENT' )
-      ( devclass = '$CHILD2' parentcl = '$PARENT' )
-      ( devclass = '$GRANDCHILD' parentcl = '$CHILD1' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$PARENT'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$CHILD1'.
+    ls_tdevc-parentcl = '$PARENT'.
+    APPEND ls_tdevc TO lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$CHILD2'.
+    ls_tdevc-parentcl = '$PARENT'.
+    APPEND ls_tdevc TO lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$GRANDCHILD'.
+    ls_tdevc-parentcl = '$CHILD1'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_PARENT' devclass = '$PARENT' )
-      ( object = 'CLAS' obj_name = 'ZCL_CHILD1' devclass = '$CHILD1' )
-      ( object = 'CLAS' obj_name = 'ZCL_CHILD2' devclass = '$CHILD2' )
-      ( object = 'CLAS' obj_name = 'ZCL_GRANDCHILD' devclass = '$GRANDCHILD' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_PARENT'.
+    ls_tadir-devclass = '$PARENT'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_CHILD1'.
+    ls_tadir-devclass = '$CHILD1'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_CHILD2'.
+    ls_tadir-devclass = '$CHILD2'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_GRANDCHILD'.
+    ls_tadir-devclass = '$GRANDCHILD'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA: BEGIN OF ls_param,
@@ -199,15 +247,33 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_exec_with_include_objects.
     " Test execute with include_objects flag
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$TEST'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_TEST1' devclass = '$TEST' )
-      ( object = 'CLAS' obj_name = 'ZCL_TEST2' devclass = '$TEST' )
-      ( object = 'INTF' obj_name = 'ZIF_TEST' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST1'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST2'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'INTF'.
+    ls_tadir-obj_name = 'ZIF_TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA: BEGIN OF ls_param,
@@ -245,9 +311,16 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_exec_depth_limit.
     " Test that depth is limited to 10
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #(
-      ( devclass = '$PARENT' parentcl = '$SAP' )
-      ( devclass = '$CHILD' parentcl = '$PARENT' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$PARENT'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$CHILD'.
+    ls_tdevc-parentcl = '$PARENT'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     DATA: BEGIN OF ls_param,
@@ -273,13 +346,23 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_build_tree_method.
     " Test build_tree method directly
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$TEST'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_TEST' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA ls_params TYPE zcl_abgagt_command_tree=>ty_tree_params.
@@ -313,15 +396,33 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_get_object_count_method.
     " Test get_object_count method
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$TEST'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries (excluding DEVC and PACK)
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_TEST1' devclass = '$TEST' )
-      ( object = 'CLAS' obj_name = 'ZCL_TEST2' devclass = '$TEST' )
-      ( object = 'DEVC' obj_name = '$TEST' devclass = '$TEST' ) ). " Should not be counted
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST1'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST2'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'DEVC'.
+    ls_tadir-obj_name = '$TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.  " Should not be counted
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA(lv_count) = mo_cut->get_object_count( '$TEST' ).
@@ -335,18 +436,48 @@ CLASS ltcl_cmd_tree IMPLEMENTATION.
   METHOD test_get_obj_counts_by_type.
     " Test get_object_counts_by_type method
     DATA lt_tdevc TYPE STANDARD TABLE OF tdevc.
-    lt_tdevc = VALUE #( ( devclass = '$TEST' parentcl = '$SAP' ) ).
+    DATA ls_tdevc LIKE LINE OF lt_tdevc.
+    CLEAR lt_tdevc.
+    CLEAR ls_tdevc.
+    ls_tdevc-devclass = '$TEST'.
+    ls_tdevc-parentcl = '$SAP'.
+    APPEND ls_tdevc TO lt_tdevc.
     go_env->insert_test_data( i_data = lt_tdevc ).
 
     " Insert TADIR entries with different object types
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #(
-      ( object = 'CLAS' obj_name = 'ZCL_TEST1' devclass = '$TEST' )
-      ( object = 'CLAS' obj_name = 'ZCL_TEST2' devclass = '$TEST' )
-      ( object = 'CLAS' obj_name = 'ZCL_TEST3' devclass = '$TEST' )
-      ( object = 'INTF' obj_name = 'ZIF_TEST' devclass = '$TEST' )
-      ( object = 'INTF' obj_name = 'ZIF_TEST2' devclass = '$TEST' )
-      ( object = 'PROG' obj_name = 'ZTEST_PROG' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+    CLEAR lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST1'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST2'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'CLAS'.
+    ls_tadir-obj_name = 'ZCL_TEST3'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'INTF'.
+    ls_tadir-obj_name = 'ZIF_TEST'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'INTF'.
+    ls_tadir-obj_name = 'ZIF_TEST2'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'PROG'.
+    ls_tadir-obj_name = 'ZTEST_PROG'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA lt_counts TYPE zcl_abgagt_command_tree=>ty_object_counts.

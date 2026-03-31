@@ -1,5 +1,86 @@
 *"* use this source file for your test class implementation
 *"* local test class
+
+"--------------------------------------------------------------------
+" Manual double for ZIF_ABAPGIT_REPO_SRV
+"--------------------------------------------------------------------
+CLASS ltcl_repo_srv_double DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo_srv.
+    DATA mo_repo        TYPE REF TO zif_abapgit_repo.
+    DATA mv_raise_error TYPE abap_bool VALUE abap_false.
+ENDCLASS.
+
+CLASS ltcl_repo_srv_double IMPLEMENTATION.
+  METHOD zif_abapgit_repo_srv~new_online.
+    IF mv_raise_error = abap_true.
+      RAISE EXCEPTION TYPE zcx_abapgit_exception.
+    ENDIF.
+    ri_repo = mo_repo.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~init. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~delete. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~get. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~is_repo_installed. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~list. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~list_favorites. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~new_offline. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~purge. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~validate_package. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~validate_url. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~get_repo_from_package. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~get_repo_from_url. ENDMETHOD.
+  METHOD zif_abapgit_repo_srv~get_label_list. ENDMETHOD.
+ENDCLASS.
+
+"--------------------------------------------------------------------
+" Manual double for ZIF_ABAPGIT_REPO
+"--------------------------------------------------------------------
+CLASS ltcl_repo_double DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo.
+    DATA mv_key  TYPE zif_abapgit_persistence=>ty_value.
+    DATA mv_name TYPE string.
+ENDCLASS.
+
+CLASS ltcl_repo_double IMPLEMENTATION.
+  METHOD zif_abapgit_repo~get_key.
+    rv_key = mv_key.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_name.
+    rv_name = mv_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~is_offline. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_package. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_local_settings. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_tadir_objects. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local_filtered. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_remote. ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_abapgit. ENDMETHOD.
+  METHOD zif_abapgit_repo~set_dot_abapgit. ENDMETHOD.
+  METHOD zif_abapgit_repo~find_remote_dot_abapgit. ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize. ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize_checks. ENDMETHOD.
+  METHOD zif_abapgit_repo~checksums. ENDMETHOD.
+  METHOD zif_abapgit_repo~has_remote_source. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_log. ENDMETHOD.
+  METHOD zif_abapgit_repo~create_new_log. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_apack. ENDMETHOD.
+  METHOD zif_abapgit_repo~delete_checks. ENDMETHOD.
+  METHOD zif_abapgit_repo~set_files_remote. ENDMETHOD.
+  METHOD zif_abapgit_repo~set_local_settings. ENDMETHOD.
+  METHOD zif_abapgit_repo~switch_repo_type. ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_object. ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_objects. ENDMETHOD.
+  METHOD zif_abapgit_repo~get_data_config. ENDMETHOD.
+  METHOD zif_abapgit_repo~bind_listener. ENDMETHOD.
+ENDCLASS.
+
+"--------------------------------------------------------------------
+" Test class
+"--------------------------------------------------------------------
 CLASS ltcl_zcl_abgagt_command_create DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
     DATA mo_cut TYPE REF TO zcl_abgagt_command_create.
@@ -15,7 +96,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -53,39 +134,27 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_success.
-    " Step 1: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+    " Step 1: Create manual double for repo service
+    DATA lo_repo_srv_double TYPE REF TO ltcl_repo_srv_double.
+    CREATE OBJECT lo_repo_srv_double.
 
-    " Step 2: Create mock repo
-    DATA lo_mock_repo TYPE REF TO zif_abapgit_repo.
-    lo_mock_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
+    " Step 2: Create manual double for mock repo
+    DATA lo_repo_double TYPE REF TO ltcl_repo_double.
+    CREATE OBJECT lo_repo_double.
+    lo_repo_double->mv_key  = 'TEST_KEY'.
+    lo_repo_double->mv_name = 'Test Repo'.
 
-    " Step 3: Configure new_online to return mock repo
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->returning( lo_mock_repo ).
+    " Step 3: Wire the repo srv double to return the mock repo
+    lo_repo_srv_double->mo_repo = lo_repo_double.
 
-    " Step 4: Call method to register the configuration
-    lo_repo_srv_double->new_online(
+    " Step 4: Create CUT with test double
+    DATA lo_repo_srv TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv = lo_repo_srv_double.
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_create
       EXPORTING
-        iv_url            = 'https://github.com/test/repo.git'
-        iv_branch_name    = 'main'
-        iv_display_name   = 'Test'
-        iv_name           = 'test'
-        iv_package        = '$ZTEST'
-        iv_folder_logic   = 'PREFIX' ).
+        io_repo_srv = lo_repo_srv.
 
-    " Step 5: Configure get_key method
-    cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( 'TEST_KEY' ).
-    lo_mock_repo->get_key( ).
-
-    " Step 6: Configure get_name method
-    cl_abap_testdouble=>configure_call( lo_mock_repo )->returning( 'Test Repo' ).
-    lo_mock_repo->get_name( ).
-
-    " Step 7: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 8: Execute - MUST match registered params
+    " Step 5: Execute
     DATA: BEGIN OF ls_param,
             url           TYPE string VALUE 'https://github.com/test/repo.git',
             branch        TYPE string VALUE 'main',
@@ -104,28 +173,19 @@ CLASS ltcl_zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_repo_error.
-    " Step 1: Create test double for repo service
-    DATA lo_repo_srv_double TYPE REF TO zif_abapgit_repo_srv.
-    lo_repo_srv_double ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO_SRV' ).
+    " Step 1: Create manual double for repo service configured to raise exception
+    DATA lo_repo_srv_double TYPE REF TO ltcl_repo_srv_double.
+    CREATE OBJECT lo_repo_srv_double.
+    lo_repo_srv_double->mv_raise_error = abap_true.
 
-    " Step 2: Configure new_online to raise exception
-    DATA(lx_error) = NEW zcx_abapgit_exception( ).
-    cl_abap_testdouble=>configure_call( lo_repo_srv_double )->raise_exception( lx_error ).
-
-    " Step 3: Call method to register configuration
-    lo_repo_srv_double->new_online(
+    " Step 2: Create CUT with test double
+    DATA lo_repo_srv TYPE REF TO zif_abapgit_repo_srv.
+    lo_repo_srv = lo_repo_srv_double.
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_create
       EXPORTING
-        iv_url            = 'https://github.com/test/repo.git'
-        iv_branch_name    = 'main'
-        iv_display_name   = 'Test'
-        iv_name           = 'test'
-        iv_package        = '$ZTEST'
-        iv_folder_logic   = 'PREFIX' ).
+        io_repo_srv = lo_repo_srv.
 
-    " Step 4: Create CUT with test double
-    mo_cut = NEW zcl_abgagt_command_create( io_repo_srv = lo_repo_srv_double ).
-
-    " Step 5: Execute - MUST match registered params
+    " Step 3: Execute
     DATA: BEGIN OF ls_param,
             url           TYPE string VALUE 'https://github.com/test/repo.git',
             branch        TYPE string VALUE 'main',

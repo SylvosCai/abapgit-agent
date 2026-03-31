@@ -20,11 +20,19 @@ ENDCLASS.
 CLASS ltcl_cmd_preview IMPLEMENTATION.
 
   METHOD class_setup.
+    DATA lt_dep TYPE if_osql_test_environment=>ty_tab_names.
+    DATA lv_dep LIKE LINE OF lt_dep.
+    CLEAR lv_dep.
+    lv_dep = 'TADIR'.
+    APPEND lv_dep TO lt_dep.
+    CLEAR lv_dep.
+    lv_dep = 'SCARR'.
+    APPEND lv_dep TO lt_dep.
+    CLEAR lv_dep.
+    lv_dep = 'SFLIGHT'.
+    APPEND lv_dep TO lt_dep.
     go_env = cl_osql_test_environment=>create(
-      i_dependency_list = VALUE #(
-        ( 'TADIR' )
-        ( 'SCARR' )
-        ( 'SFLIGHT' ) ) ).
+      i_dependency_list = lt_dep ).
   ENDMETHOD.
 
   METHOD class_teardown.
@@ -33,7 +41,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
 
   METHOD setup.
     go_env->clear_doubles( ).
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -46,7 +54,7 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
 
   METHOD test_interface.
 
-    mo_cut = NEW zcl_abgagt_command_preview( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_preview.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
@@ -79,7 +87,13 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   METHOD test_detect_object_type_tabl.
     " Insert TADIR entry for table
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #( ( object = 'TABL' obj_name = 'ZTEST_TABLE' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'TABL'.
+    ls_tadir-obj_name = 'ZTEST_TABLE'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA(lv_type) = mo_cut->detect_object_type( 'ZTEST_TABLE' ).
@@ -92,7 +106,13 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   METHOD test_detect_object_type_ddls.
     " Insert TADIR entry for CDS view
     DATA lt_tadir TYPE STANDARD TABLE OF tadir.
-    lt_tadir = VALUE #( ( object = 'DDLS' obj_name = 'ZC_TEST_VIEW' devclass = '$TEST' ) ).
+    DATA ls_tadir LIKE LINE OF lt_tadir.
+
+    CLEAR ls_tadir.
+    ls_tadir-object   = 'DDLS'.
+    ls_tadir-obj_name = 'ZC_TEST_VIEW'.
+    ls_tadir-devclass = '$TEST'.
+    APPEND ls_tadir TO lt_tadir.
     go_env->insert_test_data( i_data = lt_tadir ).
 
     DATA(lv_type) = mo_cut->detect_object_type( 'ZC_TEST_VIEW' ).
@@ -105,20 +125,40 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   METHOD test_fetch_data.
     " Insert test data into SCARR
     DATA lt_scarr TYPE STANDARD TABLE OF scarr.
-    lt_scarr = VALUE #(
-      ( carrid = 'AA' carrname = 'American Airlines' currcode = 'USD' url = 'http://aa.com' )
-      ( carrid = 'LH' carrname = 'Lufthansa' currcode = 'EUR' url = 'http://lh.com' )
-      ( carrid = 'BA' carrname = 'British Airways' currcode = 'GBP' url = 'http://ba.com' ) ).
+    DATA ls_scarr LIKE LINE OF lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'AA'.
+    ls_scarr-carrname = 'American Airlines'.
+    ls_scarr-currcode = 'USD'.
+    ls_scarr-url      = 'http://aa.com'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'LH'.
+    ls_scarr-carrname = 'Lufthansa'.
+    ls_scarr-currcode = 'EUR'.
+    ls_scarr-url      = 'http://lh.com'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'BA'.
+    ls_scarr-carrname = 'British Airways'.
+    ls_scarr-currcode = 'GBP'.
+    ls_scarr-url      = 'http://ba.com'.
+    APPEND ls_scarr TO lt_scarr.
     go_env->insert_test_data( i_data = lt_scarr ).
 
     " Fetch table data
+    DATA lt_columns TYPE string_table.
+    CLEAR lt_columns.
     DATA(ls_result) = mo_cut->get_table_data(
       iv_name = 'SCARR'
       iv_type = 'TABL'
       iv_limit = 10
       iv_offset = 0
       iv_where = ''
-      it_columns = VALUE #( ) ).
+      it_columns = lt_columns ).
 
     cl_abap_unit_assert=>assert_initial(
       act = ls_result-error
@@ -143,20 +183,43 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   METHOD test_fetch_data_where.
     " Insert test data into SFLIGHT
     DATA lt_sflight TYPE STANDARD TABLE OF sflight.
-    lt_sflight = VALUE #(
-      ( carrid = 'AA' connid = '0017' fldate = '20240101' price = '422.94' currency = 'USD' )
-      ( carrid = 'AA' connid = '0017' fldate = '20240102' price = '422.94' currency = 'USD' )
-      ( carrid = 'LH' connid = '0400' fldate = '20240101' price = '500.00' currency = 'EUR' ) ).
+    DATA ls_sflight LIKE LINE OF lt_sflight.
+
+    CLEAR ls_sflight.
+    ls_sflight-carrid   = 'AA'.
+    ls_sflight-connid   = '0017'.
+    ls_sflight-fldate   = '20240101'.
+    ls_sflight-price    = '422.94'.
+    ls_sflight-currency = 'USD'.
+    APPEND ls_sflight TO lt_sflight.
+
+    CLEAR ls_sflight.
+    ls_sflight-carrid   = 'AA'.
+    ls_sflight-connid   = '0017'.
+    ls_sflight-fldate   = '20240102'.
+    ls_sflight-price    = '422.94'.
+    ls_sflight-currency = 'USD'.
+    APPEND ls_sflight TO lt_sflight.
+
+    CLEAR ls_sflight.
+    ls_sflight-carrid   = 'LH'.
+    ls_sflight-connid   = '0400'.
+    ls_sflight-fldate   = '20240101'.
+    ls_sflight-price    = '500.00'.
+    ls_sflight-currency = 'EUR'.
+    APPEND ls_sflight TO lt_sflight.
     go_env->insert_test_data( i_data = lt_sflight ).
 
     " Fetch with WHERE clause
+    DATA lt_columns TYPE string_table.
+    CLEAR lt_columns.
     DATA(ls_result) = mo_cut->get_table_data(
       iv_name = 'SFLIGHT'
       iv_type = 'TABL'
       iv_limit = 10
       iv_offset = 0
       iv_where = 'CARRID = ''AA'''
-      it_columns = VALUE #( ) ).
+      it_columns = lt_columns ).
 
     cl_abap_unit_assert=>assert_initial(
       act = ls_result-error
@@ -171,22 +234,49 @@ CLASS ltcl_cmd_preview IMPLEMENTATION.
   METHOD test_fetch_data_limit.
     " Insert test data into SCARR
     DATA lt_scarr TYPE STANDARD TABLE OF scarr.
-    lt_scarr = VALUE #(
-      ( carrid = 'AA' carrname = 'American Airlines' currcode = 'USD' )
-      ( carrid = 'LH' carrname = 'Lufthansa' currcode = 'EUR' )
-      ( carrid = 'BA' carrname = 'British Airways' currcode = 'GBP' )
-      ( carrid = 'DL' carrname = 'Delta' currcode = 'USD' )
-      ( carrid = 'AF' carrname = 'Air France' currcode = 'EUR' ) ).
+    DATA ls_scarr LIKE LINE OF lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'AA'.
+    ls_scarr-carrname = 'American Airlines'.
+    ls_scarr-currcode = 'USD'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'LH'.
+    ls_scarr-carrname = 'Lufthansa'.
+    ls_scarr-currcode = 'EUR'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'BA'.
+    ls_scarr-carrname = 'British Airways'.
+    ls_scarr-currcode = 'GBP'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'DL'.
+    ls_scarr-carrname = 'Delta'.
+    ls_scarr-currcode = 'USD'.
+    APPEND ls_scarr TO lt_scarr.
+
+    CLEAR ls_scarr.
+    ls_scarr-carrid   = 'AF'.
+    ls_scarr-carrname = 'Air France'.
+    ls_scarr-currcode = 'EUR'.
+    APPEND ls_scarr TO lt_scarr.
     go_env->insert_test_data( i_data = lt_scarr ).
 
     " Fetch with limit
+    DATA lt_columns TYPE string_table.
+    CLEAR lt_columns.
     DATA(ls_result) = mo_cut->get_table_data(
       iv_name = 'SCARR'
       iv_type = 'TABL'
       iv_limit = 3
       iv_offset = 0
       iv_where = ''
-      it_columns = VALUE #( ) ).
+      it_columns = lt_columns ).
 
     cl_abap_unit_assert=>assert_initial(
       act = ls_result-error

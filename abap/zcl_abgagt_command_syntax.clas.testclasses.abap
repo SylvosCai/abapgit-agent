@@ -70,7 +70,7 @@ ENDCLASS.
 CLASS ltcl_cmd_syntax IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -85,7 +85,7 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_interface.
     " Test that the class implements the command interface
 
-    mo_cut = NEW zcl_abgagt_command_syntax( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_syntax.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
@@ -118,16 +118,17 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_single_class.
     " Test execute with a single class
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type   = 'CLAS'
-      name   = 'ZCL_TEST_CLASS'
-      source = 'CLASS zcl_test_class DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-               '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
-               'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-               'CLASS zcl_test_class IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-               'ENDCLASS.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type   = 'CLAS'.
+    ls_obj-name   = 'ZCL_TEST_CLASS'.
+    ls_obj-source = 'CLASS zcl_test_class DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                    '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                    'CLASS zcl_test_class IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -157,14 +158,15 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_single_interface.
     " Test execute with a single interface
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type   = 'INTF'
-      name   = 'ZIF_TEST_INTF'
-      source = 'INTERFACE zif_test_intf PUBLIC.' && cl_abap_char_utilities=>newline &&
-               '  METHODS test_method.' && cl_abap_char_utilities=>newline &&
-               'ENDINTERFACE.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type   = 'INTF'.
+    ls_obj-name   = 'ZIF_TEST_INTF'.
+    ls_obj-source = 'INTERFACE zif_test_intf PUBLIC.' && cl_abap_char_utilities=>newline &&
+                    '  METHODS test_method.' && cl_abap_char_utilities=>newline &&
+                    'ENDINTERFACE.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -188,14 +190,15 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_single_program.
     " Test execute with a single program
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type   = 'PROG'
-      name   = 'ZTEST_PROGRAM'
-      source = 'REPORT ztest_program.' && cl_abap_char_utilities=>newline &&
-               'DATA lv_test TYPE string.' && cl_abap_char_utilities=>newline &&
-               'lv_test = ''Hello''.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type   = 'PROG'.
+    ls_obj-name   = 'ZTEST_PROGRAM'.
+    ls_obj-source = 'REPORT ztest_program.' && cl_abap_char_utilities=>newline &&
+                    'DATA lv_test TYPE string.' && cl_abap_char_utilities=>newline &&
+                    'lv_test = ''Hello''.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -219,19 +222,29 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_multi_objects.
     " Test execute with multiple objects
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #(
-      ( type = 'CLAS' name = 'ZCL_CLASS1'
-        source = 'CLASS zcl_class1 DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-                 'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-                 'CLASS zcl_class1 IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                 'ENDCLASS.' )
-      ( type = 'INTF' name = 'ZIF_INTF1'
-        source = 'INTERFACE zif_intf1 PUBLIC.' && cl_abap_char_utilities=>newline &&
-                 'ENDINTERFACE.' )
-      ( type = 'PROG' name = 'ZPROG1'
-        source = 'REPORT zprog1.' )
-    ).
+    CLEAR ls_obj.
+    ls_obj-type   = 'CLAS'.
+    ls_obj-name   = 'ZCL_CLASS1'.
+    ls_obj-source = 'CLASS zcl_class1 DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                    'CLASS zcl_class1 IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.'.
+    APPEND ls_obj TO ls_param-objects.
+
+    CLEAR ls_obj.
+    ls_obj-type   = 'INTF'.
+    ls_obj-name   = 'ZIF_INTF1'.
+    ls_obj-source = 'INTERFACE zif_intf1 PUBLIC.' && cl_abap_char_utilities=>newline &&
+                    'ENDINTERFACE.'.
+    APPEND ls_obj TO ls_param-objects.
+
+    CLEAR ls_obj.
+    ls_obj-type   = 'PROG'.
+    ls_obj-name   = 'ZPROG1'.
+    ls_obj-source = 'REPORT zprog1.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -265,13 +278,14 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_unsupported_type.
     " Test execute with unsupported object type
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type   = 'FUGR'
-      name   = 'ZTEST_FUGR'
-      source = 'FUNCTION z_test_func.' && cl_abap_char_utilities=>newline &&
-               'ENDFUNCTION.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type   = 'FUGR'.
+    ls_obj-name   = 'ZTEST_FUGR'.
+    ls_obj-source = 'FUNCTION z_test_func.' && cl_abap_char_utilities=>newline &&
+                    'ENDFUNCTION.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -301,24 +315,25 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_class_with_locals.
     " Test execute with class that has local classes
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type       = 'CLAS'
-      name       = 'ZCL_TEST_CLASS'
-      source     = 'CLASS zcl_test_class DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-                   '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
-                   '    METHODS test_method.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-                   'CLASS zcl_test_class IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                   '  METHOD test_method.' && cl_abap_char_utilities=>newline &&
-                   '    DATA(lo_helper) = NEW lcl_helper( ).' && cl_abap_char_utilities=>newline &&
-                   '  ENDMETHOD.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.'
-      locals_def = 'CLASS lcl_helper DEFINITION.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.'
-      locals_imp = 'CLASS lcl_helper IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type       = 'CLAS'.
+    ls_obj-name       = 'ZCL_TEST_CLASS'.
+    ls_obj-source     = 'CLASS zcl_test_class DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                        '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                        '    METHODS test_method.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                        'CLASS zcl_test_class IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                        '  METHOD test_method.' && cl_abap_char_utilities=>newline &&
+                        '    DATA(lo_helper) = NEW lcl_helper( ).' && cl_abap_char_utilities=>newline &&
+                        '  ENDMETHOD.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.'.
+    ls_obj-locals_def = 'CLASS lcl_helper DEFINITION.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.'.
+    ls_obj-locals_imp = 'CLASS lcl_helper IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -336,18 +351,19 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_clas_locals_def.
     " Test execute with class that has only local definitions (no implementations)
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type       = 'CLAS'
-      name       = 'ZCL_TEST_DEF_ONLY'
-      source     = 'CLASS zcl_test_def_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-                   '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
-                   '    TYPES ty_test TYPE i.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-                   'CLASS zcl_test_def_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.'
-      locals_def = 'TYPES ty_local TYPE string.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type       = 'CLAS'.
+    ls_obj-name       = 'ZCL_TEST_DEF_ONLY'.
+    ls_obj-source     = 'CLASS zcl_test_def_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                        '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                        '    TYPES ty_test TYPE i.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                        'CLASS zcl_test_def_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.'.
+    ls_obj-locals_def = 'TYPES ty_local TYPE string.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -365,17 +381,18 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_clas_locals_imp.
     " Test execute with class that has only local implementations (no definitions)
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #( (
-      type       = 'CLAS'
-      name       = 'ZCL_TEST_IMP_ONLY'
-      source     = 'CLASS zcl_test_imp_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-                   '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-                   'CLASS zcl_test_imp_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                   'ENDCLASS.'
-      locals_imp = 'DATA gv_local TYPE string.'
-    ) ).
+    CLEAR ls_obj.
+    ls_obj-type       = 'CLAS'.
+    ls_obj-name       = 'ZCL_TEST_IMP_ONLY'.
+    ls_obj-source     = 'CLASS zcl_test_imp_only DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                        '  PUBLIC SECTION.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                        'CLASS zcl_test_imp_only IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                        'ENDCLASS.'.
+    ls_obj-locals_imp = 'DATA gv_local TYPE string.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -393,14 +410,16 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_prog_with_uccheck.
     " Test execute with program and uccheck parameter
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
     ls_param-uccheck = '5'. " ABAP Cloud mode
-    ls_param-objects = VALUE #( (
-      type   = 'PROG'
-      name   = 'ZTEST_CLOUD_PROG'
-      source = 'REPORT ztest_cloud_prog.' && cl_abap_char_utilities=>newline &&
-               'DATA lv_test TYPE string.'
-    ) ).
+
+    CLEAR ls_obj.
+    ls_obj-type   = 'PROG'.
+    ls_obj-name   = 'ZTEST_CLOUD_PROG'.
+    ls_obj-source = 'REPORT ztest_cloud_prog.' && cl_abap_char_utilities=>newline &&
+                    'DATA lv_test TYPE string.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -418,14 +437,16 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_invalid_uccheck.
     " Test execute with invalid uccheck value - should default to 'X'
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
     ls_param-uccheck = 'Z'. " Invalid value - should fallback to 'X'
-    ls_param-objects = VALUE #( (
-      type   = 'PROG'
-      name   = 'ZTEST_INVALID_UC'
-      source = 'REPORT ztest_invalid_uc.' && cl_abap_char_utilities=>newline &&
-               'DATA lv_test TYPE string.'
-    ) ).
+
+    CLEAR ls_obj.
+    ls_obj-type   = 'PROG'.
+    ls_obj-name   = 'ZTEST_INVALID_UC'.
+    ls_obj-source = 'REPORT ztest_invalid_uc.' && cl_abap_char_utilities=>newline &&
+                    'DATA lv_test TYPE string.'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -443,18 +464,24 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
   METHOD test_exec_mixed_success_fail.
     " Test execute with mixed success and failure
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_param-objects.
 
-    ls_param-objects = VALUE #(
-      " Valid class
-      ( type = 'CLAS' name = 'ZCL_VALID'
-        source = 'CLASS zcl_valid DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
-                 'ENDCLASS.' && cl_abap_char_utilities=>newline &&
-                 'CLASS zcl_valid IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
-                 'ENDCLASS.' )
-      " Invalid (unsupported type)
-      ( type = 'TABL' name = 'ZTABLE'
-        source = 'some source' )
-    ).
+    " Valid class
+    CLEAR ls_obj.
+    ls_obj-type   = 'CLAS'.
+    ls_obj-name   = 'ZCL_VALID'.
+    ls_obj-source = 'CLASS zcl_valid DEFINITION PUBLIC.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.' && cl_abap_char_utilities=>newline &&
+                    'CLASS zcl_valid IMPLEMENTATION.' && cl_abap_char_utilities=>newline &&
+                    'ENDCLASS.'.
+    APPEND ls_obj TO ls_param-objects.
+
+    " Invalid (unsupported type)
+    CLEAR ls_obj.
+    ls_obj-type   = 'TABL'.
+    ls_obj-name   = 'ZTABLE'.
+    ls_obj-source = 'some source'.
+    APPEND ls_obj TO ls_param-objects.
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
 
@@ -601,7 +628,7 @@ ENDCLASS.
 CLASS ltcl_syntax_chk_clas IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_object_type.
@@ -740,7 +767,7 @@ ENDCLASS.
 CLASS ltcl_syntax_chk_intf IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_object_type.
@@ -809,7 +836,7 @@ ENDCLASS.
 CLASS ltcl_syntax_chk_prog IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_object_type.

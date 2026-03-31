@@ -53,10 +53,16 @@ ENDCLASS.
 CLASS ltcl_cmd_transport IMPLEMENTATION.
 
   METHOD class_setup.
+    DATA lt_dep TYPE if_osql_test_environment=>ty_tab_names.
+    DATA lv_dep LIKE LINE OF lt_dep.
+    CLEAR lv_dep.
+    lv_dep = 'E070'.
+    APPEND lv_dep TO lt_dep.
+    CLEAR lv_dep.
+    lv_dep = 'E07T'.
+    APPEND lv_dep TO lt_dep.
     go_env = cl_osql_test_environment=>create(
-      i_dependency_list = VALUE #(
-        ( 'E070' )
-        ( 'E07T' ) ) ).
+      i_dependency_list = lt_dep ).
   ENDMETHOD.
 
   METHOD class_teardown.
@@ -65,7 +71,7 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
 
   METHOD setup.
     go_env->clear_doubles( ).
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -78,7 +84,7 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
 
   METHOD test_interface.
 
-    mo_cut = NEW zcl_abgagt_command_transport( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_transport.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface
@@ -139,20 +145,26 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   METHOD test_list_scope_mine.
     " Insert test data into E070
     DATA lt_e070 TYPE STANDARD TABLE OF e070.
-    lt_e070 = VALUE #(
-      ( trkorr    = 'DEVK900001'
-        trstatus  = 'D'
-        trfunction = 'K'
-        as4user   = sy-uname
-        as4date   = '20240101' ) ).
+    DATA ls_e070 LIKE LINE OF lt_e070.
+
+    CLEAR ls_e070.
+    ls_e070-trkorr    = 'DEVK900001'.
+    ls_e070-trstatus  = 'D'.
+    ls_e070-trfunction = 'K'.
+    ls_e070-as4user   = sy-uname.
+    ls_e070-as4date   = '20240101'.
+    APPEND ls_e070 TO lt_e070.
     go_env->insert_test_data( i_data = lt_e070 ).
 
     " Insert matching text in E07T
     DATA lt_e07t TYPE STANDARD TABLE OF e07t.
-    lt_e07t = VALUE #(
-      ( trkorr  = 'DEVK900001'
-        langu   = sy-langu
-        as4text = 'My Test Transport' ) ).
+    DATA ls_e07t LIKE LINE OF lt_e07t.
+
+    CLEAR ls_e07t.
+    ls_e07t-trkorr  = 'DEVK900001'.
+    ls_e07t-langu   = sy-langu.
+    ls_e07t-as4text = 'My Test Transport'.
+    APPEND ls_e07t TO lt_e07t.
     go_env->insert_test_data( i_data = lt_e07t ).
 
     DATA: BEGIN OF ls_param,
@@ -184,19 +196,25 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   METHOD test_list_scope_all.
     " Insert test data for two different users
     DATA lt_e070 TYPE STANDARD TABLE OF e070.
-    lt_e070 = VALUE #(
-      ( trkorr     = 'DEVK900002'
-        trstatus   = 'D'
-        trfunction = 'K'
-        as4user    = 'OTHER_USER'
-        as4date    = '20240115' ) ).
+    DATA ls_e070 LIKE LINE OF lt_e070.
+
+    CLEAR ls_e070.
+    ls_e070-trkorr     = 'DEVK900002'.
+    ls_e070-trstatus   = 'D'.
+    ls_e070-trfunction = 'K'.
+    ls_e070-as4user    = 'OTHER_USER'.
+    ls_e070-as4date    = '20240115'.
+    APPEND ls_e070 TO lt_e070.
     go_env->insert_test_data( i_data = lt_e070 ).
 
     DATA lt_e07t TYPE STANDARD TABLE OF e07t.
-    lt_e07t = VALUE #(
-      ( trkorr  = 'DEVK900002'
-        langu   = sy-langu
-        as4text = 'Other User Transport' ) ).
+    DATA ls_e07t LIKE LINE OF lt_e07t.
+
+    CLEAR ls_e07t.
+    ls_e07t-trkorr  = 'DEVK900002'.
+    ls_e07t-langu   = sy-langu.
+    ls_e07t-as4text = 'Other User Transport'.
+    APPEND ls_e07t TO lt_e07t.
     go_env->insert_test_data( i_data = lt_e07t ).
 
     DATA: BEGIN OF ls_param,
@@ -223,26 +241,35 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   METHOD test_list_scope_tasks.
     " Insert a task owned by current user whose parent is DEVK900003
     DATA lt_e070 TYPE STANDARD TABLE OF e070.
-    lt_e070 = VALUE #(
-      ( trkorr     = 'DEVK900003'
-        trstatus   = 'D'
-        trfunction = 'K'
-        as4user    = 'ANY_OWNER'
-        as4date    = '20240201'
-        strkorr    = '' )
-      ( trkorr     = 'DEVK900004'
-        trstatus   = 'D'
-        trfunction = 'T'
-        as4user    = sy-uname
-        as4date    = '20240201'
-        strkorr    = 'DEVK900003' ) ).
+    DATA ls_e070 LIKE LINE OF lt_e070.
+
+    CLEAR ls_e070.
+    ls_e070-trkorr     = 'DEVK900003'.
+    ls_e070-trstatus   = 'D'.
+    ls_e070-trfunction = 'K'.
+    ls_e070-as4user    = 'ANY_OWNER'.
+    ls_e070-as4date    = '20240201'.
+    ls_e070-strkorr    = ''.
+    APPEND ls_e070 TO lt_e070.
+
+    CLEAR ls_e070.
+    ls_e070-trkorr     = 'DEVK900004'.
+    ls_e070-trstatus   = 'D'.
+    ls_e070-trfunction = 'T'.
+    ls_e070-as4user    = sy-uname.
+    ls_e070-as4date    = '20240201'.
+    ls_e070-strkorr    = 'DEVK900003'.
+    APPEND ls_e070 TO lt_e070.
     go_env->insert_test_data( i_data = lt_e070 ).
 
     DATA lt_e07t TYPE STANDARD TABLE OF e07t.
-    lt_e07t = VALUE #(
-      ( trkorr  = 'DEVK900003'
-        langu   = sy-langu
-        as4text = 'Parent Transport' ) ).
+    DATA ls_e07t LIKE LINE OF lt_e07t.
+
+    CLEAR ls_e07t.
+    ls_e07t-trkorr  = 'DEVK900003'.
+    ls_e07t-langu   = sy-langu.
+    ls_e07t-as4text = 'Parent Transport'.
+    APPEND ls_e07t TO lt_e07t.
     go_env->insert_test_data( i_data = lt_e07t ).
 
     DATA: BEGIN OF ls_param,
@@ -335,19 +362,25 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   METHOD test_format_date.
     " Test format_date indirectly via list result — date should be formatted
     DATA lt_e070 TYPE STANDARD TABLE OF e070.
-    lt_e070 = VALUE #(
-      ( trkorr     = 'DEVK900005'
-        trstatus   = 'D'
-        trfunction = 'K'
-        as4user    = sy-uname
-        as4date    = '20240315' ) ).
+    DATA ls_e070 LIKE LINE OF lt_e070.
+
+    CLEAR ls_e070.
+    ls_e070-trkorr     = 'DEVK900005'.
+    ls_e070-trstatus   = 'D'.
+    ls_e070-trfunction = 'K'.
+    ls_e070-as4user    = sy-uname.
+    ls_e070-as4date    = '20240315'.
+    APPEND ls_e070 TO lt_e070.
     go_env->insert_test_data( i_data = lt_e070 ).
 
     DATA lt_e07t TYPE STANDARD TABLE OF e07t.
-    lt_e07t = VALUE #(
-      ( trkorr  = 'DEVK900005'
-        langu   = sy-langu
-        as4text = 'Date Format Test' ) ).
+    DATA ls_e07t LIKE LINE OF lt_e07t.
+
+    CLEAR ls_e07t.
+    ls_e07t-trkorr  = 'DEVK900005'.
+    ls_e07t-langu   = sy-langu.
+    ls_e07t-as4text = 'Date Format Test'.
+    APPEND ls_e07t TO lt_e07t.
     go_env->insert_test_data( i_data = lt_e07t ).
 
     DATA: BEGIN OF ls_param,
@@ -367,10 +400,13 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_success.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc  = 0.
     lo_double->mv_trkorr = 'DEVK999999'.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action      TYPE string,
@@ -394,9 +430,12 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_failure.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc = 1.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action      TYPE string,
@@ -420,9 +459,12 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_check_passes.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc = 0.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action TYPE string,
@@ -444,9 +486,12 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_check_fails.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc = 4.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action TYPE string,
@@ -468,9 +513,12 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_release_success.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc = 0.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action TYPE string,
@@ -492,9 +540,12 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_release_failure.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
     lo_double->mv_subrc = 1.
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action TYPE string,
@@ -516,8 +567,11 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_workbench_type.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action      TYPE string,
@@ -537,8 +591,11 @@ CLASS ltcl_cmd_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD test_create_customizing_type.
-    DATA(lo_double) = NEW ltcl_cts_api_double( ).
-    DATA(lo_cut) = NEW zcl_abgagt_command_transport( io_cts_api = lo_double ).
+    DATA lo_double TYPE REF TO ltcl_cts_api_double.
+    CREATE OBJECT lo_double.
+    DATA lo_cut TYPE REF TO zcl_abgagt_command_transport.
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_command_transport
+      EXPORTING io_cts_api = lo_double.
 
     DATA: BEGIN OF ls_param,
             action      TYPE string,

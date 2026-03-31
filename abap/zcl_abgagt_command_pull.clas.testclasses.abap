@@ -14,7 +14,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
 
   METHOD setup.
-    mo_cut = NEW #( ).
+    CREATE OBJECT mo_cut.
   ENDMETHOD.
 
   METHOD test_get_name.
@@ -29,7 +29,7 @@ CLASS ltcl_zcl_abgagt_command_pull IMPLEMENTATION.
   METHOD test_interface.
     " Test that the class implements the command interface
 
-    mo_cut = NEW zcl_abgagt_command_pull( ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_command_pull.
     DATA(lo_interface) = mo_cut.
     cl_abap_unit_assert=>assert_bound(
       act = lo_interface

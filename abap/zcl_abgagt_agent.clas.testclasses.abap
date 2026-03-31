@@ -79,7 +79,7 @@ CLASS ltcl_repo_with_aliases IMPLEMENTATION.
     ri_log = mo_log.
   ENDMETHOD.
   METHOD zif_abapgit_repo~deserialize_checks.
-    rs_checks = VALUE #( ).
+    CLEAR rs_checks.
   ENDMETHOD.
   METHOD zif_abapgit_repo~deserialize.
   ENDMETHOD.
@@ -213,7 +213,7 @@ CLASS ltcl_repo_local_fails IMPLEMENTATION.
     RAISE EXCEPTION TYPE zcx_abapgit_exception.
   ENDMETHOD.
   METHOD zif_abapgit_repo~deserialize_checks.
-    rs_checks = VALUE #( ).
+    CLEAR rs_checks.
   ENDMETHOD.
   METHOD zif_abapgit_repo~deserialize.
   ENDMETHOD.
@@ -262,13 +262,107 @@ CLASS ltcl_repo_local_fails IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" Repo double — wraps zif_abapgit_repo for tests that need
+" configurable create_new_log / deserialize_checks return values.
+"----------------------------------------------------------------------
+CLASS ltcl_repo_double DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo.
+    DATA mo_log    TYPE REF TO ltcl_log_double.
+    DATA ms_checks TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+ENDCLASS.
+
+CLASS ltcl_repo_double IMPLEMENTATION.
+  METHOD zif_abapgit_repo~create_new_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize_checks.
+    rs_checks = ms_checks.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_key.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~is_offline.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_package.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_tadir_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local_filtered.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~find_remote_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~checksums.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~has_remote_source.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_apack.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~delete_checks.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~switch_repo_type.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_object.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_data_config.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~bind_listener.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
+" Conflict-detector double — returns a configurable conflict list.
+"----------------------------------------------------------------------
+CLASS ltcl_detector_double DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_conflict_detector.
+    DATA mt_conflicts TYPE zif_abgagt_conflict_detector=>ty_conflicts.
+ENDCLASS.
+
+CLASS ltcl_detector_double IMPLEMENTATION.
+  METHOD zif_abgagt_conflict_detector~check_conflicts.
+    rt_conflicts = mt_conflicts.
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~store_pull_metadata.
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~get_conflict_report.
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~calculate_sha.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
     DATA mo_cut  TYPE REF TO zcl_abgagt_agent.
-    DATA mo_repo TYPE REF TO zif_abapgit_repo.
-    DATA mo_det  TYPE REF TO zif_abgagt_conflict_detector.
+    DATA mo_repo TYPE REF TO ltcl_repo_double.
+    DATA mo_det  TYPE REF TO ltcl_detector_double.
     DATA mo_log  TYPE REF TO ltcl_log_double.
 
     METHODS setup.
@@ -303,26 +397,19 @@ ENDCLASS.
 CLASS ltcl_agent IMPLEMENTATION.
 
   METHOD setup.
-    mo_log = NEW ltcl_log_double( ).
+    CREATE OBJECT mo_log TYPE ltcl_log_double.
     mo_log->mv_status = zif_abapgit_log=>c_status-ok.
 
-    mo_repo ?= cl_abap_testdouble=>create( 'ZIF_ABAPGIT_REPO' ).
-    mo_det  ?= cl_abap_testdouble=>create( 'ZIF_ABGAGT_CONFLICT_DETECTOR' ).
+    CREATE OBJECT mo_repo TYPE ltcl_repo_double.
+    mo_repo->mo_log = mo_log.
 
-    " Default: get_log / create_new_log return mo_log
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( mo_log ).
-    mo_repo->get_log( ).
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( mo_log ).
-    mo_repo->create_new_log( ).
+    CREATE OBJECT mo_det TYPE ltcl_detector_double.
+    " Default: empty conflicts (mt_conflicts starts empty)
 
-    " Default: no conflicts
-    DATA lt_empty TYPE zif_abgagt_conflict_detector=>ty_conflicts.
-    cl_abap_testdouble=>configure_call( mo_det )->returning( lt_empty ).
-    mo_det->check_conflicts( it_files = VALUE #( ) iv_branch = '' ).
-
-    mo_cut = NEW zcl_abgagt_agent(
-      io_repo              = mo_repo
-      io_conflict_detector = mo_det ).
+    CREATE OBJECT mo_cut TYPE zcl_abgagt_agent
+      EXPORTING
+        io_repo              = mo_repo
+        io_conflict_detector = mo_det.
   ENDMETHOD.
 
   "--------------------------------------------------------------------
@@ -436,10 +523,6 @@ CLASS ltcl_agent IMPLEMENTATION.
   " pull — repo injected, log ok → success
   "--------------------------------------------------------------------
   METHOD test_pull_success.
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
-
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url = 'https://example.com/repo.git' ).
 
@@ -460,10 +543,6 @@ CLASS ltcl_agent IMPLEMENTATION.
     ls_msg-type = 'E'.
     ls_msg-text = 'Syntax error in class'.
     APPEND ls_msg TO mo_log->mt_messages.
-
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
 
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url = 'https://example.com/repo.git' ).
@@ -486,10 +565,6 @@ CLASS ltcl_agent IMPLEMENTATION.
     ls_msg-obj_type = 'CLAS'.
     ls_msg-obj_name = 'ZCL_MY_CLASS'.
     APPEND ls_msg TO mo_log->mt_messages.
-
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
 
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url = 'https://example.com/repo.git' ).
@@ -517,10 +592,6 @@ CLASS ltcl_agent IMPLEMENTATION.
     ls_msg-obj_name = 'ZCL_BAD'.
     APPEND ls_msg TO mo_log->mt_messages.
 
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
-
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url = 'https://example.com/repo.git' ).
 
@@ -536,10 +607,6 @@ CLASS ltcl_agent IMPLEMENTATION.
   " pull — transport request is echoed back in result
   "--------------------------------------------------------------------
   METHOD test_pull_transport.
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
-
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url               = 'https://example.com/repo.git'
       iv_transport_request = 'DEVK900001' ).
@@ -553,20 +620,11 @@ CLASS ltcl_agent IMPLEMENTATION.
   " pull — conflict detected but mode = 'ignore' → pull proceeds, success
   "--------------------------------------------------------------------
   METHOD test_pull_conflict_ignored.
-    DATA lt_conflicts TYPE zif_abgagt_conflict_detector=>ty_conflicts.
     DATA ls_conflict  TYPE zif_abgagt_conflict_detector=>ty_conflict.
     ls_conflict-obj_type      = 'CLAS'.
     ls_conflict-obj_name      = 'ZCL_CONFLICTED'.
     ls_conflict-conflict_type = 'SYSTEM_EDIT'.
-    APPEND ls_conflict TO lt_conflicts.
-
-    " Override default (empty) conflict return to return a real conflict
-    cl_abap_testdouble=>configure_call( mo_det )->returning( lt_conflicts ).
-    mo_det->check_conflicts( it_files = VALUE #( ) iv_branch = '' ).
-
-    DATA ls_check TYPE zif_abapgit_definitions=>ty_deserialize_checks.
-    cl_abap_testdouble=>configure_call( mo_repo )->returning( ls_check ).
-    mo_repo->deserialize_checks( ).
+    APPEND ls_conflict TO mo_det->mt_conflicts.
 
     DATA(ls_result) = mo_cut->zif_abgagt_agent~pull(
       iv_url           = 'https://example.com/repo.git'
@@ -599,7 +657,7 @@ CLASS ltcl_agent IMPLEMENTATION.
   "--------------------------------------------------------------------
   METHOD test_rtti_alias_filter_param.
     DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
-    lo_alias_repo = NEW ltcl_repo_with_aliases( ).
+    CREATE OBJECT lo_alias_repo TYPE ltcl_repo_with_aliases.
 
     DATA(lo_descr) = CAST cl_abap_objectdescr(
                        cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
@@ -634,38 +692,40 @@ CLASS ltcl_agent IMPLEMENTATION.
   "--------------------------------------------------------------------
   METHOD test_pull_alias_repo_filter.
     DATA lo_alias_log TYPE REF TO ltcl_log_double.
-    lo_alias_log = NEW ltcl_log_double( ).
+    CREATE OBJECT lo_alias_log TYPE ltcl_log_double.
     lo_alias_log->mv_status = zif_abapgit_log=>c_status-ok.
 
     DATA lo_alias_repo TYPE REF TO ltcl_repo_with_aliases.
-    lo_alias_repo = NEW ltcl_repo_with_aliases( ).
+    CREATE OBJECT lo_alias_repo TYPE ltcl_repo_with_aliases.
     lo_alias_repo->mo_log = lo_alias_log.
 
     " Wire RTTI mock with the real descriptor of the alias-based repo.
     " This simulates the production RTTI lookup (ZCL_ABAPGIT_REPO_ONLINE)
     " without depending on the actual installed abapGit version.
     DATA lo_rtti_mock TYPE REF TO ltcl_rtti_mock.
-    lo_rtti_mock = NEW ltcl_rtti_mock( ).
+    CREATE OBJECT lo_rtti_mock TYPE ltcl_rtti_mock.
     lo_rtti_mock->mo_desc = CAST cl_abap_objectdescr(
                               cl_abap_typedescr=>describe_by_object_ref( lo_alias_repo ) ).
     lo_rtti_mock->mo_class_desc = CAST cl_abap_classdescr(
                                     cl_abap_typedescr=>describe_by_name( 'ZCL_ABAPGIT_OBJECT_FILTER_OBJ' ) ).
 
-    DATA lo_det TYPE REF TO zif_abgagt_conflict_detector.
-    lo_det ?= cl_abap_testdouble=>create( 'ZIF_ABGAGT_CONFLICT_DETECTOR' ).
-    DATA lt_no_conflicts TYPE zif_abgagt_conflict_detector=>ty_conflicts.
-    cl_abap_testdouble=>configure_call( lo_det )->returning( lt_no_conflicts ).
-    lo_det->check_conflicts( it_files = VALUE #( ) iv_branch = '' ).
+    DATA lo_det TYPE REF TO ltcl_detector_double.
+    CREATE OBJECT lo_det TYPE ltcl_detector_double.
+    " mt_conflicts starts empty → no conflicts
+
+    DATA lt_files TYPE string_table.
+    APPEND `src/zcl_foo.clas.abap` TO lt_files.
 
     DATA lo_cut TYPE REF TO zcl_abgagt_agent.
-    lo_cut = NEW zcl_abgagt_agent(
-      io_repo              = lo_alias_repo
-      io_conflict_detector = lo_det
-      io_rtti              = lo_rtti_mock ).
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_agent
+      EXPORTING
+        io_repo              = lo_alias_repo
+        io_conflict_detector = lo_det
+        io_rtti              = lo_rtti_mock.
 
     DATA(ls_result) = lo_cut->zif_abgagt_agent~pull(
       iv_url   = 'https://example.com/repo.git'
-      it_files = VALUE string_table( ( `src/zcl_foo.clas.abap` ) ) ).
+      it_files = lt_files ).
 
     cl_abap_unit_assert=>assert_true(
       act = ls_result-success
@@ -700,9 +760,12 @@ CLASS ltcl_agent IMPLEMENTATION.
 
     " Set up the manual repo double
     DATA lo_repo TYPE REF TO ltcl_repo_local_fails.
-    lo_repo = NEW ltcl_repo_local_fails( ).
-    lo_repo->mo_log = NEW ltcl_log_double( ).
-    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+    CREATE OBJECT lo_repo TYPE ltcl_repo_local_fails.
+
+    DATA lo_inner_log TYPE REF TO ltcl_log_double.
+    CREATE OBJECT lo_inner_log TYPE ltcl_log_double.
+    lo_inner_log->mv_status = zif_abapgit_log=>c_status-ok.
+    lo_repo->mo_log = lo_inner_log.
 
     " One CLAS file in the remote
     DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
@@ -713,12 +776,13 @@ CLASS ltcl_agent IMPLEMENTATION.
 
     " Use the spy detector so we can verify store_pull_metadata was called
     DATA lo_spy TYPE REF TO ltcl_det_spy.
-    lo_spy = NEW ltcl_det_spy( ).
+    CREATE OBJECT lo_spy TYPE ltcl_det_spy.
 
     DATA lo_cut TYPE REF TO zcl_abgagt_agent.
-    lo_cut = NEW zcl_abgagt_agent(
-      io_repo              = lo_repo
-      io_conflict_detector = lo_spy ).
+    CREATE OBJECT lo_cut TYPE zcl_abgagt_agent
+      EXPORTING
+        io_repo              = lo_repo
+        io_conflict_detector = lo_spy.
 
     DATA(ls_result) = lo_cut->zif_abgagt_agent~pull(
       iv_url = 'https://example.com/repo.git' ).
