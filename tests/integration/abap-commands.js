@@ -932,15 +932,15 @@ where carrid = $parameters.p_carrid
   {
     command: 'debug',
     name: 'debug set --object --line registers a breakpoint',
-    args: ['set', '--object', 'ZCL_ABGAGT_UTIL', '--line', '25'],
+    args: ['set', '--object', 'ZCL_ABGAGT_UTIL', '--line', '20'],
     expectSuccess: true,
     verify: (output) => {
       // Should confirm the breakpoint was registered
       const hasConfirm = output.includes('Breakpoint') ||
         output.includes('breakpoint') ||
         output.includes('ZCL_ABGAGT_UTIL') ||
-        output.includes('line 25') ||
-        output.includes(':25');
+        output.includes('line 20') ||
+        output.includes(':20');
       return hasConfirm;
     }
   },
