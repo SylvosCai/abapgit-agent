@@ -140,7 +140,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ls_section-description = 'Class Method'.
         ls_section-method_name = ls_method-methodname.
         IF ls_section-method_name IS INITIAL.
-          ls_section-description = |Class Method [DEBUG:mname_empty clsname={ lv_clsname }]|.
+          ls_section-description = |Class Method [DEBUG:mname_empty idx={ ls_method-methodindx } clsname={ lv_clsname } mname_raw={ ls_method-methodname }]|.
         ENDIF.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
