@@ -282,10 +282,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           lv_total_count TYPE i,
           lv_limit TYPE i,
           lv_offset TYPE i,
-          lv_first_field TYPE string,
           ls_comp TYPE abap_componentdescr,
-          lt_cols TYPE string_table,
-          lv_cursor TYPE cursor.
+          lt_cols TYPE string_table.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
 
@@ -367,36 +365,25 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
-        " Use cursor-based pagination when offset > 0
+        " For pagination: fetch offset+limit rows then delete the first offset rows
+        DATA lv_fetch_count TYPE i.
+        lv_fetch_count = lv_offset + lv_limit.
+
         IF lv_offset > 0.
-          " Get first field name for ORDER BY (must use character type)
-          lv_first_field = lt_components[ 1 ]-name.
-          IF lv_first_field IS INITIAL.
-            lv_first_field = 'MANDT'.
-          ENDIF.
-
-          " Build dynamic SELECT string and open cursor for skip-fetch pagination
           IF iv_where IS INITIAL.
-            OPEN CURSOR @lv_cursor FOR
-              SELECT * FROM (iv_tabname)
-              ORDER BY (lv_first_field).
+            SELECT * FROM (iv_tabname)
+              INTO TABLE @<lt_data>
+              UP TO @lv_fetch_count ROWS.
           ELSE.
-            OPEN CURSOR @lv_cursor FOR
-              SELECT * FROM (iv_tabname)
+            SELECT * FROM (iv_tabname)
               WHERE (iv_where)
-              ORDER BY (lv_first_field).
+              INTO TABLE @<lt_data>
+              UP TO @lv_fetch_count ROWS.
           ENDIF.
-
-          " Skip 'offset' rows by fetching into <lt_data> and discarding
-          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE @lv_offset.
-          CLEAR <lt_data>.
-
-          " Read 'limit' rows into result
-          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE @lv_limit.
-
-          CLOSE CURSOR @lv_cursor.
+          " Discard the first lv_offset rows
+          DELETE <lt_data> FROM 1 TO lv_offset.
         ELSE.
-          " No offset - no ORDER BY needed, plain SELECT
+          " No offset - plain SELECT
           IF iv_where IS INITIAL.
             SELECT * FROM (iv_tabname)
               INTO TABLE @<lt_data>

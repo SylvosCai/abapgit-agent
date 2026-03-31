@@ -136,8 +136,11 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_type_str TYPE string,
           lv_limit TYPE i,
           lv_offset TYPE i,
-          lv_cursor TYPE cursor,
-          lt_skip TYPE ty_objects.
+          lv_fetch_count TYPE i,
+          ls_row TYPE ty_object,
+          ls_object TYPE ty_object,
+          lt_tadir TYPE STANDARD TABLE OF tadir WITH DEFAULT KEY,
+          ls_tadir TYPE tadir.
 
     lv_package = is_params-package.
     lv_limit = is_params-limit.
@@ -166,42 +169,51 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF '*' IN lv_name_pattern WITH '%'.
     ENDIF.
 
-    " Open cursor with correct WHERE branch for pagination
+    " Fetch offset+limit rows, then discard the first offset rows
+    lv_fetch_count = lv_offset + lv_limit.
+
     IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
-      OPEN CURSOR @lv_cursor FOR
-        SELECT object, obj_name FROM tadir
-          WHERE devclass = @lv_package
-            AND object IN @lt_type_range
-            AND obj_name LIKE @lv_name_pattern
-          ORDER BY object, obj_name.
+      SELECT object, obj_name FROM tadir
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tadir
+        UP TO @lv_fetch_count ROWS
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range
+          AND obj_name LIKE @lv_name_pattern
+        ORDER BY object, obj_name.
     ELSEIF lt_type_range IS NOT INITIAL.
-      OPEN CURSOR @lv_cursor FOR
-        SELECT object, obj_name FROM tadir
-          WHERE devclass = @lv_package
-            AND object IN @lt_type_range
-          ORDER BY object, obj_name.
+      SELECT object, obj_name FROM tadir
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tadir
+        UP TO @lv_fetch_count ROWS
+        WHERE devclass = @lv_package
+          AND object IN @lt_type_range
+        ORDER BY object, obj_name.
     ELSEIF lv_name_pattern IS NOT INITIAL.
-      OPEN CURSOR @lv_cursor FOR
-        SELECT object, obj_name FROM tadir
-          WHERE devclass = @lv_package
-            AND obj_name LIKE @lv_name_pattern
-          ORDER BY object, obj_name.
+      SELECT object, obj_name FROM tadir
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tadir
+        UP TO @lv_fetch_count ROWS
+        WHERE devclass = @lv_package
+          AND obj_name LIKE @lv_name_pattern
+        ORDER BY object, obj_name.
     ELSE.
-      OPEN CURSOR @lv_cursor FOR
-        SELECT object, obj_name FROM tadir
-          WHERE devclass = @lv_package
-          ORDER BY object, obj_name.
+      SELECT object, obj_name FROM tadir
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tadir
+        UP TO @lv_fetch_count ROWS
+        WHERE devclass = @lv_package
+        ORDER BY object, obj_name.
     ENDIF.
 
-    " Skip 'offset' rows
+    " Discard the first lv_offset rows (pagination)
     IF lv_offset > 0.
-      FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_skip PACKAGE SIZE @lv_offset.
+      DELETE lt_tadir FROM 1 TO lv_offset.
     ENDIF.
 
-    " Read 'limit' rows into result
-    FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_objects PACKAGE SIZE @lv_limit.
-
-    CLOSE CURSOR @lv_cursor.
+    " Map to result type
+    LOOP AT lt_tadir INTO ls_tadir.
+      CLEAR ls_row.
+      ls_row-type = ls_tadir-object.
+      ls_row-name = ls_tadir-obj_name.
+      APPEND ls_row TO lt_objects.
+    ENDLOOP.
 
     " Get total count (without limit/offset)
     IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
@@ -228,7 +240,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Build BY_TYPE aggregation
     SORT lt_objects BY type.
-    LOOP AT lt_objects INTO DATA(ls_object).
+    LOOP AT lt_objects INTO ls_object.
       AT NEW type.
         CLEAR ls_count.
         ls_count-type = ls_object-type.
