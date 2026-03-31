@@ -195,11 +195,11 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
 
     " Skip 'offset' rows
     IF lv_offset > 0.
-      FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_skip PACKAGE SIZE lv_offset.
+      FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_skip PACKAGE SIZE @lv_offset.
     ENDIF.
 
     " Read 'limit' rows into result
-    FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_objects PACKAGE SIZE lv_limit.
+    FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_objects PACKAGE SIZE @lv_limit.
 
     CLOSE CURSOR @lv_cursor.
 

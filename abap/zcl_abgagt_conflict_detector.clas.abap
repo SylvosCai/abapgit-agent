@@ -19,10 +19,19 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
   " check_conflicts
   " ---------------------------------------------------------------------------
   METHOD zif_abgagt_conflict_detector~check_conflicts.
-    LOOP AT it_files INTO DATA(ls_file).
+    DATA ls_file           TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+    DATA ls_baseline       TYPE zabgagt_obj_meta.
+    DATA lv_current_sha    TYPE string.
+    DATA lv_local_sha      TYPE string.
+    DATA lv_git_changed    TYPE abap_bool.
+    DATA lv_sys_changed    TYPE abap_bool.
+    DATA lv_branch_switched TYPE abap_bool.
+    DATA ls_conflict       TYPE zif_abgagt_conflict_detector=>ty_conflict.
+
+    LOOP AT it_files INTO ls_file.
 
       " Load baseline from ZABGAGT_OBJ_META
-      DATA ls_baseline TYPE zabgagt_obj_meta.
+      CLEAR ls_baseline.
       SELECT SINGLE last_git_sha, last_branch, last_pulled_at, last_pulled_by,
                     sys_changed_at, sys_changed_by
         FROM zabgagt_obj_meta
@@ -36,14 +45,13 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ENDIF.
 
       " Calculate current git SHA from remote file content
-      DATA(lv_current_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
+      lv_current_sha = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
 
       " Determine whether the local ABAP system has been modified since last pull.
       " Compare local content SHA against the stored baseline git SHA.
       " If local_content is not provided (old callers), default to unchanged (safe).
-
       IF ls_file-local_content IS NOT INITIAL.
-        DATA(lv_local_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-local_content ).
+        lv_local_sha = zif_abgagt_conflict_detector~calculate_sha( ls_file-local_content ).
       ELSE.
         lv_local_sha = ls_baseline-last_git_sha.
       ENDIF.
@@ -55,9 +63,6 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ENDIF.
 
       " Determine what changed
-      DATA lv_git_changed     TYPE abap_bool.
-      DATA lv_sys_changed     TYPE abap_bool.
-      DATA lv_branch_switched TYPE abap_bool.
       IF lv_current_sha <> ls_baseline-last_git_sha.
         lv_git_changed = abap_true.
       ELSE.
@@ -80,7 +85,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       " would otherwise trigger a spurious conflict).
       IF lv_git_changed = abap_true AND lv_sys_changed = abap_true
          AND lv_current_sha <> lv_local_sha.
-        DATA ls_conflict TYPE zif_abgagt_conflict_detector=>ty_conflict.
+        CLEAR ls_conflict.
         GET TIME STAMP FIELD ls_conflict-sys_changed_at.
         ls_conflict-obj_type       = ls_file-obj_type.
         ls_conflict-obj_name       = ls_file-obj_name.
@@ -140,7 +145,19 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
   " store_pull_metadata  (writes to ZABGAGT_OBJ_META)
   " ---------------------------------------------------------------------------
   METHOD zif_abgagt_conflict_detector~store_pull_metadata.
-    DATA lv_now TYPE timestampl.
+    TYPES: BEGIN OF ty_tadir_entry,
+             object   TYPE tadir-object,
+             obj_name TYPE tadir-obj_name,
+             devclass TYPE tadir-devclass,
+           END OF ty_tadir_entry.
+    DATA lv_now    TYPE timestampl.
+    DATA ls_file   TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+    DATA lv_sha    TYPE string.
+    DATA ls_row    TYPE zabgagt_obj_meta.
+    DATA ls_tadir  TYPE ty_tadir_entry.
+    DATA lt_tadir TYPE HASHED TABLE OF ty_tadir_entry
+                  WITH UNIQUE KEY object obj_name.
+
     GET TIME STAMP FIELD lv_now.
 
     " Bulk-fetch DEVCLASS from TADIR for all files in one round-trip.
@@ -148,13 +165,6 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
     " overwrite it with the current TADIR value (handles package moves).
     " PGMID = 'R3TR' is required: TADIR primary key is PGMID+OBJECT+OBJ_NAME,
     " omitting it causes the DB optimizer to match unexpected rows.
-    TYPES: BEGIN OF ty_tadir_entry,
-             object   TYPE tadir-object,
-             obj_name TYPE tadir-obj_name,
-             devclass TYPE tadir-devclass,
-           END OF ty_tadir_entry.
-    DATA lt_tadir TYPE HASHED TABLE OF ty_tadir_entry
-                  WITH UNIQUE KEY object obj_name.
     IF it_files IS NOT INITIAL.
       SELECT object, obj_name, devclass
         FROM tadir
@@ -165,10 +175,10 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         INTO CORRESPONDING FIELDS OF TABLE @lt_tadir.
     ENDIF.
 
-    LOOP AT it_files INTO DATA(ls_file).
-      DATA(lv_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
+    LOOP AT it_files INTO ls_file.
+      lv_sha = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
 
-      DATA ls_row TYPE zabgagt_obj_meta.
+      CLEAR ls_row.
       ls_row-obj_type       = ls_file-obj_type.
       ls_row-obj_name       = ls_file-obj_name.
       ls_row-last_git_sha   = lv_sha.
@@ -179,7 +189,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ls_row-sys_changed_by = sy-uname.
 
       " Populate DEVCLASS from TADIR lookup (O(1) via hashed table)
-      DATA ls_tadir TYPE ty_tadir_entry.
+      CLEAR ls_tadir.
       READ TABLE lt_tadir INTO ls_tadir
         WITH TABLE KEY object   = ls_file-obj_type
                        obj_name = ls_file-obj_name.
@@ -193,12 +203,15 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
   " get_conflict_report
   " ---------------------------------------------------------------------------
   METHOD zif_abgagt_conflict_detector~get_conflict_report.
+    DATA lv_count    TYPE i.
+    DATA ls_conflict TYPE zif_abgagt_conflict_detector=>ty_conflict.
+
     CHECK it_conflicts IS NOT INITIAL.
 
-    DATA(lv_count) = lines( it_conflicts ).
+    lv_count = lines( it_conflicts ).
     rv_report = |Pull aborted — { lv_count } conflict(s) detected\n\n|.
 
-    LOOP AT it_conflicts INTO DATA(ls_conflict).
+    LOOP AT it_conflicts INTO ls_conflict.
       rv_report = rv_report &&
         |Object:        { ls_conflict-obj_type } { ls_conflict-obj_name }\n| &&
         |Conflict type: { ls_conflict-conflict_type }\n|.
@@ -234,10 +247,10 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
   " ---------------------------------------------------------------------------
   METHOD zif_abgagt_conflict_detector~calculate_sha.
     DATA lv_hash TYPE string.
+    DATA lv_key  TYPE xstring.
 
     TRY.
-
-        DATA(lv_key) = cl_abap_codepage=>convert_to( source   = 'abapgit-agent'
+        lv_key = cl_abap_codepage=>convert_to( source   = 'abapgit-agent'
                                                codepage = '4110' ).
         cl_abap_hmac=>calculate_hmac_for_char(
           EXPORTING

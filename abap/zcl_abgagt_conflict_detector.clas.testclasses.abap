@@ -351,8 +351,9 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
   " store_pull_metadata → creates baseline in ZABGAGT_OBJ_META
   "-------------------------------------------------------------------
   METHOD test_store_creates_baseline.
-    DATA lt_files TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lt_files  TYPE zif_abgagt_conflict_detector=>ty_file_entries.
     DATA lv_content TYPE string VALUE 'class source code'.
+    DATA ls_stored TYPE zabgagt_obj_meta.
 
     APPEND make_file( iv_obj_type = 'CLAS'
                       iv_obj_name = 'ZCL_STORE_TEST'
@@ -363,7 +364,6 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
       iv_branch = 'main' ).
 
     " Read back directly from the doubled table
-    DATA ls_stored TYPE zabgagt_obj_meta.
     SELECT SINGLE last_git_sha, last_branch, last_pulled_at
       FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_STORE_TEST'
@@ -385,14 +385,15 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
   " store_pull_metadata → updates existing row (MODIFY = upsert)
   "-------------------------------------------------------------------
   METHOD test_store_updates_existing.
-    DATA lt_files TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lt_files  TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lv_sha_v1 TYPE string.
+    DATA ls_v2     TYPE zabgagt_obj_meta.
 
     APPEND make_file( iv_obj_type = 'CLAS'
                       iv_obj_name = 'ZCL_UPD_TEST'
                       iv_content  = 'version 1' ) TO lt_files.
     mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
 
-    DATA lv_sha_v1 TYPE string.
     SELECT SINGLE last_git_sha FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_UPD_TEST'
       INTO lv_sha_v1.
@@ -404,7 +405,6 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
                       iv_content  = 'version 2 changed' ) TO lt_files.
     mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'feature/x' ).
 
-    DATA ls_v2 TYPE zabgagt_obj_meta.
     SELECT SINGLE last_git_sha, last_branch FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_UPD_TEST'
       INTO CORRESPONDING FIELDS OF ls_v2.

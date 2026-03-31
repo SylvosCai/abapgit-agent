@@ -388,11 +388,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           ENDIF.
 
           " Skip 'offset' rows by fetching into <lt_data> and discarding
-          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE lv_offset.
+          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE @lv_offset.
           CLEAR <lt_data>.
 
           " Read 'limit' rows into result
-          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE lv_limit.
+          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE @lv_limit.
 
           CLOSE CURSOR @lv_cursor.
         ELSE.
