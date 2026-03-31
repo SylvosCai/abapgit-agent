@@ -2,6 +2,19 @@
 title: Release Notes
 ---
 
+## v1.14.4
+
+### Bug Fixes
+
+- Fix `ZABGAGT_OBJ_META` never updating after pull
+- Fix local file read failure discarding all pull metadata
+- Fix off-by-one in suffix extraction dropping all remote files
+
+---
+
+---
+
+
 ## v1.14.3
 
 ### Bug Fixes
