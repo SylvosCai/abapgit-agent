@@ -367,7 +367,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
     SELECT SINGLE last_git_sha, last_branch, last_pulled_at
       FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_STORE_TEST'
-      INTO CORRESPONDING FIELDS OF ls_stored.
+      INTO CORRESPONDING FIELDS OF @ls_stored.
 
     cl_abap_unit_assert=>assert_subrc( msg = 'Row must exist in ZABGAGT_OBJ_META after store' ).
     cl_abap_unit_assert=>assert_not_initial(
@@ -396,7 +396,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
 
     SELECT SINGLE last_git_sha FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_UPD_TEST'
-      INTO lv_sha_v1.
+      INTO @lv_sha_v1.
 
     " Store new version
     CLEAR lt_files.
@@ -407,7 +407,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
 
     SELECT SINGLE last_git_sha, last_branch FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_UPD_TEST'
-      INTO CORRESPONDING FIELDS OF ls_v2.
+      INTO CORRESPONDING FIELDS OF @ls_v2.
 
     cl_abap_unit_assert=>assert_differs(
       act = ls_v2-last_git_sha exp = lv_sha_v1

@@ -30,8 +30,8 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     " Build components table with data element and description
     SELECT fieldname AS field keyflag AS key datatype AS type rollname AS dataelement
       FROM dd03l
-      INTO CORRESPONDING FIELDS OF TABLE rs_info-components
-      WHERE tabname = iv_name
+      INTO CORRESPONDING FIELDS OF TABLE @rs_info-components
+      WHERE tabname = @iv_name
         AND as4local = 'A'
       ORDER BY position.
 

@@ -37,7 +37,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         FROM zabgagt_obj_meta
         WHERE obj_type = ls_file-obj_type
           AND obj_name = ls_file-obj_name
-        INTO CORRESPONDING FIELDS OF ls_baseline.
+        INTO CORRESPONDING FIELDS OF @ls_baseline.
 
       IF sy-subrc <> 0.
         " No baseline → first pull, skip conflict check
