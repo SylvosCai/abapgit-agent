@@ -32,7 +32,11 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
     ls_request = is_request.
 
     " Validate that objects array is provided and not empty
-    rv_valid = xsdbool( ls_request-objects IS NOT INITIAL AND lines( ls_request-objects ) > 0 ).
+    IF ls_request-objects IS NOT INITIAL AND lines( ls_request-objects ) > 0.
+      rv_valid = abap_true.
+    ELSE.
+      rv_valid = abap_false.
+    ENDIF.
 
     " Validate each object has required fields
     IF rv_valid = abap_true.

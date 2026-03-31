@@ -112,7 +112,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     " Set overall message
     DATA(lv_total) = lines( ls_response-results ).
     DATA lv_failed TYPE i.
-    LOOP AT ls_response-results INTO DATA(ls_res) WHERE success = abap_false.
+    LOOP AT ls_response-results TRANSPORTING NO FIELDS WHERE success = abap_false.
       ADD 1 TO lv_failed.
     ENDLOOP.
 

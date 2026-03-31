@@ -520,7 +520,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         IF sy-subrc = 0.
           READ TABLE ls_method-parameters WITH KEY name = 'II_OBJ_FILTER'
             TRANSPORTING NO FIELDS.
-          rv_available = xsdbool( sy-subrc = 0 ).
+          IF sy-subrc = 0.
+            rv_available = abap_true.
+          ELSE.
+            rv_available = abap_false.
+          ENDIF.
         ENDIF.
       CATCH cx_root.
         rv_available = abap_false.
@@ -542,7 +546,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         IF sy-subrc = 0.
           READ TABLE ls_method-parameters WITH KEY name = 'IT_PATHS'
             TRANSPORTING NO FIELDS.
-          rv_available = xsdbool( sy-subrc = 0 ).
+          IF sy-subrc = 0.
+            rv_available = abap_true.
+          ELSE.
+            rv_available = abap_false.
+          ENDIF.
         ENDIF.
       CATCH cx_root.
         rv_available = abap_false.

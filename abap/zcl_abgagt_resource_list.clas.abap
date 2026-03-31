@@ -32,7 +32,11 @@ CLASS zcl_abgagt_resource_list IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_list=>ty_list_params.
     ls_request = is_request.
-    rv_valid = xsdbool( ls_request-package IS NOT INITIAL ).
+    IF ls_request-package IS NOT INITIAL.
+      rv_valid = abap_true.
+    ELSE.
+      rv_valid = abap_false.
+    ENDIF.
   ENDMETHOD.
 
   METHOD get_error_message.

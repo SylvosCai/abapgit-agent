@@ -103,9 +103,9 @@ CLASS lcl_code_inspector_mock IMPLEMENTATION.
   METHOD zif_abgagt_code_inspector~get_results.
     " Return mock results - filter by objname if set
     IF mv_objname IS NOT INITIAL.
-      DATA ls TYPE LINE OF scit_alvlist.
-      LOOP AT mt_mock_results INTO ls WHERE objname = mv_objname.
-        APPEND ls TO rt_list.
+      DATA ls_entry TYPE LINE OF scit_alvlist.
+      LOOP AT mt_mock_results INTO ls_entry WHERE objname = mv_objname.
+        APPEND ls_entry TO rt_list.
       ENDLOOP.
     ELSE.
       rt_list = mt_mock_results.

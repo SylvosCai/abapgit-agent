@@ -57,9 +57,24 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ENDIF.
 
       " Determine what changed
-      DATA(lv_git_changed)     = xsdbool( lv_current_sha <> ls_baseline-last_git_sha ).
-      DATA(lv_sys_changed)     = xsdbool( lv_local_sha <> ls_baseline-last_git_sha ).
-      DATA(lv_branch_switched) = xsdbool( iv_branch <> ls_baseline-last_branch ).
+      DATA lv_git_changed     TYPE abap_bool.
+      DATA lv_sys_changed     TYPE abap_bool.
+      DATA lv_branch_switched TYPE abap_bool.
+      IF lv_current_sha <> ls_baseline-last_git_sha.
+        lv_git_changed = abap_true.
+      ELSE.
+        lv_git_changed = abap_false.
+      ENDIF.
+      IF lv_local_sha <> ls_baseline-last_git_sha.
+        lv_sys_changed = abap_true.
+      ELSE.
+        lv_sys_changed = abap_false.
+      ENDIF.
+      IF iv_branch <> ls_baseline-last_branch.
+        lv_branch_switched = abap_true.
+      ELSE.
+        lv_branch_switched = abap_false.
+      ENDIF.
 
       " Type 1: git changed AND system changed → SYSTEM_EDIT
       " Guard: skip when git SHA == local SHA (already in sync, e.g. right after

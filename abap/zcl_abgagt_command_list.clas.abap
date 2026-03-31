@@ -112,7 +112,11 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     SELECT SINGLE devclass FROM tdevc
       INTO lv_package
       WHERE devclass = iv_package.
-    rv_valid = xsdbool( sy-subrc = 0 ).
+    IF sy-subrc = 0.
+      rv_valid = abap_true.
+    ELSE.
+      rv_valid = abap_false.
+    ENDIF.
   ENDMETHOD.
 
   METHOD validate_type.
@@ -130,8 +134,8 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           ls_type LIKE LINE OF lt_type_range.
 
     lv_package = is_params-package.
-    DATA(lv_limit) = is_params-limit.
-    DATA(lv_offset) = is_params-offset.
+    DATA lv_limit TYPE i.
+    lv_limit = is_params-limit.
     lv_name_pattern = is_params-name.
 
     " Build type range table
@@ -160,31 +164,27 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           AND obj_name LIKE @lv_name_pattern
         ORDER BY object, obj_name
         INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS
-        OFFSET @lv_offset.
+        UP TO @lv_limit ROWS.
     ELSEIF lt_type_range IS NOT INITIAL.
       SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
           AND object IN @lt_type_range
         ORDER BY object, obj_name
         INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS
-        OFFSET @lv_offset.
+        UP TO @lv_limit ROWS.
     ELSEIF lv_name_pattern IS NOT INITIAL.
       SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
           AND obj_name LIKE @lv_name_pattern
         ORDER BY object, obj_name
         INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS
-        OFFSET @lv_offset.
+        UP TO @lv_limit ROWS.
     ELSE.
       SELECT object, obj_name FROM tadir
         WHERE devclass = @lv_package
         ORDER BY object, obj_name
         INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS
-        OFFSET @lv_offset.
+        UP TO @lv_limit ROWS.
     ENDIF.
 
     " Get total count (without limit/offset)

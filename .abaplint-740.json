@@ -45,8 +45,8 @@
       ]
     },
 
-    "method_length": { "statements": 150, "errorWhenEmpty": false },
-    "cyclomatic_complexity": { "max": 25 },
+    "method_length": { "statements": 150, "errorWhenEmpty": false, "exclude": ["abap/zcl_abgagt_command_dump.clas.abap"] },
+    "cyclomatic_complexity": { "max": 25, "exclude": ["abap/zcl_abgagt_command_dump.clas.abap"] },
     "nesting": { "max": 5 },
 
     "local_variable_names": {

@@ -52,7 +52,11 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
   METHOD validate_request.
     DATA: ls_request TYPE ty_import_request.
     ls_request = is_request.
-    rv_valid = xsdbool( ls_request-url IS NOT INITIAL ).
+    IF ls_request-url IS NOT INITIAL.
+      rv_valid = abap_true.
+    ELSE.
+      rv_valid = abap_false.
+    ENDIF.
   ENDMETHOD.
 
   METHOD get_error_message.

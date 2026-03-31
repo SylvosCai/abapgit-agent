@@ -44,8 +44,13 @@ CLASS zcl_abgagt_syntax_chk_factory IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD is_supported.
-    DATA(lo_checker) = create( iv_object_type ).
-    rv_supported = xsdbool( lo_checker IS BOUND ).
+    DATA lo_checker TYPE REF TO zif_abgagt_syntax_checker.
+    lo_checker = create( iv_object_type ).
+    IF lo_checker IS BOUND.
+      rv_supported = abap_true.
+    ELSE.
+      rv_supported = abap_false.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

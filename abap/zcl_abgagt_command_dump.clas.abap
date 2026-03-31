@@ -141,19 +141,22 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     IF ls_params-limit <= 0 OR ls_params-limit > 100.
       ls_params-limit = 20.
     ENDIF.
-    DATA(lv_limit) = ls_params-limit.
+    DATA lv_limit TYPE i.
+    lv_limit = ls_params-limit.
 
     " Detail mode: load full dump text for a specific dump ID
     IF ls_params-detail IS NOT INITIAL.
-      DATA(ls_key) = parse_id( ls_params-detail ).
+      DATA ls_key TYPE snap_key.
+      ls_key = parse_id( ls_params-detail ).
 
       DATA lt_keys TYPE snap_keys.
       APPEND ls_key TO lt_keys.
 
+      DATA lt_entries TYPE snap_entries.
       TRY.
           cl_runtime_error=>create(
             EXPORTING p_i_t_snapkeys    = lt_keys
-            IMPORTING p_e_t_snapentries = DATA(lt_entries) ).
+            IMPORTING p_e_t_snapentries = lt_entries ).
 
           IF lt_entries IS INITIAL.
             ls_result-success = abap_false.
@@ -163,7 +166,8 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
           ENDIF.
 
           " SNAP_ENTRIES is a table of CL_RUNTIME_ERROR object references
-          DATA(lo_dump) = lt_entries[ 1 ].
+          DATA lo_dump TYPE REF TO cl_runtime_error.
+          lo_dump = lt_entries[ 1 ].
           DATA ls_item TYPE ty_dump_item.
           ls_item-id = ls_params-detail.
 
@@ -176,7 +180,8 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
           DATA lt_stack TYPE snap_abap_stack.
           lo_dump->get_abap_callstack(
             IMPORTING p_abap_stack = lt_stack ).
-          LOOP AT lt_stack INTO DATA(ls_frame).
+          DATA ls_frame TYPE snap_abap_stack_entry.
+          LOOP AT lt_stack INTO ls_frame.
             DATA ls_entry TYPE ty_stack_entry.
             ls_entry-level   = ls_frame-index.
             ls_entry-class   = ls_frame-classname.
@@ -201,8 +206,10 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
             ls_item-source_line    = lv_error_lineno.
             ls_item-source_include = lv_error_include.
             DATA lv_source_with_marker TYPE string.
-            LOOP AT lt_source INTO DATA(lv_src_line).
-              DATA(lv_idx) = sy-tabix.
+            DATA lv_src_line TYPE string.
+            DATA lv_idx      TYPE i.
+            LOOP AT lt_source INTO lv_src_line.
+              lv_idx = sy-tabix.
               IF lv_idx = lv_error_lineno.
                 lv_source_with_marker = lv_source_with_marker
                   && |>>>>> { lv_src_line }|
@@ -295,12 +302,18 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
         FROM snap_adt
         WHERE mandt     = @sy-mandt
           AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
-          AND ( @ls_params-user    IS INITIAL OR uname         = @ls_params-user )
-          AND ( @ls_params-program IS INITIAL OR mainprog      = @ls_params-program )
-          AND ( @ls_params-error   IS INITIAL OR runtime_error = @ls_params-error )
         ORDER BY timestamp DESCENDING
         INTO TABLE @lt_adt
         UP TO @lv_limit ROWS.
+      IF ls_params-user IS NOT INITIAL.
+        DELETE lt_adt WHERE uname <> ls_params-user.
+      ENDIF.
+      IF ls_params-program IS NOT INITIAL.
+        DELETE lt_adt WHERE mainprog <> ls_params-program.
+      ENDIF.
+      IF ls_params-error IS NOT INITIAL.
+        DELETE lt_adt WHERE runtime_error <> ls_params-error.
+      ENDIF.
     ELSE.
       " Server-local-time mode: filter by DATUM / UZEIT
       IF ls_params-date_from IS INITIAL.
@@ -313,19 +326,30 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
       SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
              runtime_error, mainprog, object_name, exc, devclass
         FROM snap_adt
-        WHERE mandt  = @sy-mandt
-          AND datum  BETWEEN @ls_params-date_from AND @ls_params-date_to
-          AND ( @ls_params-user      IS INITIAL OR uname         = @ls_params-user )
-          AND ( @ls_params-program   IS INITIAL OR mainprog      = @ls_params-program )
-          AND ( @ls_params-error     IS INITIAL OR runtime_error = @ls_params-error )
-          AND ( @ls_params-time_from IS INITIAL OR uzeit        >= @ls_params-time_from )
-          AND ( @ls_params-time_to   IS INITIAL OR uzeit        <= @ls_params-time_to )
+        WHERE mandt = @sy-mandt
+          AND datum BETWEEN @ls_params-date_from AND @ls_params-date_to
         ORDER BY datum DESCENDING, uzeit DESCENDING
         INTO TABLE @lt_adt
         UP TO @lv_limit ROWS.
+      IF ls_params-user IS NOT INITIAL.
+        DELETE lt_adt WHERE uname <> ls_params-user.
+      ENDIF.
+      IF ls_params-program IS NOT INITIAL.
+        DELETE lt_adt WHERE mainprog <> ls_params-program.
+      ENDIF.
+      IF ls_params-error IS NOT INITIAL.
+        DELETE lt_adt WHERE runtime_error <> ls_params-error.
+      ENDIF.
+      IF ls_params-time_from IS NOT INITIAL.
+        DELETE lt_adt WHERE uzeit < ls_params-time_from.
+      ENDIF.
+      IF ls_params-time_to IS NOT INITIAL.
+        DELETE lt_adt WHERE uzeit > ls_params-time_to.
+      ENDIF.
     ENDIF.
 
-    LOOP AT lt_adt INTO DATA(ls_adt2).
+    DATA ls_adt2 TYPE ty_snap_row.
+    LOOP AT lt_adt INTO ls_adt2.
       DATA ls_row TYPE ty_dump_item.
       ls_row-id        = build_id(
                            iv_datum = ls_adt2-datum
