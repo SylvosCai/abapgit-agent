@@ -13,14 +13,14 @@ CLASS zcl_abgagt_viewer_stru IMPLEMENTATION.
   METHOD zif_abgagt_viewer~get_info.
     DATA: lv_obj_name  TYPE tadir-obj_name,
           lv_devclass  TYPE tadir-devclass,
-          lt_comp      TYPE zif_abgagt_viewer=>ty_components,
-          ls_comp      LIKE LINE OF lt_comp,
+          lt_comp      TYPE STANDARD TABLE OF zcl_abgagt_command_view=>ty_component WITH DEFAULT KEY,
+          ls_comp      TYPE zcl_abgagt_command_view=>ty_component,
           ls_dd03l     TYPE dd03l,
           lv_tabname   TYPE dd03l-tabname,
           lv_fieldname TYPE dd03l-fieldname,
           lv_rollname  TYPE dd03l-rollname.
 
-    SELECT SINGLE obj_name devclass FROM tadir
+    SELECT SINGLE obj_name, devclass FROM tadir
       INTO (@lv_obj_name, @lv_devclass)
       WHERE obj_name = @iv_name
         AND object = 'TABL'.
