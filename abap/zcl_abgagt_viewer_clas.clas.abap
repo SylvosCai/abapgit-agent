@@ -26,6 +26,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
     DATA ls_method LIKE LINE OF lt_methods.
     DATA lv_cm_suffix TYPE string.
     DATA lv_line TYPE string.
+    DATA lv_methodindx TYPE i.
+    DATA lv_method_name_str TYPE string.
 
     rs_info-name = iv_name.
     rs_info-type = 'CLAS'.
@@ -125,18 +127,20 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
       " Method implementations (CM*) in methodindx order (= assembled-source order)
       SELECT methodname, methodindx FROM tmdir
-        INTO TABLE lt_methods
-        WHERE classname = lv_clsname
+        INTO TABLE @lt_methods
+        WHERE classname = @lv_clsname
         ORDER BY methodindx.
 
       LOOP AT lt_methods INTO ls_method.
-        lv_cm_suffix   = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
+        lv_methodindx = ls_method-methodindx.
+        lv_cm_suffix   = lo_util->convert_index_to_cm_suffix( lv_methodindx ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
         CLEAR ls_section.
         ls_section-suffix      = lv_cm_suffix.
         ls_section-description = 'Class Method'.
-        ls_section-method_name = CONV string( ls_method-methodname ).
+        lv_method_name_str = ls_method-methodname.
+        ls_section-method_name = lv_method_name_str.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
         IF sy-subrc = 0.
