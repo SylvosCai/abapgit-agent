@@ -60,9 +60,15 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_create_params,
-          lv_package TYPE devclass,
-          li_repo TYPE REF TO zif_abapgit_repo.
+    DATA: ls_params       TYPE ty_create_params,
+          lv_package      TYPE devclass,
+          li_repo         TYPE REF TO zif_abapgit_repo,
+          lo_dot          TYPE REF TO zcl_abapgit_dot_abapgit,
+          lv_key          TYPE string,
+          lv_name         TYPE string,
+          lx_cred_error   TYPE REF TO zcx_abapgit_exception,
+          lx_error        TYPE REF TO zcx_abapgit_exception,
+          lx_folder_error TYPE REF TO zcx_abapgit_exception.
 
     IF is_param IS SUPPLIED.
       MOVE-CORRESPONDING is_param TO ls_params.
@@ -103,7 +109,7 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
             iv_uri      = ls_params-url
             iv_username = ls_params-username
             iv_password = ls_params-password ).
-        CATCH zcx_abapgit_exception INTO DATA(lx_cred_error).
+        CATCH zcx_abapgit_exception INTO lx_cred_error.
           rv_result = '{"success":"","error":"' && lx_cred_error->get_text( ) && '"}'.
           RETURN.
       ENDTRY.
@@ -117,7 +123,7 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
           iv_name           = ls_params-name
           iv_package        = lv_package
           iv_folder_logic   = ls_params-folder_logic ).
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+      CATCH zcx_abapgit_exception INTO lx_error.
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
         RETURN.
     ENDTRY.
@@ -125,18 +131,18 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
     " Set starting folder if provided
     IF ls_params-folder IS NOT INITIAL.
       TRY.
-          DATA(lo_dot) = li_repo->get_dot_abapgit( ).
+          lo_dot = li_repo->get_dot_abapgit( ).
           lo_dot->set_starting_folder( ls_params-folder ).
           li_repo->set_dot_abapgit( lo_dot ).
           COMMIT WORK AND WAIT.
-        CATCH zcx_abapgit_exception INTO DATA(lx_folder_error).
+        CATCH zcx_abapgit_exception INTO lx_folder_error.
           rv_result = '{"success":"","error":"' && lx_folder_error->get_text( ) && '"}'.
           RETURN.
       ENDTRY.
     ENDIF.
 
-    DATA(lv_key) = condense( val = CONV string( li_repo->get_key( ) ) ).
-    DATA(lv_name) = condense( val = CONV string( li_repo->get_name( ) ) ).
+    lv_key = condense( val = CONV string( li_repo->get_key( ) ) ).
+    lv_name = condense( val = CONV string( li_repo->get_name( ) ) ).
     rv_result = |\{"success":"X","repo_key":"{ lv_key }","repo_name":"{ lv_name }","message":"Repository created successfully"\}|.
   ENDMETHOD.
 

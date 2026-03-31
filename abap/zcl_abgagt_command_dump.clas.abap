@@ -128,8 +128,39 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA ls_params   TYPE ty_dump_params.
-    DATA ls_result   TYPE ty_dump_result.
+    DATA: ls_params              TYPE ty_dump_params,
+          ls_result              TYPE ty_dump_result,
+          lv_limit               TYPE i,
+          ls_key                 TYPE snap_key,
+          lt_keys                TYPE snap_keys,
+          lt_entries             TYPE snap_entries,
+          lo_dump                TYPE REF TO cl_runtime_error,
+          ls_item                TYPE ty_dump_item,
+          lt_stack               TYPE snap_abap_stack,
+          ls_frame               TYPE snap_stackinfo,
+          ls_entry               TYPE ty_stack_entry,
+          lt_source              TYPE sourcetable,
+          lv_error_lineno        TYPE i,
+          lv_error_include       TYPE syrepid,
+          lv_source_with_marker  TYPE string,
+          lv_src_line            TYPE string,
+          lv_idx                 TYPE i,
+          ls_src_entry           TYPE ty_stack_entry,
+          lv_stack_heading       TYPE string,
+          lv_stack_text          TYPE string,
+          ls_text_entry          TYPE ty_stack_entry,
+          ls_adt                 TYPE ty_snap_detail,
+          lt_adt                 TYPE ty_snap_rows,
+          lv_filter_user         TYPE syuname,
+          lv_filter_program      TYPE syrepid,
+          lv_filter_error        TYPE s380errid,
+          lv_ts_from             TYPE timestamp,
+          lv_ts_to               TYPE timestamp,
+          lv_date_from           TYPE sydatum,
+          lv_date_to             TYPE sydatum,
+          ls_adt2                TYPE ty_snap_row,
+          ls_row                 TYPE ty_dump_item,
+          lx_error               TYPE REF TO cx_root.
 
     ls_result-command = zif_abgagt_command=>gc_dump.
 
@@ -141,18 +172,14 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     IF ls_params-limit <= 0 OR ls_params-limit > 100.
       ls_params-limit = 20.
     ENDIF.
-    DATA lv_limit TYPE i.
     lv_limit = ls_params-limit.
 
     " Detail mode: load full dump text for a specific dump ID
     IF ls_params-detail IS NOT INITIAL.
-      DATA ls_key TYPE snap_key.
       ls_key = parse_id( ls_params-detail ).
 
-      DATA lt_keys TYPE snap_keys.
       APPEND ls_key TO lt_keys.
 
-      DATA lt_entries TYPE snap_entries.
       TRY.
           cl_runtime_error=>create(
             EXPORTING p_i_t_snapkeys    = lt_keys
@@ -160,15 +187,13 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
 
           IF lt_entries IS INITIAL.
             ls_result-success = abap_false.
-            ls_result-error = 'Short dump not found'.
+            ls_result-error   = 'Short dump not found'.
             rv_result = /ui2/cl_json=>serialize( data = ls_result ).
             RETURN.
           ENDIF.
 
           " SNAP_ENTRIES is a table of CL_RUNTIME_ERROR object references
-          DATA lo_dump TYPE REF TO cl_runtime_error.
           lo_dump = lt_entries[ 1 ].
-          DATA ls_item TYPE ty_dump_item.
           ls_item-id = ls_params-detail.
 
           lo_dump->get_what_happened_text(
@@ -177,12 +202,10 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
             IMPORTING p_text = ls_item-error_analysis ).
 
           " Get structured call stack (frame list with line numbers)
-          DATA lt_stack TYPE snap_abap_stack.
           lo_dump->get_abap_callstack(
             IMPORTING p_abap_stack = lt_stack ).
-          DATA ls_frame TYPE snap_stackinfo.
           LOOP AT lt_stack INTO ls_frame.
-            DATA ls_entry TYPE ty_stack_entry.
+            CLEAR ls_entry.
             ls_entry-level   = ls_frame-index.
             ls_entry-class   = ls_frame-classname.
             ls_entry-method  = ls_frame-event.
@@ -193,9 +216,6 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
           ENDLOOP.
 
           " Get source code at error location with >>>>> marker on error line
-          DATA lt_source TYPE sourcetable.
-          DATA lv_error_lineno TYPE i.
-          DATA lv_error_include TYPE syrepid.
           lo_dump->get_abap_sourceinfo(
             IMPORTING
               p_e_include    = lv_error_include
@@ -205,9 +225,6 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
           IF lt_source IS NOT INITIAL AND lv_error_lineno > 0.
             ls_item-source_line    = lv_error_lineno.
             ls_item-source_include = lv_error_include.
-            DATA lv_source_with_marker TYPE string.
-            DATA lv_src_line TYPE string.
-            DATA lv_idx      TYPE i.
             LOOP AT lt_source INTO lv_src_line.
               lv_idx = sy-tabix.
               IF lv_idx = lv_error_lineno.
@@ -220,13 +237,11 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
                   && cl_abap_char_utilities=>newline.
               ENDIF.
             ENDLOOP.
-            DATA ls_src_entry TYPE ty_stack_entry.
+            CLEAR ls_src_entry.
             ls_src_entry-method = lv_source_with_marker.
             APPEND ls_src_entry TO ls_item-call_stack.
           ELSEIF ls_item-call_stack IS INITIAL.
             " No source info available: fall back to section text
-            DATA lv_stack_heading TYPE string.
-            DATA lv_stack_text    TYPE string.
             lo_dump->get_section_text(
               EXPORTING section_id      = cl_runtime_error=>c_section_abap_eventstack
               IMPORTING section_heading = lv_stack_heading
@@ -238,14 +253,13 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
                           section_text    = lv_stack_text ).
             ENDIF.
             IF lv_stack_text IS NOT INITIAL.
-              DATA ls_text_entry TYPE ty_stack_entry.
+              CLEAR ls_text_entry.
               ls_text_entry-method = lv_stack_text.
               APPEND ls_text_entry TO ls_item-call_stack.
             ENDIF.
           ENDIF.
 
           " Get metadata from SNAP_ADT to populate the remaining fields
-          DATA ls_adt TYPE ty_snap_detail.
           SELECT SINGLE datum, uzeit, uname, mainprog, object_name,
                          runtime_error, exc, devclass, ahost, timestamp
             FROM snap_adt
@@ -278,7 +292,7 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
         CATCH cx_runtime_error_exc_auth.
           ls_result-success = abap_false.
           ls_result-error   = 'Not authorized to read short dumps'.
-        CATCH cx_root INTO DATA(lx_error).
+        CATCH cx_root INTO lx_error.
           ls_result-success = abap_false.
           ls_result-error   = lx_error->get_text( ).
       ENDTRY.
@@ -288,21 +302,15 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     ENDIF.
 
     " List mode: query SNAP_ADT summary table
-    DATA lt_adt TYPE ty_snap_rows.
 
     " Copy filter fields to scalar variables for SQL WHERE (7.40: struct fields
     " cannot be used with IS INITIAL in WHERE; scalars work correctly)
-    DATA lv_filter_user    TYPE syuname.
-    DATA lv_filter_program TYPE syrepid.
-    DATA lv_filter_error   TYPE s380errid.
     lv_filter_user    = ls_params-user.
     lv_filter_program = ls_params-program.
     lv_filter_error   = ls_params-error.
 
     IF ls_params-ts_from IS NOT INITIAL.
       " Timezone-aware mode: filter by UTC TIMESTAMP field
-      DATA lv_ts_from TYPE timestamp.
-      DATA lv_ts_to   TYPE timestamp.
       lv_ts_from = ls_params-ts_from.
       lv_ts_to   = ls_params-ts_to.
 
@@ -398,8 +406,6 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
       ENDIF.
     ELSE.
       " Server-local-time mode: filter by DATUM / UZEIT
-      DATA lv_date_from TYPE sydatum.
-      DATA lv_date_to   TYPE sydatum.
       lv_date_from = ls_params-date_from.
       lv_date_to   = ls_params-date_to.
       IF lv_date_from IS INITIAL.
@@ -510,9 +516,8 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    DATA ls_adt2 TYPE ty_snap_row.
     LOOP AT lt_adt INTO ls_adt2.
-      DATA ls_row TYPE ty_dump_item.
+      CLEAR ls_row.
       ls_row-id        = build_id(
                            iv_datum = ls_adt2-datum
                            iv_uzeit = ls_adt2-uzeit

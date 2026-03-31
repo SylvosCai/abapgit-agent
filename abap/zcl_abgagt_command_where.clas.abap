@@ -81,13 +81,22 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
+    DATA: ls_params           TYPE ty_where_params,
+          ls_result           TYPE ty_where_result,
+          lt_objects          TYPE ty_where_objects,
+          ls_where_obj        TYPE ty_where_object,
+          lv_object           TYPE string,
+          lv_type             TYPE string,
+          lv_obj_type         TYPE trobjtype,
+          lv_obj_name         TYPE sobj_name,
+          lv_exists           TYPE tadir-object,
+          lt_all_references   TYPE ty_references,
+          lt_references       TYPE ty_references,
+          lv_total            TYPE i,
+          lv_total_references TYPE i.
+
     " Initialize utility instance
     mo_util = zcl_abgagt_util=>get_instance( ).
-
-    DATA: ls_params TYPE ty_where_params,
-          ls_result TYPE ty_where_result,
-          lt_objects TYPE ty_where_objects,
-          ls_where_obj TYPE ty_where_object.
 
     ls_result-command = zif_abgagt_command=>gc_where.
 
@@ -112,13 +121,10 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_params-offset = 0.
     ENDIF.
 
-    " Track total references before pagination (for pagination info)
-    DATA lv_total_references TYPE i.
-
-    LOOP AT ls_params-objects INTO DATA(lv_object).
+    LOOP AT ls_params-objects INTO lv_object.
       ls_where_obj-name = lv_object.
 
-      DATA(lv_type) = ls_params-type.
+      lv_type = ls_params-type.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type( lv_object ).
       ENDIF.
@@ -131,11 +137,8 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_where_obj-type = lv_type.
 
       " Check if object exists in TADIR before calling where-used list
-      DATA lv_obj_type TYPE trobjtype.
       lv_obj_type = lv_type.
-      DATA lv_obj_name TYPE sobj_name.
       lv_obj_name = lv_object.
-      DATA lv_exists TYPE tadir-object.
 
       SELECT SINGLE object FROM tadir
         INTO lv_exists
@@ -151,16 +154,16 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ENDIF.
 
       " First get total count (without limit) for pagination info
-      DATA(lt_all_references) = get_where_used_list(
+      lt_all_references = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name
         iv_limit    = 0
         iv_offset   = 0
       ).
-      DATA(lv_total) = lines( lt_all_references ).
+      lv_total = lines( lt_all_references ).
 
       " Then get paginated results
-      DATA(lt_references) = get_where_used_list(
+      lt_references = get_where_used_list(
         iv_obj_type = lv_obj_type
         iv_obj_name = lv_obj_name
         iv_limit    = ls_params-limit
@@ -235,8 +238,12 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_where_used_list.
-    DATA: lt_ref TYPE akb_except_type,
-          ls_ref_out TYPE ty_reference.
+    DATA: lt_ref       TYPE akb_except_type,
+          ls_ref_out   TYPE ty_reference,
+          lv_filtered_count TYPE i,
+          lv_include_len    TYPE i,
+          lv_include        TYPE string,
+          lv_method_index   TYPE i.
 
     " Call the function module
     CALL FUNCTION 'AKB_WHERE_USED_LIST'
@@ -248,7 +255,6 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
 
     " Map to output structure - convert to string fields for JSON serialization
     " Filter: only include CLAS and PROG types
-    DATA lv_filtered_count TYPE i.
     LOOP AT lt_ref ASSIGNING FIELD-SYMBOL(<ls_ref>).
       IF <ls_ref>-obj_type <> 'CLAS' AND <ls_ref>-obj_type <> 'PROG'.
         CONTINUE.
@@ -270,9 +276,8 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
         CONV string( <ls_ref>-sub_name ) ).
 
       " Get method name if it's a method include
-
-      DATA(lv_include_len) = strlen( <ls_ref>-sub_name ).
-      DATA lv_include TYPE string.
+      lv_include_len = strlen( <ls_ref>-sub_name ).
+      CLEAR lv_include.
       IF lv_include_len >= 35.
         lv_include = <ls_ref>-sub_name+30(5).
       ELSEIF lv_include_len >= 34.
@@ -286,7 +291,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       " Check if it's a method include (CM###)
       IF strlen( lv_include ) >= 2 AND lv_include(2) = 'CM'.
         " Convert method index from base-36
-        DATA(lv_method_index) = mo_util->convert_method_index( lv_include ).
+        lv_method_index = mo_util->convert_method_index( lv_include ).
         " Get method name from TMDIR
         ls_ref_out-method_name = mo_util->get_method_name(
           iv_classname = CONV string( <ls_ref>-obj_name )

@@ -81,10 +81,14 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_view_params,
-          ls_result TYPE ty_view_result,
+    DATA: ls_params  TYPE ty_view_params,
+          ls_result  TYPE ty_view_result,
           lt_objects TYPE ty_view_objects,
-          ls_info TYPE ty_view_object.
+          ls_info    TYPE ty_view_object,
+          lo_factory TYPE REF TO zcl_abgagt_viewer_factory,
+          lo_viewer  TYPE REF TO zif_abgagt_viewer,
+          lv_object  TYPE string,
+          lv_type    TYPE string.
 
     ls_result-command = zif_abgagt_command=>gc_view.
 
@@ -99,18 +103,18 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lo_factory) = zcl_abgagt_viewer_factory=>get_instance( ).
+    lo_factory = zcl_abgagt_viewer_factory=>get_instance( ).
 
-    LOOP AT ls_params-objects INTO DATA(lv_object).
+    LOOP AT ls_params-objects INTO lv_object.
       " Auto-detect type if not provided
-      DATA(lv_type) = ls_params-type.
+      lv_type = ls_params-type.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type( iv_name = lv_object ).
       ENDIF.
 
       " Get viewer and retrieve info
       TRY.
-          DATA(lo_viewer) = lo_factory->get_viewer( lv_type ).
+          lo_viewer = lo_factory->get_viewer( lv_type ).
           ls_info = lo_viewer->get_info(
             iv_name = lv_object
             iv_full = ls_params-full ).
@@ -140,10 +144,11 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   METHOD detect_object_type.
     " Use utility to detect source include info
     DATA: ls_include_info TYPE zif_abgagt_util=>ty_include_info,
-          ls_obj_info TYPE zif_abgagt_util=>ty_object_info,
-          lv_obj_name TYPE tadir-obj_name.
+          ls_obj_info     TYPE zif_abgagt_util=>ty_object_info,
+          lv_obj_name     TYPE tadir-obj_name,
+          lo_util         TYPE REF TO zif_abgagt_util.
 
-    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+    lo_util = zcl_abgagt_util=>get_instance( ).
     ls_include_info = lo_util->detect_include_info( iv_name ).
 
     " If it's a source include, use the detected info
@@ -159,12 +164,17 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_summary.
+    DATA: ls_obj   TYPE ty_view_object,
+          lv_type  TYPE string,
+          lv_found TYPE abap_bool,
+          ls_type  TYPE string.
+
     rs_summary-total = lines( it_objects ).
 
-    LOOP AT it_objects INTO DATA(ls_obj).
-      DATA(lv_type) = ls_obj-type.
-      DATA(lv_found) = abap_false.
-      LOOP AT rs_summary-by_type INTO DATA(ls_type).
+    LOOP AT it_objects INTO ls_obj.
+      lv_type = ls_obj-type.
+      lv_found = abap_false.
+      LOOP AT rs_summary-by_type INTO ls_type.
         IF ls_type = lv_type.
           lv_found = abap_true.
           EXIT.

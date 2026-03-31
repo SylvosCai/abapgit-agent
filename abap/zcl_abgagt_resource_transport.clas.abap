@@ -39,6 +39,9 @@ CLASS zcl_abgagt_resource_transport IMPLEMENTATION.
   METHOD if_rest_resource~get.
     " Handle LIST action via GET with optional scope query parameter
     DATA ls_params TYPE zcl_abgagt_command_transport=>ty_transport_params.
+    DATA lo_factory TYPE REF TO zif_abgagt_cmd_factory.
+    DATA lo_command TYPE REF TO zif_abgagt_command.
+    DATA lx_error TYPE REF TO cx_root.
 
     TRY.
         ls_params-action = 'LIST'.
@@ -47,8 +50,8 @@ CLASS zcl_abgagt_resource_transport IMPLEMENTATION.
           ls_params-scope = 'mine'.
         ENDIF.
 
-        DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-        DATA(lo_command) = lo_factory->get_command( zif_abgagt_command=>gc_transport ).
+        lo_factory = zcl_abgagt_cmd_factory=>get_instance( ).
+        lo_command = lo_factory->get_command( zif_abgagt_command=>gc_transport ).
 
         IF lo_command IS NOT BOUND.
           return_error( 'Transport command not found' ).
@@ -57,7 +60,7 @@ CLASS zcl_abgagt_resource_transport IMPLEMENTATION.
 
         return_success( lo_command->execute( is_param = ls_params ) ).
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         return_error( lx_error->get_text( ) ).
     ENDTRY.
   ENDMETHOD.

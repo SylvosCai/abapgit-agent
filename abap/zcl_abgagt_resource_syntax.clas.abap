@@ -29,6 +29,8 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
 
   METHOD validate_request.
     DATA: ls_request TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_request-objects.
+
     ls_request = is_request.
 
     " Validate that objects array is provided and not empty
@@ -40,7 +42,7 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
 
     " Validate each object has required fields
     IF rv_valid = abap_true.
-      LOOP AT ls_request-objects INTO DATA(ls_obj).
+      LOOP AT ls_request-objects INTO ls_obj.
         " type and name are always required
         IF ls_obj-type IS INITIAL OR ls_obj-name IS INITIAL.
           rv_valid = abap_false.
@@ -57,6 +59,8 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
 
   METHOD get_error_message.
     DATA: ls_request TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
+    DATA ls_obj LIKE LINE OF ls_request-objects.
+
     ls_request = is_request.
 
     IF ls_request-objects IS INITIAL OR lines( ls_request-objects ) = 0.
@@ -64,7 +68,7 @@ CLASS zcl_abgagt_resource_syntax IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT ls_request-objects INTO DATA(ls_obj).
+    LOOP AT ls_request-objects INTO ls_obj.
       IF ls_obj-type IS INITIAL.
         rv_message = |Object at index { sy-tabix } missing "type" (CLAS, INTF, PROG)|.
         RETURN.

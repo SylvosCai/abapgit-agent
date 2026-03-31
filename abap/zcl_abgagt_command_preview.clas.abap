@@ -123,8 +123,26 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     " Parse parameters
-    DATA: ls_params TYPE ty_preview_params,
-          ls_result TYPE ty_preview_result.
+    DATA: ls_params      TYPE ty_preview_params,
+          ls_result      TYPE ty_preview_result,
+          lt_objects     TYPE ty_preview_objects,
+          ls_obj         TYPE ty_preview_object,
+          ls_obj_check   TYPE ty_preview_object,
+          lv_total_rows  TYPE i,
+          lv_total_count TYPE i,
+          lv_has_error   TYPE abap_bool,
+          ls_pagination  TYPE ty_pagination,
+          ls_summary     TYPE ty_summary,
+          lv_object      TYPE string.
+    DATA: BEGIN OF ls_final,
+            success    TYPE abap_bool,
+            command    TYPE string,
+            message    TYPE string,
+            objects    TYPE ty_preview_objects,
+            summary    TYPE ty_summary,
+            pagination TYPE ty_pagination,
+            error      TYPE string,
+          END OF ls_final.
 
     ls_result-command = zif_abgagt_command=>gc_preview.
 
@@ -140,13 +158,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ENDIF.
 
     " Process each object
-    DATA lt_objects TYPE ty_preview_objects.
-
-    DATA lv_total_rows TYPE i.
-    DATA lv_total_count TYPE i.
-
-    LOOP AT ls_params-objects INTO DATA(lv_object).
-      DATA(ls_obj) = get_table_data(
+    LOOP AT ls_params-objects INTO lv_object.
+      ls_obj = get_table_data(
         iv_name    = lv_object
         iv_type    = ls_params-type
         iv_limit   = ls_params-limit
@@ -161,20 +174,23 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     " Build result
     " Check if any objects have errors
-
-    LOOP AT lt_objects INTO DATA(ls_obj_check).
+    LOOP AT lt_objects INTO ls_obj_check.
       IF ls_obj_check-error IS NOT INITIAL.
-        DATA(lv_has_error) = abap_true.
+        lv_has_error = abap_true.
         EXIT.
       ENDIF.
     ENDLOOP.
 
-    ls_result-success = COND #( WHEN lv_has_error = abap_true THEN abap_false ELSE abap_true ).
-    ls_result-message = COND #( WHEN lv_has_error = abap_true THEN 'Some objects could not be retrieved' ELSE 'Retrieved data' ).
+    IF lv_has_error = abap_true.
+      ls_result-success = abap_false.
+      ls_result-message = 'Some objects could not be retrieved'.
+    ELSE.
+      ls_result-success = abap_true.
+      ls_result-message = 'Retrieved data'.
+    ENDIF.
     ls_result-objects = lt_objects.
 
     " Build pagination info
-    DATA ls_pagination TYPE ty_pagination.
     ls_pagination-limit = ls_params-limit.
     ls_pagination-offset = ls_params-offset.
     ls_pagination-total = lv_total_count.
@@ -187,21 +203,10 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ENDIF.
 
     " Build summary
-    DATA ls_summary TYPE ty_summary.
     ls_summary-total_objects = lines( lt_objects ).
     ls_summary-total_rows = lv_total_rows.
 
     " We need to serialize with summary inline
-    DATA: BEGIN OF ls_final,
-            success TYPE abap_bool,
-            command TYPE string,
-            message TYPE string,
-            objects TYPE ty_preview_objects,
-            summary TYPE ty_summary,
-            pagination TYPE ty_pagination,
-            error TYPE string,
-          END OF ls_final.
-
     MOVE-CORRESPONDING ls_result TO ls_final.
     ls_final-summary = ls_summary.
     ls_final-pagination = ls_pagination.
@@ -210,11 +215,13 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_table_data.
-    DATA: ls_result TYPE ty_preview_object.
+    DATA: ls_result  TYPE ty_preview_object,
+          lv_tabname TYPE string,
+          lv_type    TYPE string.
 
     ls_result-name = iv_name.
-    DATA(lv_tabname) = to_upper( iv_name ).
-    DATA(lv_type) = to_upper( iv_type ).
+    lv_tabname = to_upper( iv_name ).
+    lv_type = to_upper( iv_type ).
 
     IF lv_tabname IS INITIAL.
       lv_tabname = iv_name.
@@ -232,7 +239,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
     CASE lv_type.
       WHEN 'TABL' OR 'DDLS' OR ''.
-        ls_result-type_text = COND #( WHEN lv_type = 'DDLS' THEN 'CDS View' ELSE 'Table' ).
+        IF lv_type = 'DDLS'.
+          ls_result-type_text = 'CDS View'.
+        ELSE.
+          ls_result-type_text = 'Table'.
+        ENDIF.
 
         " Get table metadata and data
         fetch_table_data(
@@ -259,7 +270,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
   METHOD detect_object_type.
 
-    DATA(lv_name) = to_upper( iv_name ).
+    DATA lv_name TYPE string.
+    lv_name = to_upper( iv_name ).
 
     " Check if table or CDS view exists in TADIR
     SELECT SINGLE object FROM tadir
@@ -274,16 +286,20 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fetch_table_data.
-    DATA: lr_data TYPE REF TO data,
-          lo_tabdescr TYPE REF TO cl_abap_tabledescr,
+    DATA: lr_data       TYPE REF TO data,
+          lo_tabdescr   TYPE REF TO cl_abap_tabledescr,
           lo_strucdescr TYPE REF TO cl_abap_structdescr,
           lt_components TYPE abap_component_tab,
           lv_field_list TYPE string,
           lv_total_count TYPE i,
-          lv_limit TYPE i,
-          lv_offset TYPE i,
-          ls_comp TYPE abap_componentdescr,
-          lt_cols TYPE string_table.
+          lv_limit      TYPE i,
+          lv_offset     TYPE i,
+          ls_comp       TYPE abap_componentdescr,
+          lt_cols       TYPE string_table,
+          lv_fetch_count TYPE i,
+          lo_descr_ref  TYPE REF TO cl_abap_typedescr,
+          lx_error      TYPE REF TO cx_root,
+          lv_error      TYPE string.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
 
@@ -303,7 +319,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
       EXPORTING
         p_name = iv_tabname
       RECEIVING
-        p_descr_ref = DATA(lo_descr_ref)
+        p_descr_ref = lo_descr_ref
       EXCEPTIONS
         type_not_found = 1
         OTHERS = 2 ).
@@ -366,7 +382,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
         " For pagination: fetch offset+limit rows then delete the first offset rows
-        DATA lv_fetch_count TYPE i.
         lv_fetch_count = lv_offset + lv_limit.
 
         IF lv_offset > 0.
@@ -410,22 +425,23 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         " Set column info
         cs_result-columns_displayed = lines( cs_result-fields ).
 
-      CATCH cx_root INTO DATA(lx_error).
-        DATA(lv_error) = lx_error->get_text( ).
+      CATCH cx_root INTO lx_error.
+        lv_error = lx_error->get_text( ).
         cs_result-error = lv_error.
         cs_result-row_count = 0.
     ENDTRY.
   ENDMETHOD.
 
   METHOD get_field_metadata.
-    DATA ls_field TYPE ty_field.
+    DATA: ls_field TYPE ty_field,
+          lo_type  TYPE REF TO cl_abap_typedescr.
 
     LOOP AT it_components ASSIGNING FIELD-SYMBOL(<comp>).
       ls_field-field = <comp>-name.
 
       " Get type info from the component
       IF <comp>-type IS BOUND.
-        DATA(lo_type) = <comp>-type.
+        lo_type = <comp>-type.
         ls_field-type = lo_type->type_kind.
         ls_field-length = lo_type->length.
         ls_field-decimals = lo_type->decimals.
@@ -436,7 +452,8 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_field_metadata_for_columns.
-    DATA ls_field TYPE ty_field.
+    DATA: ls_field TYPE ty_field,
+          lo_type  TYPE REF TO cl_abap_typedescr.
 
     " If no columns specified, return all
     IF it_columns IS INITIAL.
@@ -450,7 +467,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
       IF sy-subrc = 0.
         ls_field-field = <comp>-name.
         IF <comp>-type IS BOUND.
-          DATA(lo_type) = <comp>-type.
+          lo_type = <comp>-type.
           ls_field-type = lo_type->type_kind.
           ls_field-length = lo_type->length.
           ls_field-decimals = lo_type->decimals.

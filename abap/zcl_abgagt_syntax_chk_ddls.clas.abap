@@ -38,6 +38,14 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     DATA: lo_handler  TYPE REF TO if_dd_ddl_handler,
           ls_ddlsrcv  TYPE ddddlsrcv,
           lt_warnings TYPE ddl2ddicwarnings.
+    DATA ls_err_no_src TYPE zif_abgagt_syntax_checker=>ty_error.
+    DATA lx_factory TYPE REF TO cx_root.
+    DATA ls_err_factory TYPE zif_abgagt_syntax_checker=>ty_error.
+    DATA lx_error TYPE REF TO cx_dd_ddl_check.
+    DATA lt_ddl_errors TYPE ddl2ddicerrors.
+    DATA ls_first_err LIKE LINE OF lt_ddl_errors.
+    DATA lx_other TYPE REF TO cx_root.
+    DATA ls_err_other TYPE zif_abgagt_syntax_checker=>ty_error.
 
     rs_result-object_type = 'DDLS'.
     rs_result-object_name = iv_name.
@@ -46,7 +54,6 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     IF it_source IS INITIAL.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      DATA ls_err_no_src TYPE zif_abgagt_syntax_checker=>ty_error.
       ls_err_no_src-line = 1.
       ls_err_no_src-text = 'No source provided for syntax check'.
       APPEND ls_err_no_src TO rs_result-errors.
@@ -57,10 +64,9 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     " Create DDL handler
     TRY.
         lo_handler = cl_dd_ddl_handler_factory=>create( ).
-      CATCH cx_root INTO DATA(lx_factory).
+      CATCH cx_root INTO lx_factory.
         rs_result-success = abap_false.
         rs_result-error_count = 1.
-        DATA ls_err_factory TYPE zif_abgagt_syntax_checker=>ty_error.
         ls_err_factory-line = 1.
         ls_err_factory-text = |DDL handler creation failed: { lx_factory->get_text( ) }|.
         APPEND ls_err_factory TO rs_result-errors.
@@ -98,9 +104,9 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
           rs_result-message = |Syntax check passed with { lines( rs_result-warnings ) } warning(s)|.
         ENDIF.
 
-      CATCH cx_dd_ddl_check INTO DATA(lx_error).
+      CATCH cx_dd_ddl_check INTO lx_error.
         " DDL check failed - extract errors
-        DATA(lt_ddl_errors) = lx_error->get_errors( ).
+        lt_ddl_errors = lx_error->get_errors( ).
 
         rs_result-success = abap_false.
         rs_result-error_count = lines( lt_ddl_errors ).
@@ -108,19 +114,18 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
 
         " Get first error message
         IF lt_ddl_errors IS NOT INITIAL.
-          DATA(ls_err) = lt_ddl_errors[ 1 ].
-          MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
-            WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
+          ls_first_err = lt_ddl_errors[ 1 ].
+          MESSAGE ID ls_first_err-arbgb TYPE 'E' NUMBER ls_first_err-msgnr
+            WITH ls_first_err-var1 ls_first_err-var2 ls_first_err-var3 ls_first_err-var4
             INTO rs_result-message.
         ELSE.
           rs_result-message = lx_error->get_text( ).
         ENDIF.
 
-      CATCH cx_root INTO DATA(lx_other).
+      CATCH cx_root INTO lx_other.
         " Unexpected error
         rs_result-success = abap_false.
         rs_result-error_count = 1.
-        DATA ls_err_other TYPE zif_abgagt_syntax_checker=>ty_error.
         ls_err_other-line = 1.
         ls_err_other-text = |Unexpected error: { lx_other->get_text( ) }|.
         APPEND ls_err_other TO rs_result-errors.
@@ -131,10 +136,11 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
   METHOD convert_ddl_errors.
     DATA lv_msg TYPE string.
     DATA ls_error TYPE zif_abgagt_syntax_checker=>ty_error.
+    DATA ls_err LIKE LINE OF it_ddl_errors.
 
     CLEAR rt_errors.
 
-    LOOP AT it_ddl_errors INTO DATA(ls_err).
+    LOOP AT it_ddl_errors INTO ls_err.
       " Build readable error message
       MESSAGE ID ls_err-arbgb TYPE 'E' NUMBER ls_err-msgnr
         WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
@@ -154,10 +160,11 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
   METHOD convert_ddl_warnings.
     DATA lv_msg TYPE string.
     DATA ls_warning TYPE zif_abgagt_syntax_checker=>ty_warning.
+    DATA ls_warn LIKE LINE OF it_ddl_warnings.
 
     CLEAR rt_warnings.
 
-    LOOP AT it_ddl_warnings INTO DATA(ls_warn).
+    LOOP AT it_ddl_warnings INTO ls_warn.
       " Build readable warning message
       MESSAGE ID ls_warn-arbgb TYPE 'W' NUMBER ls_warn-msgnr
         WITH ls_warn-var1 ls_warn-var2 ls_warn-var3 ls_warn-var4

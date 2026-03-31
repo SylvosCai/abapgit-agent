@@ -69,7 +69,9 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
 
   METHOD return_success.
     " Override to return HTTP 202 Accepted (async job started)
-    DATA(lo_entity) = mo_response->create_entity( ).
+    DATA lo_entity TYPE REF TO if_rest_entity.
+
+    lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( iv_result ).
     mo_response->set_status( cl_rest_status_code=>gc_success_accepted ).
@@ -80,6 +82,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
     DATA: lv_job_num_str TYPE string,
           lv_job_number TYPE btcjobcnt,
           lv_result TYPE string.
+    DATA lx_error TYPE REF TO cx_root.
 
     TRY.
         lv_job_num_str = mo_request->get_uri_query_parameter( 'jobNumber' ).
@@ -99,7 +102,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
         mo_response->create_entity( )->set_string_data( lv_result ).
         mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         lv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
         mo_response->create_entity( )->set_string_data( lv_result ).
         mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
@@ -109,6 +112,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
   METHOD get_job_status.
     DATA: ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status,
           lo_mgr    TYPE REF TO zif_abgagt_job_status_mgr.
+    DATA lx_error TYPE REF TO cx_root.
 
     TRY.
         " Get status from shared buffer using interface
@@ -127,7 +131,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
           compress      = abap_false
           pretty_name   = /ui2/cl_json=>pretty_mode-camel_case ).
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
     ENDTRY.
   ENDMETHOD.

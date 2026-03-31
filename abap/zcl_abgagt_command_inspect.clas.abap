@@ -195,14 +195,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_inspect_params,
-          lv_obj_type TYPE string,
-          lv_obj_name TYPE string,
-          lt_results TYPE ty_inspect_results,
-          lt_objects TYPE ty_object_keys,
-          lt_ddls_names TYPE ty_ddls_names,
-          ls_obj TYPE scir_objs,
-          ls_result TYPE ty_inspect_result.
+    DATA: ls_params      TYPE ty_inspect_params,
+          lv_obj_type    TYPE string,
+          lv_obj_name    TYPE string,
+          lt_results     TYPE ty_inspect_results,
+          lt_objects     TYPE ty_object_keys,
+          lt_ddls_names  TYPE ty_ddls_names,
+          ls_obj         TYPE scir_objs,
+          ls_result      TYPE ty_inspect_result,
+          lo_util        TYPE REF TO zif_abgagt_util,
+          lv_file        TYPE string,
+          lt_sci_results TYPE ty_inspect_results,
+          lt_ddls_results TYPE ty_inspect_results.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
@@ -220,9 +224,9 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Parse all files to objects
-    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+    lo_util = zcl_abgagt_util=>get_instance( ).
 
-    LOOP AT ls_params-files INTO DATA(lv_file).
+    LOOP AT ls_params-files INTO lv_file.
       CLEAR: lv_obj_type, lv_obj_name.
       lo_util->parse_file_to_object(
         EXPORTING iv_file = lv_file
@@ -244,7 +248,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Run inspection for non-DDLS objects
     IF lt_objects IS NOT INITIAL.
-      DATA(lt_sci_results) = run_inspection(
+      lt_sci_results = run_inspection(
         it_objects = lt_objects
         iv_variant = ls_params-variant
         io_util    = lo_util ).
@@ -254,7 +258,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Run DDLS validation
     IF lt_ddls_names IS NOT INITIAL.
       TRY.
-          DATA(lt_ddls_results) = validate_ddls( lt_ddls_names ).
+          lt_ddls_results = validate_ddls( lt_ddls_names ).
           INSERT LINES OF lt_ddls_results INTO TABLE lt_results.
         CATCH cx_dd_ddl_check.
           " Ignore - validation handled in method
@@ -326,9 +330,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD read_ddls_source.
     " Read DDLS source - first try inactive, then active
-    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv.
+    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
+          lo_handler TYPE REF TO zif_abgagt_ddl_handler.
 
-    DATA(lo_handler) = get_ddl_handler( ).
+    lo_handler = get_ddl_handler( ).
 
     " First try to read inactive version (get_state = 'M')
     TRY.
@@ -368,18 +373,26 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD validate_ddls_check.
     " Validate DDLS and build result
-    DATA: ls_ddlsrcv TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
-          lx_error TYPE REF TO cx_dd_ddl_check,
-          ls_warning TYPE ty_warning,
-          lv_warn_msg TYPE string,
-          lv_err_msg TYPE string.
+    DATA: ls_ddlsrcv          TYPE zif_abgagt_ddl_handler=>ty_ddlsrcv,
+          lx_error            TYPE REF TO cx_dd_ddl_check,
+          ls_warning          TYPE ty_warning,
+          lv_warn_msg         TYPE string,
+          lv_err_msg          TYPE string,
+          lo_handler          TYPE REF TO zif_abgagt_ddl_handler,
+          lt_warnings         TYPE zif_abgagt_ddl_handler=>ty_warnings,
+          ls_warn_from_check  TYPE zif_abgagt_ddl_handler=>ty_warn,
+          lt_errors           TYPE ddl2ddicerrors,
+          ls_err              LIKE LINE OF lt_errors,
+          ls_error            TYPE ty_error,
+          lt_warn             TYPE ddl2ddicwarnings,
+          ls_warn2            LIKE LINE OF lt_warn.
 
     ls_ddlsrcv = is_ddlsrcv.
     rs_result-object_type = 'DDLS'.
     rs_result-object_name = iv_ddls_name.
     rs_result-success = abap_true.
 
-    DATA(lo_handler) = get_ddl_handler( ).
+    lo_handler = get_ddl_handler( ).
 
     " Run validation check
     TRY.
@@ -390,10 +403,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
             cs_ddlsrcv    = ls_ddlsrcv ).
 
         " Get warnings after check
-        DATA(lt_warnings) = lo_handler->get_warnings( ).
+        lt_warnings = lo_handler->get_warnings( ).
 
         " Parse warnings from check method
-        LOOP AT lt_warnings INTO DATA(ls_warn_from_check).
+        LOOP AT lt_warnings INTO ls_warn_from_check.
           CLEAR ls_warning.
           ls_warning-type = ls_warn_from_check-type.
           ls_warning-line = ls_warn_from_check-line.
@@ -418,9 +431,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
       CATCH cx_dd_ddl_check INTO lx_error.
         " Validation failed - get error details using get_errors method
-        DATA(lt_errors) = lx_error->get_errors( ).
-        LOOP AT lt_errors INTO DATA(ls_err).
-          DATA ls_error TYPE ty_error.
+        lt_errors = lx_error->get_errors( ).
+        LOOP AT lt_errors INTO ls_err.
           CLEAR ls_error.
           ls_error-line = ls_err-line.
           ls_error-column = ls_err-column.
@@ -433,8 +445,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         ENDLOOP.
 
         " Also get warnings if any
-        DATA(lt_warn) = lx_error->get_warnings( ).
-        LOOP AT lt_warn INTO DATA(ls_warn2).
+        lt_warn = lx_error->get_warnings( ).
+        LOOP AT lt_warn INTO ls_warn2.
           CLEAR ls_warning.
           ls_warning-type = ls_warn2-type.
           ls_warning-line = ls_warn2-line.
@@ -466,13 +478,18 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_inspection.
-    DATA: lv_name TYPE sci_objs,
-          lo_objset TYPE REF TO cl_ci_objectset,
-          lo_variant TYPE REF TO cl_ci_checkvariant,
-          lo_inspection TYPE REF TO cl_ci_inspection,
-          lt_list TYPE scit_alvlist.
+    DATA: lv_name             TYPE sci_objs,
+          lo_objset           TYPE REF TO cl_ci_objectset,
+          lo_variant          TYPE REF TO cl_ci_checkvariant,
+          lo_inspection       TYPE REF TO cl_ci_inspection,
+          lt_list             TYPE scit_alvlist,
+          lo_util             TYPE REF TO zif_abgagt_util,
+          ls_obj              TYPE scir_objs,
+          ls_result           TYPE ty_inspect_result,
+          lx_inspector_error  TYPE REF TO cx_root,
+          lx_error            TYPE REF TO cx_root.
 
-    DATA(lo_util) = io_util.
+    lo_util = io_util.
 
     CLEAR rt_results.
 
@@ -506,7 +523,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           mo_inspector->cleanup(
             io_inspection = lo_inspection
             io_objset    = lo_objset ).
-        CATCH cx_root INTO DATA(lx_inspector_error).
+        CATCH cx_root INTO lx_inspector_error.
           rt_results = build_error_result(
             it_objects = it_objects
             ix_error   = lx_inspector_error ).
@@ -538,7 +555,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           cleanup(
             io_inspection = lo_inspection
             io_objset     = lo_objset ).
-        CATCH cx_root INTO DATA(lx_error).
+        CATCH cx_root INTO lx_error.
           " Handle exception - build error result
           rt_results = build_error_result(
             it_objects = it_objects
@@ -548,8 +565,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     ENDIF.
 
     " Build result for each object
-    LOOP AT it_objects INTO DATA(ls_obj).
-      DATA(ls_result) = build_object_result(
+    LOOP AT it_objects INTO ls_obj.
+      ls_result = build_object_result(
         is_object = ls_obj
         it_list   = lt_list
         io_util   = lo_util ).
@@ -619,25 +636,29 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   METHOD extract_method_name.
     " Extract include name from SOBJNAME (format: CLASSNAME{multiple====}INCLUDE)
     " Split by '=' to get class name and include name
-    DATA: lt_parts TYPE TABLE OF string,
-          lv_left TYPE string.
+    DATA: lt_parts        TYPE TABLE OF string,
+          lv_left         TYPE string,
+          lv_right        TYPE string,
+          lv_part         TYPE string,
+          lv_include_name TYPE string,
+          lv_method_index TYPE i.
 
     SPLIT iv_sobjname AT '=' INTO TABLE lt_parts.
 
-    LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
+    LOOP AT lt_parts INTO lv_part WHERE table_line IS NOT INITIAL.
       IF lv_left IS INITIAL.
         lv_left = lv_part.
       ELSE.
-        DATA(lv_right) = lv_part.
+        lv_right = lv_part.
       ENDIF.
     ENDLOOP.
 
-    DATA(lv_include_name) = lv_right.
+    lv_include_name = lv_right.
 
     " Only CM### includes need method name from TMDIR
     IF strlen( lv_include_name ) >= 2 AND lv_include_name(2) = 'CM'.
       " Convert method index from base-36
-      DATA(lv_method_index) = io_util->convert_method_index( lv_include_name ).
+      lv_method_index = io_util->convert_method_index( lv_include_name ).
       " Get method name from TMDIR
       rv_method_name = io_util->get_method_name(
         iv_classname   = iv_classname
@@ -646,10 +667,15 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_object_result.
-    DATA: ls_list TYPE scir_alvlist,
-          ls_error TYPE ty_error,
-          ls_warning TYPE ty_warning,
-          ls_info TYPE ty_info.
+    DATA: ls_list        TYPE scir_alvlist,
+          ls_error       TYPE ty_error,
+          ls_warning     TYPE ty_warning,
+          ls_info        TYPE ty_info,
+          lv_classname_s TYPE string,
+          lv_sobjname_s  TYPE string,
+          lv_method_name TYPE string,
+          lv_objtype_s   TYPE string,
+          lv_objname_s   TYPE string.
 
     rs_result-object_type = is_object-objtype.
     rs_result-object_name = is_object-objname.
@@ -658,18 +684,14 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Get errors and warnings for this object
     LOOP AT it_list INTO ls_list WHERE objname = is_object-objname.
       " Extract method name from SOBJNAME
-      DATA lv_classname_s TYPE string.
-      DATA lv_sobjname_s TYPE string.
       lv_classname_s = is_object-objname.
       lv_sobjname_s  = ls_list-sobjname.
-      DATA(lv_method_name) = extract_method_name(
+      lv_method_name = extract_method_name(
         iv_classname = lv_classname_s
         iv_sobjname  = lv_sobjname_s
         io_util      = io_util ).
 
       " Categorize message
-      DATA lv_objtype_s TYPE string.
-      DATA lv_objname_s TYPE string.
       lv_objtype_s = is_object-objtype.
       lv_objname_s = is_object-objname.
       categorize_message(
@@ -765,9 +787,10 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD build_error_result.
     DATA: ls_result TYPE ty_inspect_result,
-          ls_error TYPE ty_error.
+          ls_error  TYPE ty_error,
+          ls_obj    TYPE scir_objs.
 
-    LOOP AT it_objects INTO DATA(ls_obj).
+    LOOP AT it_objects INTO ls_obj.
       CLEAR ls_result.
       ls_result-object_type = ls_obj-objtype.
       ls_result-object_name = ls_obj-objname.
@@ -783,7 +806,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
   METHOD build_variant_error.
     DATA: ls_result TYPE ty_inspect_result,
-          ls_error TYPE ty_error.
+          ls_error  TYPE ty_error.
 
     ls_result-object_type = 'VARIANT'.
     ls_result-object_name = iv_variant.

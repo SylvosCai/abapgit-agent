@@ -16,7 +16,8 @@ DATA: lo_factory      TYPE REF TO zif_abgagt_cmd_factory,
       lv_result       TYPE string,
       lv_job_number   TYPE btcjobcnt,
       ls_status       TYPE zif_abgagt_job_status_mgr=>ty_job_status,
-      lv_timestamp    TYPE timestamp.
+      lv_timestamp    TYPE timestamp,
+      lx_error        TYPE REF TO cx_root.
 
 START-OF-SELECTION.
   TRY.
@@ -99,7 +100,7 @@ START-OF-SELECTION.
       ls_status-completed_at = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
-    CATCH cx_root INTO DATA(lx_error).
+    CATCH cx_root INTO lx_error.
       " Update final status - error
       GET TIME STAMP FIELD lv_timestamp.
       CLEAR ls_status.

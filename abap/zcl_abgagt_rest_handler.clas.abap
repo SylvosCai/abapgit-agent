@@ -17,18 +17,21 @@ CLASS zcl_abgagt_rest_handler IMPLEMENTATION.
     " e.g., /sap/bc/z_abapgit_agent/health -> health
     " Then register the specific resource class dynamically
     DATA lo_router TYPE REF TO cl_rest_router.
+    DATA lv_path TYPE string.
+    DATA lt_parts TYPE TABLE OF string.
+    DATA lv_command TYPE string.
+    DATA lv_class_name TYPE seoclsname.
+
     CREATE OBJECT lo_router.
 
     " Get the current request path from the server
-    DATA lv_path TYPE string.
     lv_path = mo_server->request->get_header_field( name = '~path' ).
 
     " Extract command from path (last segment)
-    SPLIT lv_path AT '/' INTO TABLE DATA(lt_parts).
-    READ TABLE lt_parts INDEX lines( lt_parts ) INTO DATA(lv_command).
+    SPLIT lv_path AT '/' INTO TABLE lt_parts.
+    READ TABLE lt_parts INDEX lines( lt_parts ) INTO lv_command.
 
     " Build resource class name: ZCL_ABGAGT_RESOURCE_{COMMAND}
-    DATA lv_class_name TYPE seoclsname.
     lv_class_name = |ZCL_ABGAGT_RESOURCE_{ to_upper( lv_command ) }|.
 
     " Register the specific resource class

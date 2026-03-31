@@ -17,13 +17,22 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
           lt_source TYPE TABLE OF string,
           lv_clsname TYPE seoclsname,
           lv_obj_name TYPE tadir-obj_name.
+    DATA lo_util TYPE REF TO zif_abgagt_util.
+    DATA ls_section     TYPE zcl_abgagt_command_view=>ty_section.
+    DATA lv_pubsec      TYPE program.
+    DATA lv_include_pad TYPE program.
+    DATA lv_pad30 TYPE program.
+    DATA lt_methods TYPE STANDARD TABLE OF tmdir.
+    DATA ls_method LIKE LINE OF lt_methods.
+    DATA lv_cm_suffix TYPE string.
+    DATA lv_line TYPE string.
 
     rs_info-name = iv_name.
     rs_info-type = 'CLAS'.
     rs_info-type_text = 'Class'.
 
     " Use util to detect source include
-    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+    lo_util = zcl_abgagt_util=>get_instance( ).
     ls_include_info = lo_util->detect_include_info( iv_name ).
 
     IF ls_include_info-is_source_include = abap_true.
@@ -59,7 +68,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       cl_oo_classname_service=>get_pubsec_name( EXPORTING clsname = lv_clsname RECEIVING result = lv_prog ).
 
       READ REPORT lv_prog INTO lt_source.
-      LOOP AT lt_source INTO DATA(lv_line).
+      LOOP AT lt_source INTO lv_line.
         IF rs_info-source IS INITIAL.
           rs_info-source = lv_line.
         ELSE.
@@ -70,12 +79,8 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       " Full mode: assemble all sections into rs_info-sections.
       " global_start (assembled-source line numbers) is computed client-side
       " by the Node.js CLI from the local .clas.abap file or ADT source fetch.
-      DATA: ls_section     TYPE zcl_abgagt_command_view=>ty_section,
-            lv_pubsec      TYPE program,
-            lv_include_pad TYPE program.
 
       " Build padded class name prefix (30 chars) for direct include reads
-      DATA lv_pad30 TYPE program.
       lv_pad30 = lv_clsname.
       WHILE strlen( lv_pad30 ) < 30.
         lv_pad30 = lv_pad30 && '='.
@@ -120,12 +125,12 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
 
       " Method implementations (CM*) in methodindx order (= assembled-source order)
       SELECT methodname, methodindx FROM tmdir
-        INTO TABLE @DATA(lt_methods)
-        WHERE classname = @lv_clsname
+        INTO TABLE lt_methods
+        WHERE classname = lv_clsname
         ORDER BY methodindx.
 
-      LOOP AT lt_methods INTO DATA(ls_method).
-        DATA(lv_cm_suffix)   = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
+      LOOP AT lt_methods INTO ls_method.
+        lv_cm_suffix   = lo_util->convert_index_to_cm_suffix( CONV i( ls_method-methodindx ) ).
         lv_include_pad = lv_pad30 && lv_cm_suffix.
 
         CLEAR ls_section.

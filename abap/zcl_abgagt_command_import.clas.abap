@@ -19,6 +19,17 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
              password TYPE string,
            END OF ty_import_params.
 
+    TYPES: BEGIN OF ty_import_result,
+             success        TYPE string,
+             files_staged   TYPE i,
+             commit_message TYPE string,
+           END OF ty_import_result.
+
+    TYPES: BEGIN OF ty_import_error,
+             success TYPE string,
+             error   TYPE string,
+           END OF ty_import_error.
+
   PRIVATE SECTION.
     DATA mo_repo_srv TYPE REF TO zif_abapgit_repo_srv.
     DATA mo_user TYPE REF TO zif_abapgit_persist_user.
@@ -56,15 +67,28 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_import_params,
-          li_repo TYPE REF TO zif_abapgit_repo,
-          li_repo_online TYPE REF TO zif_abapgit_repo_online,
-          li_repo_srv TYPE REF TO zif_abapgit_repo_srv,
-          li_user TYPE REF TO zif_abapgit_persist_user,
-          lo_stage TYPE REF TO zcl_abapgit_stage,
-          lt_files TYPE zif_abapgit_definitions=>ty_files_item_tt,
-          lv_package TYPE devclass,
-          ls_comment TYPE zif_abapgit_git_definitions=>ty_comment.
+    DATA: ls_params          TYPE ty_import_params,
+          li_repo            TYPE REF TO zif_abapgit_repo,
+          li_repo_online     TYPE REF TO zif_abapgit_repo_online,
+          li_repo_srv        TYPE REF TO zif_abapgit_repo_srv,
+          li_user            TYPE REF TO zif_abapgit_persist_user,
+          lo_stage           TYPE REF TO zcl_abapgit_stage,
+          lt_files           TYPE zif_abapgit_definitions=>ty_files_item_tt,
+          lv_package         TYPE devclass,
+          ls_comment         TYPE zif_abapgit_git_definitions=>ty_comment,
+          lv_param_type      TYPE string,
+          lv_json_string     TYPE string,
+          lv_files_staged    TYPE i,
+          lv_total_files     TYPE i,
+          lv_index           TYPE i,
+          lv_file_progress   TYPE i,
+          lv_committer_name  TYPE string,
+          lv_committer_email TYPE string,
+          lv_message         TYPE string,
+          ls_result          TYPE ty_import_result,
+          ls_error           TYPE ty_import_error,
+          lx_abapgit         TYPE REF TO zcx_abapgit_exception,
+          lx_other           TYPE REF TO cx_root.
 
     TRY.
         " Stage 1: Parse and validate parameters (10%)
@@ -78,13 +102,10 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           " Handle both structure and JSON string input
           " When called from background job, is_param is a JSON string
           " When called directly (e.g., in unit tests), is_param is a structure
-          DATA lv_param_type TYPE string.
           DESCRIBE FIELD is_param TYPE lv_param_type.
 
           IF lv_param_type = 'g' OR lv_param_type = 'C'.
             " String type - deserialize JSON
-
-            DATA lv_json_string TYPE string.
             lv_json_string = is_param.
             /ui2/cl_json=>deserialize(
               EXPORTING
@@ -156,7 +177,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 60.
 
         lt_files = li_repo->get_files_local( ).
-        DATA(lv_files_staged) = lines( lt_files ).
+        lv_files_staged = lines( lt_files ).
 
         IF lv_files_staged = 0.
           rv_result = '{"success":"","error":"No objects found in package"}'.
@@ -164,7 +185,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
         ENDIF.
 
         CREATE OBJECT lo_stage.
-        DATA(lv_total_files) = lines( lt_files ).
+        lv_total_files = lines( lt_files ).
 
         LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_file>).
           lo_stage->add(
@@ -174,9 +195,9 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
           " Update progress during staging (60-70%)
           IF lv_total_files > 10.
-            DATA(lv_index) = sy-tabix.
+            lv_index = sy-tabix.
             IF lv_index MOD 10 = 0 OR lv_index = lv_total_files.
-              DATA(lv_file_progress) = 60 + ( lv_index * 10 / lv_total_files ).
+              lv_file_progress = 60 + ( lv_index * 10 / lv_total_files ).
               RAISE EVENT zif_abgagt_progressable~progress_update
                 EXPORTING
                   iv_stage    = 'STAGE_FILES'
@@ -196,11 +217,11 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 75.
 
         li_user = get_user( ).
-        DATA(lv_committer_name) = li_user->get_default_git_user_name( ).
-        DATA(lv_committer_email) = li_user->get_default_git_user_email( ).
+        lv_committer_name  = li_user->get_default_git_user_name( ).
+        lv_committer_email = li_user->get_default_git_user_email( ).
 
         IF ls_params-message IS NOT INITIAL.
-          DATA(lv_message) = ls_params-message.
+          lv_message = ls_params-message.
         ELSE.
           lv_message = |feat: initial import from ABAP package { lv_package }|.
         ENDIF.
@@ -229,11 +250,6 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_message  = 'Import completed successfully'
             iv_progress = 100.
 
-        DATA: BEGIN OF ls_result,
-                success        TYPE string,
-                files_staged   TYPE i,
-                commit_message TYPE string,
-              END OF ls_result.
         ls_result-success        = 'X'.
         ls_result-files_staged   = lv_files_staged.
         ls_result-commit_message = lv_message.
@@ -244,11 +260,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           RECEIVING
             r_json      = rv_result ).
 
-      CATCH zcx_abapgit_exception INTO DATA(lx_abapgit).
-        DATA: BEGIN OF ls_error,
-                success TYPE string,
-                error   TYPE string,
-              END OF ls_error.
+      CATCH zcx_abapgit_exception INTO lx_abapgit.
         ls_error-error = lx_abapgit->get_text( ).
         /ui2/cl_json=>serialize(
           EXPORTING
@@ -256,15 +268,11 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             pretty_name = /ui2/cl_json=>pretty_mode-low_case
           RECEIVING
             r_json      = rv_result ).
-      CATCH cx_root INTO DATA(lx_other).
-        DATA: BEGIN OF ls_error2,
-                success TYPE string,
-                error   TYPE string,
-              END OF ls_error2.
-        ls_error2-error = lx_other->get_text( ).
+      CATCH cx_root INTO lx_other.
+        ls_error-error = lx_other->get_text( ).
         /ui2/cl_json=>serialize(
           EXPORTING
-            data        = ls_error2
+            data        = ls_error
             pretty_name = /ui2/cl_json=>pretty_mode-low_case
           RECEIVING
             r_json      = rv_result ).

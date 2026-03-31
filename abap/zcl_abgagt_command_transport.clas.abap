@@ -52,6 +52,28 @@ CLASS zcl_abgagt_command_transport DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     DATA mo_cts_api TYPE REF TO zif_abgagt_cts_api.
 
+    " Raw result type for transport SELECT queries
+    TYPES: BEGIN OF ty_raw_transport,
+             trkorr  TYPE e070-trkorr,
+             as4user TYPE e070-as4user,
+             as4date TYPE e070-as4date,
+             as4text TYPE e07t-as4text,
+           END OF ty_raw_transport.
+    TYPES ty_raw_transport_list TYPE STANDARD TABLE OF ty_raw_transport
+                                 WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_raw_task_parent,
+             strkorr TYPE e070-strkorr,
+           END OF ty_raw_task_parent.
+    TYPES ty_raw_task_parent_list TYPE STANDARD TABLE OF ty_raw_task_parent
+                                   WITH NON-UNIQUE DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_raw_owned,
+             trkorr TYPE e070-trkorr,
+           END OF ty_raw_owned.
+    TYPES ty_raw_owned_list TYPE STANDARD TABLE OF ty_raw_owned
+                             WITH NON-UNIQUE DEFAULT KEY.
+
     METHODS list_transports
       IMPORTING iv_scope            TYPE string
       RETURNING VALUE(rs_result)    TYPE ty_transport_result.
@@ -91,7 +113,8 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
 
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_transport_params,
-          ls_result TYPE ty_transport_result.
+          ls_result TYPE ty_transport_result,
+          lv_scope  TYPE string.
 
     IF is_param IS SUPPLIED.
       MOVE-CORRESPONDING is_param TO ls_params.
@@ -99,7 +122,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
 
     CASE ls_params-action.
       WHEN 'LIST'.
-        DATA(lv_scope) = ls_params-scope.
+        lv_scope = ls_params-scope.
         IF lv_scope IS INITIAL.
           lv_scope = 'mine'.
         ENDIF.
@@ -122,10 +145,16 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD list_transports.
-    DATA: lt_items        TYPE ty_transport_list,
-          ls_item         TYPE ty_transport_item,
-          lt_range        TYPE RANGE OF trkorr,
-          ls_range_entry  LIKE LINE OF lt_range.
+    DATA: lt_items         TYPE ty_transport_list,
+          ls_item          TYPE ty_transport_item,
+          lt_range         TYPE RANGE OF trkorr,
+          ls_range_entry   LIKE LINE OF lt_range,
+          lt_raw           TYPE ty_raw_transport_list,
+          ls_raw           TYPE ty_raw_transport,
+          lt_from_tasks    TYPE ty_raw_task_parent_list,
+          ls_task_parent   TYPE ty_raw_task_parent,
+          lt_owned         TYPE ty_raw_owned_list,
+          ls_owned_entry   TYPE ty_raw_owned.
 
     rs_result-action = 'LIST'.
     rs_result-scope  = iv_scope.
@@ -141,14 +170,14 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
             AND e070~trfunction = 'K'
             AND e070~as4user    = @sy-uname
           ORDER BY e070~as4date DESCENDING
-          INTO TABLE @DATA(lt_raw_mine)
+          INTO TABLE @lt_raw
           UP TO 50 ROWS.
 
-        LOOP AT lt_raw_mine INTO DATA(ls_raw_mine).
-          ls_item-number      = ls_raw_mine-trkorr.
-          ls_item-description = ls_raw_mine-as4text.
-          ls_item-owner       = ls_raw_mine-as4user.
-          ls_item-date        = format_date( ls_raw_mine-as4date ).
+        LOOP AT lt_raw INTO ls_raw.
+          ls_item-number      = ls_raw-trkorr.
+          ls_item-description = ls_raw-as4text.
+          ls_item-owner       = ls_raw-as4user.
+          ls_item-date        = format_date( ls_raw-as4date ).
           APPEND ls_item TO lt_items.
         ENDLOOP.
 
@@ -163,7 +192,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
             AND trfunction <> 'K'
             AND strkorr    <> ''
             AND as4user    = @sy-uname
-          INTO TABLE @DATA(lt_from_tasks).
+          INTO TABLE @lt_from_tasks.
 
         " Step 2: find transport orders owned by user
         SELECT trkorr
@@ -171,16 +200,16 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           WHERE trstatus   = 'D'
             AND trfunction = 'K'
             AND as4user    = @sy-uname
-          INTO TABLE @DATA(lt_owned).
+          INTO TABLE @lt_owned.
 
         " Step 3: build combined range
         ls_range_entry-sign   = 'I'.
         ls_range_entry-option = 'EQ'.
-        LOOP AT lt_from_tasks INTO DATA(ls_task_parent).
+        LOOP AT lt_from_tasks INTO ls_task_parent.
           ls_range_entry-low = ls_task_parent-strkorr.
           APPEND ls_range_entry TO lt_range.
         ENDLOOP.
-        LOOP AT lt_owned INTO DATA(ls_owned_entry).
+        LOOP AT lt_owned INTO ls_owned_entry.
           ls_range_entry-low = ls_owned_entry-trkorr.
           APPEND ls_range_entry TO lt_range.
         ENDLOOP.
@@ -200,14 +229,14 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
             AND e070~trfunction = 'K'
             AND e070~trkorr IN @lt_range
           ORDER BY e070~as4date DESCENDING
-          INTO TABLE @DATA(lt_raw_tasks)
+          INTO TABLE @lt_raw
           UP TO 50 ROWS.
 
-        LOOP AT lt_raw_tasks INTO DATA(ls_raw_tasks).
-          ls_item-number      = ls_raw_tasks-trkorr.
-          ls_item-description = ls_raw_tasks-as4text.
-          ls_item-owner       = ls_raw_tasks-as4user.
-          ls_item-date        = format_date( ls_raw_tasks-as4date ).
+        LOOP AT lt_raw INTO ls_raw.
+          ls_item-number      = ls_raw-trkorr.
+          ls_item-description = ls_raw-as4text.
+          ls_item-owner       = ls_raw-as4user.
+          ls_item-date        = format_date( ls_raw-as4date ).
           APPEND ls_item TO lt_items.
         ENDLOOP.
 
@@ -219,14 +248,14 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           WHERE e070~trstatus   = 'D'
             AND e070~trfunction = 'K'
           ORDER BY e070~as4date DESCENDING
-          INTO TABLE @DATA(lt_raw_all)
+          INTO TABLE @lt_raw
           UP TO 50 ROWS.
 
-        LOOP AT lt_raw_all INTO DATA(ls_raw_all).
-          ls_item-number      = ls_raw_all-trkorr.
-          ls_item-description = ls_raw_all-as4text.
-          ls_item-owner       = ls_raw_all-as4user.
-          ls_item-date        = format_date( ls_raw_all-as4date ).
+        LOOP AT lt_raw INTO ls_raw.
+          ls_item-number      = ls_raw-trkorr.
+          ls_item-description = ls_raw-as4text.
+          ls_item-owner       = ls_raw-as4user.
+          ls_item-date        = format_date( ls_raw-as4date ).
           APPEND ls_item TO lt_items.
         ENDLOOP.
 
@@ -242,15 +271,21 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD create_transport.
+    DATA: lv_category   TYPE char01,
+          ls_create     TYPE zif_abgagt_cts_api=>ty_create_result,
+          lv_type_label TYPE string.
+
     rs_result-action = 'CREATE'.
 
-    DATA(lv_category) = COND char01(
-      WHEN iv_type = 'customizing' THEN 'W'
-      ELSE 'K' ).
+    IF iv_type = 'customizing'.
+      lv_category = 'W'.
+    ELSE.
+      lv_category = 'K'.
+    ENDIF.
 
-    DATA(ls_create) = mo_cts_api->create_transport(
-                        iv_description = iv_description
-                        iv_category    = lv_category ).
+    ls_create = mo_cts_api->create_transport(
+                  iv_description = iv_description
+                  iv_category    = lv_category ).
 
     IF ls_create-subrc <> 0.
       rs_result-success = abap_false.
@@ -258,9 +293,11 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_type_label) = COND string(
-      WHEN iv_type = 'customizing' THEN 'Customizing'
-      ELSE 'Workbench' ).
+    IF iv_type = 'customizing'.
+      lv_type_label = 'Customizing'.
+    ELSE.
+      lv_type_label = 'Workbench'.
+    ENDIF.
 
     rs_result-success = abap_true.
     rs_result-number  = ls_create-trkorr.
@@ -268,6 +305,9 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_transport.
+    DATA: lv_check_subrc  TYPE i,
+          lv_check_result TYPE string.
+
     rs_result-action = 'CHECK'.
     rs_result-number = iv_number.
 
@@ -278,17 +318,21 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
     ENDIF.
 
     " Use EXCEPTIONS-only approach — CTS_API_CHECK_TRANSPORT returns sy-subrc = 0 on pass
-    DATA(lv_check_subrc) = mo_cts_api->check_transport( iv_number ).
+    lv_check_subrc = mo_cts_api->check_transport( iv_number ).
 
     rs_result-success = abap_true.
     rs_result-passed  = xsdbool( lv_check_subrc = 0 ).
-    rs_result-message = COND #(
-      WHEN lv_check_subrc = 0
-      THEN |Transport { iv_number } passed check|
-      ELSE |Transport { iv_number } check found issues (sy-subrc: { lv_check_subrc })| ).
+    IF lv_check_subrc = 0.
+      lv_check_result = |Transport { iv_number } passed check|.
+    ELSE.
+      lv_check_result = |Transport { iv_number } check found issues (sy-subrc: { lv_check_subrc })|.
+    ENDIF.
+    rs_result-message = lv_check_result.
   ENDMETHOD.
 
   METHOD release_transport.
+    DATA lv_release_subrc TYPE i.
+
     rs_result-action = 'RELEASE'.
     rs_result-number = iv_number.
 
@@ -298,7 +342,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_release_subrc) = mo_cts_api->release_transport( iv_number ).
+    lv_release_subrc = mo_cts_api->release_transport( iv_number ).
 
     IF lv_release_subrc <> 0.
       rs_result-success = abap_false.
@@ -311,10 +355,13 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD format_date.
-    DATA(lv_year)  = iv_date+0(4).
-    DATA(lv_month) = iv_date+4(2).
-    DATA(lv_day)   = iv_date+6(2).
-    rv_formatted   = |{ lv_year }-{ lv_month }-{ lv_day }|.
+    DATA: lv_year  TYPE c LENGTH 4,
+          lv_month TYPE c LENGTH 2,
+          lv_day   TYPE c LENGTH 2.
+    lv_year  = iv_date+0(4).
+    lv_month = iv_date+4(2).
+    lv_day   = iv_date+6(2).
+    rv_formatted = |{ lv_year }-{ lv_month }-{ lv_day }|.
   ENDMETHOD.
 
 ENDCLASS.

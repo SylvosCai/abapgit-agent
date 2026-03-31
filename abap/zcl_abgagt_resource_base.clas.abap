@@ -60,6 +60,12 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
     DATA ls_job_info TYPE zif_abgagt_bg_scheduler=>ty_job_info.
     DATA ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status.
     DATA lv_timestamp TYPE timestamp.
+    DATA lo_factory TYPE REF TO zif_abgagt_cmd_factory.
+    DATA lv_constant TYPE string.
+    DATA lo_command TYPE REF TO zif_abgagt_command.
+    DATA lv_run_in_bg TYPE abap_bool.
+    DATA lv_result TYPE string.
+    DATA lx_exception TYPE REF TO cx_root.
 
     lv_json = mo_request->get_entity( )->get_string_data( ).
     lr_request = create_request_data( ).
@@ -79,9 +85,9 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         ENDIF.
 
         " Get command from factory
-        DATA(lo_factory) = zcl_abgagt_cmd_factory=>get_instance( ).
-        DATA(lv_constant) = get_command_constant( ).
-        DATA(lo_command) = lo_factory->get_command( lv_constant ).
+        lo_factory = zcl_abgagt_cmd_factory=>get_instance( ).
+        lv_constant = get_command_constant( ).
+        lo_command = lo_factory->get_command( lv_constant ).
 
         IF lo_command IS NOT BOUND.
           return_error( get_command_name( ) && ' command not found' ).
@@ -92,7 +98,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         " ========================================
         CREATE OBJECT lo_decision TYPE zcl_abgagt_bg_decision.
 
-        DATA(lv_run_in_bg) = lo_decision->should_run_in_background(
+        lv_run_in_bg = lo_decision->should_run_in_background(
           io_command      = lo_command
           is_request_data = <ls_request>
           is_config       = get_bg_config( )
@@ -130,11 +136,11 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
           " ========================================
           " Synchronous Execution Path
           " ========================================
-          DATA(lv_result) = lo_command->execute( is_param = <ls_request> ).
+          lv_result = lo_command->execute( is_param = <ls_request> ).
           return_success( lv_result ).
         ENDIF.
 
-      CATCH cx_root INTO DATA(lx_exception).
+      CATCH cx_root INTO lx_exception.
         return_error( lx_exception->get_text( ) ).
     ENDTRY.
   ENDMETHOD.
@@ -160,20 +166,24 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
 
   METHOD return_error.
     DATA lv_json_resp TYPE string.
+    DATA lv_command_name TYPE string.
+    DATA lo_entity TYPE REF TO if_rest_entity.
 
-    DATA(lv_command_name) = get_command_name( ).
+    lv_command_name = get_command_name( ).
     CONCATENATE
       '{"success":false,"command":"' lv_command_name '","error":"' iv_error '"}'
       INTO lv_json_resp.
 
-    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
   ENDMETHOD.
 
   METHOD return_success.
-    DATA(lo_entity) = mo_response->create_entity( ).
+    DATA lo_entity TYPE REF TO if_rest_entity.
+
+    lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( iv_result ).
     mo_response->set_status( iv_http_status ).
@@ -189,7 +199,10 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
     " Return HTTP 202 Accepted with job information
     DATA lv_json_resp TYPE string.
     DATA lv_job_number_str TYPE string.
-    DATA(lv_command_name) = get_command_name( ).
+    DATA lv_command_name TYPE string.
+    DATA lo_entity TYPE REF TO if_rest_entity.
+
+    lv_command_name = get_command_name( ).
 
     " Convert job number to string with leading zeros
     lv_job_number_str = is_job_info-job_number.
@@ -207,7 +220,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
                    '"message":"Command scheduled for background execution"' &&
                    '}'.
 
-    DATA(lo_entity) = mo_response->create_entity( ).
+    lo_entity = mo_response->create_entity( ).
     lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
     lo_entity->set_string_data( lv_json_resp ).
     mo_response->set_status( cl_rest_status_code=>gc_success_accepted ).
@@ -219,11 +232,15 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
     DATA lo_status_mgr TYPE REF TO zif_abgagt_job_status_mgr.
     DATA ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status.
     DATA lv_json_resp TYPE string.
+    DATA lo_request TYPE REF TO if_rest_request.
+    DATA lv_query TYPE string.
+    DATA lo_entity TYPE REF TO if_rest_entity.
+    DATA lx_error TYPE REF TO cx_root.
 
     TRY.
         " Get jobNumber from query parameter
-        DATA(lo_request) = mo_request.
-        DATA(lv_query) = lo_request->get_uri_query_parameter( iv_name = 'jobNumber' ).
+        lo_request = mo_request.
+        lv_query = lo_request->get_uri_query_parameter( iv_name = 'jobNumber' ).
 
         IF lv_query IS INITIAL.
           return_error( 'jobNumber query parameter is required' ).
@@ -251,12 +268,12 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         ).
 
         " Return status
-        DATA(lo_entity) = mo_response->create_entity( ).
+        lo_entity = mo_response->create_entity( ).
         lo_entity->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
         lo_entity->set_string_data( lv_json_resp ).
         mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
 
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         return_error( lx_error->get_text( ) ).
     ENDTRY.
   ENDMETHOD.

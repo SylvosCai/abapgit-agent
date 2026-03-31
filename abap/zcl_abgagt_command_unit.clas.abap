@@ -108,13 +108,15 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_unit_params,
-          lv_package TYPE devclass,
-          lv_obj_type TYPE string,
-          lv_obj_name TYPE string,
-          ls_result TYPE ty_unit_result,
-          lt_keys TYPE ty_keys,
-          ls_key TYPE ty_key.
+    DATA: ls_params    TYPE ty_unit_params,
+          lv_package   TYPE devclass,
+          lv_obj_type  TYPE string,
+          lv_obj_name  TYPE string,
+          ls_result    TYPE ty_unit_result,
+          lt_keys      TYPE ty_keys,
+          ls_key       TYPE ty_key,
+          lo_util      TYPE REF TO zif_abgagt_util,
+          lv_file      TYPE string.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
@@ -128,8 +130,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Parse files to get object keys
     IF ls_params-files IS NOT INITIAL.
-      DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
-      LOOP AT ls_params-files INTO DATA(lv_file).
+      lo_util = zcl_abgagt_util=>get_instance( ).
+      LOOP AT ls_params-files INTO lv_file.
         CLEAR: lv_obj_type, lv_obj_name.
         lo_util->parse_file_to_object(
           EXPORTING iv_file = lv_file
@@ -184,7 +186,14 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD run_aunit_tests.
-    DATA: lo_runner TYPE REF TO cl_sut_aunit_runner.
+    DATA: lo_runner      TYPE REF TO cl_sut_aunit_runner,
+          lv_mainprog    TYPE string,
+          ls_cvprg_entry LIKE LINE OF lo_runner->so_cvprg,
+          lt_so_class    TYPE RANGE OF seoaliases-clsname,
+          ls_class_entry LIKE LINE OF lt_so_class,
+          ls_str         TYPE cl_sut_aunit_runner=>typ_str_results.
+
+    FIELD-SYMBOLS <ls_key> TYPE ty_key.
 
     " Create runner using S_CREATE
     cl_sut_aunit_runner=>s_create(
@@ -206,12 +215,11 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
       " Add test classes to coverage program range
       IF it_keys IS NOT INITIAL.
-        LOOP AT it_keys ASSIGNING FIELD-SYMBOL(<ls_key>).
-          DATA(lv_mainprog) = lo_runner->get_mainprog(
+        LOOP AT it_keys ASSIGNING <ls_key>.
+          lv_mainprog = lo_runner->get_mainprog(
             i_objtype = <ls_key>-obj_type
             i_objname = <ls_key>-obj_name ).
           IF lv_mainprog IS NOT INITIAL.
-            DATA ls_cvprg_entry LIKE LINE OF lo_runner->so_cvprg.
             ls_cvprg_entry-sign   = 'I'.
             ls_cvprg_entry-option = 'EQ'.
             ls_cvprg_entry-low    = lv_mainprog.
@@ -226,10 +234,8 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     lo_runner->p_selcl = abap_true.   " Enable class selection mode
 
     " Build SO_CLASS range for test class(es)
-    DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
     IF it_keys IS NOT INITIAL.
       LOOP AT it_keys ASSIGNING <ls_key>.
-        DATA ls_class_entry LIKE LINE OF lt_so_class.
         ls_class_entry-sign   = 'I'.
         ls_class_entry-option = 'EQ'.
         ls_class_entry-low    = <ls_key>-obj_name.
@@ -256,7 +262,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     " Get results from str_results - use type from CL_SUT_AUNIT_RUNNER
-    DATA: ls_str TYPE cl_sut_aunit_runner=>typ_str_results.
     ls_str = lo_runner->str_results.
 
     " Fill result directly from str_results counts
@@ -281,7 +286,10 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD get_coverage.
     " Get coverage statistics from AUnit runner using stats method
-    DATA: lv_cov_id TYPE sut_au_results-cov_id.
+    DATA: lv_cov_id   TYPE sut_au_results-cov_id,
+          ls_cov_stats TYPE cl_sut_aunit_runner=>typ_str_cov_stats,
+          lt_cov_flat  TYPE cl_sut_aunit_runner=>typ_tab_cov_flat_result.
+
     lv_cov_id = io_runner->str_results-cov_id.
 
     IF lv_cov_id IS INITIAL.
@@ -290,7 +298,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     TRY.
         " Try to get stats directly
-        DATA(ls_cov_stats) = io_runner->get_coverage_result_stats(
+        ls_cov_stats = io_runner->get_coverage_result_stats(
           i_cov_id = lv_cov_id ).
         rs_coverage_stats-total_lines = ls_cov_stats-cov_lines_total.
         rs_coverage_stats-covered_lines = ls_cov_stats-cov_lines_covered.
@@ -298,7 +306,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
       CATCH cx_sut_error.
         " Coverage stats not available - try flat results
         TRY.
-            DATA(lt_cov_flat) = io_runner->get_coverage_result_flat(
+            lt_cov_flat = io_runner->get_coverage_result_flat(
               i_cov_id = lv_cov_id ).
             " Check if we got any data
             IF lines( lt_cov_flat ) > 0.
@@ -311,19 +319,23 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_failed_methods.
+    DATA lt_errors TYPE ty_errors.
+
     " Entry point for extracting failed methods from TAB_OBJECTS
     LOOP AT it_tab_objects ASSIGNING FIELD-SYMBOL(<ls_object>).
       " Extract errors from this object
-      DATA(lt_errors) = extract_errors_from_object( <ls_object> ).
+      lt_errors = extract_errors_from_object( <ls_object> ).
       APPEND LINES OF lt_errors TO rt_errors.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD extract_errors_from_object.
+    DATA lt_errors TYPE ty_errors.
+
     " Extract errors from TAB_TESTCLASSES within an object
     LOOP AT is_object-tab_testclasses ASSIGNING FIELD-SYMBOL(<ls_tcl>).
       " Extract errors from this testclass
-      DATA(lt_errors) = extract_errors_from_testclass(
+      lt_errors = extract_errors_from_testclass(
         is_testclass = <ls_tcl>
         iv_class_name = is_object-clsname ).
       APPEND LINES OF lt_errors TO rt_errors.
@@ -331,10 +343,12 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD extract_errors_from_testclass.
+    DATA ls_error TYPE ty_error.
+
     " Extract errors from TAB_METHODS within a testclass
     LOOP AT is_testclass-tab_methods ASSIGNING FIELD-SYMBOL(<ls_method>).
       " Extract error from this method
-      DATA(ls_error) = extract_error_from_method(
+      ls_error = extract_error_from_method(
         is_method = <ls_method>
         iv_method_name = <ls_method>-methodname ).
 
@@ -349,6 +363,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   METHOD extract_error_from_method.
     " Extract STR_ERROR from method and build error structure
     " typ_str_error contains typ_str_error_core via INCLUDE as STR_ERROR_CORE
+    DATA lv_messages TYPE string.
 
     " Check if there's an error - only process if error kind is set
     IF is_method-str_error IS INITIAL.
@@ -368,7 +383,6 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " If no error text, try tab_messages
     IF rs_error-error_text IS INITIAL.
-      DATA lv_messages TYPE string.
       LOOP AT is_method-str_error-str_error_core-tab_messages ASSIGNING FIELD-SYMBOL(<lv_msg>).
         IF lv_messages IS NOT INITIAL.
           lv_messages = |{ lv_messages }\n|.

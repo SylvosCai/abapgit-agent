@@ -17,9 +17,12 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
           lt_source TYPE TABLE OF string,
           lv_name TYPE tadir-obj_name,
           lv_intfname TYPE seoclsname.
+    DATA lv_name_len TYPE i.
+    DATA ls_section TYPE zcl_abgagt_command_view=>ty_section.
+    DATA lv_line TYPE string.
 
     lv_name = iv_name.
-    DATA(lv_name_len) = strlen( lv_name ).
+    lv_name_len = strlen( lv_name ).
 
     " Check if this is a source include (interface section)
     IF lv_name_len >= 32.
@@ -47,13 +50,13 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
 
         " Read source
         IF iv_full = abap_true.
-          DATA(ls_section) = VALUE zcl_abgagt_command_view=>ty_section(
-            suffix      = 'IU'
-            description = 'Interface Section'
-            lines       = lt_source ).
+          CLEAR ls_section.
+          ls_section-suffix      = 'IU'.
+          ls_section-description = 'Interface Section'.
+          ls_section-lines       = lt_source.
           APPEND ls_section TO rs_info-sections.
         ELSE.
-          LOOP AT lt_source INTO DATA(lv_line).
+          LOOP AT lt_source INTO lv_line.
             IF rs_info-source IS INITIAL.
               rs_info-source = lv_line.
             ELSE.
@@ -87,11 +90,11 @@ CLASS zcl_abgagt_viewer_intf IMPLEMENTATION.
     READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
       IF iv_full = abap_true.
-        DATA(ls_section_intf) = VALUE zcl_abgagt_command_view=>ty_section(
-          suffix      = 'IU'
-          description = 'Interface Section'
-          lines       = lt_source ).
-        APPEND ls_section_intf TO rs_info-sections.
+        CLEAR ls_section.
+        ls_section-suffix      = 'IU'.
+        ls_section-description = 'Interface Section'.
+        ls_section-lines       = lt_source.
+        APPEND ls_section TO rs_info-sections.
       ELSE.
         LOOP AT lt_source INTO lv_line.
           IF rs_info-source IS INITIAL.

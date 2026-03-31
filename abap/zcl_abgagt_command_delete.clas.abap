@@ -58,8 +58,11 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_delete_params,
-          li_repo TYPE REF TO zif_abapgit_repo.
+    DATA: ls_params    TYPE ty_delete_params,
+          li_repo      TYPE REF TO zif_abapgit_repo,
+          lv_key       TYPE string,
+          lx_not_found TYPE REF TO zcx_abapgit_exception,
+          lx_error     TYPE REF TO zcx_abapgit_exception.
 
     IF is_param IS SUPPLIED.
       MOVE-CORRESPONDING is_param TO ls_params.
@@ -74,7 +77,7 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
     " Find the repository
     TRY.
         li_repo = find_repo( ls_params ).
-      CATCH zcx_abapgit_exception INTO DATA(lx_not_found).
+      CATCH zcx_abapgit_exception INTO lx_not_found.
         rv_result = '{"success":"","error":"' && lx_not_found->get_text( ) && '"}'.
         RETURN.
     ENDTRY.
@@ -88,13 +91,13 @@ CLASS zcl_abgagt_command_delete IMPLEMENTATION.
     TRY.
         get_repo_srv( )->delete( ii_repo = li_repo ).
         COMMIT WORK AND WAIT.
-      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+      CATCH zcx_abapgit_exception INTO lx_error.
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
         RETURN.
     ENDTRY.
 
     " Success response
-    DATA(lv_key) = condense( val = CONV string( li_repo->get_key( ) ) ).
+    lv_key = condense( val = CONV string( li_repo->get_key( ) ) ).
     rv_result = |\{"success":"X","repo_key":"{ lv_key }","message":"Repository deleted successfully"\}|.
   ENDMETHOD.
 

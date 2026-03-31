@@ -67,7 +67,11 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params   TYPE ty_syntax_params,
           ls_response TYPE ty_response,
-          lv_uccheck  TYPE trdir-uccheck.
+          lv_uccheck  TYPE trdir-uccheck,
+          ls_object   TYPE ty_source_object,
+          ls_result   TYPE ty_result,
+          lv_total    TYPE i,
+          lv_failed   TYPE i.
 
     " Initialize response
     ls_response-command = gc_syntax.
@@ -96,8 +100,8 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     ENDIF.
 
     " Check each object
-    LOOP AT ls_params-objects INTO DATA(ls_object).
-      DATA(ls_result) = check_object(
+    LOOP AT ls_params-objects INTO ls_object.
+      ls_result = check_object(
         is_object  = ls_object
         iv_uccheck = lv_uccheck ).
 
@@ -110,8 +114,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     ENDLOOP.
 
     " Set overall message
-    DATA(lv_total) = lines( ls_response-results ).
-    DATA lv_failed TYPE i.
+    lv_total = lines( ls_response-results ).
     LOOP AT ls_response-results TRANSPORTING NO FIELDS WHERE success = abap_false.
       ADD 1 TO lv_failed.
     ENDLOOP.
@@ -127,7 +130,8 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
   METHOD parse_source.
 
-    DATA(lv_source) = iv_source.
+    DATA lv_source TYPE string.
+    lv_source = iv_source.
 
     " Replace CRLF with LF
     REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf
@@ -138,14 +142,20 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_object.
-    DATA: lt_source     TYPE string_table.
+    DATA: lt_source        TYPE string_table,
+          lv_type          TYPE string,
+          lv_name          TYPE string,
+          lo_checker       TYPE REF TO zif_abgagt_syntax_checker,
+          lo_class_checker TYPE REF TO zcl_abgagt_syntax_chk_clas,
+          lo_prog_checker  TYPE REF TO zcl_abgagt_syntax_chk_prog,
+          ls_err_unsup     TYPE ty_error.
 
     " Normalize type and name
-    DATA(lv_type) = to_upper( is_object-type ).
-    DATA(lv_name) = to_upper( is_object-name ).
+    lv_type = to_upper( is_object-type ).
+    lv_name = to_upper( is_object-name ).
 
     " Get checker for this object type
-    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
+    lo_checker = zcl_abgagt_syntax_chk_factory=>create( lv_type ).
 
     IF lo_checker IS NOT BOUND.
       " Unsupported object type
@@ -153,7 +163,6 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       rs_result-object_name = is_object-name.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      DATA ls_err_unsup TYPE ty_error.
       ls_err_unsup-line = 1.
       ls_err_unsup-text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG. Use 'pull' command for other object types.|.
       APPEND ls_err_unsup TO rs_result-errors.
@@ -168,7 +177,6 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
     CASE lv_type.
       WHEN 'CLAS'.
         " Set local classes if provided
-        DATA lo_class_checker TYPE REF TO zcl_abgagt_syntax_chk_clas.
         lo_class_checker ?= lo_checker.
 
         IF is_object-locals_def IS NOT INITIAL.
@@ -183,7 +191,6 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
       WHEN 'PROG'.
         " Set uccheck for programs
-        DATA lo_prog_checker TYPE REF TO zcl_abgagt_syntax_chk_prog.
         lo_prog_checker ?= lo_checker.
         lo_prog_checker->set_uccheck( iv_uccheck ).
     ENDCASE.

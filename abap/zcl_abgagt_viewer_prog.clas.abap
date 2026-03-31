@@ -13,6 +13,8 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
   METHOD zif_abgagt_viewer~get_info.
     DATA: lt_source TYPE TABLE OF string,
           lv_prog TYPE program.
+    DATA ls_section TYPE zcl_abgagt_command_view=>ty_section.
+    DATA lv_line TYPE string.
 
     lv_prog = iv_name.
     rs_info-name = iv_name.
@@ -24,13 +26,13 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
     READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
       IF iv_full = abap_true.
-        DATA(ls_section) = VALUE zcl_abgagt_command_view=>ty_section(
-          suffix      = 'PROG'
-          description = 'Program Source'
-          lines       = lt_source ).
+        CLEAR ls_section.
+        ls_section-suffix      = 'PROG'.
+        ls_section-description = 'Program Source'.
+        ls_section-lines       = lt_source.
         APPEND ls_section TO rs_info-sections.
       ELSE.
-        LOOP AT lt_source INTO DATA(lv_line).
+        LOOP AT lt_source INTO lv_line.
           IF rs_info-source IS INITIAL.
             rs_info-source = lv_line.
           ELSE.
