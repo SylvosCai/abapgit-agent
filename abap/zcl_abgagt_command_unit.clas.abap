@@ -285,9 +285,10 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_coverage.
-    " Get coverage statistics from AUnit runner using flat results
-    DATA: lv_cov_id   TYPE sut_au_results-cov_id,
-          lt_cov_flat TYPE cl_sut_aunit_runner=>typ_tab_cov_flat_result.
+    " Get coverage statistics from AUnit runner
+    DATA: lv_cov_id    TYPE sut_au_results-cov_id,
+          ls_cov_stats TYPE cl_sut_aunit_runner=>typ_str_coverage_stats,
+          lt_cov_flat  TYPE cl_sut_aunit_runner=>tt_cov_result_flat.
 
     lv_cov_id = io_runner->str_results-cov_id.
 
@@ -296,13 +297,21 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        lt_cov_flat = io_runner->get_coverage_result_flat(
+        ls_cov_stats = io_runner->get_coverage_result_stats(
           i_cov_id = lv_cov_id ).
-        IF lines( lt_cov_flat ) > 0.
-          rs_coverage_stats-total_lines = lines( lt_cov_flat ).
-        ENDIF.
+        rs_coverage_stats-total_lines    = ls_cov_stats-cov_lines_total.
+        rs_coverage_stats-covered_lines  = ls_cov_stats-cov_lines_covered.
+        rs_coverage_stats-coverage_rate  = ls_cov_stats-cov_lines_rate.
       CATCH cx_sut_error.
-        " No coverage data available
+        TRY.
+            lt_cov_flat = io_runner->get_coverage_result_flat(
+              i_cov_id = lv_cov_id ).
+            IF lines( lt_cov_flat ) > 0.
+              rs_coverage_stats-total_lines = lines( lt_cov_flat ).
+            ENDIF.
+          CATCH cx_sut_error.
+            " No coverage data available
+        ENDTRY.
     ENDTRY.
   ENDMETHOD.
 
