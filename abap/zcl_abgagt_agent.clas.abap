@@ -150,11 +150,23 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ELSE.
       mo_conflict_detector = zcl_abgagt_conflict_detector=>get_instance( ).
     ENDIF.
-    mo_rtti = COND #( WHEN io_rtti IS BOUND THEN io_rtti
-                      ELSE NEW lcl_rtti_provider( ) ).
+    IF io_rtti IS BOUND.
+      mo_rtti = io_rtti.
+    ELSE.
+      CREATE OBJECT mo_rtti TYPE lcl_rtti_provider.
+    ENDIF.
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~pull.
+    DATA lt_file_entries    TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA lv_conflict_count  TYPE i.
+    DATA lv_conflict_report TYPE string.
+    DATA ls_checks          TYPE zif_abapgit_definitions=>ty_deserialize_checks.
+    DATA lv_activation_cancelled TYPE abap_bool.
+    DATA lx_deser           TYPE REF TO zcx_abapgit_exception.
+    DATA lx_git             TYPE REF TO zcx_abapgit_exception.
+    DATA lx_error           TYPE REF TO cx_root.
+
     rs_result-job_id            = |{ sy-uname }{ sy-datum }{ sy-uzeit }|.
     rs_result-success           = abap_false.
     rs_result-transport_request = iv_transport_request.
@@ -182,10 +194,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         select_branch( iv_branch ).
         build_obj_filter( it_files ).
 
-        DATA lt_file_entries TYPE zif_abgagt_conflict_detector=>ty_file_entries.
-        DATA lv_conflict_count TYPE i.
-        DATA lv_conflict_report TYPE string.
-
         IF run_conflict_check(
                EXPORTING
                  it_files           = it_files
@@ -202,14 +210,14 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             RETURN.
           ENDIF.
 
-        DATA(ls_checks) = prepare_deserialize_checks(
+        ls_checks = prepare_deserialize_checks(
           it_files             = it_files
           iv_transport_request = iv_transport_request ).
 
-        DATA lv_activation_cancelled TYPE abap_bool VALUE abap_false.
+        lv_activation_cancelled = abap_false.
         TRY.
             run_deserialize( ls_checks ).
-          CATCH zcx_abapgit_exception INTO DATA(lx_deser).
+          CATCH zcx_abapgit_exception INTO lx_deser.
             " "Activation cancelled" means nothing needed to be re-activated.
             " Treat it as a non-error so XML sync can still check for file drift.
             IF lx_deser->get_text( ) CS 'Activation cancelled' OR
@@ -260,10 +268,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
               cs_result       = rs_result ).
         ENDIF.
 
-      CATCH zcx_abapgit_exception INTO DATA(lx_git).
+      CATCH zcx_abapgit_exception INTO lx_git.
         rs_result = handle_exception( ix_exception = lx_git ).
         GET TIME STAMP FIELD rs_result-finished_at.
-      CATCH cx_root INTO DATA(lx_error).
+      CATCH cx_root INTO lx_error.
         rs_result = handle_exception( ix_exception = lx_error ).
         GET TIME STAMP FIELD rs_result-finished_at.
     ENDTRY.
@@ -283,7 +291,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           RETURN.
       ENDTRY.
     ENDIF.
-    rv_status = COND #( WHEN li_repo IS BOUND THEN 'Found' ELSE 'Not found' ).
+    IF li_repo IS BOUND.
+      rv_status = 'Found'.
+    ELSE.
+      rv_status = 'Not found'.
+    ENDIF.
   ENDMETHOD.
 
   METHOD configure_credentials.
@@ -298,21 +310,25 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD prepare_deserialize_checks.
-
     " Build lookup table for DECISION loop from the files list
     DATA lt_valid_files TYPE HASHED TABLE OF zif_abapgit_definitions=>ty_item_signature
                             WITH UNIQUE KEY obj_type obj_name.
+    DATA lv_file     TYPE string.
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+    DATA ls_sig      TYPE zif_abapgit_definitions=>ty_item_signature.
+    DATA ls_overwrite LIKE LINE OF rs_checks-overwrite.
+    DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
 
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-      LOOP AT it_files INTO DATA(lv_file).
-        DATA lv_obj_type TYPE string.
-        DATA lv_obj_name TYPE string.
+      LOOP AT it_files INTO lv_file.
+        CLEAR: lv_obj_type, lv_obj_name.
         zcl_abgagt_util=>get_instance( )->parse_file_to_object(
           EXPORTING iv_file = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
         IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
-          DATA ls_sig TYPE zif_abapgit_definitions=>ty_item_signature.
+          CLEAR ls_sig.
           ls_sig-obj_type = lv_obj_type.
           ls_sig-obj_name = lv_obj_name.
           INSERT ls_sig INTO TABLE lt_valid_files.
@@ -352,33 +368,35 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDIF.
 
     " Set decision for each object in the overwrite table
-    LOOP AT rs_checks-overwrite INTO DATA(ls_overwrite).
+    LOOP AT rs_checks-overwrite INTO ls_overwrite.
       IF lt_valid_files IS NOT INITIAL.
         READ TABLE lt_valid_files WITH TABLE KEY obj_type = ls_overwrite-obj_type
                                                  obj_name = ls_overwrite-obj_name
                                          TRANSPORTING NO FIELDS.
-        ls_overwrite-decision = COND #( WHEN sy-subrc = 0
-                                        THEN zif_abapgit_definitions=>c_yes
-                                        ELSE zif_abapgit_definitions=>c_no ).
+        IF sy-subrc = 0.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
+        ELSE.
+          ls_overwrite-decision = zif_abapgit_definitions=>c_no.
+        ENDIF.
       ELSE.
         ls_overwrite-decision = zif_abapgit_definitions=>c_yes.
       ENDIF.
       MODIFY rs_checks-overwrite FROM ls_overwrite.
     ENDLOOP.
 
-    DATA: lo_settings TYPE REF TO zcl_abapgit_settings.
     lo_settings = zcl_abapgit_persist_factory=>get_settings( )->read( ).
     lo_settings->set_activate_wo_popup( abap_true ).
   ENDMETHOD.
 
   METHOD check_log_for_errors.
     DATA: lo_log TYPE REF TO zif_abapgit_log.
+    DATA lv_status TYPE string.
 
     rv_has_error = abap_false.
 
     lo_log = mo_repo->get_log( ).
     IF lo_log IS BOUND.
-      DATA(lv_status) = lo_log->get_status( ).
+      lv_status = lo_log->get_status( ).
       IF lv_status = zif_abapgit_log=>c_status-error.
         rv_has_error = abap_true.
       ENDIF.
@@ -564,19 +582,28 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   " gitv2 two-phase fetch to be used during the conflict-detection fetch.
   " ---------------------------------------------------------------------------
   METHOD build_obj_filter.
+    DATA lt_tadir    TYPE zif_abapgit_definitions=>ty_tadir_tt.
+    DATA lt_paths    TYPE string_table.
+    DATA lv_file     TYPE string.
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+    DATA ls_tadir    LIKE LINE OF lt_tadir.
+    DATA lv_slash_pos TYPE i.
+    DATA lv_path      TYPE string.
+    DATA lv_len       TYPE i.
+    DATA lt_param    TYPE abap_parmbind_tab.
+    DATA ls_param    LIKE LINE OF lt_param.
+
     CLEAR mo_obj_filter.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-      DATA lt_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt.
-      DATA lt_paths TYPE string_table.
-      LOOP AT it_files INTO DATA(lv_file).
-        DATA lv_obj_type TYPE string.
-        DATA lv_obj_name TYPE string.
+      LOOP AT it_files INTO lv_file.
+        CLEAR: lv_obj_type, lv_obj_name.
         zcl_abgagt_util=>get_instance( )->parse_file_to_object(
           EXPORTING iv_file     = lv_file
           IMPORTING ev_obj_type = lv_obj_type
                     ev_obj_name = lv_obj_name ).
         IF lv_obj_type IS NOT INITIAL AND lv_obj_name IS NOT INITIAL.
-          DATA ls_tadir LIKE LINE OF lt_tadir.
+          CLEAR ls_tadir.
           ls_tadir-pgmid    = 'R3TR'.
           ls_tadir-object   = lv_obj_type.
           ls_tadir-obj_name = lv_obj_name.
@@ -585,9 +612,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
         " Extract directory path for gitv2 tree pruning
         " e.g. 'src/git/foo.clas.abap' -> '/src/git/'
-        DATA lv_slash_pos TYPE i.
-        DATA lv_path      TYPE string.
-        DATA lv_len       TYPE i.
         lv_slash_pos = find( val = lv_file sub = '/' occ = -1 ).
         IF lv_slash_pos > 0.
           lv_len  = lv_slash_pos + 1.
@@ -602,12 +626,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDLOOP.
       IF lt_tadir IS NOT INITIAL.
         IF paths_param_available( ) = abap_true.
-          DATA lt_param TYPE abap_parmbind_tab.
-          DATA ls_param LIKE LINE OF lt_param.
+          CLEAR lt_param.
+          CLEAR ls_param.
           ls_param-name  = 'IT_FILTER'.
           ls_param-kind  = cl_abap_objectdescr=>exporting.
           GET REFERENCE OF lt_tadir INTO ls_param-value.
           INSERT ls_param INTO TABLE lt_param.
+          CLEAR ls_param.
           ls_param-name  = 'IT_PATHS'.
           GET REFERENCE OF lt_paths INTO ls_param-value.
           INSERT ls_param INTO TABLE lt_param.
@@ -629,12 +654,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   METHOD resolve_repo.
     " Look up the repository by URL and assign it to mo_repo.
     " Returns abap_true if found, abap_false if not registered.
+    DATA li_repo TYPE REF TO zif_abapgit_repo.
+
     rv_found = abap_false.
     IF mo_repo IS BOUND.
       rv_found = abap_true.
       RETURN.
     ENDIF.
-    DATA li_repo TYPE REF TO zif_abapgit_repo.
     zcl_abapgit_repo_srv=>get_instance( )->get_repo_from_url(
       EXPORTING iv_url = iv_url
       IMPORTING ei_repo = li_repo ).
@@ -647,11 +673,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   METHOD select_branch.
     " Switch the repository to the requested branch (empty = keep current).
     " abapGit expects full git ref format: refs/heads/<name> or refs/tags/<name>.
+    DATA lv_git_ref       TYPE string.
+    DATA li_repo_online   TYPE REF TO zif_abapgit_repo_online.
+
     IF iv_branch IS INITIAL.
       RETURN.
     ENDIF.
 
-    DATA lv_git_ref TYPE string.
     IF iv_branch CS 'refs/'.
       lv_git_ref = iv_branch.
     ELSEIF iv_branch(1) = 'v' AND iv_branch CN ' '.
@@ -661,7 +689,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        DATA li_repo_online TYPE REF TO zif_abapgit_repo_online.
         li_repo_online ?= mo_repo.
         li_repo_online->select_branch( lv_git_ref ).
       CATCH cx_sy_move_cast_error.
@@ -672,6 +699,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   METHOD run_conflict_check.
     " Run conflict detection and return results.
     " rv_aborted = abap_true  → caller must abort the pull.
+    DATA lt_conflicts TYPE zif_abgagt_conflict_detector=>ty_conflicts.
+
     rv_aborted        = abap_false.
     ev_conflict_count = 0.
 
@@ -681,7 +710,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lt_conflicts) = mo_conflict_detector->check_conflicts(
+    lt_conflicts = mo_conflict_detector->check_conflicts(
       it_files  = et_file_entries
       iv_branch = iv_branch ).
 
@@ -711,7 +740,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
   METHOD build_pull_result.
     " Populate cs_result after a successful deserialization.
-    DATA(ls_objects) = get_object_lists( ).
+    DATA ls_objects TYPE zif_abgagt_agent=>ty_result.
+
+    ls_objects = get_object_lists( ).
 
     cs_result-activated_objects = ls_objects-activated_objects.
     cs_result-failed_objects    = ls_objects-failed_objects.
@@ -740,6 +771,39 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_file_entries_from_remote.
+    DATA lx_remote      TYPE REF TO zcx_abapgit_exception.
+    DATA lx_remote_root TYPE REF TO cx_root.
+    DATA lt_filter      TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
+    DATA lv_req_file    TYPE string.
+    DATA lv_fn          TYPE string.
+    DATA lv_pos         TYPE i.
+    DATA lv_offs        TYPE i.
+    DATA ls_remote_file LIKE LINE OF mt_remote_files.
+    DATA lv_filename    TYPE string.
+    DATA lv_ext         TYPE string.
+    DATA lv_ext_len     TYPE i.
+    DATA lv_last_dot    TYPE i.
+    DATA lv_suffix_off  TYPE i.
+    DATA lv_true_ext    TYPE string.
+    DATA lv_upper_fn    TYPE string.
+    DATA lv_obj_type    TYPE string.
+    DATA lv_obj_name    TYPE string.
+    DATA lv_content     TYPE string.
+    DATA ls_entry       TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+    DATA lt_local       TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    DATA lv_local_read_ok TYPE abap_bool.
+    DATA lt_local_idx   TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
+                        WITH UNIQUE KEY obj_type obj_name.
+    DATA ls_local_item  LIKE LINE OF lt_local.
+    DATA lv_local_fn    TYPE string.
+    DATA lv_local_len   TYPE i.
+    DATA lv_local_dot   TYPE i.
+    DATA lv_local_off   TYPE i.
+    DATA lv_local_ext   TYPE string.
+    DATA lv_local_content TYPE string.
+    DATA ls_local_idx   TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+    DATA ls_idx         TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+
     CLEAR mt_remote_files.
 
     TRY.
@@ -750,24 +814,23 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         ELSE.
           mt_remote_files = mo_repo->get_files_remote( ).
         ENDIF.
-      CATCH zcx_abapgit_exception INTO DATA(lx_remote).
+      CATCH zcx_abapgit_exception INTO lx_remote.
         " Cannot read remote files — skip conflict check (e.g. auth error pre-pull)
         mv_remote_fetch_error = lx_remote->get_text( ).
         RETURN.
-      CATCH cx_root INTO DATA(lx_remote_root).
+      CATCH cx_root INTO lx_remote_root.
         mv_remote_fetch_error = lx_remote_root->get_text( ).
         RETURN.
     ENDTRY.
 
     " Build lookup of requested files (filename only, uppercased)
-    DATA lt_filter TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
-      LOOP AT it_files INTO DATA(lv_req_file).
-        DATA lv_fn TYPE string.
+      LOOP AT it_files INTO lv_req_file.
+        CLEAR lv_fn.
         " Extract just the filename (strip path)
-        DATA(lv_pos) = find( val = reverse( lv_req_file ) sub = '/' ).
+        lv_pos = find( val = reverse( lv_req_file ) sub = '/' ).
         IF lv_pos > 0.
-          DATA(lv_offs) = strlen( lv_req_file ) - lv_pos.
+          lv_offs = strlen( lv_req_file ) - lv_pos.
           lv_fn = lv_req_file+lv_offs.
         ELSE.
           lv_fn = lv_req_file.
@@ -777,20 +840,19 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    LOOP AT mt_remote_files INTO DATA(ls_remote_file).
-      DATA(lv_filename) = ls_remote_file-filename.
+    LOOP AT mt_remote_files INTO ls_remote_file.
+      lv_filename = ls_remote_file-filename.
 
       " Only process ABAP source files — check true suffix (last segment after '.')
       " Use CS check for speed, then verify no false positive from .abapgit.xml-type names
-      DATA(lv_ext) = to_upper( lv_filename ).
-      DATA(lv_ext_len) = strlen( lv_ext ).
-      DATA(lv_last_dot) = find( val = reverse( lv_ext ) sub = '.' ).
+      lv_ext = to_upper( lv_filename ).
+      lv_ext_len = strlen( lv_ext ).
+      lv_last_dot = find( val = reverse( lv_ext ) sub = '.' ).
       IF lv_last_dot <= 0.
         CONTINUE.
       ENDIF.
-      DATA lv_suffix_off TYPE i.
       lv_suffix_off = lv_ext_len - lv_last_dot - 1.
-      DATA(lv_true_ext) = lv_ext+lv_suffix_off.
+      lv_true_ext = lv_ext+lv_suffix_off.
       IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS'.
         CONTINUE.
       ENDIF.
@@ -802,7 +864,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
       " Filter to requested files if specified
       IF lines( lt_filter ) > 0.
-        DATA(lv_upper_fn) = to_upper( lv_filename ).
+        lv_upper_fn = to_upper( lv_filename ).
         READ TABLE lt_filter WITH TABLE KEY table_line = lv_upper_fn TRANSPORTING NO FIELDS.
         IF sy-subrc <> 0.
           CONTINUE.
@@ -810,8 +872,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
 
       " Parse filename → obj_type + obj_name
-      DATA lv_obj_type TYPE string.
-      DATA lv_obj_name TYPE string.
+      CLEAR: lv_obj_type, lv_obj_name.
       zcl_abgagt_util=>get_instance( )->parse_file_to_object(
         EXPORTING iv_file = lv_filename
         IMPORTING ev_obj_type = lv_obj_type
@@ -822,7 +883,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
 
       " Convert xstring content to string (UTF-8)
-      DATA lv_content TYPE string.
+      CLEAR lv_content.
       TRY.
           lv_content = cl_abap_codepage=>convert_from(
             source   = ls_remote_file-data
@@ -831,7 +892,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           CONTINUE.
       ENDTRY.
 
-      DATA ls_entry TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+      CLEAR ls_entry.
       ls_entry-obj_type = lv_obj_type.
       ls_entry-obj_name = lv_obj_name.
       ls_entry-content  = lv_content.
@@ -842,8 +903,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " A failure here must NOT wipe rt_entries — remote file data is already
     " collected and store_pull_metadata depends on it being returned.
     " On failure we simply skip populating local_content (no LOCAL_EDIT detection).
-    DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
-    DATA lv_local_read_ok TYPE abap_bool VALUE abap_true.
+    lv_local_read_ok = abap_true.
     TRY.
         IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
           lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
@@ -860,19 +920,16 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     CHECK lv_local_read_ok = abap_true.
 
     " Build lookup: obj_type + obj_name → local file content (main source only)
-    DATA lt_local_idx TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
-                      WITH UNIQUE KEY obj_type obj_name.
 
-    LOOP AT lt_local INTO DATA(ls_local_item).
-      DATA(lv_local_fn) = to_upper( ls_local_item-file-filename ).
-      DATA(lv_local_len) = strlen( lv_local_fn ).
-      DATA(lv_local_dot) = find( val = reverse( lv_local_fn ) sub = '.' ).
+    LOOP AT lt_local INTO ls_local_item.
+      lv_local_fn = to_upper( ls_local_item-file-filename ).
+      lv_local_len = strlen( lv_local_fn ).
+      lv_local_dot = find( val = reverse( lv_local_fn ) sub = '.' ).
       IF lv_local_dot <= 0.
         CONTINUE.
       ENDIF.
-      DATA lv_local_off TYPE i.
       lv_local_off = lv_local_len - lv_local_dot - 1.
-      DATA(lv_local_ext) = lv_local_fn+lv_local_off.
+      lv_local_ext = lv_local_fn+lv_local_off.
       IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS'.
         CONTINUE.
       ENDIF.
@@ -880,7 +937,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      DATA lv_local_content TYPE string.
+      CLEAR lv_local_content.
       TRY.
           lv_local_content = cl_abap_codepage=>convert_from(
             source   = ls_local_item-file-data
@@ -889,7 +946,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           CONTINUE.
       ENDTRY.
 
-      DATA ls_local_idx TYPE zif_abgagt_conflict_detector=>ty_file_entry.
+      CLEAR ls_local_idx.
       ls_local_idx-obj_type      = ls_local_item-item-obj_type.
       ls_local_idx-obj_name      = ls_local_item-item-obj_name.
       ls_local_idx-local_content = lv_local_content.
@@ -901,7 +958,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       READ TABLE lt_local_idx WITH TABLE KEY
         obj_type = <ls_entry>-obj_type
         obj_name = <ls_entry>-obj_name
-      INTO DATA(ls_idx).
+      INTO ls_idx.
       IF sy-subrc = 0.
         <ls_entry>-local_content = ls_idx-local_content.
       ENDIF.
@@ -919,7 +976,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " Step 1: Build hashed lookup of pre-pull remote XML files.
     DATA lt_remote_idx TYPE HASHED TABLE OF zif_abapgit_git_definitions=>ty_file
       WITH UNIQUE KEY path filename.
-    LOOP AT mt_remote_files INTO DATA(ls_remote).
+    DATA ls_remote     LIKE LINE OF mt_remote_files.
+    DATA lt_local      TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    DATA ls_item       LIKE LINE OF lt_local.
+    DATA ls_remote_file TYPE zif_abapgit_git_definitions=>ty_file.
+    DATA ls_xml        TYPE zif_abgagt_agent=>ty_xml_file.
+
+    LOOP AT mt_remote_files INTO ls_remote.
       IF to_upper( ls_remote-filename ) NS '.XML'.
         CONTINUE.
       ENDIF.
@@ -931,7 +994,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDIF.
 
     " Step 2: Fetch post-pull serializer output — filtered to pulled objects only.
-    DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
     TRY.
         IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
           lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
@@ -943,7 +1005,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDTRY.
 
     " Step 3: Compare — emit only files where bytes differ.
-    LOOP AT lt_local INTO DATA(ls_item).
+    LOOP AT lt_local INTO ls_item.
       IF to_upper( ls_item-file-filename ) NS '.XML'.
         CONTINUE.
       ENDIF.
@@ -951,13 +1013,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       READ TABLE lt_remote_idx WITH TABLE KEY
         path     = ls_item-file-path
         filename = ls_item-file-filename
-      INTO DATA(ls_remote_file).
+      INTO ls_remote_file.
       IF sy-subrc = 0 AND ls_item-file-data = ls_remote_file-data.
         " Bytes identical and file exists in git — nothing to sync.
         CONTINUE.
       ENDIF.
 
-      DATA ls_xml TYPE zif_abgagt_agent=>ty_xml_file.
+      CLEAR ls_xml.
       ls_xml-filename = ls_item-file-filename.
       ls_xml-path     = ls_item-file-path.
       ls_xml-data     = cl_http_utility=>encode_x_base64( unencoded = ls_item-file-data ).
