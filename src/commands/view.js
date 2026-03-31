@@ -152,10 +152,12 @@ async function computeGlobalStarts(objName, sections, config) {
 function findFirstExecutableLine(lines) {
   const declPattern = /^\s*(data|final|types|constants|class-data)[\s:]/i;
   const methodPattern = /^\s*method\s+/i;
+  const commentPattern = /^\s*[*"]/;
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (!trimmed) continue;             // blank line
     if (methodPattern.test(trimmed)) continue; // METHOD statement itself
+    if (commentPattern.test(trimmed)) continue; // comment line
     if (declPattern.test(trimmed)) continue;   // declaration
     return i;
   }

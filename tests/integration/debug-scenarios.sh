@@ -2,7 +2,7 @@
 # Integration tests for the debug command — three scenarios covering both
 # interactive REPL mode and scripted AI (--json / daemon) mode.
 #
-# Trigger: "inspect --files abap/zcl_abgagt_util.clas.abap" hits ZCL_ABGAGT_UTIL:25
+# Trigger: "inspect --files abap/zcl_abgagt_util.clas.abap" hits ZCL_ABGAGT_UTIL:33
 # Blocked:  a second "inspect" queues for a dialog work process while the first is paused
 #
 # Scenario 1 (REPL — simple):
@@ -81,13 +81,13 @@ ensure_breakpoint() {
   # Use 15s when running after a large test suite (e.g. npm run test:all) to allow
   # the system and ICM connection pool to fully drain any residual debug connections.
   sleep 15
-  log "Setting breakpoint ZCL_ABGAGT_UTIL:25 ..."
+  log "Setting breakpoint ZCL_ABGAGT_UTIL:33 ..."
   $AGENT debug delete --all >/dev/null 2>&1 || true
   # Retry debug set: under load the ADT POST may transiently fail (ICM 400).
   # Without a successful set the attach command exits immediately with
   # "No breakpoints set", leaving the scenario with no session JSON.
   for _i in 1 2 3 4 5; do
-    $AGENT debug set --object ZCL_ABGAGT_UTIL --line 25 >/dev/null 2>&1 && break
+    $AGENT debug set --object ZCL_ABGAGT_UTIL --line 33 >/dev/null 2>&1 && break
     log "debug set attempt $_i failed — retrying in 5s..."
     sleep 5
   done
@@ -176,7 +176,7 @@ scenario1() {
 
   local T_QUIT; T_QUIT=$(date +%s)
   # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
-  # ZCL_ABGAGT_UTIL:25 when the blocked inspect runs after being unblocked.
+  # ZCL_ABGAGT_UTIL:33 when the blocked inspect runs after being unblocked.
   # Without this, the blocked inspect triggers a second breakpoint hit with no
   # listener ready to release it, leaving the WP frozen in SM50.
   $AGENT debug delete --all >/dev/null 2>&1 || true
@@ -278,7 +278,7 @@ scenario2() {
 
   local T_QUIT; T_QUIT=$(date +%s)
   # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
-  # ZCL_ABGAGT_UTIL:25 when the blocked inspect runs after being unblocked.
+  # ZCL_ABGAGT_UTIL:33 when the blocked inspect runs after being unblocked.
   # Without this, the blocked inspect triggers a second breakpoint hit with no
   # listener ready to release it, leaving the WP frozen in SM50.
   $AGENT debug delete --all >/dev/null 2>&1 || true
@@ -314,7 +314,7 @@ scenario2() {
   fi
 
   # Session 2 may have caught a second breakpoint hit from the blocked inspect
-  # completing and re-running ZCL_ABGAGT_UTIL:25.  Terminate any active session
+  # completing and re-running ZCL_ABGAGT_UTIL:33.  Terminate any active session
   # it holds before hard-killing the process so the WP is released cleanly.
   $AGENT debug terminate >/dev/null 2>&1 || true
   kill "$ATTACH2_PID" 2>/dev/null || true
