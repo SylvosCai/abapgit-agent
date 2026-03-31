@@ -290,6 +290,15 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     " List mode: query SNAP_ADT summary table
     DATA lt_adt TYPE ty_snap_rows.
 
+    " Copy filter fields to scalar variables for SQL WHERE (7.40: struct fields
+    " cannot be used with IS INITIAL in WHERE; scalars work correctly)
+    DATA lv_filter_user    TYPE syuname.
+    DATA lv_filter_program TYPE syrepid.
+    DATA lv_filter_error   TYPE s380errid.
+    lv_filter_user    = ls_params-user.
+    lv_filter_program = ls_params-program.
+    lv_filter_error   = ls_params-error.
+
     IF ls_params-ts_from IS NOT INITIAL.
       " Timezone-aware mode: filter by UTC TIMESTAMP field
       DATA lv_ts_from TYPE timestamp.
@@ -297,49 +306,202 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
       lv_ts_from = ls_params-ts_from.
       lv_ts_to   = ls_params-ts_to.
 
-      SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
-             runtime_error, mainprog, object_name, exc, devclass
-        FROM snap_adt
-        WHERE mandt     = @sy-mandt
-          AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
-        ORDER BY timestamp DESCENDING
-        INTO TABLE @lt_adt
-        UP TO @lv_limit ROWS.
-      IF ls_params-user IS NOT INITIAL.
-        DELETE lt_adt WHERE uname <> ls_params-user.
-      ENDIF.
-      IF ls_params-program IS NOT INITIAL.
-        DELETE lt_adt WHERE mainprog <> ls_params-program.
-      ENDIF.
-      IF ls_params-error IS NOT INITIAL.
-        DELETE lt_adt WHERE runtime_error <> ls_params-error.
+      IF lv_filter_user IS NOT INITIAL
+          AND lv_filter_program IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND timestamp     BETWEEN @lv_ts_from AND @lv_ts_to
+            AND uname         = @lv_filter_user
+            AND mainprog      = @lv_filter_program
+            AND runtime_error = @lv_filter_error
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL
+          AND lv_filter_program IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt     = @sy-mandt
+            AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
+            AND uname     = @lv_filter_user
+            AND mainprog  = @lv_filter_program
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND timestamp     BETWEEN @lv_ts_from AND @lv_ts_to
+            AND uname         = @lv_filter_user
+            AND runtime_error = @lv_filter_error
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_program IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND timestamp     BETWEEN @lv_ts_from AND @lv_ts_to
+            AND mainprog      = @lv_filter_program
+            AND runtime_error = @lv_filter_error
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt     = @sy-mandt
+            AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
+            AND uname     = @lv_filter_user
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_program IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt     = @sy-mandt
+            AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
+            AND mainprog  = @lv_filter_program
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND timestamp     BETWEEN @lv_ts_from AND @lv_ts_to
+            AND runtime_error = @lv_filter_error
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSE.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt     = @sy-mandt
+            AND timestamp BETWEEN @lv_ts_from AND @lv_ts_to
+          ORDER BY timestamp DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
       ENDIF.
     ELSE.
       " Server-local-time mode: filter by DATUM / UZEIT
-      IF ls_params-date_from IS INITIAL.
-        ls_params-date_from = sy-datum - 7.
+      DATA lv_date_from TYPE sydatum.
+      DATA lv_date_to   TYPE sydatum.
+      lv_date_from = ls_params-date_from.
+      lv_date_to   = ls_params-date_to.
+      IF lv_date_from IS INITIAL.
+        lv_date_from = sy-datum - 7.
       ENDIF.
-      IF ls_params-date_to IS INITIAL.
-        ls_params-date_to = sy-datum.
+      IF lv_date_to IS INITIAL.
+        lv_date_to = sy-datum.
       ENDIF.
 
-      SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
-             runtime_error, mainprog, object_name, exc, devclass
-        FROM snap_adt
-        WHERE mandt = @sy-mandt
-          AND datum BETWEEN @ls_params-date_from AND @ls_params-date_to
-        ORDER BY datum DESCENDING, uzeit DESCENDING
-        INTO TABLE @lt_adt
-        UP TO @lv_limit ROWS.
-      IF ls_params-user IS NOT INITIAL.
-        DELETE lt_adt WHERE uname <> ls_params-user.
+      " Build WHERE dynamically based on which filters are active
+      IF lv_filter_user IS NOT INITIAL
+          AND lv_filter_program IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND datum         BETWEEN @lv_date_from AND @lv_date_to
+            AND uname         = @lv_filter_user
+            AND mainprog      = @lv_filter_program
+            AND runtime_error = @lv_filter_error
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL
+          AND lv_filter_program IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt    = @sy-mandt
+            AND datum    BETWEEN @lv_date_from AND @lv_date_to
+            AND uname    = @lv_filter_user
+            AND mainprog = @lv_filter_program
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND datum         BETWEEN @lv_date_from AND @lv_date_to
+            AND uname         = @lv_filter_user
+            AND runtime_error = @lv_filter_error
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_program IS NOT INITIAL
+          AND lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND datum         BETWEEN @lv_date_from AND @lv_date_to
+            AND mainprog      = @lv_filter_program
+            AND runtime_error = @lv_filter_error
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_user IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt = @sy-mandt
+            AND datum BETWEEN @lv_date_from AND @lv_date_to
+            AND uname = @lv_filter_user
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_program IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt    = @sy-mandt
+            AND datum    BETWEEN @lv_date_from AND @lv_date_to
+            AND mainprog = @lv_filter_program
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSEIF lv_filter_error IS NOT INITIAL.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt         = @sy-mandt
+            AND datum         BETWEEN @lv_date_from AND @lv_date_to
+            AND runtime_error = @lv_filter_error
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
+      ELSE.
+        SELECT datum, uzeit, ahost, uname, mandt, modno, timestamp,
+               runtime_error, mainprog, object_name, exc, devclass
+          FROM snap_adt
+          WHERE mandt = @sy-mandt
+            AND datum BETWEEN @lv_date_from AND @lv_date_to
+          ORDER BY datum DESCENDING, uzeit DESCENDING
+          INTO TABLE @lt_adt
+          UP TO @lv_limit ROWS.
       ENDIF.
-      IF ls_params-program IS NOT INITIAL.
-        DELETE lt_adt WHERE mainprog <> ls_params-program.
-      ENDIF.
-      IF ls_params-error IS NOT INITIAL.
-        DELETE lt_adt WHERE runtime_error <> ls_params-error.
-      ENDIF.
+
+      " Apply time-of-day filter (no SQL equivalent for partial range)
       IF ls_params-time_from IS NOT INITIAL.
         DELETE lt_adt WHERE uzeit < ls_params-time_from.
       ENDIF.

@@ -285,7 +285,6 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           lv_first_field TYPE string,
           ls_comp TYPE abap_componentdescr,
           lt_cols TYPE string_table,
-          lv_cursor TYPE cursor,
           lv_cursor TYPE cursor.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
