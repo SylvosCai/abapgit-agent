@@ -66,29 +66,44 @@ module.exports = {
     const allFiles = [...new Set([...abapFiles, ...depFiles])];
     cfg.global.files = allFiles.map(f => `/${f}`);
 
-    // Exclude dependency files from reporting — they are included only for
-    // cross-reference resolution. Only the originally changed files are reported on.
-    const abapFilesSet = new Set(abapFiles);
-    const excludedDeps = depFiles
-      .filter(f => !abapFilesSet.has(f))
-      .map(f => `/${f}`);
-    if (excludedDeps.length > 0) {
-      cfg.global.exclude = [...new Set([...(cfg.global.exclude || []), ...excludedDeps])];
-    }
-
     const scopedConfig = '.abaplint-local.json';
     fs.writeFileSync(scopedConfig, JSON.stringify(cfg, null, 2));
 
     // ── Run abaplint ──────────────────────────────────────────────────────────
+    // Dep files are included in the scoped config so abaplint can resolve
+    // cross-references (e.g. implement_methods needs the interface source).
+    // When producing checkstyle output (CI mode), post-filter the XML to only
+    // keep <file> blocks for the originally changed files — suppressing any
+    // pre-existing issues in dependency files that were not part of this change.
     try {
-      const formatArgs = outformat ? `--outformat ${outformat}` : '';
-      const fileArgs   = outfile   ? `--outfile ${outfile}`     : '';
-      const result = spawnSync(
-        `npx @abaplint/cli@latest ${scopedConfig} ${formatArgs} ${fileArgs}`,
-        { stdio: 'inherit', shell: true }
-      );
-      if (result.status !== 0) {
-        process.exitCode = result.status;
+      if (outformat === 'checkstyle') {
+        // Run to a temp file, filter, then write to the final destination.
+        const tempOut = '.abaplint-raw.xml';
+        const abapFilesSet = new Set(abapFiles.map(f => path.resolve(f)));
+        try {
+          const result = spawnSync(
+            `npx @abaplint/cli@latest ${scopedConfig} --outformat checkstyle --outfile ${tempOut}`,
+            { stdio: 'pipe', shell: true }
+          );
+          const raw = fs.existsSync(tempOut) ? fs.readFileSync(tempOut, 'utf8') : '<checkstyle version="8.0"/>';
+          const filtered = filterCheckstyleToFiles(raw, abapFilesSet);
+          if (outfile) {
+            fs.writeFileSync(outfile, filtered);
+          } else {
+            process.stdout.write(filtered);
+          }
+          const issueCount = (filtered.match(/<error /g) || []).length;
+          if (issueCount > 0) process.exitCode = 1;
+        } finally {
+          if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut);
+        }
+      } else {
+        // Interactive: inherit stdio so abaplint's human-readable output flows through.
+        const result = spawnSync(
+          `npx @abaplint/cli@latest ${scopedConfig}`,
+          { stdio: 'inherit', shell: true }
+        );
+        if (result.status !== 0) process.exitCode = result.status;
       }
     } finally {
       fs.unlinkSync(scopedConfig);
@@ -178,7 +193,7 @@ function resolveDependencies(abapFiles, fileIndex) {
 
   // Patterns to extract referenced object names from ABAP source
   const patterns = [
-    /^\s*INTERFACES\s+(\w+)\s*\./gim,
+    /^\s*INTERFACES:?\s+(\w+)\s*\./gim,
     /INHERITING\s+FROM\s+(\w+)/gim,
     /TYPE\s+REF\s+TO\s+(\w+)/gim,
   ];
@@ -236,6 +251,30 @@ function resolveDependencies(abapFiles, fileIndex) {
   }
 
   return [...deps];
+}
+
+/**
+ * Filter a checkstyle XML string to only include <file> blocks whose name
+ * attribute resolves to one of the files in the given Set of absolute paths.
+ * The outer <checkstyle> wrapper is preserved; the version attribute is kept.
+ */
+function filterCheckstyleToFiles(xml, abapFilesSet) {
+  // Extract the opening <checkstyle ...> tag (preserves version= attribute).
+  const headerMatch = xml.match(/^[\s\S]*?(<checkstyle[^>]*>)/);
+  const header = headerMatch ? headerMatch[1] : '<checkstyle version="8.0">';
+
+  // Match each <file name="...">...</file> block (including self-closing).
+  const fileBlockRe = /<file\s+name="([^"]*)"[\s\S]*?<\/file>|<file\s+name="([^"]*)"\s*\/>/g;
+  const kept = [];
+  let match;
+  while ((match = fileBlockRe.exec(xml)) !== null) {
+    const filePath = match[1] || match[2];
+    if (abapFilesSet.has(path.resolve(filePath))) {
+      kept.push(match[0]);
+    }
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${header}\n${kept.join('\n')}${kept.length ? '\n' : ''}</checkstyle>\n`;
 }
 
 /**

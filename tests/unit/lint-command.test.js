@@ -360,11 +360,21 @@ describe('lint command — output format flags', () => {
   test('passes --outfile to abaplint command', () => {
     setupConfigExists();
     mockSpawnSync.mockReturnValue({ status: 0 });
+    // Checkstyle path: abaplint runs to a temp file; our code then filters and writes --outfile.
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json') return '{"global":{"files":"/src/**/*.abap"},"rules":{}}';
+      if (p === '.abaplint-raw.xml') return '<checkstyle version="8.0"></checkstyle>';
+      return '';
+    });
 
     lint.execute(['--files', 'src/zcl_foo.clas.abap', '--outformat', 'checkstyle', '--outfile', 'reports/results.xml']);
 
     const cmd = mockSpawnSync.mock.calls[0][0];
-    expect(cmd).toContain('--outfile reports/results.xml');
+    // abaplint is invoked with the temp file, not the user's --outfile
+    expect(cmd).toContain('--outfile .abaplint-raw.xml');
+    // our code writes the filtered result to the user's outfile
+    const writeCall = mockFsWriteFileSync.mock.calls.find(c => c[0] === 'reports/results.xml');
+    expect(writeCall).toBeDefined();
   });
 
   test('does not include format flags when not specified', () => {
@@ -783,7 +793,7 @@ describe('lint command — dependency resolution', () => {
     expect(writtenConfig.global.files).toContain('/src/shared/cl_base.clas.abap');
   });
 
-  test('excludes dependency files from reporting but keeps them in global.files', () => {
+  test('includes dependency files in global.files for cross-reference resolution', () => {
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
     const intfSource = 'INTERFACE zif_bar PUBLIC. ENDINTERFACE.';
     const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'];
@@ -801,12 +811,12 @@ describe('lint command — dependency resolution', () => {
     // changed file is in global.files and NOT excluded
     expect(writtenConfig.global.files).toContain('/abap/zcl_foo.clas.abap');
     expect(writtenConfig.global.exclude || []).not.toContain('/abap/zcl_foo.clas.abap');
-    // dep is in global.files for resolution but excluded from reporting
+    // dep is in global.files for cross-reference resolution and NOT excluded
     expect(writtenConfig.global.files).toContain('/abap/zif_bar.intf.abap');
-    expect(writtenConfig.global.exclude).toContain('/abap/zif_bar.intf.abap');
+    expect(writtenConfig.global.exclude || []).not.toContain('/abap/zif_bar.intf.abap');
   });
 
-  test('preserves existing global.exclude entries when adding dep exclusions', () => {
+  test('preserves existing global.exclude entries without adding dep files', () => {
     const configWithExclude = { global: { files: '/abap/**/*.abap', exclude: ['/abap/generated/**'] }, rules: {} };
     const source = 'CLASS zcl_foo DEFINITION.\n  INTERFACES zif_bar.\nENDCLASS.';
     const knownFiles = ['.abaplint.json', 'abap/zcl_foo.clas.abap', 'abap/zif_bar.intf.abap'];
@@ -821,7 +831,9 @@ describe('lint command — dependency resolution', () => {
     lint.execute(['--files', 'abap/zcl_foo.clas.abap']);
 
     const writtenConfig = JSON.parse(mockFsWriteFileSync.mock.calls[0][1]);
+    // existing exclude entry is preserved
     expect(writtenConfig.global.exclude).toContain('/abap/generated/**');
-    expect(writtenConfig.global.exclude).toContain('/abap/zif_bar.intf.abap');
+    // dep file is NOT added to exclude (must be parseable for cross-reference)
+    expect(writtenConfig.global.exclude).not.toContain('/abap/zif_bar.intf.abap');
   });
 });

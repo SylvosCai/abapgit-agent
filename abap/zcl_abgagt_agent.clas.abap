@@ -780,7 +780,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       DATA lv_suffix_off TYPE i.
-      lv_suffix_off = lv_ext_len - lv_last_dot.
+      lv_suffix_off = lv_ext_len - lv_last_dot - 1.
       DATA(lv_true_ext) = lv_ext+lv_suffix_off.
       IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS'.
         CONTINUE.
@@ -830,7 +830,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDLOOP.
 
     " Read local ABAP system files to enable content-based change detection.
+    " A failure here must NOT wipe rt_entries — remote file data is already
+    " collected and store_pull_metadata depends on it being returned.
+    " On failure we simply skip populating local_content (no LOCAL_EDIT detection).
     DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    DATA lv_local_read_ok TYPE abap_bool VALUE abap_true.
     TRY.
         IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
           lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
@@ -838,9 +842,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           lt_local = mo_repo->get_files_local( ).
         ENDIF.
       CATCH zcx_abapgit_exception cx_root.
-        " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection)
-        RETURN.
+        " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection).
+        " rt_entries is already populated with remote data and must be returned as-is so
+        " store_pull_metadata runs and ZABGAGT_OBJ_META (including DEVCLASS) stays up to date.
+        lv_local_read_ok = abap_false.
     ENDTRY.
+
+    CHECK lv_local_read_ok = abap_true.
 
     " Build lookup: obj_type + obj_name → local file content (main source only)
     DATA lt_local_idx TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
@@ -854,7 +862,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       DATA lv_local_off TYPE i.
-      lv_local_off = lv_local_len - lv_local_dot.
+      lv_local_off = lv_local_len - lv_local_dot - 1.
       DATA(lv_local_ext) = lv_local_fn+lv_local_off.
       IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS'.
         CONTINUE.

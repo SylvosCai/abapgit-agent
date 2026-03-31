@@ -155,6 +155,113 @@ CLASS ltcl_rtti_mock IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" Conflict-detector spy — records calls to store_pull_metadata so tests
+" can assert it was invoked with the correct file entries.
+"----------------------------------------------------------------------
+CLASS ltcl_det_spy DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_conflict_detector.
+    " Captured arguments of last store_pull_metadata call
+    DATA mt_stored_files  TYPE zif_abgagt_conflict_detector=>ty_file_entries.
+    DATA mv_stored_branch TYPE string.
+    DATA mv_store_called  TYPE abap_bool.
+ENDCLASS.
+
+CLASS ltcl_det_spy IMPLEMENTATION.
+  METHOD zif_abgagt_conflict_detector~store_pull_metadata.
+    mv_store_called = abap_true.
+    mt_stored_files = it_files.
+    mv_stored_branch = iv_branch.
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~check_conflicts.
+    " No conflicts by default
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~get_conflict_report.
+  ENDMETHOD.
+  METHOD zif_abgagt_conflict_detector~calculate_sha.
+    rv_sha = 'test_sha'.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
+" Repo double for local-read-failure test.
+" get_files_remote returns a configured file list.
+" get_files_local always raises zcx_abapgit_exception.
+" All other methods have stub implementations.
+"----------------------------------------------------------------------
+CLASS ltcl_repo_local_fails DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo.
+    DATA mo_log    TYPE REF TO ltcl_log_double.
+    DATA mt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
+ENDCLASS.
+
+CLASS ltcl_repo_local_fails IMPLEMENTATION.
+  METHOD zif_abapgit_repo~get_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~create_new_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_remote.
+    rt_files = mt_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local.
+    RAISE EXCEPTION TYPE zcx_abapgit_exception.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local_filtered.
+    RAISE EXCEPTION TYPE zcx_abapgit_exception.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize_checks.
+    rs_checks = VALUE #( ).
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_key.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~is_offline.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_package.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_tadir_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~find_remote_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~checksums.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~has_remote_source.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_apack.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~delete_checks.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~switch_repo_type.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_object.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_data_config.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~bind_listener.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
@@ -188,6 +295,9 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
 
     " --- get_repo_status ---
     METHODS test_get_repo_status_found FOR TESTING.
+
+    " --- store_pull_metadata called despite local read failure ---
+    METHODS test_meta_store_local_fail FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_agent IMPLEMENTATION.
@@ -560,6 +670,79 @@ CLASS ltcl_agent IMPLEMENTATION.
     cl_abap_unit_assert=>assert_true(
       act = ls_result-success
       msg = 'Pull via alias-based repo with --files must succeed' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " store_pull_metadata is called even when get_files_local raises.
+  "
+  " Regression test for the bug where RETURN inside the CATCH block
+  " discarded rt_entries, causing store_pull_metadata to be skipped
+  " and ZABGAGT_OBJ_META (incl. DEVCLASS) to stay permanently stale.
+  "
+  " Setup:
+  "   - get_files_remote returns one .clas.abap file
+  "   - get_files_local raises zcx_abapgit_exception
+  "   - deserialize_checks / pull succeed (log status OK)
+  "
+  " Expected: store_pull_metadata is called with a non-empty file list
+  " containing the class from the remote fetch.
+  "--------------------------------------------------------------------
+  METHOD test_meta_store_local_fail.
+    " Regression test: store_pull_metadata must be called even when get_files_local raises.
+    "
+    " Uses ltcl_repo_local_fails — a hand-written double that:
+    "   get_files_remote → returns mt_remote (one CLAS file)
+    "   get_files_local  → always raises zcx_abapgit_exception (both the plain and filtered variant)
+    "
+    " This avoids cl_abap_testdouble configure_call queue ordering issues where
+    " get_files_local calls from get_local_xml_files consume the configured exception
+    " before build_file_entries_from_remote gets to call it.
+
+    " Set up the manual repo double
+    DATA lo_repo TYPE REF TO ltcl_repo_local_fails.
+    lo_repo = NEW ltcl_repo_local_fails( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    " One CLAS file in the remote
+    DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
+    ls_remote-path     = '/src/'.
+    ls_remote-filename = 'zcl_meta_test.clas.abap'.
+    ls_remote-data     = cl_abap_codepage=>convert_to( source = 'class source' codepage = 'UTF-8' ).
+    APPEND ls_remote TO lo_repo->mt_remote.
+
+    " Use the spy detector so we can verify store_pull_metadata was called
+    DATA lo_spy TYPE REF TO ltcl_det_spy.
+    lo_spy = NEW ltcl_det_spy( ).
+
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_repo
+      io_conflict_detector = lo_spy ).
+
+    DATA(ls_result) = lo_cut->zif_abgagt_agent~pull(
+      iv_url = 'https://example.com/repo.git' ).
+
+    " Pull itself must succeed
+    cl_abap_unit_assert=>assert_true(
+      act = ls_result-success
+      msg = 'Pull must succeed even when get_files_local raises' ).
+
+    " store_pull_metadata must have been called — the table was not empty
+    cl_abap_unit_assert=>assert_true(
+      act = lo_spy->mv_store_called
+      msg = 'store_pull_metadata must be called even when get_files_local raises' ).
+
+    " The stored entry must match the remote file
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( lo_spy->mt_stored_files ) exp = 1
+      msg = 'Exactly one file entry must be stored in metadata' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_type exp = 'CLAS'
+      msg = 'Stored obj_type must be CLAS' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_name exp = 'ZCL_META_TEST'
+      msg = 'Stored obj_name must be ZCL_META_TEST' ).
   ENDMETHOD.
 
 ENDCLASS.

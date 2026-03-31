@@ -10,6 +10,7 @@ abapPipeline(
     abaplintConfig  : '.abaplint.json',               // abaplint config file
     lintScope       : 'changed',                      // only report issues in changed files (full scan for cross-ref correctness)
     timeout         : 30,                             // pipeline timeout in minutes
+    agentRepoUrl    : 'https://github.tools.sap/I045696/abapgit-agent.git', // signals: install from workspace (npm link)
     afterTests      : {
         withCredentials([usernamePassword(
             credentialsId: 'i045696-personal-org-github-token',
