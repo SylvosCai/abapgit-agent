@@ -139,6 +139,9 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ls_section-suffix      = lv_cm_suffix.
         ls_section-description = 'Class Method'.
         ls_section-method_name = ls_method-methodname.
+        IF ls_section-method_name IS INITIAL.
+          ls_section-description = |Class Method [DEBUG:mname_empty clsname={ lv_clsname }]|.
+        ENDIF.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
         IF sy-subrc = 0.
