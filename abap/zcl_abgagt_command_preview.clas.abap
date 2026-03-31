@@ -279,16 +279,23 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
           lo_strucdescr TYPE REF TO cl_abap_structdescr,
           lt_components TYPE abap_component_tab,
           lv_field_list TYPE string,
-          lv_total_count TYPE i.
+          lv_total_count TYPE i,
+          lv_limit TYPE i,
+          lv_offset TYPE i,
+          lv_first_field TYPE string,
+          ls_comp TYPE abap_componentdescr,
+          lt_cols TYPE string_table,
+          lv_cursor TYPE cursor,
+          lv_cursor TYPE cursor.
 
     FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
 
-    DATA(lv_limit) = iv_limit.
+    lv_limit = iv_limit.
     IF lv_limit <= 0.
       lv_limit = 10.
     ENDIF.
 
-    DATA(lv_offset) = iv_offset.
+    lv_offset = iv_offset.
     IF lv_offset < 0.
       lv_offset = 0.
     ENDIF.
@@ -316,12 +323,11 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
         lt_components = lo_strucdescr->get_components( ).
 
         " Handle column selection
-        DATA lt_cols TYPE string_table.
         lt_cols = it_columns.
 
         IF lt_cols IS NOT INITIAL.
           " Build field list from specified columns
-          LOOP AT lt_components INTO DATA(ls_comp).
+          LOOP AT lt_components INTO ls_comp.
             READ TABLE lt_cols WITH KEY table_line = ls_comp-name TRANSPORTING NO FIELDS.
             IF sy-subrc = 0.
               IF lv_field_list IS INITIAL.
@@ -362,29 +368,36 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
 
         " Use SELECT * - CDS view entities require static SQL
         " Column filtering is done in the response
-        " Add OFFSET for pagination (requires ORDER BY in ABAP SQL)
+        " Use cursor-based pagination when offset > 0
         IF lv_offset > 0.
           " Get first field name for ORDER BY (must use character type)
-
-          DATA(lv_first_field) = lt_components[ 1 ]-name.
+          lv_first_field = lt_components[ 1 ]-name.
           IF lv_first_field IS INITIAL.
             lv_first_field = 'MANDT'.
           ENDIF.
 
+          " Build dynamic SELECT string and open cursor for skip-fetch pagination
           IF iv_where IS INITIAL.
-            SELECT * FROM (iv_tabname)
-              ORDER BY (lv_first_field)
-              INTO TABLE @<lt_data>
-              UP TO @lv_limit ROWS.
+            OPEN CURSOR @lv_cursor FOR
+              SELECT * FROM (iv_tabname)
+              ORDER BY (lv_first_field).
           ELSE.
-            SELECT * FROM (iv_tabname)
+            OPEN CURSOR @lv_cursor FOR
+              SELECT * FROM (iv_tabname)
               WHERE (iv_where)
-              ORDER BY (lv_first_field)
-              INTO TABLE @<lt_data>
-              UP TO @lv_limit ROWS.
+              ORDER BY (lv_first_field).
           ENDIF.
+
+          " Skip 'offset' rows by fetching into <lt_data> and discarding
+          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE lv_offset.
+          CLEAR <lt_data>.
+
+          " Read 'limit' rows into result
+          FETCH NEXT CURSOR @lv_cursor INTO TABLE <lt_data> PACKAGE SIZE lv_limit.
+
+          CLOSE CURSOR @lv_cursor.
         ELSE.
-          " No offset - no ORDER BY needed
+          " No offset - no ORDER BY needed, plain SELECT
           IF iv_where IS INITIAL.
             SELECT * FROM (iv_tabname)
               INTO TABLE @<lt_data>

@@ -131,18 +131,28 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
           lv_package TYPE tdevc-devclass,
           lv_name_pattern TYPE tadir-obj_name,
           lt_type_range TYPE RANGE OF tadir-object,
-          ls_type LIKE LINE OF lt_type_range.
+          ls_type LIKE LINE OF lt_type_range,
+          lt_type_strings TYPE STANDARD TABLE OF string WITH NON-UNIQUE DEFAULT KEY,
+          lv_type_str TYPE string,
+          lv_limit TYPE i,
+          lv_offset TYPE i,
+          lv_cursor TYPE cursor,
+          lt_skip TYPE ty_objects.
 
     lv_package = is_params-package.
-    DATA lv_limit TYPE i.
     lv_limit = is_params-limit.
+    lv_offset = is_params-offset.
     lv_name_pattern = is_params-name.
+
+    " Apply default/max limits
+    IF lv_limit <= 0.
+      lv_limit = 100.
+    ENDIF.
 
     " Build type range table
     IF is_params-type IS NOT INITIAL.
-      DATA lt_type_strings TYPE STANDARD TABLE OF string.
       SPLIT to_upper( is_params-type ) AT ',' INTO TABLE lt_type_strings.
-      LOOP AT lt_type_strings INTO DATA(lv_type_str).
+      LOOP AT lt_type_strings INTO lv_type_str.
         CLEAR ls_type.
         ls_type-sign = 'I'.
         ls_type-option = 'EQ'.
@@ -156,36 +166,42 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF '*' IN lv_name_pattern WITH '%'.
     ENDIF.
 
-    " Get objects with filters in SELECT
+    " Open cursor with correct WHERE branch for pagination
     IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
-      SELECT object, obj_name FROM tadir
-        WHERE devclass = @lv_package
-          AND object IN @lt_type_range
-          AND obj_name LIKE @lv_name_pattern
-        ORDER BY object, obj_name
-        INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS.
+      OPEN CURSOR @lv_cursor FOR
+        SELECT object, obj_name FROM tadir
+          WHERE devclass = @lv_package
+            AND object IN @lt_type_range
+            AND obj_name LIKE @lv_name_pattern
+          ORDER BY object, obj_name.
     ELSEIF lt_type_range IS NOT INITIAL.
-      SELECT object, obj_name FROM tadir
-        WHERE devclass = @lv_package
-          AND object IN @lt_type_range
-        ORDER BY object, obj_name
-        INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS.
+      OPEN CURSOR @lv_cursor FOR
+        SELECT object, obj_name FROM tadir
+          WHERE devclass = @lv_package
+            AND object IN @lt_type_range
+          ORDER BY object, obj_name.
     ELSEIF lv_name_pattern IS NOT INITIAL.
-      SELECT object, obj_name FROM tadir
-        WHERE devclass = @lv_package
-          AND obj_name LIKE @lv_name_pattern
-        ORDER BY object, obj_name
-        INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS.
+      OPEN CURSOR @lv_cursor FOR
+        SELECT object, obj_name FROM tadir
+          WHERE devclass = @lv_package
+            AND obj_name LIKE @lv_name_pattern
+          ORDER BY object, obj_name.
     ELSE.
-      SELECT object, obj_name FROM tadir
-        WHERE devclass = @lv_package
-        ORDER BY object, obj_name
-        INTO TABLE @lt_objects
-        UP TO @lv_limit ROWS.
+      OPEN CURSOR @lv_cursor FOR
+        SELECT object, obj_name FROM tadir
+          WHERE devclass = @lv_package
+          ORDER BY object, obj_name.
     ENDIF.
+
+    " Skip 'offset' rows
+    IF lv_offset > 0.
+      FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_skip PACKAGE SIZE lv_offset.
+    ENDIF.
+
+    " Read 'limit' rows into result
+    FETCH NEXT CURSOR @lv_cursor INTO TABLE lt_objects PACKAGE SIZE lv_limit.
+
+    CLOSE CURSOR @lv_cursor.
 
     " Get total count (without limit/offset)
     IF lt_type_range IS NOT INITIAL AND lv_name_pattern IS NOT INITIAL.
