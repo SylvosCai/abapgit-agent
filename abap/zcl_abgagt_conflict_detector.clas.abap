@@ -35,8 +35,8 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       SELECT SINGLE last_git_sha, last_branch, last_pulled_at, last_pulled_by,
                     sys_changed_at, sys_changed_by
         FROM zabgagt_obj_meta
-        WHERE obj_type = ls_file-obj_type
-          AND obj_name = ls_file-obj_name
+        WHERE obj_type = @ls_file-obj_type
+          AND obj_name = @ls_file-obj_name
         INTO CORRESPONDING FIELDS OF @ls_baseline.
 
       IF sy-subrc <> 0.

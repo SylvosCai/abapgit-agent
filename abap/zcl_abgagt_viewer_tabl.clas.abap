@@ -11,12 +11,18 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
 
   METHOD zif_abgagt_viewer~get_info.
-    DATA: lv_obj_name TYPE tadir-obj_name,
-          lv_devclass TYPE tadir-devclass.
+    DATA: lv_obj_name  TYPE tadir-obj_name,
+          lv_devclass  TYPE tadir-devclass,
+          lt_comp      TYPE zif_abgagt_viewer=>ty_components,
+          ls_comp      LIKE LINE OF lt_comp,
+          ls_dd03l     TYPE dd03l,
+          lv_tabname   TYPE dd03l-tabname,
+          lv_fieldname TYPE dd03l-fieldname,
+          lv_rollname  TYPE dd03l-rollname.
 
     SELECT SINGLE obj_name devclass FROM tadir
-      INTO (lv_obj_name, lv_devclass)
-      WHERE obj_name = iv_name
+      INTO (@lv_obj_name, @lv_devclass)
+      WHERE obj_name = @iv_name
         AND object = 'TABL'.
     rs_info-name      = iv_name.
     rs_info-type      = 'TABL'.
@@ -28,29 +34,34 @@ CLASS zcl_abgagt_viewer_tabl IMPLEMENTATION.
     ENDIF.
 
     " Build components table with data element and description
-    SELECT fieldname AS field keyflag AS key datatype AS type rollname AS dataelement
+    lv_tabname = iv_name.
+    SELECT fieldname AS field, keyflag AS key, datatype AS type, rollname AS dataelement
       FROM dd03l
-      INTO CORRESPONDING FIELDS OF TABLE @rs_info-components
-      WHERE tabname = @iv_name
+      INTO CORRESPONDING FIELDS OF TABLE @lt_comp
+      WHERE tabname = @lv_tabname
         AND as4local = 'A'
       ORDER BY position.
 
     " Add length and description
-    LOOP AT rs_info-components ASSIGNING FIELD-SYMBOL(<ls_comp>).
-      DATA ls_dd03l TYPE dd03l.
-      SELECT SINGLE * FROM dd03l INTO ls_dd03l
-        WHERE tabname = iv_name
-          AND fieldname = <ls_comp>-field
-          AND as4local = 'A'.
-      <ls_comp>-length = ls_dd03l-leng.
+    LOOP AT lt_comp INTO ls_comp.
+      lv_fieldname = ls_comp-field.
+      SELECT SINGLE * FROM dd03l INTO @ls_dd03l
+        WHERE tabname  = @lv_tabname
+          AND fieldname = @lv_fieldname
+          AND as4local  = 'A'.
+      ls_comp-length = ls_dd03l-leng.
 
       " Get description from DD04T
+      lv_rollname = ls_comp-dataelement.
       SELECT SINGLE ddtext FROM dd04t
-        INTO <ls_comp>-description
-        WHERE rollname = <ls_comp>-dataelement
-          AND ddlanguage = 'E'
-          AND as4local = 'A'.
+        INTO @ls_comp-description
+        WHERE rollname    = @lv_rollname
+          AND ddlanguage  = 'E'
+          AND as4local    = 'A'.
+      MODIFY lt_comp FROM ls_comp.
     ENDLOOP.
+
+    rs_info-components = lt_comp.
   ENDMETHOD.
 
 ENDCLASS.
