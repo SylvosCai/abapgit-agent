@@ -27,7 +27,6 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
     DATA lv_cm_suffix TYPE string.
     DATA lv_line TYPE string.
     DATA lv_methodindx TYPE i.
-    DATA lv_method_name_str TYPE string.
 
     rs_info-name = iv_name.
     rs_info-type = 'CLAS'.
@@ -139,8 +138,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         CLEAR ls_section.
         ls_section-suffix      = lv_cm_suffix.
         ls_section-description = 'Class Method'.
-        lv_method_name_str = ls_method-methodname.
-        ls_section-method_name = lv_method_name_str.
+        ls_section-method_name = ls_method-methodname.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
         IF sy-subrc = 0.
