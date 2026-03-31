@@ -26,37 +26,9 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
   METHOD zif_abgagt_command~execute.
     DATA: ls_params TYPE ty_pull_params,
           ls_pull_result TYPE zif_abgagt_agent=>ty_result,
-          lx_error TYPE REF TO zcx_abapgit_exception.
+          lx_error TYPE REF TO zcx_abapgit_exception,
+          lo_agent TYPE REF TO zcl_abgagt_agent.
 
-    " Parse parameters from is_param
-    IF is_param IS SUPPLIED.
-      MOVE-CORRESPONDING is_param TO ls_params.
-    ENDIF.
-
-    " Default conflict_mode to 'abort' if not provided
-    IF ls_params-conflict_mode IS INITIAL.
-      ls_params-conflict_mode = 'abort'.
-    ENDIF.
-
-    " Get agent instance and execute pull
-    DATA lo_agent TYPE REF TO zcl_abgagt_agent.
-    CREATE OBJECT lo_agent.
-
-    TRY.
-        ls_pull_result = lo_agent->zif_abgagt_agent~pull(
-          iv_url               = ls_params-url
-          iv_branch            = ls_params-branch
-          iv_username          = ls_params-username
-          iv_password          = ls_params-password
-          iv_transport_request = ls_params-transport_request
-          it_files             = ls_params-files
-          iv_conflict_mode     = ls_params-conflict_mode ).
-      CATCH zcx_abapgit_exception INTO lx_error.
-        ls_pull_result-success = abap_false.
-        ls_pull_result-message = lx_error->get_text( ).
-    ENDTRY.
-
-    " Convert result to JSON string using /ui2/cl_json
     DATA: BEGIN OF ls_response,
             success TYPE string,
             job_id TYPE string,
@@ -73,7 +45,38 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
             local_xml_files TYPE zif_abgagt_agent=>ty_xml_files,
           END OF ls_response.
 
-    ls_response-success = COND string( WHEN ls_pull_result-success = abap_true THEN 'X' ELSE '' ).
+    " Parse parameters from is_param
+    IF is_param IS SUPPLIED.
+      MOVE-CORRESPONDING is_param TO ls_params.
+    ENDIF.
+
+    " Default conflict_mode to 'abort' if not provided
+    IF ls_params-conflict_mode IS INITIAL.
+      ls_params-conflict_mode = 'abort'.
+    ENDIF.
+
+    " Get agent instance and execute pull
+    CREATE OBJECT lo_agent.
+
+    TRY.
+        ls_pull_result = lo_agent->zif_abgagt_agent~pull(
+          iv_url               = ls_params-url
+          iv_branch            = ls_params-branch
+          iv_username          = ls_params-username
+          iv_password          = ls_params-password
+          iv_transport_request = ls_params-transport_request
+          it_files             = ls_params-files
+          iv_conflict_mode     = ls_params-conflict_mode ).
+      CATCH zcx_abapgit_exception INTO lx_error.
+        ls_pull_result-success = abap_false.
+        ls_pull_result-message = lx_error->get_text( ).
+    ENDTRY.
+
+    IF ls_pull_result-success = abap_true.
+      ls_response-success = 'X'.
+    ELSE.
+      ls_response-success = ''.
+    ENDIF.
     ls_response-job_id = ls_pull_result-job_id.
     ls_response-message = ls_pull_result-message.
     ls_response-error_detail = ls_pull_result-error_detail.
