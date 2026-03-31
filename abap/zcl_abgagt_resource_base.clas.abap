@@ -88,10 +88,9 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-        " ========================================
         " Decision: Should run in background?
         " ========================================
-        lo_decision = NEW zcl_abgagt_bg_decision( ).
+        CREATE OBJECT lo_decision TYPE zcl_abgagt_bg_decision.
 
         DATA(lv_run_in_bg) = lo_decision->should_run_in_background(
           io_command      = lo_command
@@ -100,10 +99,9 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         ).
 
         IF lv_run_in_bg = abap_true.
-          " ========================================
           " Background Execution Path
           " ========================================
-          lo_scheduler = NEW zcl_abgagt_bg_scheduler( ).
+          CREATE OBJECT lo_scheduler TYPE zcl_abgagt_bg_scheduler.
 
           ls_job_info = lo_scheduler->schedule_command(
             iv_command_type = lv_constant
@@ -111,19 +109,18 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
           ).
 
           " Initialize job status immediately after scheduling
-          lo_status_mgr = NEW zcl_abgagt_bg_status_mgr( ).
+          CREATE OBJECT lo_status_mgr TYPE zcl_abgagt_bg_status_mgr.
           GET TIME STAMP FIELD lv_timestamp.
 
-          ls_status = VALUE #(
-            job_name    = ls_job_info-job_name
-            job_number  = ls_job_info-job_number
-            status      = 'scheduled'
-            stage       = 'INITIALIZATION'
-            message     = 'Job scheduled, waiting to start'
-            progress    = 0
-            started_at  = lv_timestamp
-            updated_at  = lv_timestamp
-          ).
+          CLEAR ls_status.
+          ls_status-job_name    = ls_job_info-job_name.
+          ls_status-job_number  = ls_job_info-job_number.
+          ls_status-status      = 'scheduled'.
+          ls_status-stage       = 'INITIALIZATION'.
+          ls_status-message     = 'Job scheduled, waiting to start'.
+          ls_status-progress    = 0.
+          ls_status-started_at  = lv_timestamp.
+          ls_status-updated_at  = lv_timestamp.
           lo_status_mgr->update_status( ls_status ).
 
           " Return 202 Accepted with job info
@@ -236,7 +233,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         lv_job_number = lv_query.
 
         " Get status from status manager
-        lo_status_mgr = NEW zcl_abgagt_bg_status_mgr( ).
+        CREATE OBJECT lo_status_mgr TYPE zcl_abgagt_bg_status_mgr.
         ls_status = lo_status_mgr->get_status( lv_job_number ).
 
         IF ls_status-job_number IS INITIAL.

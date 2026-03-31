@@ -40,14 +40,15 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
 
     " Build components table with TTYP details
     IF lv_linetype IS NOT INITIAL.
-      APPEND VALUE #(
-        field = 'LINE_TYPE'
-        key = abap_false
-        type = 'CHAR'
-        length = 30
-        dataelement = ''
-        description = |Line Type: { lv_linetype }|
-      ) TO rs_info-components.
+      DATA ls_comp_lt LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_lt.
+      ls_comp_lt-field       = 'LINE_TYPE'.
+      ls_comp_lt-key         = abap_false.
+      ls_comp_lt-type        = 'CHAR'.
+      ls_comp_lt-length      = 30.
+      ls_comp_lt-dataelement = ''.
+      ls_comp_lt-description = |Line Type: { lv_linetype }|.
+      APPEND ls_comp_lt TO rs_info-components.
     ENDIF.
 
     " Convert access mode to text
@@ -59,14 +60,15 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
     ENDCASE.
 
     IF lv_access_mode IS NOT INITIAL.
-      APPEND VALUE #(
-        field = 'ACCESS_MODE'
-        key = abap_false
-        type = 'CHAR'
-        length = 10
-        dataelement = ''
-        description = |Access Mode: { lv_access_mode }|
-      ) TO rs_info-components.
+      DATA ls_comp_am LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_am.
+      ls_comp_am-field       = 'ACCESS_MODE'.
+      ls_comp_am-key         = abap_false.
+      ls_comp_am-type        = 'CHAR'.
+      ls_comp_am-length      = 10.
+      ls_comp_am-dataelement = ''.
+      ls_comp_am-description = |Access Mode: { lv_access_mode }|.
+      APPEND ls_comp_am TO rs_info-components.
     ENDIF.
 
     " Convert key definition to text
@@ -77,14 +79,15 @@ CLASS zcl_abgagt_viewer_ttyp IMPLEMENTATION.
     ENDCASE.
 
     IF lv_key_definition IS NOT INITIAL.
-      APPEND VALUE #(
-        field = 'KEY_DEFINITION'
-        key = abap_false
-        type = 'CHAR'
-        length = 10
-        dataelement = ''
-        description = |Key Definition: { lv_key_definition }|
-      ) TO rs_info-components.
+      DATA ls_comp_kd LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_kd.
+      ls_comp_kd-field       = 'KEY_DEFINITION'.
+      ls_comp_kd-key         = abap_false.
+      ls_comp_kd-type        = 'CHAR'.
+      ls_comp_kd-length      = 10.
+      ls_comp_kd-dataelement = ''.
+      ls_comp_kd-description = |Key Definition: { lv_key_definition }|.
+      APPEND ls_comp_kd TO rs_info-components.
     ENDIF.
   ENDMETHOD.
 

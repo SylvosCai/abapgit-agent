@@ -46,9 +46,10 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     IF it_source IS INITIAL.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = 'No source provided for syntax check' ) ).
+      DATA ls_err_no_src TYPE zif_abgagt_syntax_checker=>ty_error.
+      ls_err_no_src-line = 1.
+      ls_err_no_src-text = 'No source provided for syntax check'.
+      APPEND ls_err_no_src TO rs_result-errors.
       rs_result-message = 'No source provided'.
       RETURN.
     ENDIF.
@@ -59,16 +60,17 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
       CATCH cx_root INTO DATA(lx_factory).
         rs_result-success = abap_false.
         rs_result-error_count = 1.
-        rs_result-errors = VALUE #( (
-          line = 1
-          text = |DDL handler creation failed: { lx_factory->get_text( ) }| ) ).
+        DATA ls_err_factory TYPE zif_abgagt_syntax_checker=>ty_error.
+        ls_err_factory-line = 1.
+        ls_err_factory-text = |DDL handler creation failed: { lx_factory->get_text( ) }|.
+        APPEND ls_err_factory TO rs_result-errors.
         rs_result-message = 'DDL handler unavailable'.
         RETURN.
     ENDTRY.
 
     " Build DDLSRCV structure from source lines
     " This is the KEY TEST: Can we check without prior read()?
-    ls_ddlsrcv-ddlname = CONV ddlname( iv_name ).
+    ls_ddlsrcv-ddlname = iv_name.
     ls_ddlsrcv-source = concat_lines_of(
       table = it_source
       sep = cl_abap_char_utilities=>newline ).
@@ -118,17 +120,19 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
         " Unexpected error
         rs_result-success = abap_false.
         rs_result-error_count = 1.
-        rs_result-errors = VALUE #( (
-          line = 1
-          text = |Unexpected error: { lx_other->get_text( ) }| ) ).
+        DATA ls_err_other TYPE zif_abgagt_syntax_checker=>ty_error.
+        ls_err_other-line = 1.
+        ls_err_other-text = |Unexpected error: { lx_other->get_text( ) }|.
+        APPEND ls_err_other TO rs_result-errors.
         rs_result-message = 'Unexpected error during DDL check'.
     ENDTRY.
   ENDMETHOD.
 
   METHOD convert_ddl_errors.
     DATA lv_msg TYPE string.
+    DATA ls_error TYPE zif_abgagt_syntax_checker=>ty_error.
 
-    rt_errors = VALUE #( ).
+    CLEAR rt_errors.
 
     LOOP AT it_ddl_errors INTO DATA(ls_err).
       " Build readable error message
@@ -136,21 +140,22 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
         WITH ls_err-var1 ls_err-var2 ls_err-var3 ls_err-var4
         INTO lv_msg.
 
-      APPEND VALUE #(
-        line = ls_err-line
-        column = ls_err-column
-        text = lv_msg
-        word = CONV string( ls_err-var1 )
-        include = ''
-        method_name = ''
-      ) TO rt_errors.
+      CLEAR ls_error.
+      ls_error-line    = ls_err-line.
+      ls_error-column  = ls_err-column.
+      ls_error-text    = lv_msg.
+      ls_error-word    = ls_err-var1.
+      ls_error-include = ''.
+      ls_error-method_name = ''.
+      APPEND ls_error TO rt_errors.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD convert_ddl_warnings.
     DATA lv_msg TYPE string.
+    DATA ls_warning TYPE zif_abgagt_syntax_checker=>ty_warning.
 
-    rt_warnings = VALUE #( ).
+    CLEAR rt_warnings.
 
     LOOP AT it_ddl_warnings INTO DATA(ls_warn).
       " Build readable warning message
@@ -158,13 +163,13 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
         WITH ls_warn-var1 ls_warn-var2 ls_warn-var3 ls_warn-var4
         INTO lv_msg.
 
-      APPEND VALUE #(
-        line = ls_warn-line
-        column = ls_warn-column
-        text = lv_msg
-        severity = ls_warn-severity
-        include = ''
-      ) TO rt_warnings.
+      CLEAR ls_warning.
+      ls_warning-line     = ls_warn-line.
+      ls_warning-column   = ls_warn-column.
+      ls_warning-text     = lv_msg.
+      ls_warning-severity = ls_warn-severity.
+      ls_warning-include  = ''.
+      APPEND ls_warning TO rt_warnings.
     ENDLOOP.
   ENDMETHOD.
 

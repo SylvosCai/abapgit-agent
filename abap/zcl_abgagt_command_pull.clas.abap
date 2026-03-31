@@ -30,7 +30,7 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Default conflict_mode to 'abort' if not provided
@@ -39,7 +39,8 @@ CLASS zcl_abgagt_command_pull IMPLEMENTATION.
     ENDIF.
 
     " Get agent instance and execute pull
-    DATA(lo_agent) = NEW zcl_abgagt_agent( ).
+    DATA lo_agent TYPE REF TO zcl_abgagt_agent.
+    CREATE OBJECT lo_agent.
 
     TRY.
         ls_pull_result = lo_agent->zif_abgagt_agent~pull(

@@ -65,7 +65,7 @@ CLASS zcl_abgagt_command_create IMPLEMENTATION.
           li_repo TYPE REF TO zif_abapgit_repo.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     IF ls_params-folder_logic IS INITIAL.

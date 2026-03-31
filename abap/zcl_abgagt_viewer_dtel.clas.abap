@@ -53,45 +53,49 @@ CLASS zcl_abgagt_viewer_dtel IMPLEMENTATION.
 
     " Build components table for additional info
     IF rs_info-domain IS NOT INITIAL.
-      APPEND VALUE #(
-        field = 'DOMAIN'
-        key = abap_false
-        type = rs_info-domain_type
-        length = rs_info-domain_length
-        dataelement = rs_info-domain
-        description = |Domain: { rs_info-domain }|
-      ) TO rs_info-components.
+      DATA ls_comp_dom LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_dom.
+      ls_comp_dom-field       = 'DOMAIN'.
+      ls_comp_dom-key         = abap_false.
+      ls_comp_dom-type        = rs_info-domain_type.
+      ls_comp_dom-length      = rs_info-domain_length.
+      ls_comp_dom-dataelement = rs_info-domain.
+      ls_comp_dom-description = |Domain: { rs_info-domain }|.
+      APPEND ls_comp_dom TO rs_info-components.
     ENDIF.
 
-    APPEND VALUE #(
-      field = 'DATA_TYPE'
-      key = abap_false
-      type = 'CHAR'
-      length = 10
-      dataelement = ''
-      description = |ABAP Type: { rs_info-domain_type }|
-    ) TO rs_info-components.
+    DATA ls_comp_type LIKE LINE OF rs_info-components.
+    CLEAR ls_comp_type.
+    ls_comp_type-field       = 'DATA_TYPE'.
+    ls_comp_type-key         = abap_false.
+    ls_comp_type-type        = 'CHAR'.
+    ls_comp_type-length      = 10.
+    ls_comp_type-dataelement = ''.
+    ls_comp_type-description = |ABAP Type: { rs_info-domain_type }|.
+    APPEND ls_comp_type TO rs_info-components.
 
     IF rs_info-domain_length > 0.
-      APPEND VALUE #(
-        field = 'LENGTH'
-        key = abap_false
-        type = 'NUMC'
-        length = 5
-        dataelement = ''
-        description = |Length: { rs_info-domain_length }|
-      ) TO rs_info-components.
+      DATA ls_comp_len LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_len.
+      ls_comp_len-field       = 'LENGTH'.
+      ls_comp_len-key         = abap_false.
+      ls_comp_len-type        = 'NUMC'.
+      ls_comp_len-length      = 5.
+      ls_comp_len-dataelement = ''.
+      ls_comp_len-description = |Length: { rs_info-domain_length }|.
+      APPEND ls_comp_len TO rs_info-components.
     ENDIF.
 
     IF rs_info-domain_decimals > 0.
-      APPEND VALUE #(
-        field = 'DECIMALS'
-        key = abap_false
-        type = 'NUMC'
-        length = 2
-        dataelement = ''
-        description = |Decimals: { rs_info-domain_decimals }|
-      ) TO rs_info-components.
+      DATA ls_comp_dec LIKE LINE OF rs_info-components.
+      CLEAR ls_comp_dec.
+      ls_comp_dec-field       = 'DECIMALS'.
+      ls_comp_dec-key         = abap_false.
+      ls_comp_dec-type        = 'NUMC'.
+      ls_comp_dec-length      = 2.
+      ls_comp_dec-dataelement = ''.
+      ls_comp_dec-description = |Decimals: { rs_info-domain_decimals }|.
+      APPEND ls_comp_dec TO rs_info-components.
     ENDIF.
   ENDMETHOD.
 

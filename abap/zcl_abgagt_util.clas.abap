@@ -12,7 +12,7 @@ ENDCLASS.
 CLASS zcl_abgagt_util IMPLEMENTATION.
   METHOD get_instance.
     DATA lo_util TYPE REF TO zcl_abgagt_util.
-    lo_util = NEW #( ).
+    CREATE OBJECT lo_util.
     ro_util = lo_util.
   ENDMETHOD.
 

@@ -75,7 +75,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
     " Parse parameters
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Validate input
@@ -111,10 +111,10 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
     " Set overall message
     DATA(lv_total) = lines( ls_response-results ).
-    DATA(lv_failed) = REDUCE i( INIT count = 0
-                                 FOR ls_res IN ls_response-results
-                                 WHERE ( success = abap_false )
-                                 NEXT count = count + 1 ).
+    DATA lv_failed TYPE i.
+    LOOP AT ls_response-results INTO DATA(ls_res) WHERE success = abap_false.
+      ADD 1 TO lv_failed.
+    ENDLOOP.
 
     IF lv_failed = 0.
       ls_response-message = |All { lv_total } object(s) passed syntax check|.
@@ -153,9 +153,10 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       rs_result-object_name = is_object-name.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG. Use 'pull' command for other object types.| ) ).
+      DATA ls_err_unsup TYPE ty_error.
+      ls_err_unsup-line = 1.
+      ls_err_unsup-text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG. Use 'pull' command for other object types.|.
+      APPEND ls_err_unsup TO rs_result-errors.
       rs_result-message = |Unsupported object type: { is_object-type }. Use 'pull' command instead.|.
       RETURN.
     ENDIF.

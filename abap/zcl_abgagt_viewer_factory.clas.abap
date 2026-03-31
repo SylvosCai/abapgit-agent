@@ -24,7 +24,9 @@ ENDCLASS.
 CLASS zcl_abgagt_viewer_factory IMPLEMENTATION.
 
   METHOD get_instance.
-    ro_instance = NEW #( ).
+    DATA lo_instance TYPE REF TO zcl_abgagt_viewer_factory.
+    CREATE OBJECT lo_instance.
+    ro_instance = lo_instance.
   ENDMETHOD.
 
   METHOD build_class_name.

@@ -7,7 +7,7 @@ abapPipeline(
     abapPort        : '44300',                        // HTTPS port
     abapClient      : '100',                          // SAP client
     abapLanguage    : 'EN',                           // Logon language
-    abaplintConfig  : '.abaplint.json',               // abaplint config file
+    abaplintConfig  : '.abaplint-740.json',               // abaplint config for 7.40 branch
     lintScope       : 'changed',                      // only report issues in changed files (full scan for cross-ref correctness)
     timeout         : 30,                             // pipeline timeout in minutes
     agentRepoUrl    : 'https://github.tools.sap/I045696/abapgit-agent.git', // signals: install from workspace (npm link)

@@ -94,7 +94,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             ).
           ELSE.
             " Structure type - use CORRESPONDING
-            ls_params = CORRESPONDING #( is_param ).
+            MOVE-CORRESPONDING is_param TO ls_params.
           ENDIF.
         ENDIF.
 
@@ -163,7 +163,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-        lo_stage = NEW #( ).
+        CREATE OBJECT lo_stage.
         DATA(lv_total_files) = lines( lt_files ).
 
         LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_file>).

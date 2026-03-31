@@ -78,7 +78,7 @@ CLASS zcl_abgagt_command_tree IMPLEMENTATION.
     ls_result-command = zif_abgagt_command=>gc_tree.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     IF ls_params-package IS INITIAL.

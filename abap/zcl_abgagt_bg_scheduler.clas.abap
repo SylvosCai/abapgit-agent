@@ -74,10 +74,9 @@ CLASS zcl_abgagt_bg_scheduler IMPLEMENTATION.
     ENDIF.
 
     " Return job info
-    rs_result = VALUE #(
-      job_name   = lv_jobname
-      job_number = lv_jobcount
-    ).
+    CLEAR rs_result.
+    rs_result-job_name   = lv_jobname.
+    rs_result-job_number = lv_jobcount.
   ENDMETHOD.
 
   METHOD serialize_data.

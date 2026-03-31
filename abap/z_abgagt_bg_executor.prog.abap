@@ -32,21 +32,20 @@ START-OF-SELECTION.
       ENDIF.
 
       " Initialize status manager
-      lo_status_mgr = NEW zcl_abgagt_bg_status_mgr( ).
+      CREATE OBJECT lo_status_mgr TYPE zcl_abgagt_bg_status_mgr.
 
       " Get current timestamp
       GET TIME STAMP FIELD lv_timestamp.
 
       " Update initial status
-      ls_status = VALUE #(
-        job_number  = lv_job_number
-        status      = 'STARTING'
-        stage       = 'INITIALIZATION'
-        message     = 'Initializing command execution'
-        progress    = 0
-        started_at  = lv_timestamp
-        updated_at  = lv_timestamp
-      ).
+      CLEAR ls_status.
+      ls_status-job_number = lv_job_number.
+      ls_status-status     = 'STARTING'.
+      ls_status-stage      = 'INITIALIZATION'.
+      ls_status-message    = 'Initializing command execution'.
+      ls_status-progress   = 0.
+      ls_status-started_at = lv_timestamp.
+      ls_status-updated_at = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
       " Get command factory instance
@@ -60,10 +59,10 @@ START-OF-SELECTION.
           lo_progressable ?= lo_command.
 
           " Command supports progress reporting - create logger
-          lo_logger = NEW zcl_abgagt_bg_logger(
-            io_status_mgr = lo_status_mgr
-            iv_job_number = lv_job_number
-          ).
+          CREATE OBJECT lo_logger TYPE zcl_abgagt_bg_logger
+            EXPORTING
+              io_status_mgr = lo_status_mgr
+              iv_job_number = lv_job_number.
 
           " Register logger as event handler
           SET HANDLER lo_logger->on_progress FOR lo_progressable.
@@ -75,14 +74,13 @@ START-OF-SELECTION.
       " Execute command with JSON data
       " Command will handle deserializing JSON if needed
       GET TIME STAMP FIELD lv_timestamp.
-      ls_status = VALUE #(
-        job_number = lv_job_number
-        status     = 'running'
-        stage      = 'EXECUTION'
-        message    = 'Executing command'
-        progress   = 0
-        updated_at = lv_timestamp
-      ).
+      CLEAR ls_status.
+      ls_status-job_number = lv_job_number.
+      ls_status-status     = 'running'.
+      ls_status-stage      = 'EXECUTION'.
+      ls_status-message    = 'Executing command'.
+      ls_status-progress   = 0.
+      ls_status-updated_at = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
       " Pass JSON string as parameter - command will deserialize if needed
@@ -90,30 +88,28 @@ START-OF-SELECTION.
 
       " Update final status - success
       GET TIME STAMP FIELD lv_timestamp.
-      ls_status = VALUE #(
-        job_number   = lv_job_number
-        status       = 'completed'
-        stage        = 'FINISHED'
-        message      = 'Command completed successfully'
-        progress     = 100
-        result       = lv_result
-        updated_at   = lv_timestamp
-        completed_at = lv_timestamp
-      ).
+      CLEAR ls_status.
+      ls_status-job_number   = lv_job_number.
+      ls_status-status       = 'completed'.
+      ls_status-stage        = 'FINISHED'.
+      ls_status-message      = 'Command completed successfully'.
+      ls_status-progress     = 100.
+      ls_status-result       = lv_result.
+      ls_status-updated_at   = lv_timestamp.
+      ls_status-completed_at = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
     CATCH cx_root INTO DATA(lx_error).
       " Update final status - error
       GET TIME STAMP FIELD lv_timestamp.
-      ls_status = VALUE #(
-        job_number    = lv_job_number
-        status        = 'error'
-        stage         = 'FAILED'
-        message       = 'Command execution failed'
-        error_message = lx_error->get_text( )
-        updated_at    = lv_timestamp
-        completed_at  = lv_timestamp
-      ).
+      CLEAR ls_status.
+      ls_status-job_number    = lv_job_number.
+      ls_status-status        = 'error'.
+      ls_status-stage         = 'FAILED'.
+      ls_status-message       = 'Command execution failed'.
+      ls_status-error_message = lx_error->get_text( ).
+      ls_status-updated_at    = lv_timestamp.
+      ls_status-completed_at  = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
       " Re-raise exception so job shows as failed

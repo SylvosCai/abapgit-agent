@@ -67,7 +67,7 @@ CLASS zcl_abgagt_command_list IMPLEMENTATION.
     ls_result-command = zif_abgagt_command=>gc_list.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Validate package

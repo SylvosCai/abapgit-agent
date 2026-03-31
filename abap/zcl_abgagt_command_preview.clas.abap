@@ -129,7 +129,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
     ls_result-command = zif_abgagt_command=>gc_preview.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     IF ls_params-objects IS INITIAL.
@@ -202,7 +202,7 @@ CLASS zcl_abgagt_command_preview IMPLEMENTATION.
             error TYPE string,
           END OF ls_final.
 
-    ls_final = CORRESPONDING #( ls_result ).
+    MOVE-CORRESPONDING ls_result TO ls_final.
     ls_final-summary = ls_summary.
     ls_final-pagination = ls_pagination.
 

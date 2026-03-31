@@ -45,9 +45,10 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
     IF it_source IS INITIAL.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = 1
-        text = 'No source provided for syntax check' ) ).
+      DATA ls_err_no_src TYPE zif_abgagt_syntax_checker=>ty_error.
+      ls_err_no_src-line = 1.
+      ls_err_no_src-text = 'No source provided for syntax check'.
+      APPEND ls_err_no_src TO rs_result-errors.
       rs_result-message = 'No source provided'.
       RETURN.
     ENDIF.
@@ -72,10 +73,11 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
     ELSE.
       rs_result-success = abap_false.
       rs_result-error_count = 1.
-      rs_result-errors = VALUE #( (
-        line = lv_line
-        text = lv_msg
-        word = lv_word ) ).
+      DATA ls_err_prog TYPE zif_abgagt_syntax_checker=>ty_error.
+      ls_err_prog-line = lv_line.
+      ls_err_prog-text = lv_msg.
+      ls_err_prog-word = lv_word.
+      APPEND ls_err_prog TO rs_result-errors.
       rs_result-message = lv_msg.
     ENDIF.
   ENDMETHOD.

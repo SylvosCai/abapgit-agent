@@ -134,7 +134,7 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
     ls_result-command = zif_abgagt_command=>gc_dump.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Enforce limit: default 20, max 100

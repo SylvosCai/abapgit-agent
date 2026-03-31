@@ -22,7 +22,7 @@ CLASS zcl_abgagt_command_status IMPLEMENTATION.
     DATA: ls_params TYPE ty_status_params.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Validate URL
@@ -54,9 +54,10 @@ CLASS zcl_abgagt_command_status IMPLEMENTATION.
         " Check if package requires transport (TDEVC-KORRFLAG = 'X')
         DATA(lv_transport_required) = abap_false.
         IF lv_package IS NOT INITIAL.
+          DATA lv_korrflag TYPE tdevc-korrflag.
           SELECT SINGLE korrflag FROM tdevc
-            WHERE devclass = @lv_package
-            INTO @DATA(lv_korrflag).
+            INTO lv_korrflag
+            WHERE devclass = lv_package.
           IF sy-subrc = 0 AND lv_korrflag = abap_true.
             lv_transport_required = abap_true.
           ENDIF.

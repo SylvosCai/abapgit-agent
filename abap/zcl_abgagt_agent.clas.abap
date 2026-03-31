@@ -606,7 +606,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           CREATE OBJECT mo_obj_filter TYPE ('ZCL_ABAPGIT_OBJECT_FILTER_OBJ')
             PARAMETER-TABLE lt_param.
         ELSE.
-          mo_obj_filter = NEW zcl_abapgit_object_filter_obj( it_filter = lt_tadir ).
+          CREATE OBJECT mo_obj_filter TYPE zcl_abapgit_object_filter_obj
+            EXPORTING it_filter = lt_tadir.
         ENDIF.
       ENDIF.
     ENDIF.

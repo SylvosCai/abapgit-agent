@@ -11,7 +11,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
 
   METHOD get_instance.
     DATA lo_instance TYPE REF TO zcl_abgagt_conflict_detector.
-    lo_instance = NEW #( ).
+    CREATE OBJECT lo_instance.
     ro_instance = lo_instance.
   ENDMETHOD.
 
@@ -22,12 +22,15 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
     LOOP AT it_files INTO DATA(ls_file).
 
       " Load baseline from ZABGAGT_OBJ_META
+      DATA ls_baseline TYPE zabgagt_obj_meta.
       SELECT SINGLE last_git_sha, last_branch, last_pulled_at, last_pulled_by,
                     sys_changed_at, sys_changed_by
         FROM zabgagt_obj_meta
-        WHERE obj_type = @ls_file-obj_type
-          AND obj_name = @ls_file-obj_name
-        INTO @DATA(ls_baseline).
+        WHERE obj_type = ls_file-obj_type
+          AND obj_name = ls_file-obj_name
+        INTO (ls_baseline-last_git_sha, ls_baseline-last_branch,
+              ls_baseline-last_pulled_at, ls_baseline-last_pulled_by,
+              ls_baseline-sys_changed_at, ls_baseline-sys_changed_by).
 
       IF sy-subrc <> 0.
         " No baseline → first pull, skip conflict check
@@ -163,8 +166,10 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ls_row-sys_changed_by = sy-uname.
 
       " Populate DEVCLASS from TADIR lookup (O(1) via hashed table)
-      DATA(ls_tadir) = VALUE #( lt_tadir[ object   = ls_file-obj_type
-                                          obj_name = ls_file-obj_name ] OPTIONAL ).
+      DATA ls_tadir TYPE ty_tadir_entry.
+      READ TABLE lt_tadir INTO ls_tadir
+        WITH TABLE KEY object   = ls_file-obj_type
+                       obj_name = ls_file-obj_name.
       ls_row-devclass = ls_tadir-devclass.
 
       MODIFY zabgagt_obj_meta FROM @ls_row.

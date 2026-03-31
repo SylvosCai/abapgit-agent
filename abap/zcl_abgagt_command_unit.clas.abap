@@ -118,7 +118,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     " Convert package string to devclass
@@ -211,7 +211,11 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
             i_objtype = <ls_key>-obj_type
             i_objname = <ls_key>-obj_name ).
           IF lv_mainprog IS NOT INITIAL.
-            APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_mainprog ) TO lo_runner->so_cvprg.
+            DATA ls_cvprg_entry LIKE LINE OF lo_runner->so_cvprg.
+            ls_cvprg_entry-sign   = 'I'.
+            ls_cvprg_entry-option = 'EQ'.
+            ls_cvprg_entry-low    = lv_mainprog.
+            APPEND ls_cvprg_entry TO lo_runner->so_cvprg.
           ENDIF.
         ENDLOOP.
       ENDIF.
@@ -225,7 +229,11 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
     DATA lt_so_class TYPE RANGE OF seoaliases-clsname.
     IF it_keys IS NOT INITIAL.
       LOOP AT it_keys ASSIGNING <ls_key>.
-        APPEND VALUE #( sign = 'I' option = 'EQ' low = <ls_key>-obj_name ) TO lt_so_class.
+        DATA ls_class_entry LIKE LINE OF lt_so_class.
+        ls_class_entry-sign   = 'I'.
+        ls_class_entry-option = 'EQ'.
+        ls_class_entry-low    = <ls_key>-obj_name.
+        APPEND ls_class_entry TO lt_so_class.
       ENDLOOP.
     ENDIF.
 

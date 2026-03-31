@@ -108,7 +108,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
 
     TRY.
         " Get status from shared buffer using interface
-        lo_mgr = NEW zcl_abgagt_bg_status_mgr( ).
+        CREATE OBJECT lo_mgr TYPE zcl_abgagt_bg_status_mgr.
         ls_status = lo_mgr->get_status( iv_job_number ).
 
         IF ls_status IS INITIAL.

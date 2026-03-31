@@ -206,7 +206,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     " Parse parameters from is_param
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     IF ls_params-files IS INITIAL.
@@ -282,7 +282,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           ls_result TYPE ty_inspect_result,
           lv_found TYPE abap_bool.
 
-    rt_results = VALUE #( ).
+    CLEAR rt_results.
 
     " Check each DDLS object
     LOOP AT it_ddls_names INTO lv_ddls_name.
@@ -420,7 +420,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         " Validation failed - get error details using get_errors method
         DATA(lt_errors) = lx_error->get_errors( ).
         LOOP AT lt_errors INTO DATA(ls_err).
-          DATA(ls_error) = VALUE ty_error( ).
+          DATA ls_error TYPE ty_error.
+          CLEAR ls_error.
           ls_error-line = ls_err-line.
           ls_error-column = ls_err-column.
           " Use MESSAGE statement to get real error message
@@ -460,7 +461,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       ro_handler = mo_ddl_handler.
     ELSE.
       " Create default wrapper that uses real DDL handler
-      ro_handler = NEW lcl_ddl_handler_default( ).
+      CREATE OBJECT ro_handler TYPE lcl_ddl_handler_default.
     ENDIF.
   ENDMETHOD.
 
@@ -473,7 +474,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
 
     DATA(lo_util) = io_util.
 
-    rt_results = VALUE #( ).
+    CLEAR rt_results.
 
     " Create inspection name
     lv_name = create_inspection_name( ).
@@ -657,16 +658,24 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
     " Get errors and warnings for this object
     LOOP AT it_list INTO ls_list WHERE objname = is_object-objname.
       " Extract method name from SOBJNAME
+      DATA lv_classname_s TYPE string.
+      DATA lv_sobjname_s TYPE string.
+      lv_classname_s = is_object-objname.
+      lv_sobjname_s  = ls_list-sobjname.
       DATA(lv_method_name) = extract_method_name(
-        iv_classname = CONV #( is_object-objname )
-        iv_sobjname  = CONV #( ls_list-sobjname )
+        iv_classname = lv_classname_s
+        iv_sobjname  = lv_sobjname_s
         io_util      = io_util ).
 
       " Categorize message
+      DATA lv_objtype_s TYPE string.
+      DATA lv_objname_s TYPE string.
+      lv_objtype_s = is_object-objtype.
+      lv_objname_s = is_object-objname.
       categorize_message(
         EXPORTING is_list        = ls_list
-                  iv_object_type = CONV #( is_object-objtype )
-                  iv_object_name = CONV #( is_object-objname )
+                  iv_object_type = lv_objtype_s
+                  iv_object_name = lv_objname_s
                   iv_method_name = lv_method_name
         IMPORTING es_error       = ls_error
                   es_warning     = ls_warning

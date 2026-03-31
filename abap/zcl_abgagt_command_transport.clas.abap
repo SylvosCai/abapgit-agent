@@ -81,7 +81,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
     IF io_cts_api IS BOUND.
       mo_cts_api = io_cts_api.
     ELSE.
-      mo_cts_api = NEW zcl_abgagt_cts_api( ).
+      CREATE OBJECT mo_cts_api TYPE zcl_abgagt_cts_api.
     ENDIF.
   ENDMETHOD.
 
@@ -94,7 +94,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           ls_result TYPE ty_transport_result.
 
     IF is_param IS SUPPLIED.
-      ls_params = CORRESPONDING #( is_param ).
+      MOVE-CORRESPONDING is_param TO ls_params.
     ENDIF.
 
     CASE ls_params-action.
