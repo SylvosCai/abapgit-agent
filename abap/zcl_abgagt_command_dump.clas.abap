@@ -180,7 +180,7 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
           DATA lt_stack TYPE snap_abap_stack.
           lo_dump->get_abap_callstack(
             IMPORTING p_abap_stack = lt_stack ).
-          DATA ls_frame TYPE snap_abap_stack_entry.
+          DATA ls_frame TYPE snap_stackinfo.
           LOOP AT lt_stack INTO ls_frame.
             DATA ls_entry TYPE ty_stack_entry.
             ls_entry-level   = ls_frame-index.

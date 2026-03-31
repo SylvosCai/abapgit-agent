@@ -23,9 +23,10 @@ ENDCLASS.
 CLASS ltcl_cmd_tree IMPLEMENTATION.
 
   METHOD class_setup.
-    DATA lt_deps TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
-    APPEND 'TDEVC' TO lt_deps.
-    APPEND 'TADIR' TO lt_deps.
+    DATA lt_deps TYPE if_osql_test_environment=>ty_t_sobjnames.
+    DATA lv_dep LIKE LINE OF lt_deps.
+    lv_dep = 'TDEVC'. APPEND lv_dep TO lt_deps.
+    lv_dep = 'TADIR'. APPEND lv_dep TO lt_deps.
     go_env = cl_osql_test_environment=>create( i_dependency_list = lt_deps ).
   ENDMETHOD.
 

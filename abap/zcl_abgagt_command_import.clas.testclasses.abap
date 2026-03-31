@@ -13,13 +13,9 @@ ENDCLASS.
 
 CLASS ltcl_repo_srv_double IMPLEMENTATION.
   METHOD zif_abapgit_repo_srv~get_repo_from_url.
-    ri_repo = mi_repo.
+    ei_repo = mi_repo.
   ENDMETHOD.
   METHOD zif_abapgit_repo_srv~list.
-  ENDMETHOD.
-  METHOD zif_abapgit_repo_srv~get_repo.
-  ENDMETHOD.
-  METHOD zif_abapgit_repo_srv~new_repo.
   ENDMETHOD.
   METHOD zif_abapgit_repo_srv~delete.
   ENDMETHOD.

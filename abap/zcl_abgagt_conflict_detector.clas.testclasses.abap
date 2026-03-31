@@ -58,8 +58,10 @@ ENDCLASS.
 CLASS ltcl_conflict_detector IMPLEMENTATION.
 
   METHOD class_setup.
-    DATA lt_dep_list TYPE STANDARD TABLE OF string WITH NON-UNIQUE DEFAULT KEY.
-    APPEND 'ZABGAGT_OBJ_META' TO lt_dep_list.
+    DATA lt_dep_list TYPE if_osql_test_environment=>ty_t_sobjnames.
+    DATA lv_dep LIKE LINE OF lt_dep_list.
+    lv_dep = 'ZABGAGT_OBJ_META'.
+    APPEND lv_dep TO lt_dep_list.
     go_env = cl_osql_test_environment=>create(
       i_dependency_list = lt_dep_list ).
   ENDMETHOD.
@@ -365,7 +367,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
     SELECT SINGLE last_git_sha, last_branch, last_pulled_at
       FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_STORE_TEST'
-      INTO ls_stored.
+      INTO CORRESPONDING FIELDS OF ls_stored.
 
     cl_abap_unit_assert=>assert_subrc( msg = 'Row must exist in ZABGAGT_OBJ_META after store' ).
     cl_abap_unit_assert=>assert_not_initial(
@@ -405,7 +407,7 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
     DATA ls_v2 TYPE zabgagt_obj_meta.
     SELECT SINGLE last_git_sha, last_branch FROM zabgagt_obj_meta
       WHERE obj_type = 'CLAS' AND obj_name = 'ZCL_UPD_TEST'
-      INTO ls_v2.
+      INTO CORRESPONDING FIELDS OF ls_v2.
 
     cl_abap_unit_assert=>assert_differs(
       act = ls_v2-last_git_sha exp = lv_sha_v1

@@ -20,7 +20,7 @@ ENDCLASS.
 CLASS ltcl_zcl_abgagt_command_list IMPLEMENTATION.
 
   METHOD class_setup.
-    DATA lt_dep TYPE if_osql_test_environment=>ty_tab_names.
+    DATA lt_dep TYPE if_osql_test_environment=>ty_t_sobjnames.
     DATA lv_dep LIKE LINE OF lt_dep.
     CLEAR lv_dep.
     lv_dep = 'TDEVC'.
