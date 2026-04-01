@@ -166,13 +166,11 @@ Adding `--lines` renders dual line numbers on every line and adds a ready-to-use
 
 - **G** (left, no brackets): assembled-source global line → use directly with `debug set --objects ZCL_FOO:G` or `debug set --files src/zcl_foo.clas.abap:G`
 - **[N]** (brackets): include-relative, restarts at 1 per method — useful for code navigation only
-- **Method header hint**: automatically points to the first executable statement (skips `METHOD`, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations)
+- **Method header hint**: automatically points to the first executable statement (skips `METHOD`, blank lines, comments, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations, including multi-line `DATA:` blocks and inline `DATA(x) =` forms)
+
+**Regular CM\* methods** use assembled-source global line numbers:
 
 ```
-  * ---- Section: Public Section (CU) ----
-     1    CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
-     2      PUBLIC SECTION.
-  ...
   * ---- Method: CONSTRUCTOR (CM001) — breakpoint: debug set --objects ZCL_MY_CLASS:14 ----
     13 [  1]    METHOD constructor.
     14 [  2]      mv_host = iv_host.
@@ -185,13 +183,39 @@ Adding `--lines` renders dual line numbers on every line and adds a ready-to-use
     21 [  5]    ENDMETHOD.
 ```
 
+**Unit test methods (CCAU) and local class methods (CCIMP)** live in separate ADT sub-includes. Their sections show section-local line numbers and a `--include` hint per method:
+
+```
+  * ---- Section: Unit Test (from .clas.testclasses.abap) ----
+  * ---- Method: SETUP — breakpoint: debug set --objects ZCL_MY_CLASS:12 --include testclasses ----
+    10    METHOD setup.
+    11      DATA lv_x TYPE i.
+    12      mo_cut = NEW #( ).
+    13    ENDMETHOD.
+
+  * ---- Section: Local Implementations (from .clas.locals_imp.abap) ----
+  * ---- Method: ZIF_FOO~DO_SOMETHING — breakpoint: debug set --objects ZCL_MY_CLASS:5 --include locals_imp ----
+     3    METHOD zif_foo~do_something.
+     4      DATA lv_x TYPE i.
+     5      lv_x = iv_input.
+     6    ENDMETHOD.
+```
+
+Line numbers in sub-include sections are **section-local** (matching the `.clas.testclasses.abap` / `.clas.locals_imp.abap` file), not assembled-source globals. The `--include` flag value mirrors the abapGit file suffix.
+
 **How global line numbers are computed:** Node.js reads the local `.clas.abap` file (own classes) or fetches `/sap/bc/adt/oo/classes/<name>/source/main` from ADT (library classes), then scans for `METHOD <name>.` to determine each method's start line.
 
 **Setting a breakpoint from the output:**
 
 ```bash
-# Copy the hint directly from the method header — it already points to the first executable line
+# Regular CM* method — copy hint directly from the method header
 abapgit-agent debug set --objects ZCL_MY_CLASS:19
+
+# Unit test method
+abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
+
+# Local class method
+abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
 ```
 
 Non-CLAS types (INTF, PROG, DDLS): single section, section-local line numbers only (no `[N]` brackets).

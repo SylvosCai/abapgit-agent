@@ -703,4 +703,66 @@ describe('View Command - findFirstExecutableLine()', () => {
     const lines = ['  method foo.', '  data x type i.', '  WRITE x.'];
     expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
   });
+
+  test('skips ABAP comment lines starting with "', () => {
+    const lines = [
+      '  METHOD parse_file.',
+      '  " Parse file path to extract obj_type',
+      '  " Example: foo.clas.abap -> CLAS',
+      '  DATA lv_x TYPE string.',
+      '  lv_x = iv_file.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(4);
+  });
+
+  test('skips ABAP comment lines starting with *', () => {
+    const lines = [
+      '  METHOD run.',
+      '* Old-style comment',
+      '  WRITE hello.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
+
+  test('skips mixed comments and declarations before first executable line', () => {
+    const lines = [
+      '  METHOD do_it.',
+      '  " Step 1: prepare',
+      '  DATA lv_x TYPE i.',
+      '  lv_x = 1.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(3);
+  });
+
+  test('skips inline DATA( declaration', () => {
+    const lines = [
+      '  METHOD foo.',
+      '  DATA(lv_x) = iv_param.',
+      '  lv_x = lv_x + 1.'
+    ];
+    // DATA( is an inline declaration — skip it
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
+
+  test('skips multi-line DATA: block continuation lines', () => {
+    const lines = [
+      '  METHOD detect_include_info.',
+      '  " comment',
+      '  DATA: lv_name TYPE tadir-obj_name,',
+      '        lv_obj_name TYPE tadir-obj_name,',
+      '        lt_source_check TYPE STANDARD TABLE OF string.',
+      '  rs_info-is_source_include = abap_false.'
+    ];
+    // Continuation lines (lv_obj_name, lt_source_check) must also be skipped
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(5);
+  });
+
+  test('skips single-line DATA: block (ends with period on same line)', () => {
+    const lines = [
+      '  METHOD foo.',
+      '  DATA: lv_x TYPE i.',
+      '  WRITE lv_x.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
 });

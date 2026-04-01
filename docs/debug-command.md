@@ -25,6 +25,7 @@ Breakpoint Management:
   set     --files <file>:<n>[,...]       Set breakpoints from file paths (e.g. abap/zcl_foo.clas.abap:42)
   set     --objects <name>:<n>[,...]     Set breakpoints from object names (e.g. ZCL_FOO:42)
   set     --object <name> --line <n>     Set a single breakpoint (legacy form)
+  set     ... --include <type>           Target a class sub-include (testclasses|locals_imp|locals_def)
   list                                   List all breakpoints
   delete  --id <id>                      Delete a breakpoint by ID
   delete  --all                          Delete all breakpoints
@@ -161,8 +162,54 @@ The response XML contains a `<breakpoint id="...">` element with the server-assi
 // ZCL_*/ZIF_*/YCL_*/YIF_* → OO class with /source/main
 /sap/bc/adt/oo/classes/zcl_my_class/source/main
 
+// With --include flag → OO class sub-include
+/sap/bc/adt/oo/classes/zcl_my_class/includes/testclasses      // --include testclasses
+/sap/bc/adt/oo/classes/zcl_my_class/includes/implementations  // --include locals_imp
+/sap/bc/adt/oo/classes/zcl_my_class/includes/definitions      // --include locals_def
+
 // Everything else → program
 /sap/bc/adt/programs/programs/zmy_program
+```
+
+### Class Sub-Include Breakpoints (`--include`)
+
+Regular CM\* methods live in the assembled class source (`/source/main`) and use global assembled-source line numbers. Unit test methods and local class methods live in **separate ADT sub-includes** that cannot be addressed through `/source/main`.
+
+Use `--include` to route the breakpoint to the correct sub-include:
+
+| Flag value | abapGit file | ADT URI path segment | Include type |
+|---|---|---|---|
+| `testclasses` | `.clas.testclasses.abap` | `testclasses` | CCAU (unit test class) |
+| `locals_imp` | `.clas.locals_imp.abap` | `implementations` | CCIMP (local class implementations) |
+| `locals_def` | `.clas.locals_def.abap` | `definitions` | CCDEF (local class definitions) |
+
+Flag values mirror the abapGit file suffix — the same text users already know from the file name. The ADT URL path segment is different (`locals_imp` → `implementations`) but this translation is handled internally.
+
+Line numbers for sub-includes are **section-local** — they match the line numbers in the corresponding `.clas.testclasses.abap` / `.clas.locals_imp.abap` file, not the assembled source.
+
+**Finding the right line number:** Use `view --objects ZCL_MY_CLASS --full --lines`. The output shows a ready-to-use `debug set` hint at each method header, with the `--include` flag already set:
+
+```
+  * ---- Section: Unit Test (from .clas.testclasses.abap) ----
+  * ---- Method: SETUP — breakpoint: debug set --objects ZCL_MY_CLASS:12 --include testclasses ----
+    10    METHOD setup.
+    11      DATA lv_x TYPE i.
+    12      mo_cut = NEW #( ).
+
+  * ---- Section: Local Implementations (from .clas.locals_imp.abap) ----
+  * ---- Method: ZIF_FOO~DO_SOMETHING — breakpoint: debug set --objects ZCL_MY_CLASS:5 --include locals_imp ----
+     3    METHOD zif_foo~do_something.
+     4      DATA lv_x TYPE i.
+     5      lv_x = iv_input.
+```
+
+```bash
+# Unit test method:
+abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
+# Local class method:
+abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
+# Regular CM* method (no --include needed):
+abapgit-agent debug set --objects ZCL_MY_CLASS:42
 ```
 
 ## Breakpoint State (Local Persistence)
@@ -295,3 +342,4 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 
 - Breakpoints fire only for dialog work processes executing under the configured user
 - The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement
+- Unit test methods and local class methods require `--include testclasses` / `--include locals_imp` with **section-local** line numbers (not assembled-source global lines); `view --full --lines` emits the correct hint for these sections automatically

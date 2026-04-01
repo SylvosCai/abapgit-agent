@@ -426,17 +426,34 @@ Never assume — wait for the user's answer before proceeding.
 
 **Finding the right line number for a breakpoint:**
 
-Use `view --full --lines` to get assembled-source global line numbers (the `G` column) — these are the coordinates ADT accepts for breakpoints:
+Use `view --full --lines` to get ready-to-use `debug set` commands per method:
 
 ```bash
 abapgit-agent view --objects ZCL_FOO --full --lines
 ```
 
-Output format: `G [N]  code` where `G` = global line (use with `debug set`) and `[N]` = include-relative (for navigation only).
+**Regular methods (CM\*):** output shows `G [N]  code` — the method header has the exact hint:
+```
+  * ---- Method: DO_SOMETHING (CM002) — breakpoint: debug set --objects ZCL_FOO:90 ----
+   88 [  1]  METHOD do_something.
+   89 [  2]    DATA lv_x TYPE i.
+   90 [  3]    lv_x = 1.
+```
+`G` = global assembled-source line (for `debug set`), `[N]` = include-relative (navigation only).
+
+**Unit test methods (CCAU) and local class methods (CCIMP):** use `--include` flag with section-local line numbers:
+```
+  * ---- Method: SETUP — breakpoint: debug set --objects ZCL_FOO:12 --include testclasses ----
+  * ---- Method: ZIF_BAR~DO_IT — breakpoint: debug set --objects ZCL_FOO:5 --include locals_imp ----
+```
 
 ```bash
-# Example: METHOD do_something. starts at global line 87
-abapgit-agent debug set --objects ZCL_FOO:90   # set BP a few lines after METHOD statement
+# Regular method:
+abapgit-agent debug set --objects ZCL_FOO:90
+# Unit test method:
+abapgit-agent debug set --objects ZCL_FOO:12 --include testclasses
+# Local class method:
+abapgit-agent debug set --objects ZCL_FOO:5 --include locals_imp
 ```
 
 Minimal correct sequence:

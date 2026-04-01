@@ -145,18 +145,31 @@ async function computeGlobalStarts(objName, sections, config) {
 
 /**
  * Given the lines of a CM method section, return the 0-based index of the
- * first "executable" line — i.e. skip METHOD, blank lines, and pure
- * declaration lines (DATA/FINAL/TYPES/CONSTANTS/CLASS-DATA).
+ * first "executable" line — i.e. skip METHOD, blank lines, comment lines,
+ * and declaration lines (DATA/FINAL/TYPES/CONSTANTS/CLASS-DATA), including
+ * multi-line DATA: blocks whose continuation lines end with a period.
  * Returns 0 if no better line is found (falls back to METHOD statement).
  */
 function findFirstExecutableLine(lines) {
-  const declPattern = /^\s*(data|final|types|constants|class-data)[\s:]/i;
+  const declPattern = /^\s*(data|final|types|constants|class-data)[\s:(]/i;
   const methodPattern = /^\s*method\s+/i;
+  const commentPattern = /^\s*[*"]/;
+  let inDeclBlock = false; // true while inside a multi-line DATA:/TYPES: block
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
+    if (inDeclBlock) {
+      // continuation line — skip until the block closes with a period
+      if (trimmed.endsWith('.')) inDeclBlock = false;
+      continue;
+    }
     if (!trimmed) continue;             // blank line
     if (methodPattern.test(trimmed)) continue; // METHOD statement itself
-    if (declPattern.test(trimmed)) continue;   // declaration
+    if (commentPattern.test(trimmed)) continue; // comment line
+    if (declPattern.test(trimmed)) {
+      // Multi-line block (DATA: ...,\n  ...) stays open until period
+      if (!trimmed.endsWith('.')) inDeclBlock = true;
+      continue;
+    }
     return i;
   }
   return 0;
@@ -282,6 +295,16 @@ module.exports = {
               // --full --lines: dual line numbers (G [N]) for debugging
               const globalStart = section.globalStart || 0;
 
+              // Map abapGit file suffix to the --include flag value used in debug set hints.
+              // User-facing names mirror the abapGit file suffixes (.clas.<name>.abap).
+              // Verified by live ADT testing: /includes/<adtType> endpoint accepts BPs.
+              const INCLUDE_FLAG_VALUE = {
+                testclasses:  'testclasses',
+                locals_imp:   'locals_imp',
+                locals_def:   'locals_def',
+              };
+              const includeFlag = INCLUDE_FLAG_VALUE[file] || null;
+
               if (isCmSection) {
                 let bpHint;
                 if (globalStart) {
@@ -299,6 +322,11 @@ module.exports = {
               }
 
               let includeRelLine = 0;
+              // Track when we're inside a METHOD block in a sub-include section
+              // so we can emit a breakpoint hint at the first executable line.
+              let inSubMethod = false;
+              let subMethodName = '';
+              let subMethodStartLine = 0; // 1-based line of METHOD statement
               for (const codeLine of lines) {
                 includeRelLine++;
                 const globalLine = globalStart ? globalStart + includeRelLine - 1 : 0;
@@ -307,7 +335,27 @@ module.exports = {
                   const iStr = String(includeRelLine).padStart(3);
                   console.log(`  ${gStr} [${iStr}]  ${codeLine}`);
                 } else {
-                  const lStr = globalLine ? String(globalLine).padStart(4) : String(includeRelLine).padStart(4);
+                  // For sub-include sections with a known ADT include type,
+                  // detect METHOD..ENDMETHOD blocks and emit breakpoint hints.
+                  if (includeFlag) {
+                    const trimmed = codeLine.trim();
+                    if (!inSubMethod && /^method\s+/i.test(trimmed)) {
+                      // Entering a new method — find first executable line offset
+                      // by scanning ahead from this line
+                      const mName = (trimmed.match(/^method\s+([\w~]+)/i) || [])[1] || '';
+                      // Collect lines from this METHOD onwards to find exec offset
+                      const remainingLines = lines.slice(includeRelLine - 1); // 0-based from current
+                      const execOffset = findFirstExecutableLine(remainingLines);
+                      const execLine = includeRelLine + execOffset; // section-local line
+                      const bpHint = `debug set --objects ${objName}:${execLine} --include ${includeFlag}`;
+                      console.log(`  * ---- Method: ${mName.toUpperCase()} — breakpoint: ${bpHint} ----`);
+                      inSubMethod = true;
+                      subMethodName = mName;
+                    } else if (inSubMethod && /^endmethod\s*\./i.test(codeLine.trim())) {
+                      inSubMethod = false;
+                    }
+                  }
+                  const lStr = String(includeRelLine).padStart(4);
                   console.log(`  ${lStr}  ${codeLine}`);
                 }
               }

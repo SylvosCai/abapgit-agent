@@ -61,6 +61,23 @@ function hasFlag(args, flag) {
 }
 
 /**
+ * Valid class include types for --include flag.
+ * User-facing names mirror the abapGit file suffixes (.clas.<name>.abap).
+ * Maps user-facing name → ADT /includes/<type> path segment.
+ * Verified by live ADT testing: breakpoints accepted for all three.
+ *   testclasses → testclasses   → CCAU  (unit test class file)
+ *   locals_imp  → implementations → CCIMP (local class implementations)
+ *   locals_def  → definitions   → CCDEF (local class definitions)
+ */
+const CLASS_INCLUDE_TYPES = new Set(['testclasses', 'locals_imp', 'locals_def']);
+
+const INCLUDE_TYPE_TO_ADT = {
+  testclasses: 'testclasses',
+  locals_imp:  'implementations',
+  locals_def:  'definitions',
+};
+
+/**
  * Determine ADT object URI from object name (class/interface vs program vs include).
  * Must use /source/main suffix for classes — verified by live testing: ADT
  * rejects breakpoints set on the class root URI but accepts /source/main.
@@ -71,11 +88,19 @@ function hasFlag(args, flag) {
  * Class method includes are named <ClassName padded to 30 chars with '='>CM<suffix>
  * e.g. ZCL_ABGAGT_AGENT=============CM00D
  * These must be routed to the programs/includes ADT endpoint.
+ *
+ * When includeType is supplied (testclasses|locals_imp|locals_def),
+ * the URI targets the sub-include of the class instead of /source/main.
+ * Line numbers are then section-local (from the .clas.<file>.abap file).
  */
-function objectUri(name) {
+function objectUri(name, includeType) {
   const upper = (name || '').toUpperCase();
   const lower = upper.toLowerCase();
   if (/^[ZY](CL|IF)_/.test(upper) || /^(ZCL|ZIF|YCL|YIF)/.test(upper)) {
+    if (includeType && CLASS_INCLUDE_TYPES.has(includeType)) {
+      const adtType = INCLUDE_TYPE_TO_ADT[includeType];
+      return `/sap/bc/adt/oo/classes/${lower}/includes/${adtType}`;
+    }
     return `/sap/bc/adt/oo/classes/${lower}/source/main`;
   }
   return `/sap/bc/adt/programs/programs/${lower}`;
@@ -247,11 +272,18 @@ function parseBreakpointToken(token) {
 }
 
 async function cmdSet(args, config, adt) {
-  const objectName = val(args, '--object');
-  const lineRaw    = val(args, '--line');
-  const filesArg   = val(args, '--files');
-  const objectsArg = val(args, '--objects');
-  const jsonOutput = hasFlag(args, '--json');
+  const objectName  = val(args, '--object');
+  const lineRaw     = val(args, '--line');
+  const filesArg    = val(args, '--files');
+  const objectsArg  = val(args, '--objects');
+  const includeType = val(args, '--include');
+  const jsonOutput  = hasFlag(args, '--json');
+
+  // Validate --include if supplied
+  if (includeType && !CLASS_INCLUDE_TYPES.has(includeType)) {
+    console.error(`  Error: --include must be one of: ${[...CLASS_INCLUDE_TYPES].join(', ')}`);
+    process.exit(1);
+  }
 
   // Collect all breakpoints to add from every accepted input form
   const toAdd = []; // [{ name, line }]
@@ -304,6 +336,7 @@ async function cmdSet(args, config, adt) {
     console.error('    debug set --files src/zcl_my_class.clas.abap:42');
     console.error('    debug set --objects ZCL_MY_CLASS:42');
     console.error('    debug set --object ZCL_MY_CLASS --line 42');
+    console.error('    debug set --objects ZCL_MY_CLASS:16 --include testclasses');
     process.exit(1);
   }
 
@@ -312,7 +345,7 @@ async function cmdSet(args, config, adt) {
   const added = [];
 
   for (const { name, line } of toAdd) {
-    const uri = objectUri(name);
+    const uri = objectUri(name, includeType);
     const objUpper = name.toUpperCase();
     // Skip if an identical breakpoint already exists
     if (existing.some(bp => bp.object === objUpper && bp.line === line)) {

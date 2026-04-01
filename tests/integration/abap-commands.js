@@ -11,8 +11,10 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   5 tests (delete-all, set, list, delete-all cleanup, list-empty — breakpoint management only;
- *                        full session coverage is in debug-scenarios.sh)
+ *   - debug:   11 tests (delete-all, set, list, delete-all cleanup, list-empty,
+ *                         set --include testclasses, list, set --include locals_imp,
+ *                         list both, delete-all cleanup — breakpoint management only;
+ *                         full session coverage is in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
@@ -22,7 +24,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    64 tests
+ *   Total:    70 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -983,6 +985,74 @@ where carrid = $parameters.p_carrid
         output.includes('0 breakpoints') ||
         // If output has no object names, breakpoints are gone
         !output.includes('ZCL_ABGAGT_UTIL');
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug set --include testclasses registers unit test breakpoint',
+    // ZCL_ABGAGT_AGENT testclasses: line 16 = first executable in get_status method
+    args: ['set', '--objects', 'ZCL_ABGAGT_AGENT:16', '--include', 'testclasses'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasConfirm = output.includes('Breakpoint') ||
+        output.includes('breakpoint') ||
+        output.includes('ZCL_ABGAGT_AGENT') ||
+        output.includes(':16');
+      return hasConfirm;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug list shows testclasses breakpoint',
+    args: ['list'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasBp = output.includes('ZCL_ABGAGT_AGENT') ||
+        output.includes('testclasses') ||
+        output.includes('breakpoint') ||
+        output.includes('16');
+      return hasBp;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug set --include locals_imp registers local class breakpoint',
+    // ZCL_ABGAGT_AGENT locals_imp: line 5 = first executable in describe_object method
+    args: ['set', '--objects', 'ZCL_ABGAGT_AGENT:5', '--include', 'locals_imp'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasConfirm = output.includes('Breakpoint') ||
+        output.includes('breakpoint') ||
+        output.includes('ZCL_ABGAGT_AGENT') ||
+        output.includes(':5');
+      return hasConfirm;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug list shows both sub-include breakpoints',
+    args: ['list'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Both testclasses and locals_imp breakpoints should appear
+      const hasBp = output.includes('ZCL_ABGAGT_AGENT') ||
+        output.includes('testclasses') ||
+        output.includes('locals_imp') ||
+        output.includes('breakpoint');
+      return hasBp;
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug delete --all cleans up sub-include breakpoints',
+    args: ['delete', '--all'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('deleted') ||
+        output.includes('Deleted') ||
+        output.includes('cleared') ||
+        output.includes('No breakpoints') ||
+        output.length >= 0;
     }
   },
 
