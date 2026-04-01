@@ -2,6 +2,21 @@
 title: Release Notes
 ---
 
+## v1.14.5
+
+### Bug Fixes
+
+- Fix breakpoint hints skipping ABAP comment lines in methods
+
+### Documentation
+
+- Add text table and foreign key guides to abapgit.md
+
+---
+
+---
+
+
 ## v1.14.4
 
 ### Bug Fixes
