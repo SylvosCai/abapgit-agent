@@ -284,6 +284,156 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 **Why this matters**: Missing `SHLPORIGIN` or wrong `MASK`/`DDTEXT` order causes a permanent diff between git and the system-serialized XML.
 
+#### Text Tables and Foreign Keys
+
+A **text table** stores translatable texts for another table (the "main table"). It shares the same key fields as the main table plus a language field (`SPRAS` with data element `SPRAS`, or `LANGU` with data element `LANGU`).
+
+**How to recognise a text table relationship in the XML:**
+- `<DD09L>` has `<UEBERSETZ>X</UEBERSETZ>` — marks this table as a text table
+- `<DD08V>` has `<FRKART>TEXT</FRKART>` — marks the foreign key as a text-table relationship (ordinary foreign keys omit this field)
+
+**Three sections required in the text table XML:**
+
+| Section | Purpose |
+|---|---|
+| `DD03P_TABLE` | Field definitions — same key fields as main table + language field + text fields |
+| `DD05M_TABLE` | Foreign key field mappings — one entry per key field of the main table (excluding the language field) |
+| `DD08V_TABLE` | Foreign key relationship — one entry with `FRKART>TEXT` |
+
+**`DD03P` rules for the text table:**
+- First key field (`MANDT`) must have `<CHECKTABLE>` pointing to the main table and `<SHLPORIGIN>P</SHLPORIGIN>`
+- Language field (`SPRAS` or `LANGU`) gets `<SHLPORIGIN>D</SHLPORIGIN>` (added by serializer after activation — omit when writing manually)
+
+**`DD05M` rules:**
+- `FIELDNAME` = the anchor field in the text table (typically `MANDT` — the first key field)
+- `FORTABLE` = text table name
+- `FORKEY` = key field name in the main table
+- `CHECKFIELD` = same as `FORKEY`
+- `CHECKTABLE` = main table name
+- `PRIMPOS` = position sequence (0001, 0002, …)
+- `DOMNAME` / `DATATYPE` = domain and type of the check field (omit `DOMNAME` if unknown — serializer fills it in)
+
+**`DD08V` rules:**
+- `FIELDNAME` = same anchor field as used in `DD05M` (typically `MANDT`)
+- `CHECKTABLE` = main table name
+- `FRKART` = `TEXT` (text table) or omit (ordinary foreign key)
+- `CARD` = `CN` (n:1 cardinality)
+- `CARDLEFT` = `1`
+
+**Example — text table `ZMY_TABLE_T` for main table `ZMY_TABLE` (keys: MANDT, ID1, ID2):**
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>ZMY_TABLE_T</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>TRANSP</TABCLASS>
+    <CLIDEP>X</CLIDEP>
+    <DDTEXT>My Table: Texts</DDTEXT>
+    <CONTFLAG>C</CONTFLAG>
+   </DD02V>
+   <DD09L>
+    <TABNAME>ZMY_TABLE_T</TABNAME>
+    <AS4LOCAL>A</AS4LOCAL>
+    <TABKAT>0</TABKAT>
+    <TABART>APPL0</TABART>
+    <UEBERSETZ>X</UEBERSETZ>
+    <BUFALLOW>N</BUFALLOW>
+   </DD09L>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>MANDT</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>MANDT</ROLLNAME>
+     <CHECKTABLE>ZMY_TABLE</CHECKTABLE>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <SHLPORIGIN>P</SHLPORIGIN>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>ID1</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>ZMY_ID1</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>ID2</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>ZMY_ID2</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>SPRAS</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>SPRAS</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>DESCRIPTION</FIELDNAME>
+     <ROLLNAME>ZMY_DESCRIPTION</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+   </DD03P_TABLE>
+   <DD05M_TABLE>
+    <DD05M>
+     <FIELDNAME>MANDT</FIELDNAME>
+     <FORTABLE>ZMY_TABLE_T</FORTABLE>
+     <FORKEY>MANDT</FORKEY>
+     <CHECKTABLE>ZMY_TABLE</CHECKTABLE>
+     <CHECKFIELD>MANDT</CHECKFIELD>
+     <PRIMPOS>0001</PRIMPOS>
+     <DOMNAME>MANDT</DOMNAME>
+     <DATATYPE>CLNT</DATATYPE>
+    </DD05M>
+    <DD05M>
+     <FIELDNAME>MANDT</FIELDNAME>
+     <FORTABLE>ZMY_TABLE_T</FORTABLE>
+     <FORKEY>ID1</FORKEY>
+     <CHECKTABLE>ZMY_TABLE</CHECKTABLE>
+     <CHECKFIELD>ID1</CHECKFIELD>
+     <PRIMPOS>0002</PRIMPOS>
+     <DATATYPE>CHAR</DATATYPE>
+    </DD05M>
+    <DD05M>
+     <FIELDNAME>MANDT</FIELDNAME>
+     <FORTABLE>ZMY_TABLE_T</FORTABLE>
+     <FORKEY>ID2</FORKEY>
+     <CHECKTABLE>ZMY_TABLE</CHECKTABLE>
+     <CHECKFIELD>ID2</CHECKFIELD>
+     <PRIMPOS>0003</PRIMPOS>
+     <DATATYPE>CHAR</DATATYPE>
+    </DD05M>
+   </DD05M_TABLE>
+   <DD08V_TABLE>
+    <DD08V>
+     <FIELDNAME>MANDT</FIELDNAME>
+     <CHECKTABLE>ZMY_TABLE</CHECKTABLE>
+     <FRKART>TEXT</FRKART>
+     <CARD>CN</CARD>
+     <CARDLEFT>1</CARDLEFT>
+    </DD08V>
+   </DD08V_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key rules:**
+- Always activate the main table **before** the text table — the foreign key check requires the main table to exist
+- Language field can be `SPRAS` (data element `SPRAS`) or `LANGU` (data element `LANGU`) — both are recognised by the system
+- For an **ordinary foreign key** (not a text table): same `DD05M`/`DD08V` structure, but omit `<FRKART>TEXT</FRKART>` from `DD08V`
+
 ---
 
 ### CDS View / View Entity (DDLS)
