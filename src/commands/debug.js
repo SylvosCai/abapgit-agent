@@ -109,8 +109,23 @@ function objectUri(name, includeType) {
   }
   // FUGR source includes: L<group>U<NN>, L<group>TOP, L<group>F<NN>, etc.
   // All start with 'L'. Customer Z/Y programs never start with 'L'.
+  // Correct ADT URI (verified against abap-adt-api):
+  //   /sap/bc/adt/functions/groups/<group>/includes/<include>/source/main
+  // NOT /programs/includes/ — that path is for standalone PROG/I includes only.
+  // Group name is derived by stripping leading 'L' and trailing suffix:
+  //   U<NN>  — FM source include (U01, U02, ...)
+  //   TOP    — pool include
+  //   F<NN>  — form include
+  //   XX     — internal include
   if (/^L/.test(upper)) {
-    return `/sap/bc/adt/programs/includes/${lower}`;
+    const withoutL = upper.slice(1); // e.g. ZCAIS_DEMOU01
+    const group = withoutL
+      .replace(/U\d+$/, '')   // strip Unn suffix
+      .replace(/TOP$/, '')    // strip TOP suffix
+      .replace(/F\d+$/, '')   // strip Fnn suffix
+      .replace(/XX$/, '')     // strip XX suffix
+      .toLowerCase();
+    return `/sap/bc/adt/functions/groups/${group}/includes/${lower}/source/main`;
   }
   return `/sap/bc/adt/programs/programs/${lower}`;
 }
@@ -236,15 +251,25 @@ async function refreshBreakpoints(config, adt, bps) {
 
   const serverResults = parseBreakpointResponse(resp.body || '', bps);
 
-  // Match server results back to local bps by uri+line
+  // Match server results back to local bps by uri+line.
+  // ADT may return a different canonical URI than what was sent (e.g. it rewrites
+  // /functions/groups/<g>/includes/<inc>/... to /functions/groups/<g>/fmodules/<fm>/...).
+  // Fall back to matching by line alone when URI doesn't match, then adopt the
+  // server's canonical URI so future refreshes continue to work.
   const valid = [];
   const stale = [];
   for (const bp of bps) {
-    const match = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
+    let match = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
+    if (!match) {
+      // Fallback: match by line number alone (handles URI canonicalization by ADT)
+      match = serverResults.find(r => r.line === bp.line);
+    }
     if (match && match.error) {
       stale.push({ ...bp, error: match.error });
     } else if (match && match.id) {
-      valid.push({ ...bp, id: match.id });
+      // Adopt the server's canonical URI so subsequent refreshes match correctly
+      const canonicalUri = match.uri || bp.uri;
+      valid.push({ ...bp, id: match.id, uri: canonicalUri });
     } else {
       // No match in response — server silently dropped it (e.g. expired)
       stale.push({ ...bp, error: 'Not registered on server' });

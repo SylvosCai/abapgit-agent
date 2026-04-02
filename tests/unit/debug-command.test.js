@@ -1097,6 +1097,42 @@ describe('Debug Command - set --objects', () => {
     // Confirmation shown to user
     expect(cap.output).toMatch(/Z_ABGAGT_BG_EXECUTOR:21/);
   });
+
+  test('sets breakpoint on FUGR include — uses functions/groups/.../includes/... URI', async () => {
+    let capturedUrl;
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((url, body) => {
+        capturedUrl = url;
+        capturedBody = body;
+        return Promise.resolve({
+          // ADT rewrites the URI to the canonical fmodules form in the response —
+          // refreshBreakpoints() must fall back to line-based matching and adopt this URI.
+          body: `<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger">` +
+                `<breakpoint id="KIND=0.SOURCETYPE=ABAP.MAIN_PROGRAM=SAPLZCAIS_DEMO.INCLUDE=LZCAIS_DEMOU01.LINE_NR=11"` +
+                ` adtcore:uri="/sap/bc/adt/functions/groups/zcais_demo/fmodules/zcais_get_sy_data/source/main#start=11"` +
+                ` xmlns:adtcore="http://www.sap.com/adt/core"/>` +
+                `</dbg:breakpoints>`,
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'LZCAIS_DEMOU01:11'],
+      makeContext(AdtHttpClass)
+    );
+
+    // Must POST to the debugger breakpoints endpoint
+    expect(capturedUrl).toMatch(/\/sap\/bc\/adt\/debugger\/breakpoints/);
+    // Body must reference functions/groups URI (NOT programs/includes)
+    expect(capturedBody).toContain('/sap/bc/adt/functions/groups/zcais_demo/includes/lzcais_demou01/source/main');
+    expect(capturedBody).toContain('#start=11');
+    // Confirmation shown to user
+    expect(cap.output).toMatch(/LZCAIS_DEMOU01:11/);
+  });
 });
 
 // ─── debug set — deduplication ────────────────────────────────────────────────
