@@ -79,7 +79,7 @@ CLASS zcl_abgagt_viewer_stob IMPLEMENTATION.
             rs_info-not_found = abap_true.
           ENDIF.
 
-        CATCH cx_root.
+        CATCH cx_static_check cx_dynamic_check.
           " Error getting DDLS viewer or reading info
           IF lv_devclass IS NOT INITIAL.
             rs_info-description = |Structured Object { iv_name } in { lv_devclass } (DDLS: { lv_ddls_name })|.

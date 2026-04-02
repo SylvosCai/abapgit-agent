@@ -226,7 +226,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             ELSE.
               RAISE EXCEPTION lx_deser.
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_static_check cx_dynamic_check.
             " CX_SY_NO_HANDLER (wrapping CX_SY_RANGE_OUT_OF_BOUNDS) can escape
             " abapGit's deserialize_step when an individual object's deserialize()
             " raises a non-zcx_abapgit_exception inside a RAISING zcx_abapgit_exception
@@ -271,7 +271,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       CATCH zcx_abapgit_exception INTO lx_git.
         rs_result = handle_exception( ix_exception = lx_git ).
         GET TIME STAMP FIELD rs_result-finished_at.
-      CATCH cx_root INTO lx_error.
+      CATCH cx_static_check cx_dynamic_check INTO lx_error.
         rs_result = handle_exception( ix_exception = lx_error ).
         GET TIME STAMP FIELD rs_result-finished_at.
     ENDTRY.
@@ -357,7 +357,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         ELSE.
           rs_checks = mo_repo->deserialize_checks( ).
         ENDIF.
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
         " Serializer error in get_files_local — skip checks, pull proceeds
         RETURN.
     ENDTRY.
@@ -544,7 +544,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             rv_available = abap_false.
           ENDIF.
         ENDIF.
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
         rv_available = abap_false.
     ENDTRY.
   ENDMETHOD.
@@ -570,7 +570,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             rv_available = abap_false.
           ENDIF.
         ENDIF.
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
         rv_available = abap_false.
     ENDTRY.
   ENDMETHOD.
@@ -818,7 +818,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Cannot read remote files — skip conflict check (e.g. auth error pre-pull)
         mv_remote_fetch_error = lx_remote->get_text( ).
         RETURN.
-      CATCH cx_root INTO lx_remote_root.
+      CATCH cx_static_check cx_dynamic_check INTO lx_remote_root.
         mv_remote_fetch_error = lx_remote_root->get_text( ).
         RETURN.
     ENDTRY.
@@ -888,7 +888,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           lv_content = cl_abap_codepage=>convert_from(
             source   = ls_remote_file-data
             codepage = 'UTF-8' ).
-        CATCH cx_root.
+        CATCH cx_static_check cx_dynamic_check.
           CONTINUE.
       ENDTRY.
 
@@ -942,7 +942,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           lv_local_content = cl_abap_codepage=>convert_from(
             source   = ls_local_item-file-data
             codepage = 'UTF-8' ).
-        CATCH cx_root.
+        CATCH cx_static_check cx_dynamic_check.
           CONTINUE.
       ENDTRY.
 

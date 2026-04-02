@@ -64,7 +64,7 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
     " Create DDL handler
     TRY.
         lo_handler = cl_dd_ddl_handler_factory=>create( ).
-      CATCH cx_root INTO lx_factory.
+      CATCH cx_static_check cx_dynamic_check INTO lx_factory.
         rs_result-success = abap_false.
         rs_result-error_count = 1.
         ls_err_factory-line = 1.
@@ -122,7 +122,7 @@ CLASS zcl_abgagt_syntax_chk_ddls IMPLEMENTATION.
           rs_result-message = lx_error->get_text( ).
         ENDIF.
 
-      CATCH cx_root INTO lx_other.
+      CATCH cx_static_check cx_dynamic_check INTO lx_other.
         " Unexpected error
         rs_result-success = abap_false.
         rs_result-error_count = 1.

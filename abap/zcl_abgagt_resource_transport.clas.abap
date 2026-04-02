@@ -60,7 +60,7 @@ CLASS zcl_abgagt_resource_transport IMPLEMENTATION.
 
         return_success( lo_command->execute( is_param = ls_params ) ).
 
-      CATCH cx_root INTO lx_error.
+      CATCH cx_static_check cx_dynamic_check INTO lx_error.
         return_error( lx_error->get_text( ) ).
     ENDTRY.
   ENDMETHOD.

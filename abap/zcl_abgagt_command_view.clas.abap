@@ -123,7 +123,7 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           ls_info-name = lv_object.
           ls_info-type = lv_type.
           ls_info-not_found = abap_true.
-        CATCH cx_root.
+        CATCH cx_static_check cx_dynamic_check.
           " Any other error (e.g. cx_dd_ddl_read) - set not found flag
           ls_info-name = lv_object.
           ls_info-type = lv_type.

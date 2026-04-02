@@ -523,7 +523,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           mo_inspector->cleanup(
             io_inspection = lo_inspection
             io_objset    = lo_objset ).
-        CATCH cx_root INTO lx_inspector_error.
+        CATCH cx_static_check cx_dynamic_check INTO lx_inspector_error.
           rt_results = build_error_result(
             it_objects = it_objects
             ix_error   = lx_inspector_error ).
@@ -555,7 +555,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           cleanup(
             io_inspection = lo_inspection
             io_objset     = lo_objset ).
-        CATCH cx_root INTO lx_error.
+        CATCH cx_static_check cx_dynamic_check INTO lx_error.
           " Handle exception - build error result
           rt_results = build_error_result(
             it_objects = it_objects

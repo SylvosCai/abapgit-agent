@@ -102,7 +102,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
         mo_response->create_entity( )->set_string_data( lv_result ).
         mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
 
-      CATCH cx_root INTO lx_error.
+      CATCH cx_static_check cx_dynamic_check INTO lx_error.
         lv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
         mo_response->create_entity( )->set_string_data( lv_result ).
         mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
@@ -131,7 +131,7 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
           compress      = abap_false
           pretty_name   = /ui2/cl_json=>pretty_mode-camel_case ).
 
-      CATCH cx_root INTO lx_error.
+      CATCH cx_static_check cx_dynamic_check INTO lx_error.
         rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
     ENDTRY.
   ENDMETHOD.

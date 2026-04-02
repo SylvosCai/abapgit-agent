@@ -140,7 +140,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
           return_success( lv_result ).
         ENDIF.
 
-      CATCH cx_root INTO lx_exception.
+      CATCH cx_static_check cx_dynamic_check INTO lx_exception.
         return_error( lx_exception->get_text( ) ).
     ENDTRY.
   ENDMETHOD.
@@ -273,7 +273,7 @@ CLASS zcl_abgagt_resource_base IMPLEMENTATION.
         lo_entity->set_string_data( lv_json_resp ).
         mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
 
-      CATCH cx_root INTO lx_error.
+      CATCH cx_static_check cx_dynamic_check INTO lx_error.
         return_error( lx_error->get_text( ) ).
     ENDTRY.
   ENDMETHOD.

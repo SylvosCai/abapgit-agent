@@ -100,7 +100,7 @@ START-OF-SELECTION.
       ls_status-completed_at = lv_timestamp.
       lo_status_mgr->update_status( ls_status ).
 
-    CATCH cx_root INTO lx_error.
+    CATCH cx_static_check cx_dynamic_check INTO lx_error.
       " Update final status - error
       GET TIME STAMP FIELD lv_timestamp.
       CLEAR ls_status.

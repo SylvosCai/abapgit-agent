@@ -260,7 +260,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
           IMPORTING
             ef_hmacstring = lv_hash ).
         rv_sha = lv_hash.
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
         " Fallback: simple length+content hash for environments without SHA1
         rv_sha = |sha_{ strlen( iv_content ) }_{ iv_content }|.
         IF strlen( rv_sha ) > 40.

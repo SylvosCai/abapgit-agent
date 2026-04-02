@@ -268,7 +268,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             pretty_name = /ui2/cl_json=>pretty_mode-low_case
           RECEIVING
             r_json      = rv_result ).
-      CATCH cx_root INTO lx_other.
+      CATCH cx_static_check cx_dynamic_check INTO lx_other.
         ls_error-error = lx_other->get_text( ).
         /ui2/cl_json=>serialize(
           EXPORTING

@@ -292,7 +292,7 @@ CLASS zcl_abgagt_command_dump IMPLEMENTATION.
         CATCH cx_runtime_error_exc_auth.
           ls_result-success = abap_false.
           ls_result-error   = 'Not authorized to read short dumps'.
-        CATCH cx_root INTO lx_error.
+        CATCH cx_static_check cx_dynamic_check INTO lx_error.
           ls_result-success = abap_false.
           ls_result-error   = lx_error->get_text( ).
       ENDTRY.

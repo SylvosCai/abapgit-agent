@@ -50,7 +50,7 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
           rv_result = abap_true.
           RETURN.
         ENDIF.
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
     ENDTRY.
 
     " ========================================
@@ -67,7 +67,7 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
               rv_result = abap_true.
               RETURN.
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_static_check cx_dynamic_check.
         ENDTRY.
 
       WHEN 'INSPECT'.
@@ -79,7 +79,7 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
               rv_result = abap_true.
               RETURN.
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_static_check cx_dynamic_check.
         ENDTRY.
     ENDCASE.
 
