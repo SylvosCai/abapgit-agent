@@ -32,6 +32,8 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-debug-test.git';
+
 // Helper: parse LINE_NR from ADT id returned in --json output.
 // NOTE: LINE_NR is include-relative, not the global assembled-source line.
 // For CLAS main methods it differs from the line we passed in (e.g. global 33 → LINE_NR 5).
@@ -443,16 +445,27 @@ function buildTestCases(debugRepoPath) {
  * @param {object} helpers     - { printSubHeader, printSuccess, printError, printWarning, printInfo, colorize, colors }
  */
 function runDebugTests(repoRoot, helpers) {
-  const { printSubHeader, printSuccess, printError, printWarning, colorize, colors } = helpers;
+  const { printSubHeader, printSuccess, printError, printWarning, printInfo, colorize, colors } = helpers;
 
-  const debugRepoPath = path.join(repoRoot, '..', 'abgagt-debug-test');
+  printSubHeader('Running Debug Tests (breakpoint management)');
 
-  printSubHeader('Running Debug Tests (requires abgagt-debug-test repo)');
+  // Clone into output/abgagt-debug-test (same pattern as lifecycle-runner)
+  const outputDir = path.join(repoRoot, 'output');
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
-  if (!fs.existsSync(debugRepoPath)) {
-    printWarning(`abgagt-debug-test repo not found at: ${debugRepoPath}`);
-    printWarning('Debug tests require a separate repo checkout — skipping.');
-    return { success: true, skipped: true, results: [], duration: '0.0', passedCount: 0, totalCount: 0 };
+  const debugRepoPath = path.join(outputDir, 'abgagt-debug-test');
+  if (fs.existsSync(debugRepoPath)) {
+    printInfo('Debug test repo already exists, using existing copy');
+  } else {
+    printInfo(`Cloning debug test repo: ${TEST_REPO_URL}`);
+    try {
+      execSync(`git clone ${TEST_REPO_URL} ${debugRepoPath}`, { encoding: 'utf8' });
+    } catch (e) {
+      printError(`Failed to clone debug test repo: ${e.message}`);
+      return { success: false, skipped: false, results: [], duration: '0.0', passedCount: 0, totalCount: 0 };
+    }
   }
 
   const agentBin = path.join(repoRoot, 'bin', 'abapgit-agent');

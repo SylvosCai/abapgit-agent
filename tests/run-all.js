@@ -927,7 +927,7 @@ async function main() {
     runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
     runDebug = !isCI;       // Skip debug scenarios in CI (require interactive ADT sessions)
-    runDebugBp = !isCI;     // Skip debug breakpoint tests in CI (require abgagt-debug-test repo)
+    runDebugBp = true;      // Always run — runner clones abgagt-debug-test if needed
     if (isCI) {
       printInfo('  ⚠️  CI environment detected — skipping debug scenarios (require interactive ADT)');
     }
