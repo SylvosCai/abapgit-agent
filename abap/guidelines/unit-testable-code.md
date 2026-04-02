@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Unit Testable Code
-nav_order: 10
+nav_order: 13
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
@@ -557,45 +557,3 @@ DATA(lo_command) = NEW zcl_abgagt_command_pull(
   io_agent = NEW zcl_abgagt_agent( ) ).
 ```
 
-**Test usage:**
-```abap
-CLASS ltd_mock_agent DEFINITION FOR TESTING.
-  PUBLIC SECTION.
-    INTERFACES zif_abgagt_agent PARTIALLY IMPLEMENTED.
-ENDCLASS.
-
-CLASS ltd_mock_agent IMPLEMENTATION.
-  METHOD zif_abgagt_agent~pull.
-    rs_result-success = abap_true.
-    rs_result-message = 'Mocked success'.
-  ENDMETHOD.
-ENDCLASS.
-
-CLASS ltcl_test DEFINITION FOR TESTING.
-  METHOD test_pull_success.
-    DATA(lo_mock) = NEW ltd_mock_agent( ).
-    DATA(lo_cut) = NEW zcl_abgagt_command_pull( io_agent = lo_mock ).
-
-    DATA(lv_result) = lo_cut->execute( ... ).
-
-    " Assert mocked behavior
-  ENDMETHOD.
-ENDCLASS.
-```
-
----
-
-## Key Takeaways
-
-1. **Always use interfaces** for dependencies
-2. **Use constructor injection** to pass dependencies
-3. **Never hardcode `NEW` for dependencies** - pass them in
-4. **Avoid static calls** - use instance methods with injected dependencies
-5. **Keep constructors simple** - only assign dependencies
-
-Following these guidelines ensures that:
-- Unit tests can mock all dependencies
-- Tests run fast without external systems
-- Tests are reliable and repeatable
-- Error conditions can be tested easily
-- Code is modular and loosely coupled

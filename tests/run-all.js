@@ -36,6 +36,7 @@ const { runConflictTests } = require('./integration/conflict-runner');
 const { runSyncXmlTests } = require('./integration/sync-xml-runner');
 const { runXmlOnlyTests } = require('./integration/xml-only-runner');
 const { runJUnitTests } = require('./integration/junit-runner');
+const { runDebugTests } = require('./integration/debug-runner');
 
 // Colors for output
 const colors = {
@@ -204,6 +205,18 @@ function runJUnitTestsWrapper() {
   });
 }
 
+function runDebugTestsWrapper() {
+  return runDebugTests(repoRoot, {
+    printSubHeader,
+    printSuccess,
+    printError,
+    printWarning,
+    printInfo,
+    colorize,
+    colors
+  });
+}
+
 /**
  * Pause and wait for user input
  * Press 'a' to skip all remaining pauses
@@ -330,7 +343,7 @@ async function runDemoCommandTests(testCases, startTime) {
   const results = [];
 
   for (const testCase of testCases) {
-    const command = [testCase.command, ...testCase.args].join(' ');
+    const command = [testCase.run || testCase.command, ...testCase.args].join(' ');
 
     const result = await runDemoCommand(command, testCase.name, testCase.verify);
     results.push({ ...testCase, passed: result.passed, output: result.output.substring(0, 200) });
@@ -411,10 +424,12 @@ function runCommandTests(demoMode = false, commandFilter = null) {
         testCase.setup();
       }
 
-      const args = [testCase.command, ...testCase.args];
+      const args = [testCase.run || testCase.command, ...testCase.args];
+      const execCwd = testCase.cwd || repoRoot;
+      const agentBin = path.join(repoRoot, 'bin', 'abapgit-agent');
       output = execSync(
-        `node bin/abapgit-agent ${args.join(' ')}`,
-        { cwd: repoRoot, encoding: 'utf8', timeout: 120000 }
+        `node ${agentBin} ${args.join(' ')}`,
+        { cwd: execCwd, encoding: 'utf8', timeout: 120000 }
       );
 
       // Run custom verification if provided
@@ -665,21 +680,6 @@ function printSummary(results) {
     }
   }
 
-  // Debug scenario tests
-  if (results.debug) {
-    if (results.debug.skipped) {
-      printWarning('Debug Scenarios: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.debug.duration);
-      if (results.debug.success) {
-        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
-      } else {
-        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
   // JUnit output tests
   if (results.junit) {
     if (results.junit.skipped) {
@@ -690,6 +690,36 @@ function printSummary(results) {
         printSuccess(`JUnit Output Tests: ${results.junit.passedCount}/${results.junit.totalCount} PASSED (${results.junit.duration}s)`);
       } else {
         printError(`JUnit Output Tests: ${results.junit.passedCount}/${results.junit.totalCount} FAILED (${results.junit.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
+  // Debug breakpoint tests
+  if (results.debugBp) {
+    if (results.debugBp.skipped) {
+      printWarning('Debug Breakpoint Tests: SKIPPED (abgagt-debug-test repo not found)');
+    } else {
+      totalDuration += parseFloat(results.debugBp.duration);
+      if (results.debugBp.success) {
+        printSuccess(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} PASSED (${results.debugBp.duration}s)`);
+      } else {
+        printError(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} FAILED (${results.debugBp.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
+  // Debug scenario tests (always last — interactive ADT sessions, runs after cooldown)
+  if (results.debug) {
+    if (results.debug.skipped) {
+      printWarning('Debug Scenarios: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.debug.duration);
+      if (results.debug.success) {
+        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
+      } else {
+        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
         allPassed = false;
       }
     }
@@ -714,7 +744,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -723,7 +753,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runSyncXml, runXmlOnly, runJunit;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -737,6 +767,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
@@ -749,6 +780,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
@@ -761,6 +793,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
@@ -773,6 +806,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
@@ -785,6 +819,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
     runAunit = false;
@@ -797,6 +832,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
     runAunit = false;
@@ -809,6 +845,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
     runAunit = false;
@@ -821,6 +858,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--xml-only')) {
     runJest = false;
     runAunit = false;
@@ -833,6 +871,7 @@ async function main() {
     runXmlOnly = true;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--junit')) {
     runJest = false;
     runAunit = false;
@@ -845,6 +884,20 @@ async function main() {
     runXmlOnly = false;
     runJunit = true;
     runDebug = false;
+    runDebugBp = false;
+  } else if (args.includes('--debug')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebug = false;
+    runDebugBp = true;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
     runAunit = false;
@@ -857,6 +910,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = true;
+    runDebugBp = false;
   } else {
     // Run all tests
     // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
@@ -873,6 +927,7 @@ async function main() {
     runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
     runDebug = !isCI;       // Skip debug scenarios in CI (require interactive ADT sessions)
+    runDebugBp = true;      // Always run — only needs ABAP system connection
     if (isCI) {
       printInfo('  ⚠️  CI environment detected — skipping debug scenarios (require interactive ADT)');
     }
@@ -895,16 +950,6 @@ async function main() {
   // Run Command tests
   if (runCmd) {
     results.cmd = await runCommandTests(demoMode, commandFilter);
-  }
-
-  // Cooldown between command tests and debug scenarios.
-  // Command tests make ~90 HTTP requests in rapid succession; without a pause
-  // the SAP ICM is still draining connections when scenario 3 runs, causing
-  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
-  // cannot be reached" — leaving ABAP work processes frozen in SM50.
-  if (runCmd && runDebug) {
-    printInfo('  Cooling down 20s after command tests before debug scenarios...');
-    await new Promise(r => setTimeout(r, 20000));
   }
 
   // Run Lifecycle tests only
@@ -954,7 +999,22 @@ async function main() {
     results.junit = runJUnitTestsWrapper();
   }
 
-  // Run Debug scenario tests (REPL + scripted AI/--json)
+  // Run Debug breakpoint tests (requires abgagt-debug-test repo)
+  if (runDebugBp) {
+    results.debugBp = runDebugTestsWrapper();
+  }
+
+  // Cooldown between command tests and debug scenarios.
+  // Command tests make ~90 HTTP requests in rapid succession; without a pause
+  // the SAP ICM is still draining connections when scenario 3 runs, causing
+  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
+  // cannot be reached" — leaving ABAP work processes frozen in SM50.
+  if (runCmd && runDebug) {
+    printInfo('  Cooling down 20s after command tests before debug scenarios...');
+    await new Promise(r => setTimeout(r, 20000));
+  }
+
+  // Run Debug scenario tests (REPL + scripted AI/--json) — always last
   if (runDebug) {
     results.debug = runDebugScenarios();
   }

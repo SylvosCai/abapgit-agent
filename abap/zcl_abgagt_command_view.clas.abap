@@ -9,8 +9,9 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES: BEGIN OF ty_view_params,
              objects TYPE string_table,
-             type TYPE string,
-             full TYPE abap_bool,
+             type    TYPE string,
+             full    TYPE abap_bool,
+             fm      TYPE string,
            END OF ty_view_params.
 
     TYPES: BEGIN OF ty_section,
@@ -81,14 +82,15 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params  TYPE ty_view_params,
-          ls_result  TYPE ty_view_result,
-          lt_objects TYPE ty_view_objects,
-          ls_info    TYPE ty_view_object,
-          lo_factory TYPE REF TO zcl_abgagt_viewer_factory,
-          lo_viewer  TYPE REF TO zif_abgagt_viewer,
-          lv_object  TYPE string,
-          lv_type    TYPE string.
+    DATA: ls_params       TYPE ty_view_params,
+          ls_result       TYPE ty_view_result,
+          lt_objects      TYPE ty_view_objects,
+          ls_info         TYPE ty_view_object,
+          lo_factory      TYPE REF TO zcl_abgagt_viewer_factory,
+          lo_viewer       TYPE REF TO zif_abgagt_viewer,
+          lv_object       TYPE string,
+          lv_type         TYPE string,
+          lv_viewer_name  TYPE string.
 
     ls_result-command = zif_abgagt_command=>gc_view.
 
@@ -115,8 +117,12 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       " Get viewer and retrieve info
       TRY.
           lo_viewer = lo_factory->get_viewer( lv_type ).
+          lv_viewer_name = lv_object.
+          IF ls_params-fm IS NOT INITIAL.
+            lv_viewer_name = lv_object && '/' && ls_params-fm.
+          ENDIF.
           ls_info = lo_viewer->get_info(
-            iv_name = lv_object
+            iv_name = lv_viewer_name
             iv_full = ls_params-full ).
         CATCH cx_sy_create_object_error.
           " Viewer class not found - set not found flag

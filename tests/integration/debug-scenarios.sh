@@ -2,8 +2,11 @@
 # Integration tests for the debug command — three scenarios covering both
 # interactive REPL mode and scripted AI (--json / daemon) mode.
 #
-# Trigger: "inspect --files abap/zcl_abgagt_util.clas.abap" hits ZCL_ABGAGT_UTIL:33
-# Blocked:  a second "inspect" queues for a dialog work process while the first is paused
+# All scenarios run from the abgagt-debug-test repo directory so .abapGitAgent
+# points to $CAIS_DEBUG_TEST (not the main abapgit-agent project).
+#
+# Trigger: "run --class ZCL_CAIS_DBG_TRIGGER" hits ZCL_CAIS_DBG_TRIGGER:33
+# Blocked:  a second "run --class" queues for a dialog work process while the first is paused
 #
 # Scenario 1 (REPL — simple):
 #   attach → trigger hits breakpoint → REPL appears → q → blocked command continues
@@ -25,7 +28,15 @@
 
 set -euo pipefail
 
-AGENT="node $(pwd)/bin/abapgit-agent"
+# Resolve paths relative to the abapgit-agent repo root (where this script lives)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AGENT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DEBUG_REPO="$(cd "$AGENT_ROOT/../abgagt-debug-test" 2>/dev/null && pwd)" || {
+  echo "ERROR: abgagt-debug-test repo not found at $AGENT_ROOT/../abgagt-debug-test" >&2
+  exit 1
+}
+
+AGENT="node $AGENT_ROOT/bin/abapgit-agent"
 TIMEOUT=60
 SCENARIO=${1:-all}
 PASS=0
@@ -68,7 +79,7 @@ open_stdin_pipe() {
 
 ensure_breakpoint() {
   log "Clearing stale session state and daemon ..."
-  $AGENT debug terminate >/dev/null 2>&1 || true   # clears state file + kills daemon if running
+  (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true   # clears state file + kills daemon if running
   # Kill any orphaned daemon processes left over from a previous failed run.
   # The daemon is detached (spawned with detached:true) so its PID is not tracked
   # by $ATTACH1_PID.  Without this kill, a frozen ABAP work process from a prior
@@ -81,13 +92,13 @@ ensure_breakpoint() {
   # Use 15s when running after a large test suite (e.g. npm run test:all) to allow
   # the system and ICM connection pool to fully drain any residual debug connections.
   sleep 15
-  log "Setting breakpoint ZCL_ABGAGT_UTIL:33 ..."
-  $AGENT debug delete --all >/dev/null 2>&1 || true
+  log "Setting breakpoint ZCL_CAIS_DBG_TRIGGER:33 ..."
+  (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   # Retry debug set: under load the ADT POST may transiently fail (ICM 400).
   # Without a successful set the attach command exits immediately with
   # "No breakpoints set", leaving the scenario with no session JSON.
   for _i in 1 2 3 4 5; do
-    $AGENT debug set --object ZCL_ABGAGT_UTIL --line 33 >/dev/null 2>&1 && break
+    (cd "$DEBUG_REPO" && $AGENT debug set --object ZCL_CAIS_DBG_TRIGGER --line 33 >/dev/null 2>&1) && break
     log "debug set attempt $_i failed — retrying in 5s..."
     sleep 5
   done
@@ -102,7 +113,7 @@ cleanup() {
   # ("Service cannot be reached") right after a failed step, and we must keep
   # trying until terminate succeeds or we give up.
   for _i in 1 2 3 4 5; do
-    $AGENT debug terminate >/dev/null 2>&1 && break
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break
     sleep 2
   done
   [[ -n "$ATTACH1_PID" ]] && kill "$ATTACH1_PID" 2>/dev/null || true
@@ -114,7 +125,7 @@ cleanup() {
   # failure the daemon stays alive, keeping the ABAP work process frozen).
   pkill -f debug-daemon.js 2>/dev/null || true
   rm -f /tmp/dbg_*.out /tmp/dbg_*.fifo
-  $AGENT debug delete --all >/dev/null 2>&1 || true
+  (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   echo "$PASS $FAIL" > "$RESULTS_FILE"
 }
 trap cleanup EXIT
@@ -131,7 +142,7 @@ scenario1() {
   # Session 1: attach (stdin controlled via fd 6)
   open_stdin_pipe /tmp/dbg_s1.fifo 6
   rm -f /tmp/dbg_s1.out
-  $AGENT debug attach < /tmp/dbg_s1.fifo > /tmp/dbg_s1.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT debug attach < /tmp/dbg_s1.fifo > /tmp/dbg_s1.out 2>&1) &
   ATTACH1_PID=$!
   log "Attach PID=$ATTACH1_PID"
 
@@ -144,27 +155,27 @@ scenario1() {
   # Give the listener POST ~1s to reach ADT before the trigger fires.
   sleep 1
 
-  # Trigger: inspect hits the breakpoint (call blocks at the breakpoint)
+  # Trigger: run --class hits the breakpoint (call blocks at the breakpoint)
   rm -f /tmp/dbg_trigger.out
-  $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_trigger.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_CAIS_DBG_TRIGGER > /tmp/dbg_trigger.out 2>&1) &
   TRIGGER_PID=$!
-  log "Trigger (inspect) PID=$TRIGGER_PID"
+  log "Trigger (run --class) PID=$TRIGGER_PID"
 
   log "Waiting for breakpoint hit (up to ${TIMEOUT}s)..."
   if wait_text /tmp/dbg_s1.out "debug>" $TIMEOUT; then
     pass "Breakpoint hit — REPL prompt appeared"
   else
     fail "REPL never appeared; output: $(cat /tmp/dbg_s1.out 2>/dev/null | tail -3)"
-    $AGENT debug terminate >/dev/null 2>&1 || true  # release frozen WP before giving up
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true  # release frozen WP before giving up
     kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
   fi
 
   # Start the "blocked" command AFTER the breakpoint is hit so the dialog WP
-  # is occupied — this second inspect queues for a free WP
+  # is occupied — this second run queues for a free WP
   rm -f /tmp/dbg_blocked.out
-  $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_blocked.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_CAIS_DBG_TRIGGER > /tmp/dbg_blocked.out 2>&1) &
   BLOCKED_PID=$!
-  log "Blocked (inspect) PID=$BLOCKED_PID"
+  log "Blocked (run --class) PID=$BLOCKED_PID"
   sleep 1
 
   if kill -0 "$BLOCKED_PID" 2>/dev/null; then
@@ -176,10 +187,10 @@ scenario1() {
 
   local T_QUIT; T_QUIT=$(date +%s)
   # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
-  # ZCL_ABGAGT_UTIL:33 when the blocked inspect runs after being unblocked.
-  # Without this, the blocked inspect triggers a second breakpoint hit with no
+  # ZCL_CAIS_DBG_TRIGGER:33 when the blocked run executes after being unblocked.
+  # Without this, the blocked run triggers a second breakpoint hit with no
   # listener ready to release it, leaving the WP frozen in SM50.
-  $AGENT debug delete --all >/dev/null 2>&1 || true
+  (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   echo "q" >&6
   log "Sent 'q' — waiting for blocked command to complete (up to ${TIMEOUT}s)..."
 
@@ -197,14 +208,14 @@ scenario1() {
   # still be frozen if the blocked command ran on a different free WP.
   # Trigger completion means the frozen WP was actually released.
   # Allow 120s: after a full test:all run the SAP system is under load; the
-  # inspect command can take up to 90s to complete after the WP resumes.
+  # run command can take up to 90s to complete after the WP resumes.
   log "Waiting for trigger to complete (confirms WP released, up to 120s)..."
   if wait_pid_exit "$TRIGGER_PID" 120; then
     pass "Trigger completed — work process released"
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
     for _i in 1 2 3 4 5; do
-      $AGENT debug terminate >/dev/null 2>&1 && break
+      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break
       sleep 3
     done
     kill "$TRIGGER_PID" 2>/dev/null || true
@@ -228,7 +239,7 @@ scenario2() {
   rm -f /tmp/dbg_s1.out /tmp/dbg_s2.out
 
   # Session 2 starts FIRST (no stdin — background observer).
-  $AGENT debug attach < /dev/null > /tmp/dbg_s2.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT debug attach < /dev/null > /tmp/dbg_s2.out 2>&1) &
   ATTACH2_PID=$!
   log "Session 2 (attach) PID=$ATTACH2_PID [started first]"
 
@@ -240,7 +251,7 @@ scenario2() {
   # Session 1 starts SECOND.  Its refreshBreakpoints re-registers the breakpoints,
   # so ADT routes the next hit to session 1 (the more recently registered listener).
   open_stdin_pipe /tmp/dbg_s1.fifo 6
-  $AGENT debug attach < /tmp/dbg_s1.fifo > /tmp/dbg_s1.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT debug attach < /tmp/dbg_s1.fifo > /tmp/dbg_s1.out 2>&1) &
   ATTACH1_PID=$!
   log "Session 1 (attach) PID=$ATTACH1_PID [started second — wins breakpoint]"
 
@@ -251,23 +262,23 @@ scenario2() {
   sleep 1
 
   rm -f /tmp/dbg_trigger.out
-  $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_trigger.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_CAIS_DBG_TRIGGER > /tmp/dbg_trigger.out 2>&1) &
   TRIGGER_PID=$!
-  log "Trigger (inspect) PID=$TRIGGER_PID"
+  log "Trigger (run --class) PID=$TRIGGER_PID"
 
   log "Waiting for session 1 REPL (up to 30s)..."
   if wait_text /tmp/dbg_s1.out "debug>" 30; then
     pass "Session 1 took over debugger (REPL prompt appeared)"
   else
     fail "Session 1 REPL never appeared in 30s"
-    $AGENT debug terminate >/dev/null 2>&1 || true  # release frozen WP before giving up
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true  # release frozen WP before giving up
     kill "$TRIGGER_PID" 2>/dev/null; return 1
   fi
 
   rm -f /tmp/dbg_blocked.out
-  $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_blocked.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_CAIS_DBG_TRIGGER > /tmp/dbg_blocked.out 2>&1) &
   BLOCKED_PID=$!
-  log "Blocked (inspect) PID=$BLOCKED_PID"
+  log "Blocked (run --class) PID=$BLOCKED_PID"
   sleep 1
 
   if kill -0 "$BLOCKED_PID" 2>/dev/null; then
@@ -278,10 +289,10 @@ scenario2() {
 
   local T_QUIT; T_QUIT=$(date +%s)
   # Delete breakpoints BEFORE sending 'q' so the released WP doesn't re-hit
-  # ZCL_ABGAGT_UTIL:33 when the blocked inspect runs after being unblocked.
-  # Without this, the blocked inspect triggers a second breakpoint hit with no
+  # ZCL_CAIS_DBG_TRIGGER:33 when the blocked run executes after being unblocked.
+  # Without this, the blocked run triggers a second breakpoint hit with no
   # listener ready to release it, leaving the WP frozen in SM50.
-  $AGENT debug delete --all >/dev/null 2>&1 || true
+  (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   echo "q" >&6
   log "Sent 'q' — waiting for blocked command to complete (up to 10s)..."
 
@@ -307,16 +318,16 @@ scenario2() {
   else
     fail "Trigger did NOT complete — WP may still be frozen, attempting terminate..."
     for _i in 1 2 3 4 5; do
-      $AGENT debug terminate >/dev/null 2>&1 && break
+      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break
       sleep 3
     done
     kill "$TRIGGER_PID" 2>/dev/null || true
   fi
 
-  # Session 2 may have caught a second breakpoint hit from the blocked inspect
-  # completing and re-running ZCL_ABGAGT_UTIL:33.  Terminate any active session
+  # Session 2 may have caught a second breakpoint hit from the blocked run
+  # completing and re-running ZCL_CAIS_DBG_TRIGGER:33.  Terminate any active session
   # it holds before hard-killing the process so the WP is released cleanly.
-  $AGENT debug terminate >/dev/null 2>&1 || true
+  (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
   kill "$ATTACH2_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH1_PID" 5  || kill "$ATTACH1_PID" 2>/dev/null || true
   wait_pid_exit "$ATTACH2_PID" 10 || kill "$ATTACH2_PID" 2>/dev/null || true
@@ -347,7 +358,7 @@ scenario3() {
   # the listener POST is about to be sent to ADT.  Waiting for this marker ensures the
   # trigger does not fire before ADT has a registered listener, eliminating the race that
   # caused "No session JSON" under system load when a blind sleep was not long enough.
-  $AGENT debug attach --json > /tmp/dbg_attach.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT debug attach --json > /tmp/dbg_attach.out 2>&1) &
   ATTACH1_PID=$!
   log "Attach (--json) PID=$ATTACH1_PID"
 
@@ -359,9 +370,9 @@ scenario3() {
   sleep 2
 
   # ── Step 2: start trigger in background — MUST stay alive for the whole session (rule 2)
-  $AGENT inspect --files abap/zcl_abgagt_util.clas.abap > /tmp/dbg_trigger.out 2>&1 &
+  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_CAIS_DBG_TRIGGER > /tmp/dbg_trigger.out 2>&1) &
   TRIGGER_PID=$!
-  log "Trigger (inspect) PID=$TRIGGER_PID"
+  log "Trigger (run --class) PID=$TRIGGER_PID"
 
   # ── Step 3: poll attach output for {"session":"..."} (breakpoint fired, daemon ready)
   log "Waiting for breakpoint hit and session JSON (up to ${TIMEOUT}s)..."
@@ -386,7 +397,7 @@ scenario3() {
   # 12×5s = 60s max, which is enough for SAP to fully drain prior ICM sessions.
   STACK_OK=0
   for _i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    STACK_OUT=$($AGENT debug stack --json 2>&1 || true)
+    STACK_OUT=$((cd "$DEBUG_REPO" && $AGENT debug stack --json) 2>&1 || true)
     if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
       STACK_OK=1; break
     fi
@@ -400,7 +411,7 @@ scenario3() {
   fi
 
   # ── Step 5: vars --json — no --session flag (rule 4)
-  VARS_OUT=$($AGENT debug vars --json 2>&1 || true)
+  VARS_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
   if echo "$VARS_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     pass "vars --json returned {\"variables\":[...]} (rule 4: no --session needed)"
   else
@@ -411,7 +422,7 @@ scenario3() {
   # Retry same as stack — stateful routing may be briefly blocked.
   STEP_OK=0
   for _i in 1 2 3 4 5 6 7 8; do
-    STEP_OUT=$($AGENT debug step --type over --json 2>&1 || true)
+    STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
     if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
       STEP_OK=1; break
     fi
@@ -425,7 +436,7 @@ scenario3() {
   fi
 
   # ── Step 7: vars --json again — verify state after step
-  VARS2_OUT=$($AGENT debug vars --json 2>&1 || true)
+  VARS2_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
   if echo "$VARS2_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     pass "vars --json after step returned {\"variables\":[...]}"
   else
@@ -436,7 +447,7 @@ scenario3() {
   # Critical: this MUST succeed to release the ABAP WP. Retry aggressively.
   CONT_OK=0
   for _i in 1 2 3 4 5 6 7 8; do
-    CONT_OUT=$($AGENT debug step --type continue --json 2>&1 || true)
+    CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
     if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
       CONT_OK=1; break
     fi
@@ -450,7 +461,7 @@ scenario3() {
     # Last-resort: terminate the session to prevent WP staying frozen
     log "Attempting terminate as fallback to release frozen WP..."
     for _j in 1 2 3 4 5; do
-      $AGENT debug terminate >/dev/null 2>&1 && break
+      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break
       sleep 3
     done
   fi

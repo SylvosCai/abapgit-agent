@@ -6,9 +6,10 @@ parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
 
-# abapGit Object XML Metadata
+# abapGit XML Metadata — CLAS, INTF, PROG
 
-Each ABAP object requires an XML metadata file for abapGit to understand how to serialize/deserialize it. This guide provides templates for common object types.
+This guide covers objects that have **both a source file and an XML metadata file**.
+For objects with no source file (XML only), see `abapgit-agent ref --topic abapgit-xml-only`.
 
 ## QUICK REFERENCE
 
@@ -16,19 +17,16 @@ Each ABAP object requires an XML metadata file for abapGit to understand how to 
 File Type          | ABAP File                    | XML File
 -------------------|------------------------------|-------------------
 Class              | zcl_*.clas.abap              | zcl_*.clas.xml
-Test Class         | zcl_*.clas.testclasses.abap | zcl_*.clas.xml
-Interface          | zif_*.intf.abap             | zif_*.intf.xml
-Program            | z*.prog.abap                | z*.prog.xml
-CDS View (DDLS)    | zc_*.ddls.asddls            | zc_*.ddls.xml
-Table (TABL)       | (no .abap file)             | z*.tabl.xml
-Structure (STRU)   | (no .abap file)             | z*.stru.xml
-Data Element (DTEL)| (no .abap file)             | z*.dtel.xml
-Table Type (TTYP)  | (no .abap file)             | z*.ttyp.xml
+Test Class         | zcl_*.clas.testclasses.abap  | zcl_*.clas.xml
+Interface          | zif_*.intf.abap              | zif_*.intf.xml
+Program            | z*.prog.abap                 | z*.prog.xml
+CDS View (DDLS)    | zc_*.ddls.asddls             | zc_*.ddls.xml
+CDS Access Control | zc_*.dcls.asdcls             | zc_*.dcls.xml
+Function Group     | z*fugr*.abap (6 files)       | z*.fugr.xml
 ```
 
-> **XML-only objects (TABL, STRU, DTEL, TTYP)** have **no ABAP source file**. abapGit serializes
-> them as XML metadata only. When using `--files`, pass the `.xml` file directly:
-> `abapgit-agent pull --files abap/zmy_table.tabl.xml --sync-xml`
+> **XML-only objects** (TABL, STRU, DTEL, TTYP, DOMA, MSAG) have **no ABAP source file** and are not covered here.
+> See `abapgit-agent ref --topic abapgit-xml-only`.
 
 > **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
 > Without the BOM, abapGit shows the object as **"M" (modified)** after every pull because the
@@ -37,7 +35,7 @@ Table Type (TTYP)  | (no .abap file)             | z*.ttyp.xml
 > **CRITICAL: Only include fields that abapGit's serializer actually writes. Never add fields with
 > default values.** Extra fields cause a permanent "M" (modified) diff. Follow the exact templates below.
 
-**Searchable keywords**: class xml, interface xml, table xml, cds xml, test class, exposure, serializer, abapgit
+**Searchable keywords**: class xml, interface xml, program xml, cds view xml, ddls, dcls, access control xml, function group xml, fugr, test class, exposure, serializer, abapgit
 
 ## Why XML Metadata?
 
@@ -244,53 +242,9 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 ---
 
-### Table (TABL)
-
-**Filename**: `src/zmy_table.tabl.xml`
-
-> **XML-only object** — no `.abap` source file. Pull with: `pull --files src/zmy_table.tabl.xml`
-
-```xml
-﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DD02V>
-    <TABNAME>ZMY_TABLE</TABNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <TABCLASS>TRANSP</TABCLASS>
-    <DDTEXT>Description of the table</DDTEXT>
-    <CONTFLAG>A</CONTFLAG>
-   </DD02V>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-**Key Fields**:
-- `TABNAME`: Table name
-- `DDTEXT`: Description (**not** `DESCRIPT`)
-- `TABCLASS`: `TRANSP`=Transparent (most common), `POOL`, `CLUSTER`
-- `CONTFLAG`: Delivery class — `A`=Application, `C`=Customizing, `S`=System, `G`=Customizing protected
-
-**Note**: When abapGit serializes an existing table it also writes `<DD09L>` (technical settings) and `<DD03P_TABLE>` (field definitions). These sections are generated automatically from the ABAP Dictionary on pull — you only need the `<DD02V>` header when creating a new table. After the first pull the XML will be expanded with those sections.
-
-**`DD03P` field-level rules** (apply when editing an existing table XML that includes `<DD03P_TABLE>`):
-
-| Rule | Detail |
-|---|---|
-| `SHLPORIGIN` | Include `<SHLPORIGIN>D</SHLPORIGIN>` on fields where the Dictionary provides a value help (e.g. fields with a domain that has fixed values or a search help). Omit on fields with no value help. |
-| Field order for raw-type fields | For fields with no `ROLLNAME` (raw type, e.g. `CHAR`, `NUMC`), the serializer writes `<MASK>` **before** `<DDTEXT>`. For fields with a `ROLLNAME`, only `ROLLNAME` appears (no `MASK` or `DDTEXT`). |
-
-**Why this matters**: Missing `SHLPORIGIN` or wrong `MASK`/`DDTEXT` order causes a permanent diff between git and the system-serialized XML.
-
----
-
 ### CDS View / View Entity (DDLS)
 
-**Filename**: `src/zc_my_view.ddls.xml`
-
-The XML format is identical for both types — only `SOURCE_TYPE` differs:
+**Files**: `src/zc_my_view.ddls.asddls` (source) + `src/zc_my_view.ddls.xml` (metadata)
 
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
@@ -308,121 +262,42 @@ The XML format is identical for both types — only `SOURCE_TYPE` differs:
 </abapGit>
 ```
 
-- `SOURCE_TYPE W` → View Entity (`define view entity`, modern, **use by default**)
-- `SOURCE_TYPE V` → View (`define view` + `@AbapCatalog.sqlViewName`, legacy — only if explicitly requested)
+- `SOURCE_TYPE W` → View Entity (`define view entity`, modern — **use by default**)
+- `SOURCE_TYPE V` → View (`define view` + `@AbapCatalog.sqlViewName`, legacy)
 
-→ For DDL source syntax and full guidance: `abapgit-agent ref --topic cds-abapgit`
+→ For DDL source syntax: `abapgit-agent ref --topic cds-abapgit`
 
 ---
 
-### Data Element (DTEL)
+### CDS Access Control (DCLS)
 
-**Filename**: `src/zmy_dtel.dtel.xml`
-
-> **XML-only object** — no `.abap` source file. Pull with: `pull --files src/zmy_dtel.dtel.xml`
+**Files**: `src/zc_my_view.dcls.asdcls` (source) + `src/zc_my_view.dcls.xml` (metadata)
 
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DCLS" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
-   <DD04V>
-    <ROLLNAME>ZMY_DTEL</ROLLNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>Description of data element</DDTEXT>
-    <REPTEXT>Description</REPTEXT>
-    <SCRTEXT_S>Short text</SCRTEXT_S>
-    <SCRTEXT_M>Medium text</SCRTEXT_M>
-    <SCRTEXT_L>Long description text</SCRTEXT_L>
-    <DTELMASTER>E</DTELMASTER>
-    <DATATYPE>CHAR</DATATYPE>
-    <LENG>000010</LENG>
-   </DD04V>
+   <DCLS>
+    <DCLNAME>ZC_MY_VIEW</DCLNAME>
+    <DCLLANGUAGE>E</DCLLANGUAGE>
+    <DDTEXT>Access control for ZC_MY_VIEW</DDTEXT>
+   </DCLS>
   </asx:values>
  </asx:abap>
 </abapGit>
 ```
 
-**Key Fields**:
-- `ROLLNAME`: Data element name
-- `DDTEXT`: Description (**not** `DESCRIPT`)
-- `REPTEXT` / `SCRTEXT_S` / `SCRTEXT_M` / `SCRTEXT_L`: Field labels (report heading, short, medium, long)
-- `DTELMASTER`: Language key for label master (`E` for English)
-- `DATATYPE`: Data type (`CHAR`, `NUMC`, `DATS`, `TIMS`, `INT4`, etc.)
-- `LENG`: Length padded to 6 digits (e.g. `000010` for 10 characters)
-
-**Omit `<PARAMID>`** unless you specifically need a SET/GET parameter ID — the serializer omits it when empty, so including an empty tag causes a permanent diff.
+- `DCLNAME` matches the CDS view name
+- Source file contains the DCL (`@MappingRole ... define role ...`)
 
 ---
 
-### Structure (STRU)
+### Function Group (FUGR)
 
-**Filename**: `src/zmy_struct.stru.xml`
+FUGR serializes as multiple files (main XML + TOP include + SAPL include + one source file per FM). The format is straightforward for screenless function groups — Claude can generate it from scratch.
 
-> **XML-only object** — no `.abap` source file. abapGit uses the same TABL serializer for STRU.
-> Pull with: `pull --files src/zmy_struct.stru.xml`
-
-```xml
-﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DD02V>
-    <TABNAME>ZMY_STRUCT</TABNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <TABCLASS>INTTAB</TABCLASS>
-    <DDTEXT>Description of the structure</DDTEXT>
-    <CONTFLAG>A</CONTFLAG>
-   </DD02V>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-**Key difference from TABL**: `TABCLASS` is `INTTAB` (internal table / structure) instead of `TRANSP`.
-
-**Note**: Like TABL, after the first pull abapGit expands the XML with `<DD03P_TABLE>` field definitions. When creating a new structure you only need the `<DD02V>` header.
-
----
-
-### Table Type (TTYP)
-
-**Filename**: `src/zmy_ttyp.ttyp.xml`
-
-> **XML-only object** — no `.abap` source file.
-> Pull with: `pull --files src/zmy_ttyp.ttyp.xml`
-
-```xml
-﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DD40V>
-    <TYPENAME>ZMY_TTYP</TYPENAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>Description of table type</DDTEXT>
-    <ROWTYPE>ZMY_STRUCT</ROWTYPE>
-    <ROWKIND>S</ROWKIND>
-    <DATATYPE>TABLE_T</DATATYPE>
-    <ACCESSMODE>T</ACCESSMODE>
-    <KEYDEF>D</KEYDEF>
-    <KEYKIND>N</KEYKIND>
-   </DD40V>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-**Key Fields**:
-- `TYPENAME`: Table type name
-- `ROWTYPE`: Row type (a structure or data element name)
-- `ROWKIND`: Row kind — `S`=Structure/Type, `D`=Data element, `R`=Reference
-- `DATATYPE`: Always `TABLE_T` for table types
-- `ACCESSMODE`: Table kind — `T`=Standard, `S`=Sorted, `H`=Hashed
-- `KEYDEF`: Key definition — `D`=Default (standard key), `K`=User-defined
-- `KEYKIND`: Key uniqueness — `N`=Non-unique, `U`=Unique
-
-**Note**: After the first pull abapGit may expand the XML with `<DD42V>` (component definitions) if key fields are explicitly defined.
+→ Full template and file-set rules: `abapgit-agent ref --topic abapgit-fugr`
 
 ---
 

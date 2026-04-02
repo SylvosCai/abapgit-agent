@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Debug Session Guide
-nav_order: 12
+nav_order: 15
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
@@ -17,7 +17,7 @@ Use `debug` when:
 
 **Step 1 — set a breakpoint** on the first executable statement you want to inspect:
 
-Use `view --objects ZCL_MY_CLASS --full --lines` to see the full source with **both** global assembled-source line numbers and include-relative `[N]` numbers:
+Use `view --objects ZCL_MY_CLASS --full --lines` to see the full source with line numbers and ready-to-use `debug set` commands:
 
 ```bash
 abapgit-agent view --objects ZCL_MY_CLASS --full --lines
@@ -25,16 +25,11 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --lines
 
 > **Tip**: `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers — useful for understanding logic. Add `--lines` when you need line numbers for breakpoints.
 
-Each line is shown as `G [N]  code` where:
-- **G** = assembled-source global line → use with `debug set --objects CLASS:G` or `debug set --files src/cls.clas.abap:G`
-- **[N]** = include-relative (restarts at 1 per method) → for code navigation only, not for breakpoints
+The output varies by section type:
 
-The method header shows the ready-to-use `debug set` command pointing to the first executable line:
+**Regular methods (CM\* sections)** — dual line numbers `G [N]` per line, with a `debug set` hint at the method header:
 
 ```
-   1  CLASS zcl_my_class DEFINITION.
-   2    PUBLIC SECTION.
-   3  ENDCLASS.
   * ---- Method: EXECUTE (CM002) — breakpoint: debug set --objects ZCL_MY_CLASS:9 ----
    7 [  1]  METHOD execute.
    8 [  2]    DATA lv_x TYPE i.
@@ -42,44 +37,91 @@ The method header shows the ready-to-use `debug set` command pointing to the fir
   10 [  4]  ENDMETHOD.
 ```
 
-**Two scenarios:**
+- **G** = assembled-source global line → use with `debug set --objects CLASS:G` or `--files src/cls.clas.abap:G`
+- **[N]** = include-relative (restarts at 1 per method) → for code navigation only, not for breakpoints
+
+The hint already points to the first **executable** line, skipping `METHOD`, blank lines, comments, and all declaration forms (`DATA`, `DATA:`, `DATA(`).
+
+**Two scenarios for CM* methods:**
 
 | Scenario | Command |
 |---|---|
 | Source available locally (your own classes) | `debug set --files src/zcl_my_class.clas.abap:9` |
 | No local source (abapGit library, SAP standard) | `debug set --objects ZCL_MY_CLASS:9` |
 
-Both use the same assembled-source global line number **G** shown in the output. To set a breakpoint at `lv_x = 1.` (global line 9):
 ```bash
-# With local file:
-abapgit-agent debug set --files src/zcl_my_class.clas.abap:9
-# Without local file:
 abapgit-agent debug set --objects ZCL_MY_CLASS:9
 abapgit-agent debug list    # confirm it was registered
 ```
 
-> **Line number must point to an executable statement.** The method header hint already skips the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations automatically. Two cases still require manual attention when picking a line from the output:
+**Unit test methods (CCAU section)** and **local class methods (CCIMP section)** live in separate ADT includes — they cannot be addressed by the assembled-source global line. Their sections show section-local line numbers with a `--include` hint per method:
+
+```
+  * ---- Section: Unit Test (from .clas.testclasses.abap) ----
+  * ---- Method: SETUP — breakpoint: debug set --objects ZCL_MY_CLASS:12 --include testclasses ----
+    10    METHOD setup.
+    11      DATA lv_x TYPE i.
+    12      mo_cut = NEW #( ).
+    13    ENDMETHOD.
+  * ---- Method: TEST_PULL_SUCCESS — breakpoint: debug set --objects ZCL_MY_CLASS:18 --include testclasses ----
+    15    METHOD test_pull_success.
+    ...
+
+  * ---- Section: Local Implementations (from .clas.locals_imp.abap) ----
+  * ---- Method: ZIF_FOO~DO_SOMETHING — breakpoint: debug set --objects ZCL_MY_CLASS:5 --include locals_imp ----
+    3     METHOD zif_foo~do_something.
+    4       DATA lv_x TYPE i.
+    5       lv_x = iv_input.
+    6     ENDMETHOD.
+```
+
+The line numbers in these sections are **section-local** (same coordinate system as the `.clas.testclasses.abap` / `.clas.locals_imp.abap` file). Use the `--include` flag to target the correct ADT sub-include:
+
+| Section | `--include` value |
+|---|---|
+| Unit Test (`.clas.testclasses.abap`) | `testclasses` |
+| Local Implementations (`.clas.locals_imp.abap`) | `locals_imp` |
+| Local Definitions (`.clas.locals_def.abap`) | `locals_def` |
+
+```bash
+# Unit test method:
+abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
+# Local class method:
+abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
+abapgit-agent debug list    # confirm both were registered
+```
+
+**Function module (FUGR) methods** live in per-FM source includes (`L<GROUP>U<NN>`). Use `view` with `--full --fm <name> --lines` to see the source and breakpoint hint:
+
+```bash
+abapgit-agent view --objects SUSR --type FUGR --full --fm AUTHORITY_CHECK --lines
+```
+
+```
+  * ---- FM: AUTHORITY_CHECK (LSUSRU04) — breakpoint: debug set --objects LSUSRU04:50 ----
+     1  function authority_check.
+    ...
+    36    constants:
+    ...
+    45    data:
+    ...
+    50    ld_syuname = cl_abap_syst=>get_user_name( ).
+```
+
+```bash
+abapgit-agent debug set --objects LSUSRU04:50
+abapgit-agent debug list    # confirm it was registered
+```
+
+> **Line number must point to an executable statement.** The hints already skip `METHOD`, blank lines, comments (`"`, `*`), and all declaration forms (`DATA`, `DATA:`, `DATA(`). One case still requires manual attention:
 >
-> 1. **Comment lines** — lines starting with `"` are never executable. ADT silently rejects the breakpoint.
->    Pick the next non-comment line instead.
->    ```
->     95 [ 70]    " --- Conflict detection ---   ← NOT valid (comment)
->     96 [ 71]    " Build remote file entries…   ← NOT valid (comment)
->     97 [ 73]    DATA(lt_file_entries) = …      ← valid ✅ (use global 97)
->    ```
->
-> 2. **First line of a multi-line inline `DATA(x) = call(`** — the ABAP debugger treats the
->    `DATA(x) =` line as a declaration, not an executable step. Set the breakpoint on the
->    **next standalone executable statement** after the closing `).` instead.
->    ```
->    100 [ 92]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
->    101 [ 93]      it_files = it_files                           ← NOT valid (continuation)
->    104 [ 96]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
->    106 [ 98]    mo_repo->create_new_log( ).                     ← valid ✅ (use global 106)
->    ```
->
-> Other non-executable lines: blank lines, `METHOD`/`ENDMETHOD`, `DATA:` declarations,
-> `CLASS`/`ENDCLASS`. When in doubt, prefer a simple method call or assignment.
+> **Multi-line inline `DATA(x) = call(`** — the ABAP debugger treats the whole expression as a declaration. Set the breakpoint on the **next standalone statement** after the closing `).`:
+> ```
+>  100 [  1]    DATA(ls_checks) = prepare_deserialize_checks(   ← NOT valid (inline decl)
+>  101 [  2]      it_files = it_files                           ← NOT valid (continuation)
+>  104 [  5]      io_repo_desc = lo_repo_desc1 ).               ← NOT valid (continuation)
+>  106 [  7]    mo_repo->create_new_log( ).                     ← valid ✅ (use global 106)
+>  ```
 
 **Step 2 — attach and trigger**
 
@@ -257,24 +299,3 @@ HTTP Request
 > inside `find_remote_dot_abapgit()` via `COMMIT WORK AND WAIT` — i.e., the lock is released before
 > BP2 fires. There is no active lock between BP1 and the end of CM00L.
 
-### Known Limitations and Planned Improvements
-
-The following issues were identified during a live debugging session (2026-03) and should be fixed to make future debugging easier:
-
-#### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
-
-**Fixed**: `view --full --lines` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line (usable directly with `--objects CLASS:G` or `--files src/cls.clas.abap:G`) and `[N]` is the include-relative counter for navigation. Method headers show the ready-to-use `debug set --objects CLASS:G` command pointing to the first executable statement. `view --full` (without `--lines`) shows the same full source as clean readable code without line numbers.
-
-Global line numbers are computed **client-side** in Node.js, not in ABAP:
-- **Own classes** (local `.clas.abap` file exists): reads the local file — guaranteed exact match with ADT
-- **Library classes** (no local file, e.g. abapGit): fetches assembled source from `/sap/bc/adt/oo/classes/<name>/source/main`
-
-Both strategies scan for `METHOD <name>.` as the first token on the line to find `global_start`. The method header hint automatically points to the **first executable statement** (skipping the `METHOD` line, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations) so it can be used directly without adjustment.
-
-#### ~~2. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
-
-**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full --lines` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
-
-#### ~~3. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
-
-**Fixed**: Step 3 of the debug guide now documents the two possible return values of `step --type continue` and includes the re-attach pattern for when the program hits a second breakpoint instead of finishing.

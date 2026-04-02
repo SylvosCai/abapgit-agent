@@ -1,7 +1,7 @@
 ---
 layout: default
 title: abaplint Rule Guidelines
-nav_order: 17
+nav_order: 20
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

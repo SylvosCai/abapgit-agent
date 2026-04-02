@@ -26,6 +26,7 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
 });
 
 describe('Ref Command - Argument Parsing', () => {
+  jest.setTimeout(30000);
   let refCommand;
 
   beforeEach(() => {

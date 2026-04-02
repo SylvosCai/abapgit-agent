@@ -6,13 +6,18 @@
  *
  * Test Distribution:
  *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
- *   - view:    5 tests (class, interface, table, class --full, class --full --lines)
+ *   - view:    9 tests (class, interface, table, class --full, class --full --lines,
+ *                       domain, message class, function group, access control)
  *   - tree:    3 tests (package, depth, types)
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   5 tests (delete-all, set, list, delete-all cleanup, list-empty — breakpoint management only;
- *                        full session coverage is in debug-scenarios.sh)
+ *   - debug:   35 tests — require abgagt-debug-test repo at ../abgagt-debug-test
+ *                         (skipped on Jenkins where only abapgit-agent is checked out)
+ *                         Group A: hardcoded lines, Group B: view→set→verify round-trip,
+ *                          Group C: unexecutable line rejection; CLAS main/testclasses/
+ *                          locals_imp and FUGR include; set tests use --json to verify
+ *                          ADT-accepted line number; full session in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
@@ -22,7 +27,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    64 tests
+ *   Total:    95 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -330,6 +335,57 @@ const commandTestCases = [
       // Should contain debug breakpoint hints
       const hasDebugHints = output.includes('debug set');
       return hasGlobalLines && hasCmHeader && hasIncludeRelLines && hasDebugHints;
+    }
+  },
+
+  // ===================================================================
+  // VIEW COMMAND - gap types (DOMA, MSAG, FUGR)
+  // ===================================================================
+  {
+    command: 'view',
+    name: 'view domain (DOMA) shows type and length',
+    args: ['--objects', 'XFELD', '--type', 'DOMA'],
+    expectSuccess: true,
+    verify: (output) => {
+      // XFELD is the checkbox domain (CHAR 1, fixed values X/' ') — SAP_BASIS / SUTI package
+      const hasDomain = output.includes('XFELD');
+      const hasType = output.includes('CHAR') || output.includes('Type') || output.includes('Domain');
+      return hasDomain && hasType;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view message class (MSAG) shows messages',
+    args: ['--objects', 'SY', '--type', 'MSAG'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SY is the system messages class — SABP_CORE package, present on every ABAP system
+      const hasMsgClass = output.includes('SY') || output.includes('Message');
+      const hasMessages = output.includes(':') || output.includes('Total');
+      return hasMsgClass && hasMessages;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view function group (FUGR) lists function modules',
+    args: ['--objects', 'SUSR', '--type', 'FUGR'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SUSR is the user management function group — SAP_BASIS / SUSR package
+      const hasFugr = output.includes('SUSR') || output.includes('Function');
+      const hasModules = output.includes('RFC') || output.includes(':') || output.includes('modules');
+      return hasFugr && hasModules;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view access control (DCLS) shows source',
+    args: ['--objects', 'SEPM_E_SALESORDER', '--type', 'DCLS'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SEPM_E_SALESORDER is the EPM sales order access control — SAP_BASIS / S_EPM_CDS_REF
+      const hasDcls = output.includes('SEPM_E_SALESORDER') || output.includes('Access Control');
+      return hasDcls;
     }
   },
 
@@ -898,95 +954,6 @@ where carrid = $parameters.p_carrid
     }
   },
 
-  // ===================================================================
-  // DEBUG COMMAND - 7 tests
-  // Purpose: ABAP debugger — breakpoint management, scripted session
-  // Categories:
-  //   - Breakpoint management (3 tests): set, list, delete
-  //   - Scripted session (4 tests): stack, vars, step-continue, terminate
-  //
-  // Best-practice rules applied (from abap/CLAUDE.md):
-  //   1. sleep 2 after starting attach — listener must register before trigger fires
-  //   2. Keep trigger process alive for entire session
-  //   3. Always finish with step --type continue to release the work process
-  //   4. Never pass --session to step/vars/stack (auto-load from state file)
-  // ===================================================================
-
-  // --- Breakpoint management ---
-
-  {
-    command: 'debug',
-    name: 'debug delete --all clears breakpoints',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should confirm deletion or report nothing to delete
-      const hasResult = output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('No breakpoints') ||
-        output.includes('cleared') ||
-        output.includes('0 breakpoint');
-      return hasResult;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug set --object --line registers a breakpoint',
-    args: ['set', '--object', 'ZCL_ABGAGT_UTIL', '--line', '33'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should confirm the breakpoint was registered
-      const hasConfirm = output.includes('Breakpoint') ||
-        output.includes('breakpoint') ||
-        output.includes('ZCL_ABGAGT_UTIL') ||
-        output.includes('line 33') ||
-        output.includes(':33');
-      return hasConfirm;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows registered breakpoints',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should list breakpoints (at least the one just set) or show empty state
-      const hasResult = output.includes('ZCL_ABGAGT_UTIL') ||
-        output.includes('breakpoint') ||
-        output.includes('Breakpoint') ||
-        output.includes('No breakpoints') ||
-        output.includes('line');
-      return hasResult;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug delete --all cleans up after list test',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('cleared') ||
-        output.includes('No breakpoints') ||
-        output.length >= 0;  // delete --all succeeds silently
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows no breakpoints after delete --all',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('No breakpoints') ||
-        output.includes('no breakpoints') ||
-        output.includes('0 breakpoints') ||
-        // If output has no object names, breakpoints are gone
-        !output.includes('ZCL_ABGAGT_UTIL');
-    }
-  },
-
-  // ===================================================================
   // DUMP COMMAND - 4 tests
   // Purpose: Query short dumps (ST22) from ABAP system
   // ===================================================================

@@ -198,7 +198,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 - Interface: `ZIF_ABGAGT_SYNTAX_CHECKER`
 
 **Object Viewers** (type-specific with dynamic instantiation):
-- Pattern: `ZCL_ABGAGT_VIEWER_{TYPE}` (CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DDLS)
+- Pattern: `ZCL_ABGAGT_VIEWER_{TYPE}` (CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DDLS, STOB, DOMA, MSAG, FUGR, DCLS)
 - Factory: `ZCL_ABGAGT_VIEWER_FACTORY`
 - Interface: `ZIF_ABGAGT_VIEWER`
 

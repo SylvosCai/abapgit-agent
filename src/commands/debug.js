@@ -61,6 +61,23 @@ function hasFlag(args, flag) {
 }
 
 /**
+ * Valid class include types for --include flag.
+ * User-facing names mirror the abapGit file suffixes (.clas.<name>.abap).
+ * Maps user-facing name → ADT /includes/<type> path segment.
+ * Verified by live ADT testing: breakpoints accepted for all three.
+ *   testclasses → testclasses   → CCAU  (unit test class file)
+ *   locals_imp  → implementations → CCIMP (local class implementations)
+ *   locals_def  → definitions   → CCDEF (local class definitions)
+ */
+const CLASS_INCLUDE_TYPES = new Set(['testclasses', 'locals_imp', 'locals_def']);
+
+const INCLUDE_TYPE_TO_ADT = {
+  testclasses: 'testclasses',
+  locals_imp:  'implementations',
+  locals_def:  'definitions',
+};
+
+/**
  * Determine ADT object URI from object name (class/interface vs program vs include).
  * Must use /source/main suffix for classes — verified by live testing: ADT
  * rejects breakpoints set on the class root URI but accepts /source/main.
@@ -71,12 +88,44 @@ function hasFlag(args, flag) {
  * Class method includes are named <ClassName padded to 30 chars with '='>CM<suffix>
  * e.g. ZCL_ABGAGT_AGENT=============CM00D
  * These must be routed to the programs/includes ADT endpoint.
+ *
+ * FUGR source includes follow L<group><suffix> naming (e.g. LSUSRU04, LSUSRTOP,
+ * LSUSRF10, L_ABAU01). They start with 'L' and are routed to programs/includes.
+ * Customer-namespace programs always start with Z/Y, so this branch is safe.
+ *
+ * When includeType is supplied (testclasses|locals_imp|locals_def),
+ * the URI targets the sub-include of the class instead of /source/main.
+ * Line numbers are then section-local (from the .clas.<file>.abap file).
  */
-function objectUri(name) {
+function objectUri(name, includeType) {
   const upper = (name || '').toUpperCase();
   const lower = upper.toLowerCase();
   if (/^[ZY](CL|IF)_/.test(upper) || /^(ZCL|ZIF|YCL|YIF)/.test(upper)) {
+    if (includeType && CLASS_INCLUDE_TYPES.has(includeType)) {
+      const adtType = INCLUDE_TYPE_TO_ADT[includeType];
+      return `/sap/bc/adt/oo/classes/${lower}/includes/${adtType}`;
+    }
     return `/sap/bc/adt/oo/classes/${lower}/source/main`;
+  }
+  // FUGR source includes: L<group>U<NN>, L<group>TOP, L<group>F<NN>, etc.
+  // All start with 'L'. Customer Z/Y programs never start with 'L'.
+  // Correct ADT URI (verified against abap-adt-api):
+  //   /sap/bc/adt/functions/groups/<group>/includes/<include>/source/main
+  // NOT /programs/includes/ — that path is for standalone PROG/I includes only.
+  // Group name is derived by stripping leading 'L' and trailing suffix:
+  //   U<NN>  — FM source include (U01, U02, ...)
+  //   TOP    — pool include
+  //   F<NN>  — form include
+  //   XX     — internal include
+  if (/^L/.test(upper)) {
+    const withoutL = upper.slice(1); // e.g. ZCAIS_DEMOU01
+    const group = withoutL
+      .replace(/U\d+$/, '')   // strip Unn suffix
+      .replace(/TOP$/, '')    // strip TOP suffix
+      .replace(/F\d+$/, '')   // strip Fnn suffix
+      .replace(/XX$/, '')     // strip XX suffix
+      .toLowerCase();
+    return `/sap/bc/adt/functions/groups/${group}/includes/${lower}/source/main`;
   }
   return `/sap/bc/adt/programs/programs/${lower}`;
 }
@@ -202,15 +251,25 @@ async function refreshBreakpoints(config, adt, bps) {
 
   const serverResults = parseBreakpointResponse(resp.body || '', bps);
 
-  // Match server results back to local bps by uri+line
+  // Match server results back to local bps by uri+line.
+  // ADT may return a different canonical URI than what was sent (e.g. it rewrites
+  // /functions/groups/<g>/includes/<inc>/... to /functions/groups/<g>/fmodules/<fm>/...).
+  // Fall back to matching by line alone when URI doesn't match, then adopt the
+  // server's canonical URI so future refreshes continue to work.
   const valid = [];
   const stale = [];
   for (const bp of bps) {
-    const match = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
+    let match = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
+    if (!match) {
+      // Fallback: match by line number alone (handles URI canonicalization by ADT)
+      match = serverResults.find(r => r.line === bp.line);
+    }
     if (match && match.error) {
       stale.push({ ...bp, error: match.error });
     } else if (match && match.id) {
-      valid.push({ ...bp, id: match.id });
+      // Adopt the server's canonical URI so subsequent refreshes match correctly
+      const canonicalUri = match.uri || bp.uri;
+      valid.push({ ...bp, id: match.id, uri: canonicalUri });
     } else {
       // No match in response — server silently dropped it (e.g. expired)
       stale.push({ ...bp, error: 'Not registered on server' });
@@ -247,11 +306,18 @@ function parseBreakpointToken(token) {
 }
 
 async function cmdSet(args, config, adt) {
-  const objectName = val(args, '--object');
-  const lineRaw    = val(args, '--line');
-  const filesArg   = val(args, '--files');
-  const objectsArg = val(args, '--objects');
-  const jsonOutput = hasFlag(args, '--json');
+  const objectName  = val(args, '--object');
+  const lineRaw     = val(args, '--line');
+  const filesArg    = val(args, '--files');
+  const objectsArg  = val(args, '--objects');
+  const includeType = val(args, '--include');
+  const jsonOutput  = hasFlag(args, '--json');
+
+  // Validate --include if supplied
+  if (includeType && !CLASS_INCLUDE_TYPES.has(includeType)) {
+    console.error(`  Error: --include must be one of: ${[...CLASS_INCLUDE_TYPES].join(', ')}`);
+    process.exit(1);
+  }
 
   // Collect all breakpoints to add from every accepted input form
   const toAdd = []; // [{ name, line }]
@@ -304,6 +370,7 @@ async function cmdSet(args, config, adt) {
     console.error('    debug set --files src/zcl_my_class.clas.abap:42');
     console.error('    debug set --objects ZCL_MY_CLASS:42');
     console.error('    debug set --object ZCL_MY_CLASS --line 42');
+    console.error('    debug set --objects ZCL_MY_CLASS:16 --include testclasses');
     process.exit(1);
   }
 
@@ -312,7 +379,7 @@ async function cmdSet(args, config, adt) {
   const added = [];
 
   for (const { name, line } of toAdd) {
-    const uri = objectUri(name);
+    const uri = objectUri(name, includeType);
     const objUpper = name.toUpperCase();
     // Skip if an identical breakpoint already exists
     if (existing.some(bp => bp.object === objUpper && bp.line === line)) {
@@ -356,9 +423,16 @@ async function cmdSet(args, config, adt) {
   }
 
   // Update local state with server-assigned IDs
+  // Use URI+line match first; fall back to line-only for FUGR where ADT rewrites
+  // /includes/<inc>/ to /fmodules/<fm>/ in the response.
   const updatedWithServerIds = updated.map(bp => {
-    const sr = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
-    return sr && sr.id ? { ...bp, id: sr.id } : bp;
+    const sr = serverResults.find(r => r.uri === bp.uri && r.line === bp.line)
+      || serverResults.find(r => r.line === bp.line);
+    if (sr && sr.id) {
+      const canonicalUri = sr.uri || bp.uri;
+      return { ...bp, id: sr.id, uri: canonicalUri };
+    }
+    return bp;
   });
   if (_saveBpState) _saveBpState(config, updatedWithServerIds);
 
@@ -393,7 +467,8 @@ async function cmdSet(args, config, adt) {
 
   if (jsonOutput) {
     const out = added.map(a => {
-      const sr = serverResults.find(r => r.uri === a.uri && r.line === a.line);
+      const sr = serverResults.find(r => r.uri === a.uri && r.line === a.line)
+        || serverResults.find(r => r.line === a.line);
       return { id: (sr && sr.id) || null, object: a.name, line: a.line };
     });
     console.log(JSON.stringify(out.length === 1 ? out[0] : out));

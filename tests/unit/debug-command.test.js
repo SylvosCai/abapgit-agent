@@ -219,6 +219,104 @@ describe('Debug Command - set', () => {
     await debugCommand.execute(['set', '--object', 'ZTEST_PROGRAM', '--line', '5'], makeContext(AdtHttpClass));
     expect(capturedBody).toContain('/sap/bc/adt/programs/programs/ztest_program');
   });
+
+  test('--include testclasses routes to /includes/testclasses URI', async () => {
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((_url, body) => {
+        capturedBody = body;
+        return Promise.resolve({
+          body: '<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger"><breakpoint id="BP10" adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_class/includes/testclasses#start=12" xmlns:adtcore="http://www.sap.com/adt/core"/></dbg:breakpoints>',
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'ZCL_MY_CLASS:12', '--include', 'testclasses'],
+      makeContext(AdtHttpClass)
+    );
+    expect(capturedBody).toContain('/sap/bc/adt/oo/classes/zcl_my_class/includes/testclasses');
+    expect(capturedBody).toContain('#start=12');
+    expect(cap.output).toMatch(/ZCL_MY_CLASS:12/);
+  });
+
+  test('--include locals_imp routes to /includes/implementations URI', async () => {
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((_url, body) => {
+        capturedBody = body;
+        return Promise.resolve({
+          body: '<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger"><breakpoint id="BP11" adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_class/includes/implementations#start=5" xmlns:adtcore="http://www.sap.com/adt/core"/></dbg:breakpoints>',
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'ZCL_MY_CLASS:5', '--include', 'locals_imp'],
+      makeContext(AdtHttpClass)
+    );
+    expect(capturedBody).toContain('/sap/bc/adt/oo/classes/zcl_my_class/includes/implementations');
+    expect(capturedBody).toContain('#start=5');
+    expect(cap.output).toMatch(/ZCL_MY_CLASS:5/);
+  });
+
+  test('--include locals_def routes to /includes/definitions URI', async () => {
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((_url, body) => {
+        capturedBody = body;
+        return Promise.resolve({
+          body: '<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger"><breakpoint id="BP12" adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_class/includes/definitions#start=3" xmlns:adtcore="http://www.sap.com/adt/core"/></dbg:breakpoints>',
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'ZCL_MY_CLASS:3', '--include', 'locals_def'],
+      makeContext(AdtHttpClass)
+    );
+    expect(capturedBody).toContain('/sap/bc/adt/oo/classes/zcl_my_class/includes/definitions');
+    expect(capturedBody).toContain('#start=3');
+    expect(cap.output).toMatch(/ZCL_MY_CLASS:3/);
+  });
+
+  test('rejects unknown --include value', async () => {
+    const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
+    await expect(
+      debugCommand.execute(['set', '--objects', 'ZCL_MY_CLASS:5', '--include', 'implementations'], makeContext(makeAdtHttp()))
+    ).rejects.toThrow('exit');
+    expect(cap.output).toMatch(/--include must be one of/i);
+    mockExit.mockRestore();
+  });
+
+  test('--include testclasses returns JSON with correct include info', async () => {
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockResolvedValue({
+        body: '<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger"><breakpoint id="BP20" adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_class/includes/testclasses#start=18" xmlns:adtcore="http://www.sap.com/adt/core"/></dbg:breakpoints>',
+        headers: {}, statusCode: 200
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'ZCL_MY_CLASS:18', '--include', 'testclasses', '--json'],
+      makeContext(AdtHttpClass)
+    );
+    const parsed = JSON.parse(cap.output);
+    expect(parsed.id).toBe('BP20');
+    expect(parsed.object).toBe('ZCL_MY_CLASS');
+    expect(parsed.line).toBe(18);
+  });
 });
 
 // ─── debug list ───────────────────────────────────────────────────────────────
@@ -966,6 +1064,74 @@ describe('Debug Command - set --objects', () => {
     ).rejects.toThrow('exit');
     expect(cap.output).toMatch(/--files.*--objects.*--object/i);
     mockExit.mockRestore();
+  });
+
+  test('sets breakpoint on PROG object — uses programs/programs URI', async () => {
+    let capturedUrl;
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((url, body) => {
+        capturedUrl = url;
+        capturedBody = body;
+        return Promise.resolve({
+          body: `<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger">` +
+                `<breakpoint id="BP001" adtcore:uri="/sap/bc/adt/programs/programs/z_abgagt_bg_executor#start=21" xmlns:adtcore="http://www.sap.com/adt/core"/>` +
+                `</dbg:breakpoints>`,
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'Z_ABGAGT_BG_EXECUTOR:21'],
+      makeContext(AdtHttpClass)
+    );
+
+    // Must POST to the debugger breakpoints endpoint
+    expect(capturedUrl).toMatch(/\/sap\/bc\/adt\/debugger\/breakpoints/);
+    // Body must reference programs/programs URI (not oo/classes)
+    expect(capturedBody).toContain('/sap/bc/adt/programs/programs/z_abgagt_bg_executor');
+    expect(capturedBody).toContain('#start=21');
+    // Confirmation shown to user
+    expect(cap.output).toMatch(/Z_ABGAGT_BG_EXECUTOR:21/);
+  });
+
+  test('sets breakpoint on FUGR include — uses functions/groups/.../includes/... URI', async () => {
+    let capturedUrl;
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((url, body) => {
+        capturedUrl = url;
+        capturedBody = body;
+        return Promise.resolve({
+          // ADT rewrites the URI to the canonical fmodules form in the response —
+          // refreshBreakpoints() must fall back to line-based matching and adopt this URI.
+          body: `<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger">` +
+                `<breakpoint id="KIND=0.SOURCETYPE=ABAP.MAIN_PROGRAM=SAPLZCAIS_DEMO.INCLUDE=LZCAIS_DEMOU01.LINE_NR=11"` +
+                ` adtcore:uri="/sap/bc/adt/functions/groups/zcais_demo/fmodules/zcais_get_sy_data/source/main#start=11"` +
+                ` xmlns:adtcore="http://www.sap.com/adt/core"/>` +
+                `</dbg:breakpoints>`,
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'LZCAIS_DEMOU01:11'],
+      makeContext(AdtHttpClass)
+    );
+
+    // Must POST to the debugger breakpoints endpoint
+    expect(capturedUrl).toMatch(/\/sap\/bc\/adt\/debugger\/breakpoints/);
+    // Body must reference functions/groups URI (NOT programs/includes)
+    expect(capturedBody).toContain('/sap/bc/adt/functions/groups/zcais_demo/includes/lzcais_demou01/source/main');
+    expect(capturedBody).toContain('#start=11');
+    // Confirmation shown to user
+    expect(cap.output).toMatch(/LZCAIS_DEMOU01:11/);
   });
 });
 

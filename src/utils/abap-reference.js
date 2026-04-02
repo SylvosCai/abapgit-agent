@@ -515,6 +515,8 @@ async function getTopic(topic) {
     // Map topic to local guideline file
     const guidelineMap = {
       'abapgit': 'abapgit.md',
+      'abapgit-xml-only': 'abapgit-xml-only.md',
+      'abapgit-fugr': 'abapgit-fugr.md',
       'xml': 'objects.md',
       'objects': 'objects.md',
       'naming': 'objects.md'

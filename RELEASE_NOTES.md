@@ -2,6 +2,60 @@
 title: Release Notes
 ---
 
+## v1.15.1
+
+### Bug Fixes
+
+- Fix FUGR breakpoint ADT URI routing to correct path
+- Handle ADT canonical URI canonicalization for FUGR includes
+
+### Improvements
+
+- Debug integration tests verify exact line numbers end-to-end
+
+---
+
+---
+
+
+## v1.15.0
+
+### New Features
+
+- `view` command supports DOMA, MSAG, FUGR, DCLS object types
+- `view --full --fm <name>` shows function module source with line numbers
+- `view --full --fm --lines` includes `debug set` breakpoint hint for FMs
+
+### Bug Fixes
+
+- Fix `debug set` routing for FUGR include names (L* prefix)
+- Fix PROG breakpoint hint skipping multi-line `PARAMETERS:` blocks
+
+### Documentation
+
+- Add abapGit XML reference for DOMA, MSAG, DCLS object types
+- Add dedicated FUGR function group abapGit guide
+
+---
+
+---
+
+
+## v1.14.5
+
+### Bug Fixes
+
+- Fix breakpoint hints skipping ABAP comment lines in methods
+
+### Documentation
+
+- Add text table and foreign key guides to abapgit.md
+
+---
+
+---
+
+
 ## v1.14.4
 
 ### Bug Fixes

@@ -39,6 +39,10 @@ abapgit-agent view --objects ZMY_TABLE --type TABL
 abapgit-agent view --objects ZMY_DTEL --type DTEL
 abapgit-agent view --objects ZMY_TTYP --type TTYP
 abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
+abapgit-agent view --objects ZMY_DOMAIN --type DOMA
+abapgit-agent view --objects ZMY_MSG_CLASS --type MSAG
+abapgit-agent view --objects ZMY_FUNC_GROUP --type FUGR
+abapgit-agent view --objects ZMY_ACCESS_CTRL --type DCLS
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
@@ -83,7 +87,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS). Auto-detected from TADIR if not specified |
 | `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections. For INTF/PROG/DDLS: shows full source |
 | `--lines` | No | Add dual line numbers to `--full` output: `G [N]  code` where G is assembled-source global line and [N] is include-relative. Also adds breakpoint hints to method headers. Only meaningful with `--full` |
 | `--json` | No | Output raw JSON only (for scripting) |
@@ -166,13 +170,11 @@ Adding `--lines` renders dual line numbers on every line and adds a ready-to-use
 
 - **G** (left, no brackets): assembled-source global line → use directly with `debug set --objects ZCL_FOO:G` or `debug set --files src/zcl_foo.clas.abap:G`
 - **[N]** (brackets): include-relative, restarts at 1 per method — useful for code navigation only
-- **Method header hint**: automatically points to the first executable statement (skips `METHOD`, blank lines, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations)
+- **Method header hint**: automatically points to the first executable statement (skips `METHOD`, blank lines, comments, and `DATA`/`FINAL`/`TYPES`/`CONSTANTS` declarations, including multi-line `DATA:` blocks and inline `DATA(x) =` forms)
+
+**Regular CM\* methods** use assembled-source global line numbers:
 
 ```
-  * ---- Section: Public Section (CU) ----
-     1    CLASS zcl_my_class DEFINITION PUBLIC FINAL CREATE PUBLIC.
-     2      PUBLIC SECTION.
-  ...
   * ---- Method: CONSTRUCTOR (CM001) — breakpoint: debug set --objects ZCL_MY_CLASS:14 ----
     13 [  1]    METHOD constructor.
     14 [  2]      mv_host = iv_host.
@@ -185,13 +187,39 @@ Adding `--lines` renders dual line numbers on every line and adds a ready-to-use
     21 [  5]    ENDMETHOD.
 ```
 
+**Unit test methods (CCAU) and local class methods (CCIMP)** live in separate ADT sub-includes. Their sections show section-local line numbers and a `--include` hint per method:
+
+```
+  * ---- Section: Unit Test (from .clas.testclasses.abap) ----
+  * ---- Method: SETUP — breakpoint: debug set --objects ZCL_MY_CLASS:12 --include testclasses ----
+    10    METHOD setup.
+    11      DATA lv_x TYPE i.
+    12      mo_cut = NEW #( ).
+    13    ENDMETHOD.
+
+  * ---- Section: Local Implementations (from .clas.locals_imp.abap) ----
+  * ---- Method: ZIF_FOO~DO_SOMETHING — breakpoint: debug set --objects ZCL_MY_CLASS:5 --include locals_imp ----
+     3    METHOD zif_foo~do_something.
+     4      DATA lv_x TYPE i.
+     5      lv_x = iv_input.
+     6    ENDMETHOD.
+```
+
+Line numbers in sub-include sections are **section-local** (matching the `.clas.testclasses.abap` / `.clas.locals_imp.abap` file), not assembled-source globals. The `--include` flag value mirrors the abapGit file suffix.
+
 **How global line numbers are computed:** Node.js reads the local `.clas.abap` file (own classes) or fetches `/sap/bc/adt/oo/classes/<name>/source/main` from ADT (library classes), then scans for `METHOD <name>.` to determine each method's start line.
 
 **Setting a breakpoint from the output:**
 
 ```bash
-# Copy the hint directly from the method header — it already points to the first executable line
+# Regular CM* method — copy hint directly from the method header
 abapgit-agent debug set --objects ZCL_MY_CLASS:19
+
+# Unit test method
+abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
+
+# Local class method
+abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
 ```
 
 Non-CLAS types (INTF, PROG, DDLS): single section, section-local line numbers only (no `[N]` brackets).
@@ -310,6 +338,76 @@ DATA ELEMENT S_CARR_ID:
    Access Mode: STANDARD
    Key Definition: WITH KEY
 ```
+
+### Domain Definition (DOMA)
+
+```
+📖 XFELD (Domain)
+   Checkbox
+
+DOMAIN XFELD:
+┌────────────────────┬──────────────────────────────────────────┐
+│ Property           │ Value                                    │
+├────────────────────┼──────────────────────────────────────────┤
+│ DATA_TYPE          │ Type: CHAR                               │
+│ LENGTH             │ Length: 1                                │
+│ VALUE_1            │ X: Selected                              │
+│ VALUE_2            │  : Not Selected                          │
+└────────────────────┴──────────────────────────────────────────┘
+```
+
+Fixed domain values appear as `VALUE_<n>` rows with `low - high: text` format (or just `low: text` for single values). Conversion exit and value table rows appear when set on the domain.
+
+### Message Class Definition (MSAG)
+
+```
+📖 SY (Message Class)
+   System messages
+
+MESSAGE CLASS SY:
+┌────────────────────┬──────────────────────────────────────────────────────────────┐
+│ Property           │ Value                                                        │
+├────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 001                │ 001: Object & does not exist                                 │
+│ 002                │ 002: Object & already exists                                 │
+│ COUNT              │ Total messages: 2                                            │
+└────────────────────┴──────────────────────────────────────────────────────────────┘
+```
+
+Each message appears as a `<number>: <text>` row (English first, any language as fallback). The last row shows the total count.
+
+### Function Group Definition (FUGR)
+
+```
+📖 SUSR (Function Group)
+   Function Group SUSR in SUSR
+
+FUNCTION GROUP SUSR:
+┌────────────────────────────────────┬──────────────────────────────────────────────┐
+│ Property                           │ Value                                        │
+├────────────────────────────────────┼──────────────────────────────────────────────┤
+│ SUSR_USER_ADDRESS_READ             │ SUSR_USER_ADDRESS_READ: Read User Address    │
+│ SUSR_USER_ADDRESS_WRITE [RFC]      │ SUSR_USER_ADDRESS_WRITE [RFC]: Write User... │
+│ COUNT                              │ Function modules: 2                          │
+└────────────────────────────────────┴──────────────────────────────────────────────┘
+```
+
+RFC-enabled modules are marked `[RFC]`; `[RFC-Start]` marks update-task RFC modules. The last row shows the total count.
+
+### Access Control Definition (DCLS)
+
+```
+📖 SEPM_E_SALESORDER (Access Control)
+   Access Control SEPM_E_SALESORDER in S_EPM_CDS_REF
+
+@MappingRole: true
+define role SEPM_E_SalesOrder {
+  grant select on SEPM_E_SalesOrder
+    where (SalesOrderID) = aspect pfcg_auth(SD_SALES, VKORG, ACTVT, '03');
+}
+```
+
+The DCL source is shown inline (same as `--full` for other types). On systems without `CL_ACM_DCL_HANDLER_FACTORY` (pre-7.40), only the TADIR metadata (package) is returned and `SOURCE` is empty.
 
 ### CDS View Definition (DDLS)
 
@@ -452,17 +550,17 @@ The `FILE` field (when present) signals that the section comes from a separate g
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG|DOMA|MSAG|FUGR|DCLS",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
-      "DOMAIN": "string",           // For DTEL
-      "DOMAIN_TYPE": "string",      // For DTEL
-      "DOMAIN_LENGTH": number,      // For DTEL
-      "DOMAIN_DECIMALS": number,    // For DTEL
-      "SOURCE": "string",           // Full ABAP source (CLAS/INTF/DDLS/STOB) — omitted when sections present
-      "SECTIONS": [                 // Present only when --full is used (CLAS/INTF/PROG/DDLS)
+      "DOMAIN": "string",           // For DTEL: domain name
+      "DOMAIN_TYPE": "string",      // For DTEL/DOMA: ABAP data type (CHAR, NUMC, etc.)
+      "DOMAIN_LENGTH": number,      // For DTEL/DOMA: field length
+      "DOMAIN_DECIMALS": number,    // For DTEL/DOMA: decimal places
+      "SOURCE": "string",           // Full source (CLAS/INTF/DDLS/STOB/DCLS) — omitted when sections present
+      "SECTIONS": [                 // Present only when --full is used (CLAS/INTF/PROG/DDLS/DCLS)
         {
-          "SUFFIX": "string",       // CU, CO, CP, CM001..CMxxx, CCDEF, CCIMP, CCAU
+          "SUFFIX": "string",       // CU, CO, CP, CM001..CMxxx, CCDEF, CCIMP, CCAU, asdcls
           "DESCRIPTION": "string",  // Human-readable section label
           "METHOD_NAME": "string",  // Present for CM* sections only
           "FILE": "string",         // Present for CCDEF/CCIMP/CCAU — name of separate git file
@@ -470,7 +568,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
         }
       ],
       "NOT_FOUND": boolean,         // true if object does not exist
-      "COMPONENTS": [              // For TABL/STRU
+      "COMPONENTS": [              // For TABL/STRU: field list; for DTEL/DOMA/TTYP/MSAG/FUGR: property rows
         {
           "FIELD": "string",
           "KEY": boolean,
@@ -533,6 +631,10 @@ The `FILE` field (when present) signals that the section comes from a separate g
 | `DDLS` | CDS View | CDS View/Entity definition |
 | `STOB` | Structured Object | CDS-generated structured object |
 | `PROG` | Program | ABAP program/include source |
+| `DOMA` | Domain | Domain definition with fixed values |
+| `MSAG` | Message Class | Message class with all message texts |
+| `FUGR` | Function Group | Function group with function module list |
+| `DCLS` | Access Control | CDS access control (DCL source) |
 
 ---
 
@@ -559,6 +661,18 @@ abapgit-agent view --objects S_CARR_ID --type DTEL
 
 # View CDS view definition
 abapgit-agent view --objects ZC_MY_CDS_VIEW --type DDLS
+
+# View domain (fixed values, conversion exit)
+abapgit-agent view --objects XFELD --type DOMA
+
+# View message class (all message texts)
+abapgit-agent view --objects SY --type MSAG
+
+# View function group (function module list)
+abapgit-agent view --objects SUSR --type FUGR
+
+# View access control (DCL source)
+abapgit-agent view --objects SEPM_E_SALESORDER --type DCLS
 
 # View source include (from where command output)
 abapgit-agent view --objects ZCL_ABGAGT_COMMAND_UNIT=======CM007
@@ -599,6 +713,13 @@ abapgit-agent view --objects sflight --type tabl
 | **DD04L** | Data element definitions |
 | **DD40L** | Table type definitions |
 | **DDDDLSRC02BT** | STOB to DDLS mapping |
+| **DD01V** | Domain definitions (DOMA) |
+| **DD07V** | Domain fixed values (DOMA) |
+| **T100A** | Message class header (MSAG) |
+| **T100** | Message texts (MSAG) |
+| **TFDIR** | Function module directory (FUGR) |
+| **TFTIT** | Function module short texts (FUGR) |
+| **ACM_S_DCLSRC** | Access control source — via `CL_ACM_DCL_HANDLER_FACTORY` (DCLS) |
 
 ### Class Source Retrieval (CLAS)
 
@@ -741,6 +862,73 @@ IF lv_ddls_name IS NOT INITIAL.
   rs_info-source = ls_ddls_info-source.
 ENDIF.
 ```
+
+### Domain Retrieval (DOMA)
+
+```abap
+" Get domain definition from DD01V (active, English first)
+SELECT SINGLE datatype leng decimals ddtext convexit valfield
+  FROM dd01v
+  INTO (lv_datatype, lv_leng, lv_decimals, lv_ddtext, lv_convexit, lv_valfield)
+  WHERE domname    = iv_name
+    AND as4local   = 'A'
+    AND ddlanguage = 'E'.
+
+" Get fixed values from DD07V
+SELECT valpos domvalue_l domvalue_h ddtext
+  INTO TABLE lt_values
+  FROM dd07v
+  WHERE domname    = iv_name
+    AND as4local   = 'A'
+    AND ddlanguage = 'E'
+  ORDER BY valpos.
+```
+
+### Message Class Retrieval (MSAG)
+
+```abap
+" Get message class description from T100A
+SELECT SINGLE stext FROM t100a INTO lv_stext WHERE arbgb = iv_name.
+
+" Get all messages (English first, any language fallback)
+SELECT msgnr sprsl text INTO TABLE lt_msgs
+  FROM t100
+  WHERE arbgb = iv_name AND sprsl = 'E'
+  ORDER BY msgnr.
+```
+
+### Function Group Retrieval (FUGR)
+
+```abap
+" Get function module list with short texts (single join, no DB in loop)
+SELECT tfdir~funcname tfdir~remote tftit~stext
+  INTO TABLE lt_funcs
+  FROM tfdir
+  LEFT OUTER JOIN tftit ON tftit~funcname = tfdir~funcname
+                        AND tftit~spras    = 'E'
+  WHERE tfdir~area = iv_name
+  ORDER BY tfdir~funcname.
+```
+
+### Access Control Retrieval (DCLS)
+
+```abap
+" Read DCL source via dynamic call (only on systems with ACM)
+CALL METHOD ('CL_ACM_DCL_HANDLER_FACTORY')=>('CREATE')
+  RECEIVING ro_handler = lo_handler.
+
+CREATE DATA lr_data TYPE ('ACM_S_DCLSRC').
+ASSIGN lr_data->* TO <ls_data>.
+
+CALL METHOD lo_handler->('READ')
+  EXPORTING iv_dclname = iv_name
+  IMPORTING es_dclsrc  = <ls_data>.
+
+" Source is in component SOURCE of ACM_S_DCLSRC
+ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_source>.
+```
+
+The entire block is wrapped in `CATCH cx_root` so the viewer degrades gracefully on systems without ACM.
 
 ### Source Include Detection (Auto-detect from Where Command)
 
