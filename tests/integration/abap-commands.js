@@ -12,9 +12,10 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   11 tests (delete-all, set, list, delete-all cleanup, list-empty,
+ *   - debug:   14 tests (delete-all, set, list, delete-all cleanup, list-empty,
  *                         set --include testclasses, list, set --include locals_imp,
  *                         list both, delete-all cleanup — breakpoint management only;
+ *                         + FUGR include set/list/delete-all (regression for wrong ADT URI);
  *                         full session coverage is in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
@@ -1097,6 +1098,48 @@ where carrid = $parameters.p_carrid
   {
     command: 'debug',
     name: 'debug delete --all cleans up sub-include breakpoints',
+    args: ['delete', '--all'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('deleted') ||
+        output.includes('Deleted') ||
+        output.includes('cleared') ||
+        output.includes('No breakpoints') ||
+        output.length >= 0;
+    }
+  },
+
+  // --- FUGR include breakpoint (regression: wrong ADT URI was used before fix) ---
+  // LZCAIS_DBG_TESTU01 is the FM source include of ZCAIS_DBG_TEST (FUGR).
+  // Before the fix, debug set routed L-prefix names to /programs/includes/ (wrong).
+  // The correct URI is /functions/groups/<group>/includes/<include>/source/main.
+  // ADT rejects the wrong URI with an error, causing "Not registered on server".
+  // This test detects that regression: if the URI is wrong, ADT returns an error
+  // and debug set exits non-zero.
+  {
+    command: 'debug',
+    name: 'debug set on FUGR include (LZCAIS_DBG_TESTU01) uses correct ADT URI',
+    args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:11'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Must confirm the breakpoint was registered (not "Not registered on server")
+      return (output.includes('Breakpoint') || output.includes('breakpoint')) &&
+        !output.includes('Not registered on server') &&
+        !output.includes('Cannot create');
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug list shows FUGR include breakpoint',
+    args: ['list'],
+    expectSuccess: true,
+    verify: (output) => {
+      return output.includes('LZCAIS_DBG_TESTU01') || output.includes('11');
+    }
+  },
+  {
+    command: 'debug',
+    name: 'debug delete --all cleans up FUGR include breakpoint',
     args: ['delete', '--all'],
     expectSuccess: true,
     verify: (output) => {
