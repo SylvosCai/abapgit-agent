@@ -36,6 +36,7 @@ const { runConflictTests } = require('./integration/conflict-runner');
 const { runSyncXmlTests } = require('./integration/sync-xml-runner');
 const { runXmlOnlyTests } = require('./integration/xml-only-runner');
 const { runJUnitTests } = require('./integration/junit-runner');
+const { runDebugTests } = require('./integration/debug-runner');
 
 // Colors for output
 const colors = {
@@ -199,6 +200,18 @@ function runJUnitTestsWrapper() {
     printInfo,
     printSuccess,
     printError,
+    colorize,
+    colors
+  });
+}
+
+function runDebugTestsWrapper() {
+  return runDebugTests(repoRoot, {
+    printSubHeader,
+    printSuccess,
+    printError,
+    printWarning,
+    printInfo,
     colorize,
     colors
   });
@@ -697,6 +710,21 @@ function printSummary(results) {
     }
   }
 
+  // Debug breakpoint tests
+  if (results.debugBp) {
+    if (results.debugBp.skipped) {
+      printWarning('Debug Breakpoint Tests: SKIPPED (abgagt-debug-test repo not found)');
+    } else {
+      totalDuration += parseFloat(results.debugBp.duration);
+      if (results.debugBp.success) {
+        printSuccess(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} PASSED (${results.debugBp.duration}s)`);
+      } else {
+        printError(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} FAILED (${results.debugBp.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   console.log('\n' + '='.repeat(70));
   if (allPassed) {
     console.log(colorize('bright', colorize('green', `  ✅ ALL TESTS PASSED (Total: ${totalDuration.toFixed(1)}s)`)));
@@ -716,7 +744,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -725,7 +753,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runSyncXml, runXmlOnly, runJunit;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -739,6 +767,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
@@ -751,6 +780,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
@@ -763,6 +793,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
@@ -775,6 +806,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
@@ -787,6 +819,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
     runAunit = false;
@@ -799,6 +832,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
     runAunit = false;
@@ -811,6 +845,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
     runAunit = false;
@@ -823,6 +858,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--xml-only')) {
     runJest = false;
     runAunit = false;
@@ -835,6 +871,7 @@ async function main() {
     runXmlOnly = true;
     runJunit = false;
     runDebug = false;
+    runDebugBp = false;
   } else if (args.includes('--junit')) {
     runJest = false;
     runAunit = false;
@@ -847,6 +884,20 @@ async function main() {
     runXmlOnly = false;
     runJunit = true;
     runDebug = false;
+    runDebugBp = false;
+  } else if (args.includes('--debug')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebug = false;
+    runDebugBp = true;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
     runAunit = false;
@@ -859,6 +910,7 @@ async function main() {
     runXmlOnly = false;
     runJunit = false;
     runDebug = true;
+    runDebugBp = false;
   } else {
     // Run all tests
     // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
@@ -875,6 +927,7 @@ async function main() {
     runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
     runDebug = !isCI;       // Skip debug scenarios in CI (require interactive ADT sessions)
+    runDebugBp = !isCI;     // Skip debug breakpoint tests in CI (require abgagt-debug-test repo)
     if (isCI) {
       printInfo('  ⚠️  CI environment detected — skipping debug scenarios (require interactive ADT)');
     }
@@ -959,6 +1012,11 @@ async function main() {
   // Run Debug scenario tests (REPL + scripted AI/--json)
   if (runDebug) {
     results.debug = runDebugScenarios();
+  }
+
+  // Run Debug breakpoint tests (requires abgagt-debug-test repo)
+  if (runDebugBp) {
+    results.debugBp = runDebugTestsWrapper();
   }
 
   // Print summary and exit with appropriate code
