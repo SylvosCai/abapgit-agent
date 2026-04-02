@@ -996,8 +996,17 @@ where carrid = $parameters.p_carrid
     const debugRepoPath = path.join(__dirname, '..', '..', '..', 'abgagt-debug-test');
 
     // Helper: parse LINE_NR from ADT id returned in --json output
+    // NOTE: LINE_NR is include-relative, not the global assembled-source line.
+    // For CLAS main methods it differs from the line we passed in.
+    // Use adtLineNr() only to confirm ADT accepted the BP (LINE_NR >= 1).
     function adtLineNr(jsonOutput) {
       const m = jsonOutput.match(/"id":"[^"]*LINE_NR=(\d+)/);
+      return m ? parseInt(m[1], 10) : null;
+    }
+
+    // Helper: parse the "line" field from --json output (echoes the line we passed in)
+    function jsonLine(jsonOutput) {
+      const m = jsonOutput.match(/"line":(\d+)/);
       return m ? parseInt(m[1], 10) : null;
     }
 
@@ -1048,16 +1057,15 @@ where carrid = $parameters.p_carrid
       // --- CLAS main source breakpoint ---
       {
         command: 'debug',
-        name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR≥1)',
+        name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR≥1, line=33)',
         // ZCL_CAIS_DBG_TRIGGER:33 = lv_sum = iv_a + iv_b in compute()
         // (skips comment on line 30, DATA on line 31, blank on line 32)
+        // Note: ADT LINE_NR is include-relative (=5 within CM001), not global line 33.
         args: ['set', '--object', 'ZCL_CAIS_DBG_TRIGGER', '--line', '33', '--json'],
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          return adtLineNr(output) >= 1 && jsonLine(output) === 33;
         }
       },
       {
@@ -1088,16 +1096,14 @@ where carrid = $parameters.p_carrid
       // --- testclasses include breakpoint ---
       {
         command: 'debug',
-        name: '[A] debug set testclasses — line 13 accepted by ADT (LINE_NR≥1)',
+        name: '[A] debug set testclasses — line 13 accepted by ADT (LINE_NR=13)',
         // ZCL_CAIS_DBG_TRIGGER testclasses:13 = rv_val = iv_val * lv_two in ltcl_helper
         // (skips comment on line 10, DATA on line 11, blank on line 12)
         args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:13', '--include', 'testclasses', '--json'],
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          return adtLineNr(output) === 13 && jsonLine(output) === 13;
         }
       },
       {
@@ -1112,16 +1118,14 @@ where carrid = $parameters.p_carrid
       // --- locals_imp include breakpoint ---
       {
         command: 'debug',
-        name: '[A] debug set locals_imp — line 6 accepted by ADT (LINE_NR≥1)',
+        name: '[A] debug set locals_imp — line 6 accepted by ADT (LINE_NR=6)',
         // ZCL_CAIS_DBG_TRIGGER locals_imp:6 = lv_label = 'debug-test' in lcl_helper
         // (skips comment on line 3, DATA on line 4, blank on line 5)
         args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'],
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          return adtLineNr(output) === 6 && jsonLine(output) === 6;
         }
       },
       {
@@ -1151,15 +1155,13 @@ where carrid = $parameters.p_carrid
       // ADT rejects the wrong URI → "Not registered on server" → exit 1.
       {
         command: 'debug',
-        name: '[A] debug set FUGR include — line 13 accepted by ADT (LINE_NR≥1)',
+        name: '[A] debug set FUGR include — line 13 accepted by ADT (LINE_NR=13)',
         // LZCAIS_DBG_TESTU01:13 = lv_result = iv_a + iv_b in ZCAIS_DBG_ADD
         args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:13', '--json'],
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          return adtLineNr(output) === 13 && jsonLine(output) === 13;
         }
       },
       {
@@ -1207,7 +1209,7 @@ where carrid = $parameters.p_carrid
       },
       {
         command: 'debug',
-        name: '[B] debug set CLAS main at view-derived line — LINE_NR≥1',
+        name: '[B] debug set CLAS main at view-derived line — LINE_NR≥1, line matches',
         // line comes from view hint parsed above
         get args() {
           const h = viewParsed.clasMain;
@@ -1216,9 +1218,10 @@ where carrid = $parameters.p_carrid
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          const h = viewParsed.clasMain;
+          // LINE_NR is include-relative (differs from global h.line for CLAS main).
+          // Verify: ADT accepted (LINE_NR≥1) and echoed back the exact line we sent.
+          return h !== null && adtLineNr(output) >= 1 && jsonLine(output) === h.line;
         }
       },
       {
@@ -1263,7 +1266,7 @@ where carrid = $parameters.p_carrid
       },
       {
         command: 'debug',
-        name: '[B] debug set testclasses at view-derived line — LINE_NR≥1',
+        name: '[B] debug set testclasses at view-derived line — LINE_NR=line matches',
         get args() {
           const h = viewParsed.testclasses;
           return h
@@ -1273,9 +1276,8 @@ where carrid = $parameters.p_carrid
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          const h = viewParsed.testclasses;
+          return h !== null && adtLineNr(output) === h.line && jsonLine(output) === h.line;
         }
       },
       {
@@ -1320,7 +1322,7 @@ where carrid = $parameters.p_carrid
       },
       {
         command: 'debug',
-        name: '[B] debug set locals_imp at view-derived line — LINE_NR≥1',
+        name: '[B] debug set locals_imp at view-derived line — LINE_NR=line matches',
         get args() {
           const h = viewParsed.localsImp;
           return h
@@ -1330,9 +1332,8 @@ where carrid = $parameters.p_carrid
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          const h = viewParsed.localsImp;
+          return h !== null && adtLineNr(output) === h.line && jsonLine(output) === h.line;
         }
       },
       {
@@ -1378,7 +1379,7 @@ where carrid = $parameters.p_carrid
       },
       {
         command: 'debug',
-        name: '[B] debug set FUGR at view-derived line — LINE_NR≥1',
+        name: '[B] debug set FUGR at view-derived line — LINE_NR=line matches',
         get args() {
           const h = viewParsed.fugr;
           return h
@@ -1388,9 +1389,8 @@ where carrid = $parameters.p_carrid
         cwd: debugRepoPath,
         expectSuccess: true,
         verify: (output) => {
-          const lineNr = adtLineNr(output);
-          return lineNr !== null && lineNr >= 1 &&
-            !output.includes('Not registered') && !output.includes('Cannot create');
+          const h = viewParsed.fugr;
+          return h !== null && adtLineNr(output) === h.line && jsonLine(output) === h.line;
         }
       },
       {
