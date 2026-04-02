@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Debug Session Guide
-nav_order: 12
+nav_order: 15
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
@@ -89,6 +89,28 @@ abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
 # Local class method:
 abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
 abapgit-agent debug list    # confirm both were registered
+```
+
+**Function module (FUGR) methods** live in per-FM source includes (`L<GROUP>U<NN>`). Use `view` with `--full --fm <name> --lines` to see the source and breakpoint hint:
+
+```bash
+abapgit-agent view --objects SUSR --type FUGR --full --fm AUTHORITY_CHECK --lines
+```
+
+```
+  * ---- FM: AUTHORITY_CHECK (LSUSRU04) — breakpoint: debug set --objects LSUSRU04:50 ----
+     1  function authority_check.
+    ...
+    36    constants:
+    ...
+    45    data:
+    ...
+    50    ld_syuname = cl_abap_syst=>get_user_name( ).
+```
+
+```bash
+abapgit-agent debug set --objects LSUSRU04:50
+abapgit-agent debug list    # confirm it was registered
 ```
 
 > **Line number must point to an executable statement.** The hints already skip `METHOD`, blank lines, comments (`"`, `*`), and all declaration forms (`DATA`, `DATA:`, `DATA(`). One case still requires manual attention:
@@ -277,26 +299,3 @@ HTTP Request
 > inside `find_remote_dot_abapgit()` via `COMMIT WORK AND WAIT` — i.e., the lock is released before
 > BP2 fires. There is no active lock between BP1 and the end of CM00L.
 
-### Known Limitations and Planned Improvements
-
-The following issues were identified during live debugging sessions and resolved:
-
-#### ~~1. `view --full` global line numbers don't match ADT line numbers~~ ✅ Fixed
-
-**Fixed**: `view --full --lines` now shows dual line numbers per line: `G [N]  code` where G is the assembled-source global line and `[N]` is the include-relative counter. Method headers show the ready-to-use `debug set --objects CLASS:G` command pointing to the first executable statement (skipping `METHOD`, blank lines, comments, and all `DATA`/`DATA:`/`DATA(` declaration forms).
-
-Global line numbers are computed **client-side** in Node.js, not in ABAP:
-- **Own classes** (local `.clas.abap` file exists): reads the local file — guaranteed exact match with ADT
-- **Library classes** (no local file, e.g. abapGit): fetches assembled source from `/sap/bc/adt/oo/classes/<name>/source/main`
-
-#### ~~2. No breakpoint support for unit test and local class methods~~ ✅ Fixed
-
-**Fixed**: CCAU (unit test) and CCIMP (local class implementation) sections in `view --full --lines` now show per-method `debug set --objects CLASS:N --include <type>` hints. These use the `/includes/<type>` ADT sub-include URI which ADT accepts for CCAU/CCIMP includes. See Step 1 above for details.
-
-#### ~~3. Include-relative breakpoint form (`=====CMxxx:N`) not implemented in the CLI~~ ✅ Superseded
-
-**Superseded**: The `/programs/includes/` ADT endpoint was found to not accept breakpoints for OO class method includes — ADT only accepts the `/oo/classes/.../source/main` URI with assembled-source line numbers. The `=====CMxxx:N` approach was dropped. Instead, `view --full --lines` now provides the correct assembled-source global line number G directly, and both `--objects CLASS:G` and `--files src/cls.clas.abap:G` work reliably.
-
-#### ~~4. `stepContinue` re-attach pattern missing from docs~~ ✅ Fixed
-
-**Fixed**: Step 3 of the debug guide now documents the two possible return values of `step --type continue` and includes the re-attach pattern for when the program hits a second breakpoint instead of finishing.

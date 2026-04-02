@@ -89,6 +89,10 @@ const INCLUDE_TYPE_TO_ADT = {
  * e.g. ZCL_ABGAGT_AGENT=============CM00D
  * These must be routed to the programs/includes ADT endpoint.
  *
+ * FUGR source includes follow L<group><suffix> naming (e.g. LSUSRU04, LSUSRTOP,
+ * LSUSRF10, L_ABAU01). They start with 'L' and are routed to programs/includes.
+ * Customer-namespace programs always start with Z/Y, so this branch is safe.
+ *
  * When includeType is supplied (testclasses|locals_imp|locals_def),
  * the URI targets the sub-include of the class instead of /source/main.
  * Line numbers are then section-local (from the .clas.<file>.abap file).
@@ -102,6 +106,11 @@ function objectUri(name, includeType) {
       return `/sap/bc/adt/oo/classes/${lower}/includes/${adtType}`;
     }
     return `/sap/bc/adt/oo/classes/${lower}/source/main`;
+  }
+  // FUGR source includes: L<group>U<NN>, L<group>TOP, L<group>F<NN>, etc.
+  // All start with 'L'. Customer Z/Y programs never start with 'L'.
+  if (/^L/.test(upper)) {
+    return `/sap/bc/adt/programs/includes/${lower}`;
   }
   return `/sap/bc/adt/programs/programs/${lower}`;
 }

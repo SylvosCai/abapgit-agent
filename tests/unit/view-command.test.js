@@ -765,4 +765,81 @@ describe('View Command - findFirstExecutableLine()', () => {
     ];
     expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
   });
+
+  // PROG-specific tests
+  test('skips REPORT statement for program source', () => {
+    const lines = [
+      'REPORT zmy_program.',
+      'START-OF-SELECTION.',
+      '  WRITE hello.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(1);
+  });
+
+  test('skips multi-line PARAMETERS: block in program', () => {
+    // Mirrors z_abgagt_bg_executor.prog.abap structure
+    const lines = [
+      'REPORT z_abgagt_bg_executor.',
+      '',
+      'PARAMETERS: p_cmd   TYPE string LOWER CASE,',
+      '            p_data  TYPE string LOWER CASE.',
+      '',
+      'DATA: lo_factory TYPE REF TO zif_abgagt_cmd_factory.',
+      '',
+      'START-OF-SELECTION.',
+      '  lo_factory = NEW #( ).'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(7);
+  });
+
+  test('skips single-line PARAMETERS: (ends with period on same line)', () => {
+    const lines = [
+      'REPORT zmy_prog.',
+      'PARAMETERS: p_in TYPE string.',
+      'START-OF-SELECTION.',
+      '  WRITE p_in.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
+
+  test('skips TABLES statement', () => {
+    const lines = [
+      'REPORT zmy_prog.',
+      'TABLES: mara.',
+      'START-OF-SELECTION.',
+      '  WRITE mara-matnr.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(2);
+  });
+
+  test('skips SELECTION-SCREEN and SELECT-OPTIONS statements', () => {
+    const lines = [
+      'REPORT zmy_prog.',
+      'SELECTION-SCREEN BEGIN OF BLOCK b1.',
+      'SELECT-OPTIONS: s_matnr FOR mara-matnr.',
+      'SELECTION-SCREEN END OF BLOCK b1.',
+      'START-OF-SELECTION.',
+      '  WRITE done.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(4);
+  });
+
+  test('skips REPORT then multi-line PARAMETERS then multi-line DATA', () => {
+    // Full realistic program header — first executable is START-OF-SELECTION
+    const lines = [
+      '*&---comment---*',
+      'REPORT z_bg_executor.',
+      '',
+      'PARAMETERS: p_cmd   TYPE string LOWER CASE,',
+      '            p_data  TYPE string LOWER CASE.',
+      '',
+      'DATA: lo_factory      TYPE REF TO zif_cmd_factory,',
+      '      lo_command      TYPE REF TO zif_command,',
+      '      lv_result       TYPE string.',
+      '',
+      'START-OF-SELECTION.',
+      '  TRY.'
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(10);
+  });
 });

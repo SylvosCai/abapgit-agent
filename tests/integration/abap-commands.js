@@ -6,7 +6,8 @@
  *
  * Test Distribution:
  *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
- *   - view:    5 tests (class, interface, table, class --full, class --full --lines)
+ *   - view:    9 tests (class, interface, table, class --full, class --full --lines,
+ *                       domain, message class, function group, access control)
  *   - tree:    3 tests (package, depth, types)
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
@@ -24,7 +25,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    70 tests
+ *   Total:    74 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -332,6 +333,57 @@ const commandTestCases = [
       // Should contain debug breakpoint hints
       const hasDebugHints = output.includes('debug set');
       return hasGlobalLines && hasCmHeader && hasIncludeRelLines && hasDebugHints;
+    }
+  },
+
+  // ===================================================================
+  // VIEW COMMAND - gap types (DOMA, MSAG, FUGR)
+  // ===================================================================
+  {
+    command: 'view',
+    name: 'view domain (DOMA) shows type and length',
+    args: ['--objects', 'XFELD', '--type', 'DOMA'],
+    expectSuccess: true,
+    verify: (output) => {
+      // XFELD is the checkbox domain (CHAR 1, fixed values X/' ') — SAP_BASIS / SUTI package
+      const hasDomain = output.includes('XFELD');
+      const hasType = output.includes('CHAR') || output.includes('Type') || output.includes('Domain');
+      return hasDomain && hasType;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view message class (MSAG) shows messages',
+    args: ['--objects', 'SY', '--type', 'MSAG'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SY is the system messages class — SABP_CORE package, present on every ABAP system
+      const hasMsgClass = output.includes('SY') || output.includes('Message');
+      const hasMessages = output.includes(':') || output.includes('Total');
+      return hasMsgClass && hasMessages;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view function group (FUGR) lists function modules',
+    args: ['--objects', 'SUSR', '--type', 'FUGR'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SUSR is the user management function group — SAP_BASIS / SUSR package
+      const hasFugr = output.includes('SUSR') || output.includes('Function');
+      const hasModules = output.includes('RFC') || output.includes(':') || output.includes('modules');
+      return hasFugr && hasModules;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view access control (DCLS) shows source',
+    args: ['--objects', 'SEPM_E_SALESORDER', '--type', 'DCLS'],
+    expectSuccess: true,
+    verify: (output) => {
+      // SEPM_E_SALESORDER is the EPM sales order access control — SAP_BASIS / S_EPM_CDS_REF
+      const hasDcls = output.includes('SEPM_E_SALESORDER') || output.includes('Access Control');
+      return hasDcls;
     }
   },
 

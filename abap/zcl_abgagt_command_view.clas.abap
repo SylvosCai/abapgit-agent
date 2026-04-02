@@ -9,8 +9,9 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES: BEGIN OF ty_view_params,
              objects TYPE string_table,
-             type TYPE string,
-             full TYPE abap_bool,
+             type    TYPE string,
+             full    TYPE abap_bool,
+             fm      TYPE string,
            END OF ty_view_params.
 
     TYPES: BEGIN OF ty_section,
@@ -111,8 +112,12 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
       " Get viewer and retrieve info
       TRY.
           DATA(lo_viewer) = lo_factory->get_viewer( lv_type ).
+          DATA(lv_viewer_name) = lv_object.
+          IF ls_params-fm IS NOT INITIAL.
+            lv_viewer_name = lv_object && '/' && ls_params-fm.
+          ENDIF.
           ls_info = lo_viewer->get_info(
-            iv_name = lv_object
+            iv_name = lv_viewer_name
             iv_full = ls_params-full ).
         CATCH cx_sy_create_object_error.
           " Viewer class not found - set not found flag

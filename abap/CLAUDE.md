@@ -96,7 +96,7 @@ Never assume Z/Y prefix without checking.
 ```
 ❌ WRONG: Only write the .abap source file
 ✅ CORRECT: Every object needs both a source file AND an XML metadata file
-           XML-only objects (TABL, STRU, DTEL, TTYP) need ONLY the XML file
+           XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) need ONLY the XML file
 ```
 
 Use the object name from `objects.local.md` (or `objects.md` as fallback) in place of `<name>`:
@@ -107,10 +107,14 @@ Use the object name from `objects.local.md` (or `objects.md` as fallback) in pla
 | Interface (INTF) | `<name>.intf.abap` | `<name>.intf.xml` |
 | Program (PROG) | `<name>.prog.abap` | `<name>.prog.xml` |
 | CDS View (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` |
+| CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` |
+| Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` |
 | Table (TABL) | *(none)* | `<name>.tabl.xml` |
 | Structure (STRU) | *(none)* | `<name>.stru.xml` |
 | Data Element (DTEL) | *(none)* | `<name>.dtel.xml` |
 | Table Type (TTYP) | *(none)* | `<name>.ttyp.xml` |
+| Domain (DOMA) | *(none)* | `<name>.doma.xml` |
+| Message Class (MSAG) | *(none)* | `<name>.msag.xml` |
 
 **Package assignment — determine the package, then follow the confirmation rule below:**
 
@@ -155,7 +159,7 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 > **Tip for project setup**: Add package rules to `objects.local.md` so Claude never
 > needs to ask. See `guidelines/objects.md` for examples.
 
-→ For exact XML templates: `abapgit-agent ref --topic abapgit`
+→ For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/DDLS/DCLS/FUGR) or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
 → For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
 
 ---
@@ -288,6 +292,23 @@ abapgit-agent view --objects ZCL_UNKNOWN_CLASS --full
 # View FULL source with dual line numbers (for setting breakpoints)
 # G [N]  code — G = global line for debug set, [N] = include-relative
 abapgit-agent view --objects ZCL_UNKNOWN_CLASS --full --lines
+
+# View table/structure fields
+abapgit-agent view --objects SFLIGHT --type TABL
+abapgit-agent view --objects MY_STRUC --type STRU
+
+# View data element or domain
+abapgit-agent view --objects S_CARR_ID --type DTEL
+abapgit-agent view --objects XFELD --type DOMA
+
+# View message class (all messages)
+abapgit-agent view --objects SY --type MSAG
+
+# View function group (function module list)
+abapgit-agent view --objects SUSR --type FUGR
+
+# View CDS access control source
+abapgit-agent view --objects SEPM_E_SALESORDER --type DCLS
 ```
 
 **Example workflow for AI:**
@@ -447,6 +468,12 @@ abapgit-agent view --objects ZCL_FOO --full --lines
   * ---- Method: ZIF_BAR~DO_IT — breakpoint: debug set --objects ZCL_FOO:5 --include locals_imp ----
 ```
 
+**Function module (FUGR) methods:** use `--full --fm <name> --lines` — the hint uses the include name as the object:
+```bash
+abapgit-agent view --objects SUSR --type FUGR --full --fm AUTHORITY_CHECK --lines
+# Output:  * ---- FM: AUTHORITY_CHECK (LSUSRU04) — breakpoint: debug set --objects LSUSRU04:50 ----
+```
+
 ```bash
 # Regular method:
 abapgit-agent debug set --objects ZCL_FOO:90
@@ -454,6 +481,8 @@ abapgit-agent debug set --objects ZCL_FOO:90
 abapgit-agent debug set --objects ZCL_FOO:12 --include testclasses
 # Local class method:
 abapgit-agent debug set --objects ZCL_FOO:5 --include locals_imp
+# Function module (use include name, no --include flag needed):
+abapgit-agent debug set --objects LSUSRU04:50
 ```
 
 Minimal correct sequence:
@@ -677,7 +706,7 @@ Modified ABAP files?
 │  └─ Dependent files (interface + class, class uses class)?
 │     └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml
 └─ Other types (FUGR, TABL, STRU, DTEL, TTYP, etc.)?
-   ├─ XML-only objects (TABL, STRU, DTEL, TTYP)?
+   ├─ XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
    └─ FUGR and other complex objects?
       └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
@@ -713,7 +742,8 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/objects.md` | Object Naming Conventions (defaults) |
 | `guidelines/objects.local.md` | **Project** Naming Conventions — overrides `objects.md` (created by `init`, never overwritten) |
 | `guidelines/json.md` | JSON Handling |
-| `guidelines/abapgit.md` | abapGit XML Metadata Templates |
+| `guidelines/abapgit.md` | abapGit XML Metadata Templates — CLAS, INTF, PROG, DDLS, DCLS, FUGR |
+| `guidelines/abapgit-xml-only.md` | abapGit XML Metadata Templates — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `guidelines/unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
 | `guidelines/common-errors.md` | Common ABAP Errors - Quick Fixes |
 | `guidelines/debug-session.md` | Debug Session Guide |

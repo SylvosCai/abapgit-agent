@@ -154,7 +154,9 @@ function findFirstExecutableLine(lines) {
   const declPattern = /^\s*(data|final|types|constants|class-data)[\s:(]/i;
   const methodPattern = /^\s*method\s+/i;
   const commentPattern = /^\s*[*"]/;
-  let inDeclBlock = false; // true while inside a multi-line DATA:/TYPES: block
+  // Program-level header/declaration keywords that are not executable statements
+  const progDeclPattern = /^\s*(report|program|parameters|tables|selection-screen|select-options|class-pool|function-pool|interface-pool|type-pool|include)\b/i;
+  let inDeclBlock = false; // true while inside a multi-line DATA:/TYPES:/PARAMETERS: block
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (inDeclBlock) {
@@ -167,6 +169,11 @@ function findFirstExecutableLine(lines) {
     if (commentPattern.test(trimmed)) continue; // comment line
     if (declPattern.test(trimmed)) {
       // Multi-line block (DATA: ...,\n  ...) stays open until period
+      if (!trimmed.endsWith('.')) inDeclBlock = true;
+      continue;
+    }
+    if (progDeclPattern.test(trimmed)) {
+      // Multi-line block (PARAMETERS: ...,\n  ...) stays open until period
       if (!trimmed.endsWith('.')) inDeclBlock = true;
       continue;
     }
@@ -201,6 +208,15 @@ module.exports = {
     const jsonOutput = args.includes('--json');
     const fullMode = args.includes('--full');
     const linesMode = args.includes('--lines');
+    const fmArgIndex = args.indexOf('--fm');
+    const fmName = fmArgIndex !== -1 && fmArgIndex + 1 < args.length
+      ? args[fmArgIndex + 1].toUpperCase()
+      : null;
+
+    if (fmName && !fullMode) {
+      console.error('  Error: --fm requires --full');
+      process.exit(1);
+    }
 
     console.log(`\n  Viewing ${objects.length} object(s)`);
 
@@ -218,6 +234,10 @@ module.exports = {
 
     if (fullMode) {
       data.full = true;
+    }
+
+    if (fmName) {
+      data.fm = fmName;
     }
 
     const result = await http.post('/sap/bc/z_abapgit_agent/view', data, { csrfToken });
@@ -290,6 +310,7 @@ module.exports = {
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
             const isCmSection = suffix.startsWith('CM') && methodName;
+            const isFugrFmSection = !isCmSection && !!methodName;
 
             if (linesMode) {
               // --full --lines: dual line numbers (G [N]) for debugging
@@ -315,10 +336,44 @@ module.exports = {
                   bpHint = `debug set --objects ${objName}:<global_line>`;
                 }
                 console.log(`  * ---- Method: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
+              } else if (isFugrFmSection) {
+                // Find first executable line: skip FUNCTION header, comments, blanks,
+                // and declaration blocks (DATA:, CONSTANTS:, TYPES:, etc.)
+                const declPat = /^\s*(data|final|types|constants|class-data)[\s:(]/i;
+                let firstExecLine = 1;
+                let inDecl = false;
+                for (let li = 0; li < lines.length; li++) {
+                  const t = lines[li].trim();
+                  if (inDecl) {
+                    if (t.endsWith('.')) inDecl = false;
+                    continue;
+                  }
+                  if (!t) continue;
+                  if (/^\*/.test(t)) continue;
+                  if (/^"/.test(t)) continue;
+                  if (/^function\s+/i.test(t)) continue;
+                  if (declPat.test(t)) {
+                    if (!t.endsWith('.')) inDecl = true;
+                    continue;
+                  }
+                  firstExecLine = li + 1;
+                  break;
+                }
+                const bpHint = `debug set --objects ${suffix}:${firstExecLine}`;
+                console.log(`  * ---- FM: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
               } else if (file) {
                 console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
               } else if (suffix) {
-                console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
+                // For program source sections, emit a breakpoint hint at the first executable line.
+                const isProgSection = suffix === 'PROG' || suffix === 'prog';
+                if (isProgSection) {
+                  const execOffset = findFirstExecutableLine(lines);
+                  const execLine = execOffset + 1; // 1-based
+                  const bpHint = `debug set --objects ${objName}:${execLine}`;
+                  console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) — breakpoint: ${bpHint} ----`);
+                } else {
+                  console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (${suffix}) ----`);
+                }
               }
 
               let includeRelLine = 0;
@@ -334,6 +389,10 @@ module.exports = {
                   const gStr = globalLine ? String(globalLine).padStart(4) : '    ';
                   const iStr = String(includeRelLine).padStart(3);
                   console.log(`  ${gStr} [${iStr}]  ${codeLine}`);
+                } else if (isFugrFmSection) {
+                  // FM include: line numbers are include-relative = ADT line numbers
+                  const lStr = String(includeRelLine).padStart(4);
+                  console.log(`  ${lStr}  ${codeLine}`);
                 } else {
                   // For sub-include sections with a known ADT include type,
                   // detect METHOD..ENDMETHOD blocks and emit breakpoint hints.
@@ -363,6 +422,8 @@ module.exports = {
               // --full (no --lines): clean source, no line numbers
               if (isCmSection) {
                 console.log(`  * ---- Method: ${methodName} (${suffix}) ----`);
+              } else if (isFugrFmSection) {
+                console.log(`  * ---- FM: ${methodName} (${suffix}) ----`);
               } else if (file) {
                 console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
               } else if (suffix) {

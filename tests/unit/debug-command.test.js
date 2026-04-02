@@ -1065,6 +1065,38 @@ describe('Debug Command - set --objects', () => {
     expect(cap.output).toMatch(/--files.*--objects.*--object/i);
     mockExit.mockRestore();
   });
+
+  test('sets breakpoint on PROG object — uses programs/programs URI', async () => {
+    let capturedUrl;
+    let capturedBody;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      post: jest.fn().mockImplementation((url, body) => {
+        capturedUrl = url;
+        capturedBody = body;
+        return Promise.resolve({
+          body: `<dbg:breakpoints xmlns:dbg="http://www.sap.com/adt/debugger">` +
+                `<breakpoint id="BP001" adtcore:uri="/sap/bc/adt/programs/programs/z_abgagt_bg_executor#start=21" xmlns:adtcore="http://www.sap.com/adt/core"/>` +
+                `</dbg:breakpoints>`,
+          headers: {}, statusCode: 200
+        });
+      }),
+      get: jest.fn(), delete: jest.fn()
+    }));
+
+    await debugCommand.execute(
+      ['set', '--objects', 'Z_ABGAGT_BG_EXECUTOR:21'],
+      makeContext(AdtHttpClass)
+    );
+
+    // Must POST to the debugger breakpoints endpoint
+    expect(capturedUrl).toMatch(/\/sap\/bc\/adt\/debugger\/breakpoints/);
+    // Body must reference programs/programs URI (not oo/classes)
+    expect(capturedBody).toContain('/sap/bc/adt/programs/programs/z_abgagt_bg_executor');
+    expect(capturedBody).toContain('#start=21');
+    // Confirmation shown to user
+    expect(cap.output).toMatch(/Z_ABGAGT_BG_EXECUTOR:21/);
+  });
 });
 
 // ─── debug set — deduplication ────────────────────────────────────────────────
