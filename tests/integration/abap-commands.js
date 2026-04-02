@@ -1023,20 +1023,39 @@ where carrid = $parameters.p_carrid
     // The hint appears in lines like:
     //   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_CAIS_DBG_TRIGGER:33 ----
     //   * ---- FM: ZCAIS_DBG_ADD (LZCAIS_DBG_TESTU01) — breakpoint: debug set --objects LZCAIS_DBG_TESTU01:13 ----
-    // Returns { object, line, include } or null if not found.
+    //
+    // For CLAS main methods the source lines use G [N] format:
+    //     33 [  5]      lv_sum = iv_a + iv_b.
+    // where G=33 is the global assembled-source line (sent to ADT as #start=)
+    // and N=5 is the include-relative line (stored by ADT as LINE_NR).
+    // For sub-includes (testclasses, locals_imp) and FUGR the lines show just N,
+    // and that N equals LINE_NR directly.
+    //
+    // Returns { object, line, lineNr, include } or null if not found.
+    //   line   — global assembled-source line (what we pass to `debug set`)
+    //   lineNr — include-relative line (what ADT returns as LINE_NR in the id)
     function parseViewHint(viewOutput, methodName) {
-      // Match the hint line for the specific method (case-insensitive method name match)
       const re = new RegExp(
         `---- (?:Method|FM): ${methodName}[^\\n]*breakpoint: debug set --objects ([A-Z0-9_]+):(\\d+)(?:\\s+--include\\s+(\\S+))?`,
         'i'
       );
       const m = viewOutput.match(re);
       if (!m) return null;
-      return {
-        object: m[1],
-        line: parseInt(m[2], 10),
-        include: m[3] || null
-      };
+      const line = parseInt(m[2], 10);
+      const include = m[3] || null;
+
+      // For CLAS main (no --include, has G [N] lines): scan the lines after the
+      // hint to find the source line matching the global line number, extract [N].
+      let lineNr = line; // default: section line = LINE_NR (testclasses/locals_imp/FUGR)
+      if (!include) {
+        // Find "  <line> [<n>]" pattern in the text after the hint
+        const afterHint = viewOutput.slice(viewOutput.indexOf(m[0]) + m[0].length);
+        const lineRe = new RegExp(`^\\s+${line}\\s+\\[\\s*(\\d+)\\]`, 'm');
+        const lm = afterHint.match(lineRe);
+        if (lm) lineNr = parseInt(lm[1], 10);
+      }
+
+      return { object: m[1], line, lineNr, include };
     }
 
     return [
@@ -1057,16 +1076,13 @@ where carrid = $parameters.p_carrid
       // --- CLAS main source breakpoint ---
       {
         command: 'debug',
-        name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR≥1, line=33)',
+        name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR=5)',
         // ZCL_CAIS_DBG_TRIGGER:33 = lv_sum = iv_a + iv_b in compute()
-        // (skips comment on line 30, DATA on line 31, blank on line 32)
-        // Note: ADT LINE_NR is include-relative (=5 within CM001), not global line 33.
+        // Global line 33 = CM001 include line 5 (as shown by view --lines: "33 [  5]")
         args: ['set', '--object', 'ZCL_CAIS_DBG_TRIGGER', '--line', '33', '--json'],
         cwd: debugRepoPath,
         expectSuccess: true,
-        verify: (output) => {
-          return adtLineNr(output) >= 1 && jsonLine(output) === 33;
-        }
+        verify: (output) => adtLineNr(output) === 5 && jsonLine(output) === 33
       },
       {
         command: 'debug',
@@ -1209,7 +1225,7 @@ where carrid = $parameters.p_carrid
       },
       {
         command: 'debug',
-        name: '[B] debug set CLAS main at view-derived line — LINE_NR≥1, line matches',
+        name: '[B] debug set CLAS main at view-derived line — LINE_NR matches [N]',
         // line comes from view hint parsed above
         get args() {
           const h = viewParsed.clasMain;
@@ -1219,9 +1235,8 @@ where carrid = $parameters.p_carrid
         expectSuccess: true,
         verify: (output) => {
           const h = viewParsed.clasMain;
-          // LINE_NR is include-relative (differs from global h.line for CLAS main).
-          // Verify: ADT accepted (LINE_NR≥1) and echoed back the exact line we sent.
-          return h !== null && adtLineNr(output) >= 1 && jsonLine(output) === h.line;
+          // h.lineNr is the [N] value from "G [N]" in view --lines output = ADT LINE_NR
+          return h !== null && adtLineNr(output) === h.lineNr && jsonLine(output) === h.line;
         }
       },
       {
@@ -1277,7 +1292,7 @@ where carrid = $parameters.p_carrid
         expectSuccess: true,
         verify: (output) => {
           const h = viewParsed.testclasses;
-          return h !== null && adtLineNr(output) === h.line && jsonLine(output) === h.line;
+          return h !== null && adtLineNr(output) === h.lineNr && jsonLine(output) === h.line;
         }
       },
       {
@@ -1390,7 +1405,7 @@ where carrid = $parameters.p_carrid
         expectSuccess: true,
         verify: (output) => {
           const h = viewParsed.fugr;
-          return h !== null && adtLineNr(output) === h.line && jsonLine(output) === h.line;
+          return h !== null && adtLineNr(output) === h.lineNr && jsonLine(output) === h.line;
         }
       },
       {
