@@ -680,21 +680,6 @@ function printSummary(results) {
     }
   }
 
-  // Debug scenario tests
-  if (results.debug) {
-    if (results.debug.skipped) {
-      printWarning('Debug Scenarios: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.debug.duration);
-      if (results.debug.success) {
-        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
-      } else {
-        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
   // JUnit output tests
   if (results.junit) {
     if (results.junit.skipped) {
@@ -720,6 +705,21 @@ function printSummary(results) {
         printSuccess(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} PASSED (${results.debugBp.duration}s)`);
       } else {
         printError(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} FAILED (${results.debugBp.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
+  // Debug scenario tests (always last — interactive ADT sessions, runs after cooldown)
+  if (results.debug) {
+    if (results.debug.skipped) {
+      printWarning('Debug Scenarios: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.debug.duration);
+      if (results.debug.success) {
+        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
+      } else {
+        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
         allPassed = false;
       }
     }
@@ -952,16 +952,6 @@ async function main() {
     results.cmd = await runCommandTests(demoMode, commandFilter);
   }
 
-  // Cooldown between command tests and debug scenarios.
-  // Command tests make ~90 HTTP requests in rapid succession; without a pause
-  // the SAP ICM is still draining connections when scenario 3 runs, causing
-  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
-  // cannot be reached" — leaving ABAP work processes frozen in SM50.
-  if (runCmd && runDebug) {
-    printInfo('  Cooling down 20s after command tests before debug scenarios...');
-    await new Promise(r => setTimeout(r, 20000));
-  }
-
   // Run Lifecycle tests only
   if (runLifecycle) {
     printSubHeader('Running Lifecycle Tests Only');
@@ -1007,6 +997,16 @@ async function main() {
   // Run JUnit output integration tests
   if (runJunit) {
     results.junit = runJUnitTestsWrapper();
+  }
+
+  // Cooldown between command tests and debug scenarios.
+  // Command tests make ~90 HTTP requests in rapid succession; without a pause
+  // the SAP ICM is still draining connections when scenario 3 runs, causing
+  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
+  // cannot be reached" — leaving ABAP work processes frozen in SM50.
+  if (runCmd && runDebug) {
+    printInfo('  Cooling down 20s after command tests before debug scenarios...');
+    await new Promise(r => setTimeout(r, 20000));
   }
 
   // Run Debug scenario tests (REPL + scripted AI/--json)
