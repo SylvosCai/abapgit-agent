@@ -2,6 +2,29 @@
 title: Release Notes
 ---
 
+## v1.15.0
+
+### New Features
+
+- `view` command supports DOMA, MSAG, FUGR, DCLS object types
+- `view --full --fm <name>` shows function module source with line numbers
+- `view --full --fm --lines` includes `debug set` breakpoint hint for FMs
+
+### Bug Fixes
+
+- Fix `debug set` routing for FUGR include names (L* prefix)
+- Fix PROG breakpoint hint skipping multi-line `PARAMETERS:` blocks
+
+### Documentation
+
+- Add abapGit XML reference for DOMA, MSAG, DCLS object types
+- Add dedicated FUGR function group abapGit guide
+
+---
+
+---
+
+
 ## v1.14.5
 
 ### Bug Fixes
