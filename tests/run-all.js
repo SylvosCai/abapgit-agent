@@ -999,6 +999,11 @@ async function main() {
     results.junit = runJUnitTestsWrapper();
   }
 
+  // Run Debug breakpoint tests (requires abgagt-debug-test repo)
+  if (runDebugBp) {
+    results.debugBp = runDebugTestsWrapper();
+  }
+
   // Cooldown between command tests and debug scenarios.
   // Command tests make ~90 HTTP requests in rapid succession; without a pause
   // the SAP ICM is still draining connections when scenario 3 runs, causing
@@ -1009,14 +1014,9 @@ async function main() {
     await new Promise(r => setTimeout(r, 20000));
   }
 
-  // Run Debug scenario tests (REPL + scripted AI/--json)
+  // Run Debug scenario tests (REPL + scripted AI/--json) — always last
   if (runDebug) {
     results.debug = runDebugScenarios();
-  }
-
-  // Run Debug breakpoint tests (requires abgagt-debug-test repo)
-  if (runDebugBp) {
-    results.debugBp = runDebugTestsWrapper();
   }
 
   // Print summary and exit with appropriate code
