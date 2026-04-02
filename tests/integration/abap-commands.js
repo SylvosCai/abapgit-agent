@@ -1211,7 +1211,7 @@ where carrid = $parameters.p_carrid
         // line comes from view hint parsed above
         get args() {
           const h = viewParsed.clasMain;
-          return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:33', '--json'];
+          return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['--help'];
         },
         cwd: debugRepoPath,
         expectSuccess: true,
@@ -1268,7 +1268,7 @@ where carrid = $parameters.p_carrid
           const h = viewParsed.testclasses;
           return h
             ? ['set', '--objects', `${h.object}:${h.line}`, '--include', h.include, '--json']
-            : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:13', '--include', 'testclasses', '--json'];
+            : ['--help']; // view parse failed — force verify() to fail
         },
         cwd: debugRepoPath,
         expectSuccess: true,
@@ -1325,7 +1325,7 @@ where carrid = $parameters.p_carrid
           const h = viewParsed.localsImp;
           return h
             ? ['set', '--objects', `${h.object}:${h.line}`, '--include', h.include, '--json']
-            : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'];
+            : ['--help']; // view parse failed — force verify() to fail
         },
         cwd: debugRepoPath,
         expectSuccess: true,
@@ -1383,7 +1383,7 @@ where carrid = $parameters.p_carrid
           const h = viewParsed.fugr;
           return h
             ? ['set', '--objects', `${h.object}:${h.line}`, '--json']
-            : ['set', '--objects', 'LZCAIS_DBG_TESTU01:13', '--json'];
+            : ['--help']; // view parse failed — force verify() to fail
         },
         cwd: debugRepoPath,
         expectSuccess: true,
