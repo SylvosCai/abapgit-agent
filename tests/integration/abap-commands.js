@@ -12,11 +12,11 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   14 tests (delete-all, set, list, delete-all cleanup, list-empty,
- *                         set --include testclasses, list, set --include locals_imp,
- *                         list both, delete-all cleanup — breakpoint management only;
- *                         + FUGR include set/list/delete-all (regression for wrong ADT URI);
- *                         full session coverage is in debug-scenarios.sh)
+ *   - debug:   35 tests — all use ZCL_CAIS_DBG_TRIGGER from abgagt-debug-test repo
+ *                         (Group A: hardcoded lines, Group B: view→set→verify round-trip,
+ *                          Group C: unexecutable line rejection; CLAS main/testclasses/
+ *                          locals_imp and FUGR include; set tests use --json to verify
+ *                          ADT-accepted line number; full session in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
@@ -26,7 +26,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    74 tests
+ *   Total:    95 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -954,202 +954,575 @@ where carrid = $parameters.p_carrid
   },
 
   // ===================================================================
-  // DEBUG COMMAND - 7 tests
-  // Purpose: ABAP debugger — breakpoint management, scripted session
-  // Categories:
-  //   - Breakpoint management (3 tests): set, list, delete
-  //   - Scripted session (4 tests): stack, vars, step-continue, terminate
+  // DEBUG COMMAND - 35 tests
+  // Purpose: ABAP debugger — breakpoint management across all object types
   //
-  // Best-practice rules applied (from abap/CLAUDE.md):
-  //   1. sleep 2 after starting attach — listener must register before trigger fires
-  //   2. Keep trigger process alive for entire session
-  //   3. Always finish with step --type continue to release the work process
-  //   4. Never pass --session to step/vars/stack (auto-load from state file)
+  // All tests use objects from abgagt-debug-test repo:
+  //   ZCL_CAIS_DBG_TRIGGER — trigger class (CLAS main, testclasses, locals_imp)
+  //   LZCAIS_DBG_TESTU01   — FUGR include of ZCAIS_DBG_TEST
+  //
+  // Two test groups:
+  //
+  // Group A (hardcoded lines, 13 tests):
+  //   Set breakpoints at known-good lines, verify ADT accepts them (LINE_NR≥1).
+  //   Catches regressions in the debug set ADT URI logic.
+  //
+  // Group B (view→set→verify, 16 tests):
+  //   For each object type:
+  //     1. Run view --full --lines to get the debug set hint
+  //     2. Parse the line number from the hint
+  //     3. Set breakpoint at that parsed line
+  //     4. Verify debug list shows the breakpoint with the correct line
+  //   Catches regressions where view --lines emits wrong line numbers.
+  //   If view returns a wrong line, debug set may fail or LINE_NR won't match.
+  //
+  // Group C (unexecutable lines, 6 tests):
+  //   Set breakpoints on comments, blank lines, DATA declarations, and METHOD
+  //   statements — ADT must reject them (exit 1, JSON error shape).
+  //   Catches regressions where the tool silently accepts invalid positions.
+  //
+  // Confirmed ADT-accepted lines (probed via direct POST, 2026-04-02):
+  //   ZCL_CAIS_DBG_TRIGGER main:        line 33 (lv_sum = iv_a + iv_b in compute)
+  //   ZCL_CAIS_DBG_TRIGGER testclasses: line 13 (rv_val = iv_val * lv_two in ltcl_helper)
+  //   ZCL_CAIS_DBG_TRIGGER locals_imp:  line 6  (lv_label = 'debug-test' in lcl_helper)
+  //   LZCAIS_DBG_TESTU01 (FUGR):        line 13 (lv_result = iv_a + iv_b in ZCAIS_DBG_ADD)
   // ===================================================================
 
-  // --- Breakpoint management ---
+  // Debug test repo path — all debug tests run from here
+  // (so .abapGitAgent points to $CAIS_DEBUG_TEST, not the main project)
+  // eslint-disable-next-line no-undef
+  ...((() => {
+    const path = require('path');
+    const debugRepoPath = path.join(__dirname, '..', '..', '..', 'abgagt-debug-test');
 
-  {
-    command: 'debug',
-    name: 'debug delete --all clears breakpoints',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should confirm deletion or report nothing to delete
-      const hasResult = output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('No breakpoints') ||
-        output.includes('cleared') ||
-        output.includes('0 breakpoint');
-      return hasResult;
+    // Helper: parse LINE_NR from ADT id returned in --json output
+    function adtLineNr(jsonOutput) {
+      const m = jsonOutput.match(/"id":"[^"]*LINE_NR=(\d+)/);
+      return m ? parseInt(m[1], 10) : null;
     }
-  },
-  {
-    command: 'debug',
-    name: 'debug set --object --line registers a breakpoint',
-    args: ['set', '--object', 'ZCL_ABGAGT_UTIL', '--line', '25'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should confirm the breakpoint was registered
-      const hasConfirm = output.includes('Breakpoint') ||
-        output.includes('breakpoint') ||
-        output.includes('ZCL_ABGAGT_UTIL') ||
-        output.includes('line 25') ||
-        output.includes(':25');
-      return hasConfirm;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows registered breakpoints',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Should list breakpoints (at least the one just set) or show empty state
-      const hasResult = output.includes('ZCL_ABGAGT_UTIL') ||
-        output.includes('breakpoint') ||
-        output.includes('Breakpoint') ||
-        output.includes('No breakpoints') ||
-        output.includes('line');
-      return hasResult;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug delete --all cleans up after list test',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('cleared') ||
-        output.includes('No breakpoints') ||
-        output.length >= 0;  // delete --all succeeds silently
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows no breakpoints after delete --all',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('No breakpoints') ||
-        output.includes('no breakpoints') ||
-        output.includes('0 breakpoints') ||
-        // If output has no object names, breakpoints are gone
-        !output.includes('ZCL_ABGAGT_UTIL');
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug set --include testclasses registers unit test breakpoint',
-    // ZCL_ABGAGT_AGENT testclasses: line 16 = first executable in get_status method
-    args: ['set', '--objects', 'ZCL_ABGAGT_AGENT:16', '--include', 'testclasses'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasConfirm = output.includes('Breakpoint') ||
-        output.includes('breakpoint') ||
-        output.includes('ZCL_ABGAGT_AGENT') ||
-        output.includes(':16');
-      return hasConfirm;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows testclasses breakpoint',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasBp = output.includes('ZCL_ABGAGT_AGENT') ||
-        output.includes('testclasses') ||
-        output.includes('breakpoint') ||
-        output.includes('16');
-      return hasBp;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug set --include locals_imp registers local class breakpoint',
-    // ZCL_ABGAGT_AGENT locals_imp: line 5 = first executable in describe_object method
-    args: ['set', '--objects', 'ZCL_ABGAGT_AGENT:5', '--include', 'locals_imp'],
-    expectSuccess: true,
-    verify: (output) => {
-      const hasConfirm = output.includes('Breakpoint') ||
-        output.includes('breakpoint') ||
-        output.includes('ZCL_ABGAGT_AGENT') ||
-        output.includes(':5');
-      return hasConfirm;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows both sub-include breakpoints',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Both testclasses and locals_imp breakpoints should appear
-      const hasBp = output.includes('ZCL_ABGAGT_AGENT') ||
-        output.includes('testclasses') ||
-        output.includes('locals_imp') ||
-        output.includes('breakpoint');
-      return hasBp;
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug delete --all cleans up sub-include breakpoints',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('cleared') ||
-        output.includes('No breakpoints') ||
-        output.length >= 0;
-    }
-  },
 
-  // --- FUGR include breakpoint (regression: wrong ADT URI was used before fix) ---
-  // LZCAIS_DBG_TESTU01 is the FM source include of ZCAIS_DBG_TEST (FUGR).
-  // Before the fix, debug set routed L-prefix names to /programs/includes/ (wrong).
-  // The correct URI is /functions/groups/<group>/includes/<include>/source/main.
-  // ADT rejects the wrong URI with an error, causing "Not registered on server".
-  // This test detects that regression: if the URI is wrong, ADT returns an error
-  // and debug set exits non-zero.
-  {
-    command: 'debug',
-    name: 'debug set on FUGR include (LZCAIS_DBG_TESTU01) uses correct ADT URI',
-    args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:11'],
-    expectSuccess: true,
-    verify: (output) => {
-      // Must confirm the breakpoint was registered (not "Not registered on server")
-      return (output.includes('Breakpoint') || output.includes('breakpoint')) &&
-        !output.includes('Not registered on server') &&
-        !output.includes('Cannot create');
+    // Shared state for Group B — view output is parsed in verify() and consumed
+    // by the next test's args() / verify(). Tests run sequentially so this is safe.
+    const viewParsed = {
+      clasMain: null,       // line number from view hint for COMPUTE method
+      testclasses: null,    // line number from view hint for DOUBLE method
+      localsImp: null,      // line number from view hint for DESCRIBE method
+      fugr: null,           // line number from view hint for ZCAIS_DBG_ADD FM
+    };
+
+    // Parse a `debug set --objects NAME:N` hint from view --lines output.
+    // The hint appears in lines like:
+    //   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_CAIS_DBG_TRIGGER:33 ----
+    //   * ---- FM: ZCAIS_DBG_ADD (LZCAIS_DBG_TESTU01) — breakpoint: debug set --objects LZCAIS_DBG_TESTU01:13 ----
+    // Returns { object, line, include } or null if not found.
+    function parseViewHint(viewOutput, methodName) {
+      // Match the hint line for the specific method (case-insensitive method name match)
+      const re = new RegExp(
+        `---- (?:Method|FM): ${methodName}[^\\n]*breakpoint: debug set --objects ([A-Z0-9_]+):(\\d+)(?:\\s+--include\\s+(\\S+))?`,
+        'i'
+      );
+      const m = viewOutput.match(re);
+      if (!m) return null;
+      return {
+        object: m[1],
+        line: parseInt(m[2], 10),
+        include: m[3] || null
+      };
     }
-  },
-  {
-    command: 'debug',
-    name: 'debug list shows FUGR include breakpoint',
-    args: ['list'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('LZCAIS_DBG_TESTU01') || output.includes('11');
-    }
-  },
-  {
-    command: 'debug',
-    name: 'debug delete --all cleans up FUGR include breakpoint',
-    args: ['delete', '--all'],
-    expectSuccess: true,
-    verify: (output) => {
-      return output.includes('deleted') ||
-        output.includes('Deleted') ||
-        output.includes('cleared') ||
-        output.includes('No breakpoints') ||
-        output.length >= 0;
-    }
-  },
+
+    return [
+      // =================================================================
+      // GROUP A: Hardcoded known-good lines — verify ADT URI correctness
+      // =================================================================
+
+      // --- cleanup before Group A ---
+      {
+        command: 'debug',
+        name: 'debug delete --all (setup: clear any stale breakpoints)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // --- CLAS main source breakpoint ---
+      {
+        command: 'debug',
+        name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR≥1)',
+        // ZCL_CAIS_DBG_TRIGGER:33 = lv_sum = iv_a + iv_b in compute()
+        // (skips comment on line 30, DATA on line 31, blank on line 32)
+        args: ['set', '--object', 'ZCL_CAIS_DBG_TRIGGER', '--line', '33', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[A] debug list shows CLAS main breakpoint',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('ZCL_CAIS_DBG_TRIGGER') && output.includes('33')
+      },
+      {
+        command: 'debug',
+        name: '[A] debug delete --all (cleanup after CLAS main test)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+      {
+        command: 'debug',
+        name: '[A] debug list shows no breakpoints after delete',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => !output.includes('ZCL_CAIS_DBG_TRIGGER')
+      },
+
+      // --- testclasses include breakpoint ---
+      {
+        command: 'debug',
+        name: '[A] debug set testclasses — line 13 accepted by ADT (LINE_NR≥1)',
+        // ZCL_CAIS_DBG_TRIGGER testclasses:13 = rv_val = iv_val * lv_two in ltcl_helper
+        // (skips comment on line 10, DATA on line 11, blank on line 12)
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:13', '--include', 'testclasses', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[A] debug list shows testclasses breakpoint',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('ZCL_CAIS_DBG_TRIGGER') && output.includes('13')
+      },
+
+      // --- locals_imp include breakpoint ---
+      {
+        command: 'debug',
+        name: '[A] debug set locals_imp — line 6 accepted by ADT (LINE_NR≥1)',
+        // ZCL_CAIS_DBG_TRIGGER locals_imp:6 = lv_label = 'debug-test' in lcl_helper
+        // (skips comment on line 3, DATA on line 4, blank on line 5)
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[A] debug list shows both testclasses and locals_imp breakpoints',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) =>
+          output.includes('ZCL_CAIS_DBG_TRIGGER') &&
+          output.includes('13') &&
+          output.includes('6')
+      },
+      {
+        command: 'debug',
+        name: '[A] debug delete --all (cleanup after sub-include tests)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // --- FUGR include breakpoint (regression: wrong ADT URI /programs/includes/ before fix) ---
+      // LZCAIS_DBG_TESTU01 is the FM source include of ZCAIS_DBG_TEST.
+      // Before the fix, this was routed to /programs/includes/ (wrong path).
+      // Correct path: /functions/groups/zcais_dbg_test/includes/lzcais_dbg_testu01/source/main
+      // ADT rejects the wrong URI → "Not registered on server" → exit 1.
+      {
+        command: 'debug',
+        name: '[A] debug set FUGR include — line 13 accepted by ADT (LINE_NR≥1)',
+        // LZCAIS_DBG_TESTU01:13 = lv_result = iv_a + iv_b in ZCAIS_DBG_ADD
+        args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:13', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[A] debug list shows FUGR include breakpoint',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('LZCAIS_DBG_TESTU01') && output.includes('13')
+      },
+      {
+        command: 'debug',
+        name: '[A] debug delete --all (cleanup after FUGR test)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // =================================================================
+      // GROUP B: view --lines → parse hint → set → verify round-trip
+      // Catches regressions where view --lines emits wrong line numbers.
+      // Each chain: view (parse+store) → set (use stored line) → list (verify)
+      // =================================================================
+
+      // -----------------------------------------------------------------
+      // B1: CLAS main method (COMPUTE) — view then set
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[B] view --full --lines CLAS: parse COMPUTE method hint',
+        run: 'view',
+        args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const hint = parseViewHint(output, 'COMPUTE');
+          if (!hint) return false;
+          viewParsed.clasMain = hint;
+          // Sanity: object must be the class, line must be plausible (1–999), no include
+          return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+            hint.line >= 1 && hint.line <= 999 &&
+            hint.include === null;
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug set CLAS main at view-derived line — LINE_NR≥1',
+        // line comes from view hint parsed above
+        get args() {
+          const h = viewParsed.clasMain;
+          return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:33', '--json'];
+        },
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug list confirms CLAS main BP at view-derived line',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const h = viewParsed.clasMain;
+          return output.includes('ZCL_CAIS_DBG_TRIGGER') &&
+            h !== null && output.includes(String(h.line));
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug delete --all (cleanup after B1)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // -----------------------------------------------------------------
+      // B2: CLAS testclasses (DOUBLE in ltcl_helper) — view then set
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[B] view --full --lines CLAS: parse DOUBLE (testclasses) hint',
+        run: 'view',
+        args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const hint = parseViewHint(output, 'DOUBLE');
+          if (!hint) return false;
+          viewParsed.testclasses = hint;
+          return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+            hint.line >= 1 && hint.line <= 999 &&
+            hint.include === 'testclasses';
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug set testclasses at view-derived line — LINE_NR≥1',
+        get args() {
+          const h = viewParsed.testclasses;
+          return h
+            ? ['set', '--objects', `${h.object}:${h.line}`, '--include', h.include, '--json']
+            : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:13', '--include', 'testclasses', '--json'];
+        },
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug list confirms testclasses BP at view-derived line',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const h = viewParsed.testclasses;
+          return output.includes('ZCL_CAIS_DBG_TRIGGER') &&
+            h !== null && output.includes(String(h.line));
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug delete --all (cleanup after B2)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // -----------------------------------------------------------------
+      // B3: CLAS locals_imp (DESCRIBE in lcl_helper) — view then set
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[B] view --full --lines CLAS: parse DESCRIBE (locals_imp) hint',
+        run: 'view',
+        args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const hint = parseViewHint(output, 'DESCRIBE');
+          if (!hint) return false;
+          viewParsed.localsImp = hint;
+          return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+            hint.line >= 1 && hint.line <= 999 &&
+            hint.include === 'locals_imp';
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug set locals_imp at view-derived line — LINE_NR≥1',
+        get args() {
+          const h = viewParsed.localsImp;
+          return h
+            ? ['set', '--objects', `${h.object}:${h.line}`, '--include', h.include, '--json']
+            : ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'];
+        },
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug list confirms locals_imp BP at view-derived line',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const h = viewParsed.localsImp;
+          return output.includes('ZCL_CAIS_DBG_TRIGGER') &&
+            h !== null && output.includes(String(h.line));
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug delete --all (cleanup after B3)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // -----------------------------------------------------------------
+      // B4: FUGR FM (ZCAIS_DBG_ADD) — view --type FUGR --fm then set
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[B] view --full --lines FUGR: parse ZCAIS_DBG_ADD FM hint',
+        run: 'view',
+        args: ['--objects', 'ZCAIS_DBG_TEST', '--type', 'FUGR', '--full', '--fm', 'ZCAIS_DBG_ADD', '--lines'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const hint = parseViewHint(output, 'ZCAIS_DBG_ADD');
+          if (!hint) return false;
+          viewParsed.fugr = hint;
+          // For FUGR the object is the include name (LZCAIS_DBG_TESTU01), no --include flag
+          return hint.object === 'LZCAIS_DBG_TESTU01' &&
+            hint.line >= 1 && hint.line <= 999 &&
+            hint.include === null;
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug set FUGR at view-derived line — LINE_NR≥1',
+        get args() {
+          const h = viewParsed.fugr;
+          return h
+            ? ['set', '--objects', `${h.object}:${h.line}`, '--json']
+            : ['set', '--objects', 'LZCAIS_DBG_TESTU01:13', '--json'];
+        },
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const lineNr = adtLineNr(output);
+          return lineNr !== null && lineNr >= 1 &&
+            !output.includes('Not registered') && !output.includes('Cannot create');
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug list confirms FUGR BP at view-derived line',
+        args: ['list'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => {
+          const h = viewParsed.fugr;
+          return output.includes('LZCAIS_DBG_TESTU01') &&
+            h !== null && output.includes(String(h.line));
+        }
+      },
+      {
+        command: 'debug',
+        name: '[B] debug delete --all (final cleanup)',
+        args: ['delete', '--all'],
+        cwd: debugRepoPath,
+        expectSuccess: true,
+        verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+      },
+
+      // =================================================================
+      // GROUP C: Unexecutable lines — ADT must reject with error JSON
+      // Verifies that debug set exits 1 and reports the stale breakpoint
+      // for comments, blank lines, DATA declarations, and METHOD statements.
+      //
+      // Each test uses expectSuccess: false — the command must exit 1.
+      // verify() checks the JSON error shape.
+      //
+      // Unexecutable lines used (verified against ADT 2026-04-02):
+      //   CLAS main line 16: DATA lv_result TYPE i.  (variable declaration, in main)
+      //   CLAS main line 29: METHOD compute.         (method statement)
+      //   testclasses line 9: METHOD double.          (method statement)
+      //   locals_imp  line 2: METHOD describe.        (method statement)
+      //   FUGR        line 2: *"-----...              (comment)
+      //   FUGR        line 12: (blank line)
+      // =================================================================
+
+      // -----------------------------------------------------------------
+      // C1: CLAS main — DATA declaration (line 16)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set CLAS main line 16 (DATA decl) — rejected by ADT',
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:16', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":16') &&
+          !output.includes('"id"')
+      },
+
+      // -----------------------------------------------------------------
+      // C2: CLAS main — METHOD statement (line 29)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set CLAS main line 29 (METHOD stmt) — rejected by ADT',
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:29', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":29')
+      },
+
+      // -----------------------------------------------------------------
+      // C3: testclasses — METHOD statement (line 9)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set testclasses line 9 (METHOD stmt) — rejected by ADT',
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:9', '--include', 'testclasses', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":9')
+      },
+
+      // -----------------------------------------------------------------
+      // C4: locals_imp — METHOD statement (line 2)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set locals_imp line 2 (METHOD stmt) — rejected by ADT',
+        args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:2', '--include', 'locals_imp', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":2')
+      },
+
+      // -----------------------------------------------------------------
+      // C5: FUGR — comment line (line 2)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set FUGR line 2 (comment) — rejected by ADT',
+        args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:2', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":2')
+      },
+
+      // -----------------------------------------------------------------
+      // C6: FUGR — blank line (line 12)
+      // -----------------------------------------------------------------
+      {
+        command: 'debug',
+        name: '[C] debug set FUGR line 12 (blank line) — rejected by ADT',
+        args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:12', '--json'],
+        cwd: debugRepoPath,
+        expectSuccess: false,
+        verify: (output) =>
+          output.includes('"error"') &&
+          output.includes('"stale"') &&
+          output.includes('"line":12')
+      },
+    ];
+  })()),
 
   // ===================================================================
   // DUMP COMMAND - 4 tests

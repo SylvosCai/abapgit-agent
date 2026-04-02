@@ -423,9 +423,16 @@ async function cmdSet(args, config, adt) {
   }
 
   // Update local state with server-assigned IDs
+  // Use URI+line match first; fall back to line-only for FUGR where ADT rewrites
+  // /includes/<inc>/ to /fmodules/<fm>/ in the response.
   const updatedWithServerIds = updated.map(bp => {
-    const sr = serverResults.find(r => r.uri === bp.uri && r.line === bp.line);
-    return sr && sr.id ? { ...bp, id: sr.id } : bp;
+    const sr = serverResults.find(r => r.uri === bp.uri && r.line === bp.line)
+      || serverResults.find(r => r.line === bp.line);
+    if (sr && sr.id) {
+      const canonicalUri = sr.uri || bp.uri;
+      return { ...bp, id: sr.id, uri: canonicalUri };
+    }
+    return bp;
   });
   if (_saveBpState) _saveBpState(config, updatedWithServerIds);
 
@@ -460,7 +467,8 @@ async function cmdSet(args, config, adt) {
 
   if (jsonOutput) {
     const out = added.map(a => {
-      const sr = serverResults.find(r => r.uri === a.uri && r.line === a.line);
+      const sr = serverResults.find(r => r.uri === a.uri && r.line === a.line)
+        || serverResults.find(r => r.line === a.line);
       return { id: (sr && sr.id) || null, object: a.name, line: a.line };
     });
     console.log(JSON.stringify(out.length === 1 ? out[0] : out));

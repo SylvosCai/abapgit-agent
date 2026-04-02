@@ -330,7 +330,7 @@ async function runDemoCommandTests(testCases, startTime) {
   const results = [];
 
   for (const testCase of testCases) {
-    const command = [testCase.command, ...testCase.args].join(' ');
+    const command = [testCase.run || testCase.command, ...testCase.args].join(' ');
 
     const result = await runDemoCommand(command, testCase.name, testCase.verify);
     results.push({ ...testCase, passed: result.passed, output: result.output.substring(0, 200) });
@@ -411,10 +411,12 @@ function runCommandTests(demoMode = false, commandFilter = null) {
         testCase.setup();
       }
 
-      const args = [testCase.command, ...testCase.args];
+      const args = [testCase.run || testCase.command, ...testCase.args];
+      const execCwd = testCase.cwd || repoRoot;
+      const agentBin = path.join(repoRoot, 'bin', 'abapgit-agent');
       output = execSync(
-        `node bin/abapgit-agent ${args.join(' ')}`,
-        { cwd: repoRoot, encoding: 'utf8', timeout: 120000 }
+        `node ${agentBin} ${args.join(' ')}`,
+        { cwd: execCwd, encoding: 'utf8', timeout: 120000 }
       );
 
       // Run custom verification if provided
