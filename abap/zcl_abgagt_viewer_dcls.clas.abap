@@ -69,7 +69,7 @@ CLASS zcl_abgagt_viewer_dcls IMPLEMENTATION.
           ) TO rs_info-sections.
         ENDIF.
 
-      CATCH cx_root.
+      CATCH cx_static_check cx_dynamic_check.
         " ACM not available on this system — basic info already set above
     ENDTRY.
   ENDMETHOD.
