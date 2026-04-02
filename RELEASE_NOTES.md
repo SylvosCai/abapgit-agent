@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.15.1
+
+### Bug Fixes
+
+- Fix FUGR breakpoint ADT URI routing to correct path
+- Handle ADT canonical URI canonicalization for FUGR includes
+
+### Improvements
+
+- Debug integration tests verify exact line numbers end-to-end
+
+---
+
+---
+
+
 ## v1.15.0
 
 ### New Features
