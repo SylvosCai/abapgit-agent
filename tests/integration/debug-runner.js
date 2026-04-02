@@ -485,7 +485,7 @@ function runDebugTests(repoRoot, helpers) {
       const args = [subcommand, ...testCase.args];
       output = execSync(
         `node ${agentBin} ${args.join(' ')}`,
-        { cwd: debugRepoPath, encoding: 'utf8', timeout: 120000 }
+        { cwd: repoRoot, encoding: 'utf8', timeout: 120000 }
       );
       passed = testCase.verify ? testCase.verify(output) : true;
     } catch (error) {
