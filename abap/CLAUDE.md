@@ -198,7 +198,7 @@ abapgit-agent syntax --files src/<name>.ddls.asddls
 abapgit-agent syntax --files src/<name1>.clas.abap,src/<name2>.clas.abap
 ```
 
-**For other types (FUGR, TABL, etc.)**: Skip syntax, proceed to commit/push/pull.
+**For other types (TABL, STRU, DCLS, etc.)**: Skip syntax, proceed to commit/push/pull.
 
 **Why use syntax command?**
 - Catches syntax errors BEFORE polluting git history with fix commits
@@ -722,18 +722,18 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 
 ```
 Modified ABAP files?
-├─ CLAS/INTF/PROG/DDLS files?
+├─ CLAS/INTF/PROG/DDLS/FUGR files?
 │  ├─ Independent files (no cross-dependencies)?
 │  │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --sync-xml
 │  └─ Dependent files (interface + class, class uses class)?
 │     └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml
-└─ Other types (FUGR, TABL, STRU, DTEL, TTYP, etc.)?
+└─ Other types (TABL, STRU, DTEL, TTYP, etc.)?
    ├─ XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
    ├─ DCLS (CDS access control)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/zc_view.dcls.xml --sync-xml
    │         ⚠️  Pass the .xml file — pull --files does NOT accept .asdcls extensions
-   └─ FUGR and other complex objects?
+   └─ Other complex objects?
       └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
 
 [abaplint] = run abapgit-agent lint only if .abaplint.json exists in repo root

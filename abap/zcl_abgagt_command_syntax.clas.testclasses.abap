@@ -267,10 +267,9 @@ CLASS ltcl_cmd_syntax IMPLEMENTATION.
     DATA ls_param TYPE zcl_abgagt_command_syntax=>ty_syntax_params.
 
     ls_param-objects = VALUE #( (
-      type   = 'FUGR'
-      name   = 'ZTEST_FUGR'
-      source = 'FUNCTION z_test_func.' && cl_abap_char_utilities=>newline &&
-               'ENDFUNCTION.'
+      type   = 'TABL'
+      name   = 'ZTEST_TABLE'
+      source = 'some source'
     ) ).
 
     DATA(lv_result) = mo_cut->zif_abgagt_command~execute( is_param = ls_param ).
@@ -489,9 +488,11 @@ CLASS ltcl_syntax_factory DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARML
     METHODS test_create_clas FOR TESTING.
     METHODS test_create_intf FOR TESTING.
     METHODS test_create_prog FOR TESTING.
+    METHODS test_create_fugr FOR TESTING.
     METHODS test_create_unsupported FOR TESTING.
     METHODS test_create_lowercase FOR TESTING.
     METHODS test_is_supported_clas FOR TESTING.
+    METHODS test_is_supported_fugr FOR TESTING.
     METHODS test_is_supported_unsupported FOR TESTING.
 ENDCLASS.
 
@@ -539,9 +540,23 @@ CLASS ltcl_syntax_factory IMPLEMENTATION.
       msg = 'Object type should be PROG' ).
   ENDMETHOD.
 
+  METHOD test_create_fugr.
+    " Test factory creates FUGR checker
+    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( 'FUGR' ).
+
+    cl_abap_unit_assert=>assert_bound(
+      act = lo_checker
+      msg = 'Should create FUGR checker' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_checker->get_object_type( )
+      exp = 'FUGR'
+      msg = 'Object type should be FUGR' ).
+  ENDMETHOD.
+
   METHOD test_create_unsupported.
     " Test factory returns empty for unsupported type
-    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( 'FUGR' ).
+    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( 'TABL' ).
 
     cl_abap_unit_assert=>assert_not_bound(
       act = lo_checker
@@ -572,14 +587,24 @@ CLASS ltcl_syntax_factory IMPLEMENTATION.
       msg = 'CLAS should be supported' ).
   ENDMETHOD.
 
-  METHOD test_is_supported_unsupported.
-    " Test is_supported returns false for unsupported type
+  METHOD test_is_supported_fugr.
+    " Test is_supported returns true for FUGR
     DATA(lv_supported) = zcl_abgagt_syntax_chk_factory=>is_supported( 'FUGR' ).
 
     cl_abap_unit_assert=>assert_equals(
       act = lv_supported
+      exp = abap_true
+      msg = 'FUGR should be supported' ).
+  ENDMETHOD.
+
+  METHOD test_is_supported_unsupported.
+    " Test is_supported returns false for unsupported type
+    DATA(lv_supported) = zcl_abgagt_syntax_chk_factory=>is_supported( 'TABL' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_supported
       exp = abap_false
-      msg = 'FUGR should not be supported' ).
+      msg = 'TABL should not be supported' ).
   ENDMETHOD.
 
 ENDCLASS.

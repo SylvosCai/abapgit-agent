@@ -48,6 +48,7 @@ module.exports = {
     // Build objects array from files
     // Group class files together (main + locals)
     const classFilesMap = new Map(); // className -> { main, locals_def, locals_imp }
+    const fugrGroupMap = new Map();  // groupName -> { dir, fmFiles: Map<fmName, source> }
     const objects = [];
 
     for (const file of syntaxFiles) {
@@ -83,6 +84,35 @@ module.exports = {
         objType = 'DDLS';
         objName = baseName.split('.')[0].toUpperCase();
         fileKind = 'main';
+      } else if (baseName.includes('.fugr.')) {
+        objType = 'FUGR';
+        const parts = baseName.split('.');   // e.g. ['zmy_fugr', 'fugr', 'zmy_my_function', 'abap']
+        objName = parts[0].toUpperCase();    // group name e.g. 'ZMY_FUGR'
+        const includeFile = parts[2] || ''; // e.g. 'zmy_my_function', 'lzmy_fugrtop', 'saplzmy_fugr'
+        const groupLower = parts[0].toLowerCase();
+        const isTopInclude = new RegExp(`^l${groupLower}top$`, 'i').test(includeFile);
+        const isUInclude   = new RegExp(`^l${groupLower}u\\d+$`, 'i').test(includeFile);
+        const isSapl       = includeFile.toLowerCase().startsWith('sapl');
+        const isFm = !isTopInclude && !isUInclude && !isSapl && includeFile !== '';
+
+        // Read source and store in fugrGroupMap
+        const filePath = pathModule.resolve(file);
+        if (!fs.existsSync(filePath)) {
+          console.error(`  Error: File not found: ${file}`);
+          continue;
+        }
+        const source = fs.readFileSync(filePath, 'utf8');
+        const dir = pathModule.dirname(filePath);
+
+        if (!fugrGroupMap.has(objName)) {
+          fugrGroupMap.set(objName, { dir, fmFiles: new Map() });
+        }
+        if (isFm) {
+          const fmName = includeFile.toUpperCase();
+          fugrGroupMap.get(objName).fmFiles.set(fmName, source);
+        }
+        // Skip adding to objects here — handled after auto-detection below
+        continue;
       }
 
       // Read source from file
@@ -236,12 +266,74 @@ module.exports = {
       }
     }
 
+    // Helper: read FIXPT from SAPL XML for a function group
+    function readFugrFixpt(dir, groupName) {
+      const xmlFile = pathModule.join(dir, `${groupName.toLowerCase()}.fugr.sapl${groupName.toLowerCase()}.xml`);
+      if (fs.existsSync(xmlFile)) {
+        const xmlContent = fs.readFileSync(xmlFile, 'utf8');
+        const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
+        if (fixptMatch && fixptMatch[1] === 'X') return 'X';
+      }
+      return '';
+    }
+
+    // Helper: classify a FUGR include filename — returns fm name (uppercase) or null if not an FM file
+    function getFugrFmName(includeFile, groupLower) {
+      if (!includeFile) return null;
+      const isTopInclude = new RegExp(`^l${groupLower}top$`, 'i').test(includeFile);
+      const isUInclude   = new RegExp(`^l${groupLower}u\\d+$`, 'i').test(includeFile);
+      const isSapl       = includeFile.toLowerCase().startsWith('sapl');
+      if (isTopInclude || isUInclude || isSapl) return null;
+      return includeFile.toUpperCase();
+    }
+
+    // Auto-detect all FM files for each function group and build objects
+    for (const [groupName, groupData] of fugrGroupMap) {
+      const { dir } = groupData;
+      const groupLower = groupName.toLowerCase();
+      const prefix = `${groupLower}.fugr.`;
+
+      // Scan directory for all FUGR files belonging to this group
+      let allFiles;
+      try {
+        allFiles = fs.readdirSync(dir);
+      } catch (e) {
+        allFiles = [];
+      }
+      for (const f of allFiles) {
+        if (!f.toLowerCase().startsWith(prefix) || !f.toLowerCase().endsWith('.abap')) continue;
+        const parts = f.split('.');
+        const includeFile = parts[2] || '';
+        const fmName = getFugrFmName(includeFile, groupLower);
+        if (fmName && !groupData.fmFiles.has(fmName)) {
+          groupData.fmFiles.set(fmName, fs.readFileSync(pathModule.join(dir, f), 'utf8'));
+          if (!jsonOutput) console.log(`  Auto-detected: ${f}`);
+        }
+      }
+
+      if (groupData.fmFiles.size === 0) {
+        if (!jsonOutput) console.error(`  Warning: No FM source files found for FUGR ${groupName}`);
+        continue;
+      }
+
+      const fixpt = readFugrFixpt(dir, groupName);
+
+      // Add one object per FM
+      for (const [fmName, source] of groupData.fmFiles) {
+        objects.push({
+          type: 'FUGR',
+          name: groupName,
+          source: source,
+          fugr_include_name: fmName,
+          fixpt: fixpt
+        });
+      }
+    }
+
     if (objects.length === 0) {
       console.error('  No valid files to check');
       process.exit(1);
     }
-
-    // Send request
     const data = {
       objects: objects,
       uccheck: cloudMode ? '5' : 'X'
@@ -258,7 +350,8 @@ module.exports = {
       console.log(JSON.stringify(result, null, 2));
     } else {
       // Display results for each object
-      for (const res of results) {
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i];
         const objSuccess = res.SUCCESS !== undefined ? res.SUCCESS : res.success;
         const objType = res.OBJECT_TYPE || res.object_type || 'UNKNOWN';
         const objName = res.OBJECT_NAME || res.object_name || 'UNKNOWN';
@@ -267,13 +360,18 @@ module.exports = {
         const warnings = res.WARNINGS || res.warnings || [];
         const objMessage = res.MESSAGE || res.message || '';
 
+        // For FUGR: show which FM was checked alongside the group name
+        const sentObj = objects[i] || {};
+        const fugrFmLabel = (objType === 'FUGR' && sentObj.fugr_include_name)
+          ? ` (${sentObj.fugr_include_name})` : '';
+
         if (objSuccess) {
-          console.log(`✅ ${objType} ${objName} - Syntax check passed`);
+          console.log(`✅ ${objType} ${objName}${fugrFmLabel} - Syntax check passed`);
           if (warnings.length > 0) {
             console.log(`   (${warnings.length} warning(s))`);
           }
         } else {
-          console.log(`❌ ${objType} ${objName} - Syntax check failed (${errorCount} error(s))`);
+          console.log(`❌ ${objType} ${objName}${fugrFmLabel} - Syntax check failed (${errorCount} error(s))`);
           console.log('');
           console.log('Errors:');
           console.log('─'.repeat(60));
@@ -287,19 +385,25 @@ module.exports = {
 
             // Display which file/include the error is in
             if (include) {
-              const includeMap = {
-                'main': { display: 'Main class', suffix: '.clas.abap' },
-                'locals_def': { display: 'Local definitions', suffix: '.clas.locals_def.abap' },
-                'locals_imp': { display: 'Local implementations', suffix: '.clas.locals_imp.abap' },
-                'testclasses': { display: 'Test classes', suffix: '.clas.testclasses.abap' }
-              };
-              const includeInfo = includeMap[include] || { display: include, suffix: '' };
-
-              // Show both display name and filename
-              if (includeInfo.suffix) {
-                console.log(`  In: ${includeInfo.display} (${objName.toLowerCase()}${includeInfo.suffix})`);
+              // For FUGR: include = lowercase FM name → display as '<group>.fugr.<fm_name>.abap'
+              if (objType === 'FUGR') {
+                const fugrFile = `${objName.toLowerCase()}.fugr.${include}.abap`;
+                console.log(`  In: Function module ${include.toUpperCase()} (${fugrFile})`);
               } else {
-                console.log(`  In: ${includeInfo.display}`);
+                const includeMap = {
+                  'main': { display: 'Main class', suffix: '.clas.abap' },
+                  'locals_def': { display: 'Local definitions', suffix: '.clas.locals_def.abap' },
+                  'locals_imp': { display: 'Local implementations', suffix: '.clas.locals_imp.abap' },
+                  'testclasses': { display: 'Test classes', suffix: '.clas.testclasses.abap' }
+                };
+                const includeInfo = includeMap[include] || { display: include, suffix: '' };
+
+                // Show both display name and filename
+                if (includeInfo.suffix) {
+                  console.log(`  In: ${includeInfo.display} (${objName.toLowerCase()}${includeInfo.suffix})`);
+                } else {
+                  console.log(`  In: ${includeInfo.display}`);
+                }
               }
             }
             if (methodName) {

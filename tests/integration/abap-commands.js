@@ -5,7 +5,7 @@
  * see pull-runner.js, lifecycle-runner.js, and xml-only-runner.js.
  *
  * Test Distribution:
- *   - syntax: 24 tests (validation, auto-detection, DDLS, FIXPT)
+ *   - syntax: 29 tests (validation, auto-detection, DDLS, FIXPT, FUGR)
  *   - view:    9 tests (class, interface, table, class --full, class --full --lines,
  *                       domain, message class, function group, access control)
  *   - tree:    3 tests (package, depth, types)
@@ -461,7 +461,7 @@ const commandTestCases = [
   },
 
   // ===================================================================
-  // SYNTAX COMMAND - 24 tests
+  // SYNTAX COMMAND - 29 tests
   // Purpose: Source-based syntax checking (pre-commit validation)
   // Categories:
   //   - Basic validation (5 tests)
@@ -469,6 +469,7 @@ const commandTestCases = [
   //   - Auto-detection & includes (7 tests)
   //   - DDLS/CDS views (6 tests)
   //   - FIXPT flag handling (2 tests)
+  //   - FUGR / function groups (5 tests)
   // ===================================================================
 
   // Basic syntax validation
@@ -1208,6 +1209,91 @@ ENDCLASS.`;
       } catch (e) {
         // Ignore cleanup errors
       }
+    }
+  },
+
+  // ===================================================================
+  // SYNTAX COMMAND - FUGR tests (5 tests)
+  // Purpose: Verify function group syntax checking end-to-end
+  // Fixtures: tests/fixtures/fugr/ (copied from abgagt-syntax-test repo)
+  //   ZABGAGT_ST_FG  - two FMs (ZABGAGT_ST_GREET, ZABGAGT_ST_ADD) - clean
+  //   ZABGAGT_ST_ERR - one FM (ZABGAGT_ST_ERR_FM) - deliberate error on line 8
+  // FM names are activated in $ABGAGT_SYNTAX_TEST on the ABAP system
+  // ===================================================================
+
+  {
+    command: 'syntax',
+    name: 'syntax check FUGR FM file passes',
+    args: ['--files', 'tests/fixtures/fugr/zabgagt_st_fg.fugr.zabgagt_st_greet.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = (json.RESULTS || json.results || [])[0];
+        return result &&
+          (result.OBJECT_TYPE || result.object_type) === 'FUGR' &&
+          (result.OBJECT_NAME || result.object_name) === 'ZABGAGT_ST_FG' &&
+          (result.SUCCESS === true || result.SUCCESS === 'X') &&
+          (result.ERROR_COUNT === 0 || result.error_count === 0);
+      } catch (e) { return false; }
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check FUGR auto-detects second FM from directory',
+    args: ['--files', 'tests/fixtures/fugr/zabgagt_st_fg.fugr.zabgagt_st_greet.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Both FMs should appear in output; second was auto-detected
+      const hasAutoDetect = output.includes('Auto-detected');
+      const hasSecondFm = output.includes('ZABGAGT_ST_ADD');
+      return hasAutoDetect && hasSecondFm;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check FUGR auto-detects FMs when TOP include is provided',
+    args: ['--files', 'tests/fixtures/fugr/zabgagt_st_fg.fugr.lzabgagt_st_fgtop.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // TOP include is boilerplate — FMs should be auto-detected
+      const hasFm = output.includes('ZABGAGT_ST_GREET') || output.includes('ZABGAGT_ST_ADD');
+      const hasAutoDetect = output.includes('Auto-detected');
+      return hasFm && hasAutoDetect;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check FUGR detects error and reports correct line',
+    args: ['--files', 'tests/fixtures/fugr/zabgagt_st_err.fugr.zabgagt_st_err_fm.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = (json.RESULTS || json.results || [])[0];
+        if (!result) return false;
+        const failed = result.SUCCESS === false || result.SUCCESS === '';
+        const errors = result.ERRORS || result.errors || [];
+        if (!failed || errors.length === 0) return false;
+        const err = errors[0];
+        // Error is at line 8 (missing period) — must NOT be off by the prepended FUNCTION-POOL line
+        const line = err.LINE || err.line;
+        const include = err.INCLUDE || err.include || '';
+        return line === 8 && include === 'zabgagt_st_err_fm';
+      } catch (e) { return false; }
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check FUGR error output shows FM filename',
+    args: ['--files', 'tests/fixtures/fugr/zabgagt_st_err.fugr.zabgagt_st_err_fm.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // CLI shows "In: Function module ZABGAGT_ST_ERR_FM (zabgagt_st_err.fugr.zabgagt_st_err_fm.abap)"
+      const hasFmLabel = output.includes('Function module') && output.includes('ZABGAGT_ST_ERR_FM');
+      const hasFilename = output.includes('zabgagt_st_err.fugr.zabgagt_st_err_fm.abap');
+      const hasLine = /Line \d+/.test(output);
+      return hasFmLabel && hasFilename && hasLine;
     }
   },
 

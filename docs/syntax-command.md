@@ -15,12 +15,12 @@ Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source
 - `syntax` - Checks LOCAL source code BEFORE commit (no pull needed)
 - `inspect` - Checks ACTIVATED code AFTER pull (uses Code Inspector)
 
-**Auto-detection:** When checking any class file (main, locals_def, locals_imp, or testclasses), the command automatically detects and includes ALL companion files for a complete syntax check.
+**Auto-detection:** When checking any class file (main, locals_def, locals_imp, or testclasses), the command automatically detects and includes ALL companion files for a complete syntax check. When checking any FUGR file for a function group, the command automatically detects and includes ALL FM source files in that group.
 
 ## Command
 
 ```bash
-# Check single file - auto-detects all companions
+# Check single class file - auto-detects all companions
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 
 # Check test classes - auto-detects main class and local files
@@ -31,6 +31,12 @@ abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
 # Check CDS view
 abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
+# Check function group - provide ANY FUGR file, auto-detects all FM source files
+abapgit-agent syntax --files src/zmy_fugr.fugr.zmy_my_function.abap
+
+# Check function group via non-FM file - still auto-detects all FM files
+abapgit-agent syntax --files src/zmy_fugr.fugr.lzmy_fugrtop.abap
 
 # Check multiple files
 abapgit-agent syntax --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
@@ -46,8 +52,9 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
-- Supported object types: CLAS, INTF, PROG, DDLS
+- Supported object types: CLAS, INTF, PROG, DDLS, FUGR
 - For class files: Companion files are auto-detected if they exist
+- For FUGR files: All FM source files in the function group are auto-detected
 
 ## Parameters
 
@@ -281,11 +288,13 @@ Errors:
 | INTF | Interface | `.intf.abap` |
 | PROG | Program | `.prog.abap` |
 | DDLS | CDS View | `.ddls.asddls` |
+| FUGR | Function module source | `<group>.fugr.<fm_name>.abap` |
 
 **Note:**
 - For class files, ALL companion files are automatically detected and included
+- For FUGR files, ALL FM source files in the function group are automatically detected and checked
 - For DDLS: Requires `@AbapCatalog.sqlViewName` annotation for CDS views
-- For other types (FUGR, TABL, etc.), use `pull` then `inspect`
+- For other types (TABL, STRU, etc.), use `pull` then `inspect`
 
 ---
 
@@ -299,6 +308,7 @@ When checking any class file, the command automatically detects and includes ALL
 | `.clas.locals_def.abap` | main, locals_imp, testclasses |
 | `.clas.locals_imp.abap` | main, locals_def, testclasses |
 | `.clas.testclasses.abap` | main, locals_def, locals_imp |
+| Any `.fugr.*.abap` file | All FM source files for that function group |
 
 **Example:**
 ```bash
@@ -352,6 +362,8 @@ Files are parsed to extract object type and name:
 | `zcl_my_class.clas.locals_imp.abap` | CLAS | ZCL_MY_CLASS (local imps) |
 | `zcl_my_class.clas.testclasses.abap` | CLAS | ZCL_MY_CLASS (test classes) |
 | `zc_my_view.ddls.asddls` | DDLS | ZC_MY_VIEW |
+| `zmy_fugr.fugr.zmy_my_function.abap` | FUGR | ZMY_FUGR (FM: ZMY_MY_FUNCTION) |
+| `zmy_fugr.fugr.lzmy_fugrtop.abap` | FUGR | ZMY_FUGR (triggers auto-detection) |
 
 ---
 
@@ -449,7 +461,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 | Checks | Local source | Activated code |
 | Uses | SYNTAX-CHECK / DDL handler | Code Inspector (SCI) |
 | Warnings | No (DDLS: Yes) | Yes |
-| Object types | CLAS, INTF, PROG, DDLS | All (including FUGR, TABL) |
+| Object types | CLAS, INTF, PROG, DDLS, FUGR | All (including FUGR, TABL) |
 | Speed | Fast | Slower |
 
 ---

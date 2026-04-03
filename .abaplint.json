@@ -10,12 +10,12 @@
   "rules": {
     "begin_end_names": true,
     "cds_parser_error": true,
-    "check_include": true,
+    "check_include": { "exclude": ["tests/fixtures/fugr/.*\\.fugr\\.sapl.*\\.abap"] },
+    "parser_error": { "exclude": ["tests/fixtures/fugr/.*\\.abap"] },
     "identical_form_names": true,
     "global_class": true,
     "implement_methods": { "exclude": [".*.testclasses.abap"] },
     "method_implemented_twice": true,
-    "parser_error": true,
     "superclass_final": false,
     "xml_consistency": true,
 

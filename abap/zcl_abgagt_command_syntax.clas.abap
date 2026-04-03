@@ -9,13 +9,14 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     " Request parameters
     TYPES: BEGIN OF ty_source_object,
-             type        TYPE string,      " CLAS, INTF, PROG
-             name        TYPE string,      " Object name
-             source      TYPE string,      " Source code (newline separated)
-             locals_def  TYPE string,      " Local class definitions (optional, for CLAS)
-             locals_imp  TYPE string,      " Local class implementations (optional, for CLAS)
-             testclasses TYPE string,      " Test classes (optional, for CLAS)
-             fixpt       TYPE string,      " FIXPT flag from XML metadata (optional, for CLAS)
+             type              TYPE string,      " CLAS, INTF, PROG, FUGR
+             name              TYPE string,      " Object name
+             source            TYPE string,      " Source code (newline separated)
+             locals_def        TYPE string,      " Local class definitions (optional, for CLAS)
+             locals_imp        TYPE string,      " Local class implementations (optional, for CLAS)
+             testclasses       TYPE string,      " Test classes (optional, for CLAS)
+             fixpt             TYPE string,      " FIXPT flag from XML metadata (optional, for CLAS)
+             fugr_include_name TYPE string,      " FM name for FUGR check (e.g. 'ZMY_MY_FUNCTION')
            END OF ty_source_object.
 
     TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
@@ -155,7 +156,7 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       rs_result-error_count = 1.
       rs_result-errors = VALUE #( (
         line = 1
-        text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG. Use 'pull' command for other object types.| ) ).
+        text = |Unsupported object type: { is_object-type }. Syntax command only supports CLAS, INTF, PROG, FUGR. Use 'pull' command for other object types.| ) ).
       rs_result-message = |Unsupported object type: { is_object-type }. Use 'pull' command instead.|.
       RETURN.
     ENDIF.
@@ -185,6 +186,14 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
         DATA lo_prog_checker TYPE REF TO zcl_abgagt_syntax_chk_prog.
         lo_prog_checker ?= lo_checker.
         lo_prog_checker->set_uccheck( iv_uccheck ).
+
+      WHEN 'FUGR'.
+        " Set FM name for function group check
+        DATA lo_fugr_checker TYPE REF TO zcl_abgagt_syntax_chk_fugr.
+        lo_fugr_checker ?= lo_checker.
+        IF is_object-fugr_include_name IS NOT INITIAL.
+          lo_fugr_checker->set_fm_name( is_object-fugr_include_name ).
+        ENDIF.
     ENDCASE.
 
     " Set FIXPT for all types if provided (via interface)

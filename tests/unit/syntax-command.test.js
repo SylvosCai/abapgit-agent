@@ -69,6 +69,7 @@ describe('Syntax Command - Logic Tests', () => {
     fs.readFileSync = jest.fn().mockReturnValue('CLASS zcl_test DEFINITION. ENDCLASS.');
     fs.writeFileSync = jest.fn();
     fs.unlinkSync = jest.fn();
+    fs.readdirSync = jest.fn().mockReturnValue([]);
   });
 
   describe('File parsing', () => {
@@ -610,6 +611,49 @@ describe('Syntax Command - Logic Tests', () => {
       expect(uccheck).toBe('5');
     });
   });
+
+  describe('FUGR file classification', () => {
+    // Mirror the classification logic from syntax.js
+    function classifyFugrInclude(includeFile, groupLower) {
+      if (!includeFile) return null;
+      const isTopInclude = new RegExp(`^l${groupLower}top$`, 'i').test(includeFile);
+      const isUInclude   = new RegExp(`^l${groupLower}u\\d+$`, 'i').test(includeFile);
+      const isSapl       = includeFile.toLowerCase().startsWith('sapl');
+      if (isTopInclude || isUInclude || isSapl) return null;
+      return includeFile.toUpperCase();
+    }
+
+    test('identifies FM source file as FM (not a boilerplate include)', () => {
+      expect(classifyFugrInclude('zmy_my_function', 'zmy_fugr')).toBe('ZMY_MY_FUNCTION');
+    });
+
+    test('classifies TOP include as boilerplate (returns null)', () => {
+      expect(classifyFugrInclude('lzmy_fugrtop', 'zmy_fugr')).toBeNull();
+    });
+
+    test('classifies U-include as boilerplate (returns null)', () => {
+      expect(classifyFugrInclude('lzmy_fugru01', 'zmy_fugr')).toBeNull();
+    });
+
+    test('classifies SAPL include as boilerplate (returns null)', () => {
+      expect(classifyFugrInclude('saplzmy_fugr', 'zmy_fugr')).toBeNull();
+    });
+
+    test('classifies second U-include (u02) as boilerplate', () => {
+      expect(classifyFugrInclude('lzmy_fugru02', 'zmy_fugr')).toBeNull();
+    });
+
+    test('extracts group name from FUGR filename', () => {
+      const baseName = 'zmy_fugr.fugr.zmy_my_function.abap';
+      const parts = baseName.split('.');
+      expect(parts[0].toUpperCase()).toBe('ZMY_FUGR');
+      expect(parts[2]).toBe('zmy_my_function');
+    });
+
+    test('classifies second FM as FM file', () => {
+      expect(classifyFugrInclude('zmy_other_fm', 'zmy_fugr')).toBe('ZMY_OTHER_FM');
+    });
+  });
 });
 
 describe('Syntax Command - CLI Output Format', () => {
@@ -631,6 +675,7 @@ describe('Syntax Command - CLI Output Format', () => {
       return !path.includes('locals_def') && !path.includes('locals_imp');
     });
     fs.readFileSync = jest.fn().mockReturnValue('CLASS zcl_test DEFINITION. ENDCLASS.');
+    fs.readdirSync = jest.fn().mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -783,6 +828,7 @@ describe('Syntax Command - File Type Detection via execute()', () => {
       return true;
     });
     fs.readFileSync = jest.fn().mockReturnValue('INTERFACE zif_test. ENDINTERFACE.');
+    fs.readdirSync = jest.fn().mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -929,6 +975,7 @@ describe('Syntax Command - Output Formatting via execute()', () => {
     jest.clearAllMocks();
     fs.existsSync = jest.fn().mockReturnValue(true);
     fs.readFileSync = jest.fn().mockReturnValue('INTERFACE zif_test. ENDINTERFACE.');
+    fs.readdirSync = jest.fn().mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -1080,5 +1127,460 @@ describe('Syntax Command - Output Formatting via execute()', () => {
     process.exit = origExit;
     // Either warning printed or exit called
     expect(exitCode === 1 || logs.join('\n').includes('Warning')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FUGR (Function Group) syntax check
+// ---------------------------------------------------------------------------
+
+describe('Syntax Command - FUGR support via execute()', () => {
+  let logs;
+  let origLog, origError;
+  let syntaxCommand;
+
+  beforeAll(() => {
+    syntaxCommand = require('../../src/commands/syntax');
+  });
+
+  beforeEach(() => {
+    logs = [];
+    origLog = console.log;
+    origError = console.error;
+    console.log = (...a) => logs.push(a.join(' '));
+    console.error = (...a) => logs.push(a.join(' '));
+    jest.clearAllMocks();
+
+    // Default fs stubs — override per test as needed
+    fs.existsSync = jest.fn().mockReturnValue(true);
+    fs.readFileSync = jest.fn().mockReturnValue(
+      'FUNCTION zmy_my_function.\nENDFUNCTION.'
+    );
+    fs.readdirSync = jest.fn().mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    console.log = origLog;
+    console.error = origError;
+  });
+
+  function makeContext(results) {
+    return {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: true,
+          MESSAGE: `All ${results.length} object(s) passed syntax check`,
+          RESULTS: results
+        })
+      }))
+    };
+  }
+
+  // ── Request payload ───────────────────────────────────────────────────────
+
+  test('sends type=FUGR with correct group name and FM name', async () => {
+    // Only the provided FM file exists; no other FM files in directory
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    expect(postMock).toHaveBeenCalled();
+    const body = postMock.mock.calls[0][1];
+    const sentObj = (body.objects || [])[0];
+    expect(sentObj).toBeDefined();
+    expect(sentObj.type).toBe('FUGR');
+    expect(sentObj.name).toBe('ZMY_FUGR');
+    expect(sentObj.fugr_include_name).toBe('ZMY_MY_FUNCTION');
+    expect(sentObj.source).toContain('FUNCTION zmy_my_function');
+  });
+
+  test('sends one object per FM when group has multiple FMs', async () => {
+    // Directory scan returns two FM files
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.zmy_fm_one.abap',
+      'zmy_fugr.fugr.zmy_fm_two.abap',
+      'zmy_fugr.fugr.lzmy_fugrtop.abap',      // boilerplate — excluded
+      'zmy_fugr.fugr.saplzmy_fugr.abap',       // boilerplate — excluded
+    ]);
+    fs.readFileSync = jest.fn((p) => {
+      if (p.includes('zmy_fm_one')) return 'FUNCTION zmy_fm_one.\nENDFUNCTION.';
+      if (p.includes('zmy_fm_two')) return 'FUNCTION zmy_fm_two.\nENDFUNCTION.';
+      return '';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] },
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }
+      ]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_fm_one.abap'], ctx);
+
+    const body = postMock.mock.calls[0][1];
+    const sentObjs = body.objects || [];
+    expect(sentObjs.length).toBe(2);
+    const fmNames = sentObjs.map(o => o.fugr_include_name).sort();
+    expect(fmNames).toEqual(['ZMY_FM_ONE', 'ZMY_FM_TWO']);
+    // Both have same group name
+    expect(sentObjs.every(o => o.name === 'ZMY_FUGR')).toBe(true);
+  });
+
+  test('auto-detects FM files when non-FM file (TOP include) is provided', async () => {
+    // User provides the TOP include; FM file is auto-detected from directory scan
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.lzmy_fugrtop.abap',
+      'zmy_fugr.fugr.zmy_my_function.abap',
+    ]);
+    fs.readFileSync = jest.fn((p) => {
+      if (p.includes('zmy_my_function')) return 'FUNCTION zmy_my_function.\nENDFUNCTION.';
+      return 'FUNCTION-POOL zmy_fugr.';  // TOP include content
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.lzmy_fugrtop.abap'], ctx);
+
+    const body = postMock.mock.calls[0][1];
+    const sentObjs = body.objects || [];
+    // The FM file should have been auto-detected
+    expect(sentObjs.length).toBe(1);
+    expect(sentObjs[0].fugr_include_name).toBe('ZMY_MY_FUNCTION');
+  });
+
+  test('does not send boilerplate includes (TOP, U, SAPL) as objects', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.lzmy_fugrtop.abap',
+      'zmy_fugr.fugr.lzmy_fugru01.abap',
+      'zmy_fugr.fugr.saplzmy_fugr.abap',
+      'zmy_fugr.fugr.zmy_my_function.abap',
+    ]);
+    fs.readFileSync = jest.fn().mockReturnValue('FUNCTION zmy_my_function.\nENDFUNCTION.');
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const body = postMock.mock.calls[0][1];
+    const sentObjs = body.objects || [];
+    // Only the actual FM should be sent
+    expect(sentObjs.length).toBe(1);
+    expect(sentObjs[0].fugr_include_name).toBe('ZMY_MY_FUNCTION');
+  });
+
+  test('reads FIXPT from SAPL XML when it exists', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+    fs.existsSync = jest.fn((p) => {
+      // SAPL XML exists
+      if (p.endsWith('zmy_fugr.fugr.saplzmy_fugr.xml')) return true;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('zmy_fugr.fugr.saplzmy_fugr.xml')) return '<FIXPT>X</FIXPT>';
+      return 'FUNCTION zmy_my_function.\nENDFUNCTION.';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const body = postMock.mock.calls[0][1];
+    const sentObj = (body.objects || [])[0];
+    expect(sentObj.fixpt).toBe('X');
+  });
+
+  test('sets fixpt to empty string when SAPL XML has no FIXPT tag', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('saplzmy_fugr.xml')) return true;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('saplzmy_fugr.xml')) return '<NO_FIXPT_HERE/>';
+      return 'FUNCTION zmy_my_function.\nENDFUNCTION.';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const body = postMock.mock.calls[0][1];
+    const sentObj = (body.objects || [])[0];
+    expect(sentObj.fixpt).toBe('');
+  });
+
+  // ── CLI output ────────────────────────────────────────────────────────────
+
+  test('displays success line with FM name in parentheses', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+
+    const ctx = makeContext([{
+      OBJECT_TYPE: 'FUGR',
+      OBJECT_NAME: 'ZMY_FUGR',
+      SUCCESS: true,
+      ERROR_COUNT: 0,
+      ERRORS: [],
+      WARNINGS: []
+    }]);
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const text = logs.join('\n');
+    expect(text).toMatch(/✅/);
+    expect(text).toMatch(/FUGR/);
+    expect(text).toMatch(/ZMY_FUGR/);
+    expect(text).toMatch(/ZMY_MY_FUNCTION/);
+  });
+
+  test('displays failure line with FM name and error details', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: false,
+      MESSAGE: '1 of 1 object(s) have syntax errors',
+      RESULTS: [{
+        OBJECT_TYPE: 'FUGR',
+        OBJECT_NAME: 'ZMY_FUGR',
+        SUCCESS: false,
+        ERROR_COUNT: 1,
+        ERRORS: [{
+          LINE: 3,
+          TEXT: '"." expected after "LV_X".',
+          WORD: 'LV_X',
+          INCLUDE: 'zmy_my_function'
+        }],
+        WARNINGS: []
+      }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const text = logs.join('\n');
+    expect(text).toMatch(/❌/);
+    expect(text).toMatch(/FUGR/);
+    expect(text).toMatch(/ZMY_FUGR/);
+    expect(text).toMatch(/ZMY_MY_FUNCTION/);
+    expect(text).toMatch(/Line 3/);
+    expect(text).toMatch(/expected after/);
+  });
+
+  test('shows "In: Function module" with filename for FUGR errors', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: false,
+      MESSAGE: '1 of 1 object(s) have syntax errors',
+      RESULTS: [{
+        OBJECT_TYPE: 'FUGR',
+        OBJECT_NAME: 'ZMY_FUGR',
+        SUCCESS: false,
+        ERROR_COUNT: 1,
+        ERRORS: [{
+          LINE: 3,
+          TEXT: 'syntax error',
+          INCLUDE: 'zmy_my_function'   // lowercase FM name from ABAP checker
+        }],
+        WARNINGS: []
+      }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const text = logs.join('\n');
+    // Must show the "In: Function module" line with correct filename
+    expect(text).toMatch(/In: Function module ZMY_MY_FUNCTION/);
+    expect(text).toMatch(/zmy_fugr\.fugr\.zmy_my_function\.abap/);
+  });
+
+  test('auto-detects second FM and shows both in output', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.zmy_fm_one.abap',
+      'zmy_fugr.fugr.zmy_fm_two.abap',
+    ]);
+    fs.readFileSync = jest.fn((p) => {
+      if (p.includes('zmy_fm_one')) return 'FUNCTION zmy_fm_one.\nENDFUNCTION.';
+      if (p.includes('zmy_fm_two')) return 'FUNCTION zmy_fm_two.\nENDFUNCTION.';
+      return '';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      MESSAGE: 'All 2 object(s) passed syntax check',
+      RESULTS: [
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] },
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] }
+      ]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    // Provide only the first FM; second should be auto-detected
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_fm_one.abap'], ctx);
+
+    const text = logs.join('\n');
+    expect(text).toMatch(/ZMY_FM_ONE/);
+    expect(text).toMatch(/ZMY_FM_TWO/);
+    // Both passed
+    const passCount = (text.match(/✅/g) || []).length;
+    expect(passCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('shows Auto-detected message for FM found by directory scan', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.zmy_fm_one.abap',
+      'zmy_fugr.fugr.zmy_fm_two.abap',    // not provided — should be auto-detected
+    ]);
+    fs.readFileSync = jest.fn().mockReturnValue('FUNCTION zmy_fm_one.\nENDFUNCTION.');
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      MESSAGE: 'All 2 object(s) passed syntax check',
+      RESULTS: [
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] },
+        { OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] }
+      ]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_fm_one.abap'], ctx);
+
+    const text = logs.join('\n');
+    expect(text).toMatch(/Auto-detected/);
+    expect(text).toMatch(/zmy_fm_two/);
+  });
+
+  test('does not show Auto-detected when only one FM exists in directory', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue([
+      'zmy_fugr.fugr.zmy_my_function.abap'  // only one FM
+    ]);
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      MESSAGE: 'All 1 object(s) passed syntax check',
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: [] }]
+    });
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap'], ctx);
+
+    const text = logs.join('\n');
+    expect(text).not.toMatch(/Auto-detected/);
+  });
+
+  test('FUGR JSON output contains correct fields', async () => {
+    fs.readdirSync = jest.fn().mockReturnValue(['zmy_fugr.fugr.zmy_my_function.abap']);
+
+    const resultPayload = {
+      SUCCESS: true,
+      MESSAGE: 'All 1 object(s) passed syntax check',
+      RESULTS: [{ OBJECT_TYPE: 'FUGR', OBJECT_NAME: 'ZMY_FUGR', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    };
+    const ctx = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockResolvedValue(resultPayload)
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_fugr.fugr.zmy_my_function.abap', '--json'], ctx);
+
+    const parsed = JSON.parse(logs.join(''));
+    expect(parsed.SUCCESS).toBe(true);
+    expect(parsed.RESULTS[0].OBJECT_TYPE).toBe('FUGR');
+    expect(parsed.RESULTS[0].OBJECT_NAME).toBe('ZMY_FUGR');
   });
 });
