@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+## v1.15.2
+
+### Bug Fixes
+
+- Fix invalid ABAP DOC comment position before `TYPES` blocks
+
+### Documentation
+
+- Expand CDS testing guide to be fully self-contained with code examples
+- Add ABAP DOC comments guideline covering shorttext and `@parameter`
+- Fix and complete object type table with missing DCLS, FUGR, DOMA, MSAG entries
+- Reorder guidelines by learning progression for better navigation
+
+---
+
+---
+
+
 ## v1.15.1
 
 ### Bug Fixes
