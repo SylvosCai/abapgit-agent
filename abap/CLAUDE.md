@@ -743,8 +743,9 @@ Modified ABAP files?
 | `ref --topic cds-testing` | CDS Testing (Test Double Framework) |
 | `ref --topic json` | JSON Handling |
 | `ref --topic common-errors` | Common ABAP Errors - Quick Fixes |
-| `ref --topic abapgit` | abapGit XML Metadata — CLAS, INTF, PROG, DDLS, DCLS, FUGR |
+| `ref --topic abapgit` | abapGit XML Metadata — **use for CDS/DDLS XML**, also CLAS, INTF, PROG, DCLS, FUGR |
 | `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
+| `ref --topic abapgit-fugr` | abapGit XML Metadata — Function Group (FUGR) details |
 | `ref --topic abaplint` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
 | `ref --topic debug-session` | Debug Session Guide |
 | `ref --topic debug-dump` | Dump Analysis Guide |
