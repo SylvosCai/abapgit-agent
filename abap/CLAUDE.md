@@ -730,6 +730,9 @@ Modified ABAP files?
 └─ Other types (FUGR, TABL, STRU, DTEL, TTYP, etc.)?
    ├─ XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
+   ├─ DCLS (CDS access control)?
+   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/zc_view.dcls.xml --sync-xml
+   │         ⚠️  Pass the .xml file — pull --files does NOT accept .asdcls extensions
    └─ FUGR and other complex objects?
       └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
 

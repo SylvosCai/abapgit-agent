@@ -170,6 +170,6 @@ For a second FM, create `zmy_fugr.fugr.lzmy_fugru02.abap` with the same pattern 
 - **`INCLUDES` list** in the main XML: only lists TOP and SAPL includes — FM source includes are implicit
 - **`REMOTE_CALL>R`**: add only for RFC-enabled FMs; omit for local FMs
 - **Optional parameters**: include both `<OPTIONAL>X</OPTIONAL>` and `<DEFAULT>...</DEFAULT>`
-- **`DOCUMENTATION` section**: omit entirely if no parameter descriptions needed — missing docs cause no diff
+- **`DOCUMENTATION` section**: the serializer always writes `<DOCUMENTATION>` with one `<RSFDO>` entry per parameter (containing only `<PARAMETER>` and `<KIND>P</KIND>`, no `<STEXT>`). Always include it — omitting it causes a permanent "M" diff
 - **Screens/CUA**: omit `DYNPROS`/`CUA` sections for screenless function groups
 - **Multiple FMs**: add one `<item>` per FM in `FUNCTIONS`; add one `INCLUDE` line per FM in the SAPL source
