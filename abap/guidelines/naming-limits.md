@@ -18,29 +18,29 @@ grand_parent: ABAP Development
 
 | Object / Element | Max Length | Example (at limit) |
 |---|---|---|
-| Class name (CLAS) | **30** | `ZCL_MY_SUPER_LONG_CLASS_NAME_30` |
-| Interface name (INTF) | **30** | `ZIF_MY_SUPER_LONG_INTF_NAME_30` |
-| Program name (PROG) | **30** | `ZMY_SUPER_LONG_PROGRAM_NAME_30` |
-| Function Group name (FUGR) | **26** | `ZFG_MY_FUNCTION_GROUP_NAME_26` |
-| Function Module name | **30** | `Z_MY_FUNCTION_MODULE_NAME_HERE` |
-| Table name (TABL) | **30** | `ZSUPER_LONG_TABLE_NAME_EXAMPLE` |
-| **Table field name** | **16** | `MY_FIELD_NAME_16` |
-| Structure name (STRU) | **30** | `ZSUPER_LONG_STRU_NAME_EXAMPLE_` |
-| **Structure field name** | **16** | `MY_FIELD_NAME_16` |
-| Data Element name (DTEL) | **30** | `ZMY_SUPER_LONG_DATA_ELEMENT_30` |
-| Domain name (DOMA) | **30** | `ZMY_SUPER_LONG_DOMAIN_NAME_30_` |
-| Table Type name (TTYP) | **30** | `ZMY_SUPER_LONG_TABLE_TYPE_NAME` |
-| Package name | **30** | `$MY_SUPER_LONG_PACKAGE_NAME_30` |
-| **CDS View Entity name (DDLS)** | **40** | `ZC_MY_SUPER_LONG_CDS_VIEW_ENTITY_NAME_40` |
-| CDS field alias | **30** | `My_Super_Long_Alias_Name_30_Ch` |
-| Message Class name (MSAG) | **20** | `ZMY_MESSAGE_CLASS_20` |
-| Class method name | **30** | `my_super_long_method_name_here` |
-| **Test method name** | **30** | `test_super_long_method_name_30` |
-| Interface method name | **30** | `my_super_long_method_name_here` |
-| Class attribute name | **30** | `mv_super_long_attribute_name_30` |
-| Local variable name | **30** | `lv_super_long_variable_name_30` |
-| Local type/class name | **30** | `lty_super_long_type_name_here_` |
-| Test class name (local) | **30** | `ltcl_super_long_test_class_30_` |
+| Class name (CLAS) | **30** | `ZCL_PURCHASE_ORDER_VALIDATOR` |
+| Interface name (INTF) | **30** | `ZIF_PURCHASE_ORDER_VALIDATOR` |
+| Program name (PROG) | **30** | `ZFICO_PAYMENT_PROPOSAL_REPORT` |
+| Function Group name (FUGR) | **26** | `ZFICO_PAYMENT_UTILITIES` |
+| Function Module name | **30** | `ZFICO_CALCULATE_OPEN_ITEMS` |
+| Table name (TABL) | **30** | `ZFICO_PAYMENT_PROPOSAL_HEADER` |
+| **Table field name** | **16** | `PAYMENT_METHOD` |
+| Structure name (STRU) | **30** | `ZFICO_PAYMENT_PROPOSAL_RESULT` |
+| **Structure field name** | **16** | `PAYMENT_METHOD` |
+| Data Element name (DTEL) | **30** | `ZFICO_PAYMENT_PROPOSAL_STATUS` |
+| Domain name (DOMA) | **30** | `ZFICO_PAYMENT_PROPOSAL_STATUS` |
+| Table Type name (TTYP) | **30** | `ZFICO_PAYMENT_PROPOSAL_T_TYPE` |
+| Package name | **30** | `$FICO_PAYMENT_PROPOSAL_COMMON` |
+| **CDS View Entity name (DDLS)** | **40** | `ZC_FICO_PAYMENT_PROPOSAL_ITEM_DETAILS` |
+| CDS field alias | **30** | `PaymentProposalItemCategory` |
+| Message Class name (MSAG) | **20** | `ZFICO_PAYMENT_MSGS` |
+| Class method name | **30** | `calculate_payment_proposal` |
+| **Test method name** | **30** | `test_calculate_open_items` |
+| Interface method name | **30** | `calculate_payment_proposal` |
+| Class attribute name | **30** | `mv_payment_proposal_processor` |
+| Local variable name | **30** | `lv_payment_proposal_status` |
+| Local type/class name | **30** | `lty_payment_proposal_items` |
+| Test class name (local) | **30** | `ltcl_payment_proposal_calc` |
 
 ---
 
@@ -109,8 +109,14 @@ ZIF_             (4 chars) + name ≤ 30  →  name ≤ 26 chars
 ZC_              (3 chars) + name ≤ 40  →  name ≤ 37 chars  (CDS)
 Z                (1 char)  + name ≤ 30  →  name ≤ 29 chars  (table/program)
 
+# Namespace prefix eats more of the budget — plan ahead
+ZCL_FICO_        (9 chars) + name ≤ 30  →  name ≤ 21 chars
+ZCL_FICO_PAYMENT_PROPOSAL   = 26 chars  ✓
+ZCL_FICO_PAYMENT_PROPOSAL_V = 27 chars  ✓  (but getting tight)
+
 # Field name in TABL/STRU: no prefix, just ≤ 16 total
-MY_FIELD_NAME                           →  must be ≤ 16 chars
+PAYMENT_METHOD               = 14 chars  ✓
+PAYMENT_METHOD_CD            = 17 chars  ✗  → shorten to PAYMENT_METH_CD
 
 # Method name: no prefix, just ≤ 30 total
 test_exec_with_files                    →  24 chars ✓
