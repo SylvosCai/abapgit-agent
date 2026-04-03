@@ -730,42 +730,31 @@ Modified ABAP files?
 
 ## Guidelines Index
 
-> **Note:** If the `guidelines/` folder doesn't exist in your repo, the `ref` command
-> automatically uses bundled guidelines from the package. Access them with:
-> ```bash
-> abapgit-agent ref --topic <topic>   # e.g. ref --topic sql
-> abapgit-agent ref "<pattern>"       # e.g. ref "SELECT"
-> ```
+| Command | Topic |
+|---------|-------|
+| `ref --topic sql` | ABAP SQL Best Practices |
+| `ref --topic exceptions` | Exception Handling |
+| `ref --topic classes` | ABAP Classes and Objects |
+| `ref --topic objects` | Object Naming Conventions (defaults) |
+| `ref --topic comments` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
+| `ref --topic testing` | Unit Testing |
+| `ref --topic unit-testable-code` | Unit Testable Code (Dependency Injection) |
+| `ref --topic cds` | CDS Views |
+| `ref --topic cds-testing` | CDS Testing (Test Double Framework) |
+| `ref --topic json` | JSON Handling |
+| `ref --topic common-errors` | Common ABAP Errors - Quick Fixes |
+| `ref --topic abapgit` | abapGit XML Metadata — CLAS, INTF, PROG, DDLS, DCLS, FUGR |
+| `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
+| `ref --topic abaplint` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
+| `ref --topic debug-session` | Debug Session Guide |
+| `ref --topic debug-dump` | Dump Analysis Guide |
+| `ref --topic branch-workflow` | Branch Workflow |
+| `ref --topic workflow-detailed` | Development Workflow (Detailed) |
+| `ref --topic object-creation` | Object Creation (XML metadata, local classes) |
+| `ref --topic run-probe-classes` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
+| `ref --topic probe-poc` | Probe and PoC — Full Decision Flow |
 
-Detailed guidelines are available in the `guidelines/` folder:
-
-| File | Topic |
-|------|-------|
-| `guidelines/index.md` | Overview and usage |
-| `guidelines/sql.md` | ABAP SQL Best Practices |
-| `guidelines/exceptions.md` | Exception Handling |
-| `guidelines/classes.md` | ABAP Classes and Objects |
-| `guidelines/objects.md` | Object Naming Conventions (defaults) |
-| `guidelines/objects.local.md` | **Project** Naming Conventions — overrides `objects.md` (created by `init`, never overwritten) |
-| `guidelines/comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
-| `guidelines/testing.md` | Unit Testing (including CDS) |
-| `guidelines/unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
-| `guidelines/cds.md` | CDS Views |
-| `guidelines/cds-testing.md` | CDS Testing (Test Double Framework) |
-| `guidelines/json.md` | JSON Handling |
-| `guidelines/common-errors.md` | Common ABAP Errors - Quick Fixes |
-| `guidelines/abapgit.md` | abapGit XML Metadata Templates — CLAS, INTF, PROG, DDLS, DCLS, FUGR |
-| `guidelines/abapgit-xml-only.md` | abapGit XML Metadata Templates — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
-| `guidelines/abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
-| `guidelines/debug-session.md` | Debug Session Guide |
-| `guidelines/debug-dump.md` | Dump Analysis Guide |
-| `guidelines/branch-workflow.md` | Branch Workflow |
-| `guidelines/workflow-detailed.md` | Development Workflow (Detailed) |
-| `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |
-| `guidelines/run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
-| `guidelines/probe-poc.md` | Probe and PoC — Full Decision Flow |
-
-These guidelines are automatically searched by the `ref` command.
+> `objects.local.md` — **Project** Naming Conventions (created by `init`, never overwritten). Read directly from `guidelines/objects.local.md` — no ref topic.
 
 ---
 
