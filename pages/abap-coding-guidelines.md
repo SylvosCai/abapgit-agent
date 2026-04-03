@@ -26,6 +26,7 @@ Detailed ABAP coding guidelines for development in this project.
 | [abapGit XML Metadata](../abap/guidelines/abapgit) | XML templates for classes, interfaces, tables, CDS views |
 | [Unit Testable Code](../abap/guidelines/unit-testable-code) | Dependency injection patterns for testable ABAP |
 | [Common ABAP Errors](../abap/guidelines/common-errors) | Quick fixes for frequent activation and syntax errors |
+| [Documentation Comments](../abap/guidelines/comments) | ABAP DOC shorttext, @parameter/@raising, CDS //, program *&--- |
 
 ## Debugging & Troubleshooting
 
