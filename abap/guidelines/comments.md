@@ -29,8 +29,14 @@ ABAP has two distinct comment styles with different purposes:
 Use for API-level documentation: class declarations, interface declarations, and method signatures.
 This is the equivalent of Javadoc. The system reads it — it is metadata, not decoration.
 
+**`"!` is only valid immediately before these statements:**
+`CLASS ... DEFINITION`, `INTERFACE`, `METHODS`, `CLASS-METHODS`, `EVENTS`, `DATA`, `CLASS-DATA`, `CONSTANTS`.
+
+**`"!` before `TYPES` is a syntax error** — the Code Inspector reports "ABAP Doc comment is in the wrong position."
+Use a regular `"` comment to describe type structures instead.
+
 **`"` (regular inline comment)** — source-only; not parsed by the ABAP system.
-Use inside method bodies to explain non-obvious logic.
+Use inside method bodies to explain non-obvious logic, and to label `TYPES` blocks.
 Never use `"!` inside method implementations — it has no effect there.
 
 **Default behaviour (when to add automatically vs. only on request):**
@@ -240,3 +246,4 @@ ls_params-mode = 'abort'.   " INITIAL means abort (caller omitting the field = a
 | DDLS view entity | Before `define view entity` | `@EndUserText.label` annotation | **Always** |
 | DDLS field | After field name | `// text` | For non-obvious fields |
 | Method body | Inside `METHOD...ENDMETHOD` | `" text` | Only for non-obvious logic |
+| TYPES block | Before `TYPES:` in interface/class | `" text` | Optional — `"!` is invalid here |

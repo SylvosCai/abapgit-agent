@@ -1,7 +1,7 @@
 "! <p class="shorttext synchronized">Utility Interface for ABAP Git Agent</p>
 INTERFACE zif_abgagt_util PUBLIC.
 
-  "! Structure for include detection result
+  " Structure for include detection result
   TYPES: BEGIN OF ty_include_info,
            is_source_include TYPE abap_bool,
            obj_type         TYPE tadir-object,
@@ -10,7 +10,7 @@ INTERFACE zif_abgagt_util PUBLIC.
            type_text        TYPE string,
          END OF ty_include_info.
 
-  "! Structure for object info from TADIR
+  " Structure for object info from TADIR
   TYPES: BEGIN OF ty_object_info,
            obj_type  TYPE tadir-object,
            obj_name  TYPE tadir-obj_name,
