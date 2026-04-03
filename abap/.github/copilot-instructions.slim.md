@@ -36,8 +36,14 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 
 Each ABAP object needs an XML metadata file. Local helper/test-double classes use separate `.locals_def.abap` / `.locals_imp.abap` files.
 
+**Name length limits** (verify before naming anything):
+- Most objects (CLAS, INTF, PROG, TABL name, DTEL, DOMA, TTYP): **30 chars**
+- TABL/STRU **field names**: **16 chars** ← most common mistake
+- DDLS (CDS view entity): **40 chars** | CDS alias: 30 | MSAG: 20 | FUGR: 26 | Methods: 30
+
 ```bash
-abapgit-agent ref --topic object-creation   # XML templates and local class setup
+abapgit-agent ref --topic naming-limits    # full length reference
+abapgit-agent ref --topic object-creation  # XML templates and local class setup
 ```
 
 ### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG, DDLS)
@@ -65,6 +71,24 @@ abapgit-agent ref --topic debug-session       # full debug guide
 abapgit-agent ref --topic debug-dump          # dump analysis guide
 ```
 
+### 7. Never Run `run` Command Proactively
+
+Never call `abapgit-agent run` unless the user explicitly asks — it can modify data or trigger RFCs.
+
+### 8. Probe and PoC Objects — Always Z/Y, Never in SAP Packages
+
+When `objects.local.md` shows SAP namespace (`CL_*`, `IF_*`, `/NAMESPACE/*`) and the user asks to create a new object, always ask first: *"Is this a production object, a PoC, or a probe?"*
+
+→ `abapgit-agent ref --topic probe-poc`
+
+### 9. abaplint — Optional, Project-Controlled
+
+Only run if `.abaplint.json` exists. Run after `syntax`, before commit. Always check `ref --topic abaplint` before applying any quickfix.
+
+```bash
+ls .abaplint.json 2>/dev/null && abapgit-agent lint
+```
+
 ---
 
 ## Development Workflow
@@ -77,6 +101,8 @@ Checked into the repository — applies to all developers. **Read this file at t
 |---------|--------|
 | `safeguards.requireFilesForPull: true` | Always include `--files` in every `pull` |
 | `safeguards.disablePull: true` | Do not run `abapgit-agent pull` at all |
+| `safeguards.disableRun: true` | Do not run `abapgit-agent run` at all |
+| `safeguards.disableProbeClasses: true` | Use `scratchWorkspace` for probe classes instead |
 | `conflictDetection.mode: "abort"` | Abort pull on conflict — inform user |
 | `transports.allowCreate/allowRelease: false` | Blocked — inform user |
 
@@ -97,10 +123,15 @@ abapgit-agent ref --topic branch-workflow
 ```
 Modified ABAP files?
 ├─ CLAS/INTF/PROG/DDLS files?
-│  ├─ Independent files?  → syntax → commit → push → pull
-│  └─ Dependent files?    → skip syntax → commit → push → pull
+│  ├─ Independent files?  → syntax → [abaplint] → commit → push → pull --sync-xml
+│  └─ Dependent files?    → skip syntax → [abaplint] → commit → push → pull --sync-xml
 └─ Other types (FUGR, TABL, etc.)?
-   → skip syntax → commit → push → pull → (if errors: inspect)
+   ├─ XML-only (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
+   │  → skip syntax → [abaplint] → commit → push → pull --files <name>.tabl.xml --sync-xml
+   └─ FUGR and others?
+      → skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
+
+[abaplint] = run lint only if .abaplint.json exists; ref --topic abaplint before any quickfix
 ```
 
 ```bash

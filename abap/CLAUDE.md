@@ -99,6 +99,19 @@ Never assume Z/Y prefix without checking.
            XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) need ONLY the XML file
 ```
 
+**Before choosing a name, verify the length limit for the object type:**
+
+| Object type | Name limit | Sub-element limit |
+|---|---|---|
+| CLAS, INTF, PROG, DTEL, DOMA, TTYP, TABL name | **30 chars** | — |
+| TABL / STRU **field names** | — | **16 chars** |
+| DDLS (CDS view entity) | **40 chars** | CDS field alias: **30 chars** |
+| MSAG (message class) | **20 chars** | — |
+| FUGR (function group) | **26 chars** | Function module name: **30 chars** |
+| Method names (incl. test methods) | **30 chars** | — |
+
+→ Full length reference: `abapgit-agent ref --topic naming-limits`
+
 Use the object name from `objects.local.md` (or `objects.md` as fallback) in place of `<name>`:
 
 | Object Type | Source File | XML File |
@@ -736,6 +749,7 @@ Modified ABAP files?
 | `ref --topic exceptions` | Exception Handling |
 | `ref --topic classes` | ABAP Classes and Objects |
 | `ref --topic objects` | Object Naming Conventions (defaults) |
+| `ref --topic naming-limits` | Naming Length Limits — 30/16/40 char rules per type (CRITICAL before naming anything) |
 | `ref --topic comments` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
 | `ref --topic testing` | Unit Testing |
 | `ref --topic unit-testable-code` | Unit Testable Code (Dependency Injection) |

@@ -20,6 +20,7 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `cds.md` | CDS Views |
 | `classes.md` | ABAP Classes and Objects |
 | `objects.md` | Object Naming Conventions |
+| `naming-limits.md` | Naming Length Limits (30/16/40 char rules per type) |
 | `json.md` | JSON Handling |
 | `abapgit.md` | abapGit XML Metadata Templates |
 | `unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |

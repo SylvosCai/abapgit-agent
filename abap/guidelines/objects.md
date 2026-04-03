@@ -83,3 +83,4 @@ Default package:  /MYNAMESPACE/MAIN
 
 → For file structure (what files to create): `abapgit-agent ref --topic object-creation`
 → For XML templates: `abapgit-agent ref --topic abapgit`
+→ For name **length limits** (30/16/40 char rules): `abapgit-agent ref --topic naming-limits`

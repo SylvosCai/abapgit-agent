@@ -1,0 +1,152 @@
+---
+layout: default
+title: Naming Length Limits
+nav_order: 6
+parent: ABAP Coding Guidelines
+grand_parent: ABAP Development
+---
+
+# ABAP Naming Length Limits
+
+**Searchable keywords**: name length, character limit, 30 characters, 16 characters, 40 characters, too long, truncate, field name, method name, class name, table name, CDS name
+
+> **Rule of thumb**: Most ABAP object names → 30 chars. Table/structure **field names** → 16 chars. CDS/DDLS names → 40 chars. Method names (including test methods) → 30 chars.
+
+---
+
+## Quick Reference
+
+| Object / Element | Max Length | Example (at limit) |
+|---|---|---|
+| Class name (CLAS) | **30** | `ZCL_MY_SUPER_LONG_CLASS_NAME_30` |
+| Interface name (INTF) | **30** | `ZIF_MY_SUPER_LONG_INTF_NAME_30` |
+| Program name (PROG) | **30** | `ZMY_SUPER_LONG_PROGRAM_NAME_30` |
+| Function Group name (FUGR) | **26** | `ZFG_MY_FUNCTION_GROUP_NAME_26` |
+| Function Module name | **30** | `Z_MY_FUNCTION_MODULE_NAME_HERE` |
+| Table name (TABL) | **30** | `ZSUPER_LONG_TABLE_NAME_EXAMPLE` |
+| **Table field name** | **16** | `MY_FIELD_NAME_16` |
+| Structure name (STRU) | **30** | `ZSUPER_LONG_STRU_NAME_EXAMPLE_` |
+| **Structure field name** | **16** | `MY_FIELD_NAME_16` |
+| Data Element name (DTEL) | **30** | `ZMY_SUPER_LONG_DATA_ELEMENT_30` |
+| Domain name (DOMA) | **30** | `ZMY_SUPER_LONG_DOMAIN_NAME_30_` |
+| Table Type name (TTYP) | **30** | `ZMY_SUPER_LONG_TABLE_TYPE_NAME` |
+| Package name | **30** | `$MY_SUPER_LONG_PACKAGE_NAME_30` |
+| **CDS View Entity name (DDLS)** | **40** | `ZC_MY_SUPER_LONG_CDS_VIEW_ENTITY_NAME_40` |
+| CDS field alias | **30** | `My_Super_Long_Alias_Name_30_Ch` |
+| Message Class name (MSAG) | **20** | `ZMY_MESSAGE_CLASS_20` |
+| Class method name | **30** | `my_super_long_method_name_here` |
+| **Test method name** | **30** | `test_super_long_method_name_30` |
+| Interface method name | **30** | `my_super_long_method_name_here` |
+| Class attribute name | **30** | `mv_super_long_attribute_name_30` |
+| Local variable name | **30** | `lv_super_long_variable_name_30` |
+| Local type/class name | **30** | `lty_super_long_type_name_here_` |
+| Test class name (local) | **30** | `ltcl_super_long_test_class_30_` |
+
+---
+
+## Critical Differences — Don't Confuse These
+
+### Table/Structure Field Names: 16 Characters MAX
+
+This is the **most common mistake**. Field names in TABL and STRU are limited to **16 characters**, not 30.
+
+```xml
+<!-- WRONG — 17 characters -->
+<FIELDNAME>LAST_MODIFIED_AT</FIELDNAME>
+
+<!-- CORRECT — 16 characters or fewer -->
+<FIELDNAME>LAST_MODIFIED</FIELDNAME>
+<FIELDNAME>SYS_CHANGED_AT</FIELDNAME>  <!-- 14 chars ✓ -->
+<FIELDNAME>LAST_PULLED_AT</FIELDNAME>  <!-- 14 chars ✓ -->
+```
+
+When naming table fields, keep names short and descriptive:
+- `CARRID` not `CARRIER_ID_FIELD`
+- `CONNID` not `CONNECTION_IDENTIFIER`
+- `STATUS` not `CURRENT_STATUS_FLAG`
+- `CREATED_AT` not `CREATION_TIMESTAMP`
+
+### CDS View Names: 40 Characters MAX
+
+CDS View Entity (DDLS) names allow up to **40 characters** — more room than regular ABAP objects.
+
+```
+ZC_MY_FLIGHT_BOOKING_REVENUE_SUMMARY     ← 40 chars (at limit)
+ZC_FLIGHT_REVENUE                        ← 17 chars (fine)
+```
+
+However, CDS **field aliases** inside the view are still limited to **30 characters** (ABAP identifier rules).
+
+### Function Group Names: 26 Characters MAX
+
+Function groups (`FUGR`) have a **26-character limit** because ABAP appends a 4-character suffix internally (e.g. `SAPLZMY_FG` prefix + module name). The safe usable name length is 26 characters.
+
+### Test Method Names: 30 Characters MAX — Causes Syntax Error
+
+Test methods (`FOR TESTING`) hit the 30-char limit frequently because the `test_` prefix takes 5 chars before the meaningful content starts.
+
+```abap
+" WRONG — 34 characters → syntax error at activation
+METHODS test_execute_with_minimal_params FOR TESTING.
+
+" CORRECT — abbreviate to stay within 30 chars
+METHODS test_exec_minimal FOR TESTING.     " 18 chars ✓
+METHODS test_exec_with_files FOR TESTING.  " 24 chars ✓
+```
+
+**Counting test method length**: include the full method name — `test_exec_minimal` is 18 characters.
+
+---
+
+## Counting Characters Before You Name Things
+
+Use this mental check before naming any ABAP element:
+
+```
+# Object name: type prefix + your name ≤ limit
+ZCL_             (4 chars) + name ≤ 30  →  name ≤ 26 chars
+ZIF_             (4 chars) + name ≤ 30  →  name ≤ 26 chars
+ZC_              (3 chars) + name ≤ 40  →  name ≤ 37 chars  (CDS)
+Z                (1 char)  + name ≤ 30  →  name ≤ 29 chars  (table/program)
+
+# Field name in TABL/STRU: no prefix, just ≤ 16 total
+MY_FIELD_NAME                           →  must be ≤ 16 chars
+
+# Method name: no prefix, just ≤ 30 total
+test_exec_with_files                    →  24 chars ✓
+test_execute_with_minimal_params        →  34 chars ✗
+```
+
+---
+
+## Common Length Violations and Fixes
+
+| Too Long (violates limit) | Fixed Version | Limit |
+|---|---|---|
+| `ZCL_COMMAND_PULL_WITH_RETRY` (30+ chars) | `ZCL_COMMAND_PULL_RETRY` | 30 |
+| `LAST_SUCCESSFULLY_PULLED_AT` (table field, 28 chars) | `LAST_PULLED_AT` | 16 |
+| `test_execute_command_with_files` (test method, 32 chars) | `test_exec_with_files` | 30 |
+| `ZC_MY_VERY_LONG_CDS_VIEW_NAME_EXCEEDS_40_CHARS` (47 chars) | `ZC_MY_LONG_CDS_VIEW_NAME_TRIMMED` | 40 |
+| `ZBIZ_OBJECT_CREATION_SERVICE_MESSAGE_CLASS` (MSAG, 43 chars) | `ZBIZ_CREATE_MSGS` | 20 |
+
+---
+
+## SAP Technical Basis for These Limits
+
+These limits come from the ABAP Dictionary (DDIC) and ABAP kernel:
+
+| Limit Source | Explanation |
+|---|---|
+| 30 chars (most objects) | ABAP uses `RSYN` program name space; objects stored in `TADIR` with `SOBJ_NAME CHAR(40)` but compiler enforces 30 for classes/interfaces/programs |
+| 16 chars (DDIC fields) | Stored in `DD03L.FIELDNAME CHAR(16)` — this is a hard database column width |
+| 40 chars (CDS names) | CDS objects stored in `DD02L.TABNAME CHAR(40)` — intentionally larger for CDS |
+| 20 chars (MSAG) | Message class name stored in `T100A.ARBGB CHAR(20)` |
+| 26 chars (FUGR) | Function group internally prefixed with `SAPL` (4 chars) for the main include |
+
+---
+
+## See Also
+
+- **Naming Conventions** (objects.md) — prefixes per object type
+- **Object Creation** (object-creation.md) — which files to create
+- **Testing** (testing.md) — test method naming (30-char limit detail)
