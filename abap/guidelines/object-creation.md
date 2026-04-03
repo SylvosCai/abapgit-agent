@@ -17,26 +17,29 @@ Replace `<name>` with the actual object name from this project's naming conventi
 
 | Object Type | ABAP Source File | XML File | Details |
 |-------------|-----------------|----------|---------|
-| Class | `<name>.clas.abap` | `<name>.clas.xml` | See `guidelines/abapgit.md` |
-| Interface | `<name>.intf.abap` | `<name>.intf.xml` | See `guidelines/abapgit.md` |
-| Program | `<name>.prog.abap` | `<name>.prog.xml` | See `guidelines/abapgit.md` |
-| **CDS View Entity** | `<name>.ddls.asddls` | `<name>.ddls.xml` | **Use by default** - See `guidelines/cds.md` |
-| CDS View (legacy) | `<name>.ddls.asddls` | `<name>.ddls.xml` | Only if explicitly requested - See `guidelines/cds.md` |
-| Table (TABL) | *(none — XML-only)* | `<name>.tabl.xml` | See `guidelines/abapgit.md` |
-| Structure (STRU) | *(none — XML-only)* | `<name>.stru.xml` | See `guidelines/abapgit.md` |
-| Data Element (DTEL) | *(none — XML-only)* | `<name>.dtel.xml` | See `guidelines/abapgit.md` |
-| Table Type (TTYP) | *(none — XML-only)* | `<name>.ttyp.xml` | See `guidelines/abapgit.md` |
+| Class (CLAS) | `<name>.clas.abap` | `<name>.clas.xml` | See `guidelines/abapgit.md` |
+| Interface (INTF) | `<name>.intf.abap` | `<name>.intf.xml` | See `guidelines/abapgit.md` |
+| Program (PROG) | `<name>.prog.abap` | `<name>.prog.xml` | See `guidelines/abapgit.md` |
+| CDS View Entity (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` | **Use by default** — See `guidelines/abapgit.md` |
+| CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` | See `guidelines/abapgit.md` |
+| Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` | See `guidelines/abapgit.md` |
+| Table (TABL) | *(none — XML-only)* | `<name>.tabl.xml` | See `guidelines/abapgit-xml-only.md` |
+| Structure (STRU) | *(none — XML-only)* | `<name>.stru.xml` | See `guidelines/abapgit-xml-only.md` |
+| Data Element (DTEL) | *(none — XML-only)* | `<name>.dtel.xml` | See `guidelines/abapgit-xml-only.md` |
+| Table Type (TTYP) | *(none — XML-only)* | `<name>.ttyp.xml` | See `guidelines/abapgit-xml-only.md` |
+| Domain (DOMA) | *(none — XML-only)* | `<name>.doma.xml` | See `guidelines/abapgit-xml-only.md` |
+| Message Class (MSAG) | *(none — XML-only)* | `<name>.msag.xml` | See `guidelines/abapgit-xml-only.md` |
 
-> **XML-only objects (TABL, STRU, DTEL, TTYP)**: create only the `.xml` file — there is no `.abap` source file.
+> **XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)**: create only the `.xml` file — there is no `.abap` source file.
 > After committing and pushing, pull with: `pull --files <folder>/<name>.tabl.xml --sync-xml`
 
-**IMPORTANT: When user says "create CDS view", create CDS View Entity by default.**
+**IMPORTANT: When user says "create CDS view", create CDS View Entity (DDLS) by default.**
 
 **Why:** Modern S/4HANA standard, simpler (no SQL view), no namespace conflicts.
 
 **For complete XML templates, DDL examples, and detailed comparison:**
-- **CDS Views**: `guidelines/cds.md`
-- **XML templates**: `guidelines/abapgit.md`
+- **CDS Views + DCLS + FUGR**: `guidelines/abapgit.md`
+- **XML-only objects**: `guidelines/abapgit-xml-only.md`
 
 ---
 
