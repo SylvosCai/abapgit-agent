@@ -304,13 +304,13 @@ Use when the data element's type and length come from an existing domain (`DOMNA
    <DD40V>
     <TYPENAME>ZMY_TTYP</TYPENAME>
     <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>Description of table type</DDTEXT>
     <ROWTYPE>ZMY_STRUCT</ROWTYPE>
     <ROWKIND>S</ROWKIND>
-    <DATATYPE>TABLE_T</DATATYPE>
+    <DATATYPE>STRU</DATATYPE>
     <ACCESSMODE>T</ACCESSMODE>
     <KEYDEF>D</KEYDEF>
     <KEYKIND>N</KEYKIND>
+    <DDTEXT>Description of table type</DDTEXT>
    </DD40V>
   </asx:values>
  </asx:abap>
@@ -321,7 +321,7 @@ Use when the data element's type and length come from an existing domain (`DOMNA
 - `TYPENAME`: Table type name
 - `ROWTYPE`: Row type (a structure or data element name)
 - `ROWKIND`: Row kind — `S`=Structure/Type, `D`=Data element, `R`=Reference
-- `DATATYPE`: Always `TABLE_T` for table types
+- `DATATYPE`: `STRU` when row type is a structure (`ROWKIND=S`); `TABLE_T` only for elementary-type row types
 - `ACCESSMODE`: Table kind — `T`=Standard, `S`=Sorted, `H`=Hashed
 - `KEYDEF`: Key definition — `D`=Default (standard key), `K`=User-defined
 - `KEYKIND`: Key uniqueness — `N`=Non-unique, `U`=Unique
@@ -428,7 +428,7 @@ abapGit uses the view `DD01V` as the root element (not `DD01L`). The serializer 
      <SPRSL>E</SPRSL>
      <ARBGB>ZMY_MSGS</ARBGB>
      <MSGNR>000</MSGNR>
-     <TEXT>Object &1 not found</TEXT>
+     <TEXT>Object &amp;1 not found</TEXT>
     </T100>
     <T100>
      <SPRSL>E</SPRSL>

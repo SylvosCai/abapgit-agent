@@ -265,7 +265,7 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 - `SOURCE_TYPE W` → View Entity (`define view entity`, modern — **use by default**)
 - `SOURCE_TYPE V` → View (`define view` + `@AbapCatalog.sqlViewName`, legacy)
 
-→ For DDL source syntax: `abapgit-agent ref --topic cds-abapgit`
+→ For DDL source syntax: `abapgit-agent ref --topic cds`
 
 ---
 
