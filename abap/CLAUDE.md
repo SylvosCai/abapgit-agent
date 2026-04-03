@@ -1,11 +1,11 @@
 ---
 layout: default
-title: ABAP Development Guide
+title: AI Agent Instructions
 nav_order: 1
 parent: ABAP Development
 ---
 
-# ABAP Development Guide
+# AI Agent Instructions
 
 This file provides guidelines for **generating ABAP code** in abapGit repositories.
 
