@@ -4,9 +4,7 @@
   <asx:values>
    <DD02V>
     <TABNAME>ZABGAGT_OBJ_META</TABNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
     <TABCLASS>TRANSP</TABCLASS>
-    <DDTEXT>abapGit Agent - Pull Metadata Tracking</DDTEXT>
     <CONTFLAG>A</CONTFLAG>
     <EXCLASS>1</EXCLASS>
    </DD02V>
@@ -50,7 +48,6 @@
      <DATATYPE>CHAR</DATATYPE>
      <LENG>000040</LENG>
      <MASK>  CHAR</MASK>
-     <DDTEXT>Git SHA-1 at Last Pull</DDTEXT>
     </DD03P>
     <DD03P>
      <FIELDNAME>LAST_BRANCH</FIELDNAME>
@@ -60,7 +57,6 @@
      <DATATYPE>CHAR</DATATYPE>
      <LENG>000255</LENG>
      <MASK>  CHAR</MASK>
-     <DDTEXT>Git Branch at Last Pull</DDTEXT>
     </DD03P>
     <DD03P>
      <FIELDNAME>LAST_PULLED_AT</FIELDNAME>
@@ -87,6 +83,15 @@
      <COMPTYPE>E</COMPTYPE>
     </DD03P>
    </DD03P_TABLE>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD02_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>abapGit Agent - Pull Metadata Tracking</DDTEXT>
+    </item>
+   </DD02_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>

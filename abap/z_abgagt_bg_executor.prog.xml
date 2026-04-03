@@ -9,25 +9,30 @@
     <FIXPT>X</FIXPT>
     <UCCHECK>X</UCCHECK>
    </PROGDIR>
-   <TPOOL>
+   <I18N_TPOOL>
     <item>
-     <ID>R</ID>
-     <ENTRY>Generic Background Job Executor</ENTRY>
-     <LENGTH>31</LENGTH>
+     <LANGUAGE>E</LANGUAGE>
+     <TEXTPOOL>
+      <item>
+       <ID>R</ID>
+       <ENTRY>Generic Background Job Executor</ENTRY>
+       <LENGTH>31</LENGTH>
+      </item>
+      <item>
+       <ID>S</ID>
+       <KEY>P_CMD</KEY>
+       <ENTRY>Command Type</ENTRY>
+       <LENGTH>20</LENGTH>
+      </item>
+      <item>
+       <ID>S</ID>
+       <KEY>P_DATA</KEY>
+       <ENTRY>Command Data (JSON)</ENTRY>
+       <LENGTH>28</LENGTH>
+      </item>
+     </TEXTPOOL>
     </item>
-    <item>
-     <ID>S</ID>
-     <KEY>P_CMD</KEY>
-     <ENTRY>Command Type</ENTRY>
-     <LENGTH>20</LENGTH>
-    </item>
-    <item>
-     <ID>S</ID>
-     <KEY>P_DATA</KEY>
-     <ENTRY>Command Data (JSON)</ENTRY>
-     <LENGTH>28</LENGTH>
-    </item>
-   </TPOOL>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

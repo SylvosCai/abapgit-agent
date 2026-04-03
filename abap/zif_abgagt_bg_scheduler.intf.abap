@@ -19,6 +19,6 @@ INTERFACE zif_abgagt_bg_scheduler PUBLIC.
     RETURNING
       VALUE(rs_result) TYPE ty_job_info
     RAISING
-      cx_root.
+      cx_dynamic_check.
 
 ENDINTERFACE.
