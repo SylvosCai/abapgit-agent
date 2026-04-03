@@ -1,7 +1,7 @@
 ---
 layout: default
 title: abapGit XML Metadata — Function Group (FUGR)
-nav_order: 11
+nav_order: 15
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

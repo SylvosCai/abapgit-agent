@@ -1,7 +1,7 @@
 ---
 layout: default
 title: abapGit XML Metadata
-nav_order: 9
+nav_order: 13
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

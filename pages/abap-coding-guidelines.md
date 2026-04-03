@@ -18,15 +18,16 @@ Detailed ABAP coding guidelines for development in this project.
 |-------|-------------|
 | [SQL Best Practices](../abap/guidelines/sql) | Modern ABAP SQL syntax, joins, aggregations, host variables |
 | [Exception Handling](../abap/guidelines/exceptions) | Class-based exceptions, TRY/CATCH patterns |
-| [Unit Testing](../abap/guidelines/testing) | AUnit test structure, test doubles, assertions |
-| [CDS Views](../abap/guidelines/cds) | CDS view entities, associations, annotations |
 | [Classes & Objects](../abap/guidelines/classes) | OO patterns, instantiation, interfaces |
 | [Naming Conventions](../abap/guidelines/objects) | Z/Y prefix rules, naming by object type |
+| [Documentation Comments](../abap/guidelines/comments) | ABAP DOC shorttext, @parameter/@raising, CDS //, program *&--- |
+| [Unit Testing](../abap/guidelines/testing) | AUnit test structure, test doubles, assertions |
+| [Unit Testable Code](../abap/guidelines/unit-testable-code) | Dependency injection patterns for testable ABAP |
+| [CDS Views](../abap/guidelines/cds) | CDS view entities, associations, annotations |
+| [CDS Testing](../abap/guidelines/cds-testing) | CDS test double framework (`CL_CDS_TEST_ENVIRONMENT`) |
 | [JSON Handling](../abap/guidelines/json) | `/ui2/cl_json` serialization and deserialization |
 | [abapGit XML Metadata](../abap/guidelines/abapgit) | XML templates for classes, interfaces, tables, CDS views |
-| [Unit Testable Code](../abap/guidelines/unit-testable-code) | Dependency injection patterns for testable ABAP |
 | [Common ABAP Errors](../abap/guidelines/common-errors) | Quick fixes for frequent activation and syntax errors |
-| [Documentation Comments](../abap/guidelines/comments) | ABAP DOC shorttext, @parameter/@raising, CDS //, program *&--- |
 
 ## Debugging & Troubleshooting
 
@@ -45,4 +46,3 @@ Detailed ABAP coding guidelines for development in this project.
 | [Development Workflow (Detailed)](../abap/guidelines/workflow-detailed) | Full workflow decision tree, error indicators, command reference |
 | [Object Creation](../abap/guidelines/object-creation) | XML metadata templates and local class setup |
 | [Probe and PoC](../abap/guidelines/probe-poc) | Full decision flow for throwaway probe classes and persistent PoC objects |
-| [CDS Testing](../abap/guidelines/cds-testing) | CDS test double framework (`CL_CDS_TEST_ENVIRONMENT`) |

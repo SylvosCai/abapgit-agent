@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Naming Conventions
-nav_order: 7
+nav_order: 5
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

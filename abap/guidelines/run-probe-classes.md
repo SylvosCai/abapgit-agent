@@ -1,7 +1,7 @@
 ---
 layout: default
 title: run Command Guide
-nav_order: 24
+nav_order: 23
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

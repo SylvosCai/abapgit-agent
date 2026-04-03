@@ -1,7 +1,7 @@
 ---
 layout: default
 title: CDS Testing
-nav_order: 23
+nav_order: 10
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

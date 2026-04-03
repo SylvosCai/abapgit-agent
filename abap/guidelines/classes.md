@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Classes & Objects
-nav_order: 6
+nav_order: 4
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

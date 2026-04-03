@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Documentation Comments
-nav_order: 22
+nav_order: 6
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

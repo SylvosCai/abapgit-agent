@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Object Creation
-nav_order: 19
+nav_order: 22
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---

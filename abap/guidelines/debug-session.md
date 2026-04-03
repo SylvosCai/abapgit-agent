@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Debug Session Guide
-nav_order: 15
+nav_order: 18
 parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
