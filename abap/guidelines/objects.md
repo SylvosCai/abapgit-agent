@@ -15,12 +15,13 @@ grand_parent: ABAP Development
 | | SAP Namespace | Customer Namespace |
 |---|---|---|
 | **Object prefix** | `CL_*`, `IF_*`, `/NAME/CL_*`, `/NAME/IF_*`, etc. | `Z*`, `Y*` |
-| **Package prefix** | SAP-delivered (e.g. `SFIN`, `CA_*`, `/NAME/*`) | `Z*`, `Y*`, `$*` |
+| **Package prefix** | SAP-delivered (e.g. `SFIN`, `CA_*`, `/NAME/*`) | `Z*`, `Y*`, `$*` (local/non-transportable) |
 | **Ownership** | Delivered and maintained by SAP | Owned by the customer |
 | **In git repo** | Objects from an SAP-delivered package | Custom development objects |
 
 > **Rule**: Never add customer-created objects (including PoC/probe classes) into SAP namespace
 > packages. PoC objects always use `Z*`/`Y*` prefix and always go in a `Z*`, `Y*`, or `$*` package
+> (use `$*` only for throwaway probes — non-transportable)
 > — even on a project where production objects use SAP namespace.
 
 ## How to Determine This Project's Naming Convention
@@ -43,7 +44,8 @@ Applied when no `objects.local.md` exists:
 | Class | `ZCL_` | `ZCL_MY_CLASS` |
 | Interface | `ZIF_` | `ZIF_MY_INTERFACE` |
 | Program | `Z` | `ZMY_PROGRAM` |
-| Package | `$` | `$MY_PACKAGE` |
+| Package | `Z` or `Y` | `ZMYPROJECT` |
+> **Note**: `$` packages (e.g. `$TMP`) are local/non-transportable — use only for throwaway probe objects, never for real development.
 | Table | `Z` | `ZMY_TABLE` |
 | CDS View Entity | `ZC_` | `ZC_MY_VIEW` |
 | Data Element | `Z` | `ZMY_ELEMENT` |

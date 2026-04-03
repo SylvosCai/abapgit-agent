@@ -30,7 +30,7 @@ grand_parent: ABAP Development
 | Data Element name (DTEL) | **30** | `ZFICO_PAYMENT_PROPOSAL_STATUS` |
 | Domain name (DOMA) | **30** | `ZFICO_PAYMENT_PROPOSAL_STATUS` |
 | Table Type name (TTYP) | **30** | `ZFICO_PAYMENT_PROPOSAL_T_TYPE` |
-| Package name | **30** | `$FICO_PAYMENT_PROPOSAL_COMMON` |
+| Package name | **30** | `ZFICO_PAYMENT_PROPOSAL_COMMON` |
 | **CDS View Entity name (DDLS)** | **40** | `ZC_FICO_PAYMENT_PROPOSAL_ITEM_DETAILS` |
 | CDS field alias | **30** | `PaymentProposalItemCategory` |
 | Message Class name (MSAG) | **20** | `ZFICO_PAYMENT_MSGS` |
