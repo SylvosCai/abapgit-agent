@@ -1,15 +1,12 @@
-"* Use this source text module for the interface definition
 "! <p class="shorttext synchronized">DDL Handler Interface for ABAP Git Agent</p>
 "! Interface for dependency injection to enable testing with mocks
 INTERFACE zif_abgagt_ddl_handler PUBLIC.
 
-  " Structure for DDLS source
   TYPES: BEGIN OF ty_ddlsrcv,
            ddlname TYPE ddlname,
            source  TYPE string,
          END OF ty_ddlsrcv.
 
-  " Warning type from check
   TYPES: BEGIN OF ty_warn,
            type      TYPE char1,
            line      TYPE i,
@@ -25,7 +22,6 @@ INTERFACE zif_abgagt_ddl_handler PUBLIC.
 
   TYPES ty_warnings TYPE STANDARD TABLE OF ty_warn WITH NON-UNIQUE DEFAULT KEY.
 
-  " Error type from exception
   TYPES: BEGIN OF ty_err,
            type      TYPE char1,
            line      TYPE i,
@@ -41,20 +37,28 @@ INTERFACE zif_abgagt_ddl_handler PUBLIC.
 
   TYPES ty_errors TYPE STANDARD TABLE OF ty_err WITH NON-UNIQUE DEFAULT KEY.
 
-  " Read DDLS source (inactive or active)
+  "! Read DDLS source (inactive or active)
+  "! @parameter iv_name | DDL source name
+  "! @parameter iv_get_state | State to read: 'M' = inactive, 'A' = active
+  "! @parameter es_ddlsrcv | Retrieved DDL source record
+  "! @raising cx_dd_ddl_check | On read failure
   METHODS read
     IMPORTING iv_name      TYPE ddlname
               iv_get_state TYPE char1 DEFAULT 'M'
     EXPORTING es_ddlsrcv   TYPE ty_ddlsrcv
     RAISING   cx_dd_ddl_check.
 
-  " Validate DDLS source
+  "! Validate DDLS source and collect warnings
+  "! @parameter iv_name | DDL source name
+  "! @parameter cs_ddlsrcv | DDL source record (updated during validation)
+  "! @raising cx_dd_ddl_check | On validation failure with errors
   METHODS check
     IMPORTING iv_name         TYPE ddlname
     CHANGING  cs_ddlsrcv      TYPE ty_ddlsrcv
     RAISING   cx_dd_ddl_check.
 
-  " Get warnings from last check
+  "! Get warnings collected during the last check call
+  "! @parameter rt_warnings | List of warnings from last check
   METHODS get_warnings
     RETURNING VALUE(rt_warnings) TYPE ty_warnings.
 

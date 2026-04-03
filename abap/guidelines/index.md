@@ -31,6 +31,7 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `object-creation.md` | Object Creation (XML metadata, local classes) |
 | `cds-testing.md` | CDS Testing (Test Double Framework) |
 | `abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
+| `comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS //) |
 
 ## Usage
 

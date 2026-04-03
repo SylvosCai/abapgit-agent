@@ -1,6 +1,5 @@
+"! <p class="shorttext synchronized">Conflict Detector Interface for ABAP Git Agent</p>
 INTERFACE zif_abgagt_conflict_detector PUBLIC.
-
-  " --- Input types ---
 
   TYPES: BEGIN OF ty_file_entry,
     obj_type      TYPE tadir-object,
@@ -10,8 +9,6 @@ INTERFACE zif_abgagt_conflict_detector PUBLIC.
   END OF ty_file_entry.
 
   TYPES ty_file_entries TYPE STANDARD TABLE OF ty_file_entry WITH NON-UNIQUE DEFAULT KEY.
-
-  " --- Output types ---
 
   TYPES: BEGIN OF ty_conflict,
     obj_type       TYPE tadir-object,
@@ -29,11 +26,11 @@ INTERFACE zif_abgagt_conflict_detector PUBLIC.
 
   TYPES ty_conflicts TYPE STANDARD TABLE OF ty_conflict WITH NON-UNIQUE DEFAULT KEY.
 
-  " --- Methods ---
-
-  " Detect conflicts before a pull.
-  " Reads baseline from ZABGAGT_OBJ_META (doubled in tests via cl_osql_test_environment).
-  " Returns list of conflicting objects; empty = safe to proceed.
+  "! Detect conflicts before a pull
+  "! Reads baseline from ZABGAGT_OBJ_META (doubled in tests via cl_osql_test_environment).
+  "! @parameter it_files | Files to check against stored baseline
+  "! @parameter iv_branch | Target branch name
+  "! @parameter rt_conflicts | Conflicting objects; empty = safe to proceed
   METHODS check_conflicts
     IMPORTING
       it_files  TYPE ty_file_entries
@@ -41,23 +38,28 @@ INTERFACE zif_abgagt_conflict_detector PUBLIC.
     RETURNING
       VALUE(rt_conflicts) TYPE ty_conflicts.
 
-  " Store pull metadata baseline after a successful pull.
-  " Writes to ZABGAGT_OBJ_META (doubled in tests via cl_osql_test_environment).
+  "! Store pull metadata baseline after a successful pull
+  "! Writes to ZABGAGT_OBJ_META (doubled in tests via cl_osql_test_environment).
+  "! @parameter it_files | Files that were pulled
+  "! @parameter iv_branch | Branch that was pulled
   METHODS store_pull_metadata
     IMPORTING
       it_files  TYPE ty_file_entries
       iv_branch TYPE string.
 
-  " Build a human-readable conflict report string.
-  " Returns initial string when it_conflicts is empty.
+  "! Build a human-readable conflict report string
+  "! @parameter it_conflicts | List of detected conflicts
+  "! @parameter rv_report | Formatted report text; initial when list is empty
   METHODS get_conflict_report
     IMPORTING
       it_conflicts TYPE ty_conflicts
     RETURNING
       VALUE(rv_report) TYPE string.
 
-  " Calculate a stable SHA-1 fingerprint for file content.
-  " Public so tests can compute expected SHAs without hard-coding strings.
+  "! Calculate a stable SHA-1 fingerprint for file content
+  "! Public so tests can compute expected SHAs without hard-coding strings.
+  "! @parameter iv_content | File content to hash
+  "! @parameter rv_sha | SHA-1 hex string
   METHODS calculate_sha
     IMPORTING
       iv_content TYPE string

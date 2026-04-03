@@ -1,7 +1,4 @@
-" Interface for abapGit Agent - handles pull operations only.
-" Note: inspect and run_tests are implemented in separate command classes
-" (zcl_abgagt_command_inspect, zcl_abgagt_command_unit) using ABAP standard classes.
-
+"! <p class="shorttext synchronized">Agent Interface for abapGit pull operations</p>
 INTERFACE zif_abgagt_agent PUBLIC.
 
   TYPES: BEGIN OF ty_object,
@@ -41,6 +38,16 @@ INTERFACE zif_abgagt_agent PUBLIC.
     local_xml_files TYPE ty_xml_files,
   END OF ty_result.
 
+  "! Pull objects from remote git repository and activate them
+  "! @parameter iv_url | Git repository URL
+  "! @parameter iv_branch | Branch to pull (default: main)
+  "! @parameter iv_username | Git credentials username (optional)
+  "! @parameter iv_password | Git credentials password or token (optional)
+  "! @parameter iv_transport_request | Transport request number (optional)
+  "! @parameter it_files | Restrict to these file paths (optional; all objects if empty)
+  "! @parameter iv_conflict_mode | Conflict handling: 'abort' or 'ignore'
+  "! @parameter rs_result | Pull result with activation counts and log
+  "! @raising zcx_abapgit_exception | On pull or activation failure
   METHODS pull
     IMPORTING
       iv_url TYPE string
@@ -55,6 +62,9 @@ INTERFACE zif_abgagt_agent PUBLIC.
     RAISING
       zcx_abapgit_exception.
 
+  "! Get the current status of a registered repository
+  "! @parameter iv_url | Git repository URL
+  "! @parameter rv_status | Status string (e.g., 'ACTIVE', 'NOT_FOUND')
   METHODS get_repo_status
     IMPORTING
       iv_url TYPE string

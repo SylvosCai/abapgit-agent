@@ -5,7 +5,7 @@
    <VSEOINTERF>
     <CLSNAME>ZIF_ABGAGT_CONFLICT_DETECTOR</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>Conflict Detector Interface for Pull Command</DESCRIPT>
+    <DESCRIPT>Conflict Detector Interface for ABAP Git Agent</DESCRIPT>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>

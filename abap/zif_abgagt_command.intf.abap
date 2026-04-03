@@ -1,4 +1,3 @@
-"* Use this source text module for the interface definition
 "! <p class="shorttext synchronized">Command Interface for ABAP Git Agent</p>
 INTERFACE zif_abgagt_command PUBLIC.
 
@@ -19,13 +18,14 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_dump TYPE string VALUE 'DUMP',
     gc_transport TYPE string VALUE 'TRANSPORT'.
 
-  " Get command name
+  "! Get the name of this command
+  "! @parameter rv_name | Command name constant (e.g., 'PULL', 'SYNTAX')
   METHODS get_name
     RETURNING VALUE(rv_name) TYPE string.
 
-  " Execute command with optional parameters
-  " @parameter is_param | Generic parameters (structure varies by command)
-  " @parameter rv_result | JSON result string
+  "! Execute the command
+  "! @parameter is_param | Generic request parameters (structure varies by command)
+  "! @parameter rv_result | JSON-encoded result string
   METHODS execute
     IMPORTING is_param TYPE data OPTIONAL
     RETURNING VALUE(rv_result) TYPE string.

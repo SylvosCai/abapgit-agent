@@ -161,6 +161,7 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 
 → For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/DDLS/DCLS/FUGR) or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
 → For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
+→ For documentation comment format (shorttext, @parameter, CDS): `abapgit-agent ref --topic comments`
 
 ---
 
@@ -755,6 +756,7 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |
 | `guidelines/cds-testing.md` | CDS Testing (Test Double Framework) |
 | `guidelines/abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
+| `guidelines/comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
 
 These guidelines are automatically searched by the `ref` command.
 
