@@ -37,8 +37,8 @@ The folder is configured in `.abapGitAgent` (property: `folder`):
 Each ABAP object needs an XML metadata file. Local helper/test-double classes use separate `.locals_def.abap` / `.locals_imp.abap` files.
 
 **Name length limits** (verify before naming anything):
-- Most objects (CLAS, INTF, PROG, TABL name, DTEL, DOMA, TTYP): **30 chars**
-- TABL/STRU **field names**: **16 chars** ← most common mistake
+- CLAS, INTF, PROG, DTEL, DOMA, TTYP: **30 chars**
+- TABL, STRU: name **30 chars** | **field names: 16 chars** ← most common mistake
 - DDLS (CDS view entity): **40 chars** | CDS alias: 30 | MSAG: 20 | FUGR: 26 | Methods: 30
 
 ```bash

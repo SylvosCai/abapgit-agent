@@ -101,13 +101,13 @@ Never assume Z/Y prefix without checking.
 
 **Before choosing a name, verify the length limit for the object type:**
 
-| Object type | Name limit | Sub-element limit |
+| Object type | Name limit | Field/sub-element limit |
 |---|---|---|
-| CLAS, INTF, PROG, DTEL, DOMA, TTYP, TABL name | **30 chars** | — |
-| TABL / STRU **field names** | — | **16 chars** |
-| DDLS (CDS view entity) | **40 chars** | CDS field alias: **30 chars** |
+| CLAS, INTF, PROG, DTEL, DOMA, TTYP | **30 chars** | — |
+| TABL, STRU | **30 chars** | **field names: 16 chars** |
+| DDLS (CDS view entity) | **40 chars** | field alias: **30 chars** |
 | MSAG (message class) | **20 chars** | — |
-| FUGR (function group) | **26 chars** | Function module name: **30 chars** |
+| FUGR (function group) | **26 chars** | function module name: **30 chars** |
 | Method names (incl. test methods) | **30 chars** | — |
 
 → Full length reference: `abapgit-agent ref --topic naming-limits`
