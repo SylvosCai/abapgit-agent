@@ -157,7 +157,7 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 ```
 
 > **Tip for project setup**: Add package rules to `objects.local.md` so Claude never
-> needs to ask. See `guidelines/objects.md` for examples.
+> needs to ask. Run: `abapgit-agent ref --topic objects`
 
 → For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/DDLS/DCLS/FUGR) or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
 → For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
@@ -214,7 +214,7 @@ abapgit-agent pull --files src/<intf_name>.intf.abap,src/<class_name>.clas.abap
 
 ### 5. Local Helper / Test-Double Classes
 
-→ See `guidelines/object-creation.md` — run: `abapgit-agent ref --topic object-creation`
+→ `abapgit-agent ref --topic object-creation`
 
 **XML metadata when adding test classes:**
 
@@ -332,7 +332,7 @@ AI thought process:
 ### 7. CDS Unit Tests
 
 Use `CL_CDS_TEST_ENVIRONMENT` for unit tests that read CDS views.
-→ See `guidelines/cds-testing.md` — run: `abapgit-agent ref --topic cds-testing`
+→ `abapgit-agent ref --topic cds-testing`
 
 ---
 
@@ -436,7 +436,7 @@ Never assume — wait for the user's answer before proceeding.
 | HTTP 500 / runtime crash (ST22) | `dump` | Error already occurred |
 | Wrong output, no crash | `debug` | Need to trace logic |
 
-→ See `guidelines/debug-dump.md` — run: `abapgit-agent ref --topic debug-dump`
+→ `abapgit-agent ref --topic debug-dump`
 
 **Critical rules for `debug` sessions:**
 
@@ -497,7 +497,7 @@ abapgit-agent debug vars --json
 abapgit-agent debug step --type continue --json     # 4. release
 ```
 
-→ See `guidelines/debug-session.md` — run: `abapgit-agent ref --topic debug-session`
+→ `abapgit-agent ref --topic debug-session`
 
 ---
 
@@ -547,7 +547,7 @@ Projects can add their own abaplint notes to `guidelines/abaplint-local.md` in t
 project repository. After running `abapgit-agent ref export`, the `ref` command
 surfaces both bundled and project-specific guidance together.
 
-→ See `guidelines/abaplint.md` — run: `abapgit-agent ref --topic abaplint`
+→ `abapgit-agent ref --topic abaplint`
 
 ---
 
@@ -601,7 +601,7 @@ git push origin feature/my-change --force-with-lease
 abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 ```
 
-→ See `guidelines/branch-workflow.md` — run: `abapgit-agent ref --topic branch-workflow`
+→ `abapgit-agent ref --topic branch-workflow`
 
 ### Trunk Workflow (`"mode": "trunk"`)
 
@@ -717,7 +717,7 @@ Modified ABAP files?
 ```
 
 → For creating new objects (what files to write): `abapgit-agent ref --topic object-creation`
-→ See `guidelines/workflow-detailed.md` — run: `abapgit-agent ref --topic workflow-detailed`
+→ `abapgit-agent ref --topic workflow-detailed`
 
 ---
 
