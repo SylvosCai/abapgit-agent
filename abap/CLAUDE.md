@@ -214,9 +214,15 @@ abapgit-agent pull --files src/<intf_name>.intf.abap,src/<class_name>.clas.abap
 
 ### 5. Local Helper / Test-Double Classes
 
-→ `abapgit-agent ref --topic object-creation`
+When a class needs local helper classes or test doubles, create separate include files alongside the main class file:
 
-**XML metadata when adding test classes:**
+```
+<name>.clas.locals_def.abap   ← local type/class definitions
+<name>.clas.locals_imp.abap   ← local class implementations
+<name>.clas.testclasses.abap  ← unit test classes (FOR TESTING)
+```
+
+**XML metadata when adding these files:**
 
 ```
 Adding .clas.testclasses.abap to an existing class?
@@ -229,6 +235,7 @@ Adding .clas.locals_def.abap (local type definitions)?
         <CLSCCINCL>X</CLSCCINCL>
 ```
 
+→ For exact XML flag placement and test double class patterns: `abapgit-agent ref --topic object-creation`
 → For exact XML flag placement: `abapgit-agent ref --topic abapgit` (search "WITH_UNIT_TESTS")
 
 ---
@@ -331,8 +338,11 @@ AI thought process:
 
 ### 7. CDS Unit Tests
 
-Use `CL_CDS_TEST_ENVIRONMENT` for unit tests that read CDS views.
-→ `abapgit-agent ref --topic cds-testing`
+If a class under test reads a CDS view, use `CL_CDS_TEST_ENVIRONMENT` to provide test data — do **not** mock the database layer manually. Without this, test data setup is unreliable and tests may pass locally but fail on other systems.
+
+**Trigger**: your class calls `SELECT FROM <cds_view>` directly or via a helper.
+
+→ For full setup pattern and test double configuration: `abapgit-agent ref --topic cds-testing`
 
 ---
 
@@ -370,10 +380,7 @@ DATA(lo_cut) = NEW zcl_my_class( io_agent = lo_agent ).
 DATA(ls_actual) = lo_cut->execute( ).
 ```
 
-→ Full API reference (EXPORT params, exceptions, inherited methods, common mistakes):
-  `abapgit-agent ref --topic unit-testable-code`
-
-→ For class design rules (constructor injection, interfaces for dependencies):
+→ For full API reference (EXPORT params, exceptions, inherited methods, common mistakes) and class design rules (constructor injection, interfaces for dependencies):
   `abapgit-agent ref --topic unit-testable-code`
 
 #### Running tests — use `unit` command
@@ -717,7 +724,7 @@ Modified ABAP files?
 ```
 
 → For creating new objects (what files to write): `abapgit-agent ref --topic object-creation`
-→ `abapgit-agent ref --topic workflow-detailed`
+→ For full workflow decision tree and error indicators: `abapgit-agent ref --topic workflow-detailed`
 
 ---
 
@@ -737,26 +744,26 @@ Detailed guidelines are available in the `guidelines/` folder:
 | `guidelines/index.md` | Overview and usage |
 | `guidelines/sql.md` | ABAP SQL Best Practices |
 | `guidelines/exceptions.md` | Exception Handling |
-| `guidelines/testing.md` | Unit Testing (including CDS) |
-| `guidelines/cds.md` | CDS Views |
 | `guidelines/classes.md` | ABAP Classes and Objects |
 | `guidelines/objects.md` | Object Naming Conventions (defaults) |
 | `guidelines/objects.local.md` | **Project** Naming Conventions — overrides `objects.md` (created by `init`, never overwritten) |
+| `guidelines/comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
+| `guidelines/testing.md` | Unit Testing (including CDS) |
+| `guidelines/unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
+| `guidelines/cds.md` | CDS Views |
+| `guidelines/cds-testing.md` | CDS Testing (Test Double Framework) |
 | `guidelines/json.md` | JSON Handling |
+| `guidelines/common-errors.md` | Common ABAP Errors - Quick Fixes |
 | `guidelines/abapgit.md` | abapGit XML Metadata Templates — CLAS, INTF, PROG, DDLS, DCLS, FUGR |
 | `guidelines/abapgit-xml-only.md` | abapGit XML Metadata Templates — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
-| `guidelines/unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
-| `guidelines/common-errors.md` | Common ABAP Errors - Quick Fixes |
+| `guidelines/abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
 | `guidelines/debug-session.md` | Debug Session Guide |
 | `guidelines/debug-dump.md` | Dump Analysis Guide |
-| `guidelines/run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
-| `guidelines/probe-poc.md` | Probe and PoC — Full Decision Flow |
 | `guidelines/branch-workflow.md` | Branch Workflow |
 | `guidelines/workflow-detailed.md` | Development Workflow (Detailed) |
 | `guidelines/object-creation.md` | Object Creation (XML metadata, local classes) |
-| `guidelines/cds-testing.md` | CDS Testing (Test Double Framework) |
-| `guidelines/abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
-| `guidelines/comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS `//`, program `*&---`) |
+| `guidelines/run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
+| `guidelines/probe-poc.md` | Probe and PoC — Full Decision Flow |
 
 These guidelines are automatically searched by the `ref` command.
 
