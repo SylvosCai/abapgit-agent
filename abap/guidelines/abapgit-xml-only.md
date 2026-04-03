@@ -237,15 +237,14 @@ Use when the data element's type and length come from an existing domain (`DOMNA
 
 ### Structure (STRU)
 
-**Filename**: `src/zmy_struct.stru.xml`
+**Filename**: `src/zmy_struct.tabl.xml`
 
-> abapGit uses the same TABL serializer for STRU.
-> Pull with: `pull --files src/zmy_struct.stru.xml`
-
-> **⚠️ abapGit version requirement**: Older versions of abapGit do not include `STRU` in the DDIC
-> activation type list (`ZCL_ABAPGIT_OBJECTS_ACTIVATION=>is_ddic_type`). If activation fails with
-> "Step DDIC is only for DDIC objects", the installed abapGit is too old to handle STRU objects —
-> upgrade abapGit to a version that adds STRU support.
+> ⚠️ **Use `.tabl.xml` extension, NOT `.stru.xml`** — abapGit serializes structures with the TABL
+> serializer and registers them as object type `TABL`. A `.stru.xml` filename causes
+> "Step DDIC is only for DDIC objects" because abapGit treats it as object type `STRU`,
+> which is not in its DDIC activation list.
+>
+> Pull with: `pull --files src/zmy_struct.tabl.xml`
 
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
@@ -257,16 +256,37 @@ Use when the data element's type and length come from an existing domain (`DOMNA
     <DDLANGUAGE>E</DDLANGUAGE>
     <TABCLASS>INTTAB</TABCLASS>
     <DDTEXT>Description of the structure</DDTEXT>
-    <CONTFLAG>A</CONTFLAG>
+    <EXCLASS>1</EXCLASS>
    </DD02V>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>FIELD1</FIELDNAME>
+     <ROLLNAME>S_CARR_ID</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <SHLPORIGIN>D</SHLPORIGIN>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>FIELD2</FIELDNAME>
+     <ROLLNAME>S_CARRNAME</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+   </DD03P_TABLE>
   </asx:values>
  </asx:abap>
 </abapGit>
 ```
 
-**Key difference from TABL**: `TABCLASS` is `INTTAB` (internal table / structure) instead of `TRANSP`.
+**Key differences from TABL**:
+- `TABCLASS` is `INTTAB` instead of `TRANSP`
+- No `<CONTFLAG>` — omit it (not written by serializer for structures)
+- `<EXCLASS>1</EXCLASS>` — include it
+- Include `<DD03P_TABLE>` with field definitions from the start (unlike TABL where it is optional on creation)
 
-**Note**: Like TABL, after the first pull abapGit expands the XML with `<DD03P_TABLE>` field definitions.
+**`DD03P` field rules** (same as TABL):
+- Fields with `ROLLNAME` (data element): include `ROLLNAME`, `ADMINFIELD>0`, `SHLPORIGIN` (when domain provides value help — `D` for domain fixed values), `COMPTYPE>E`
+- Fields with raw type (no data element): include `ADMINFIELD>0`, `INTTYPE`, `INTLEN`, `DATATYPE`, `MASK` (before any text fields)
 
 ---
 

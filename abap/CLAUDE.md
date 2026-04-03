@@ -124,7 +124,7 @@ Use the object name from `objects.local.md` (or `objects.md` as fallback) in pla
 | CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` |
 | Table (TABL) | *(none)* | `<name>.tabl.xml` |
-| Structure (STRU) | *(none)* | `<name>.stru.xml` |
+| Structure (STRU) | *(none)* | `<name>.tabl.xml` ⚠️ NOT `.stru.xml` |
 | Data Element (DTEL) | *(none)* | `<name>.dtel.xml` |
 | Table Type (TTYP) | *(none)* | `<name>.ttyp.xml` |
 | Domain (DOMA) | *(none)* | `<name>.doma.xml` |

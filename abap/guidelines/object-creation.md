@@ -24,7 +24,7 @@ Replace `<name>` with the actual object name from this project's naming conventi
 | CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` | `ref --topic abapgit` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` | `ref --topic abapgit` |
 | Table (TABL) | *(none — XML-only)* | `<name>.tabl.xml` | `ref --topic abapgit-xml-only` |
-| Structure (STRU) | *(none — XML-only)* | `<name>.stru.xml` | `ref --topic abapgit-xml-only` |
+| Structure (STRU) | *(none — XML-only)* | `<name>.tabl.xml` ⚠️ NOT `.stru.xml` | `ref --topic abapgit-xml-only` |
 | Data Element (DTEL) | *(none — XML-only)* | `<name>.dtel.xml` | `ref --topic abapgit-xml-only` |
 | Table Type (TTYP) | *(none — XML-only)* | `<name>.ttyp.xml` | `ref --topic abapgit-xml-only` |
 | Domain (DOMA) | *(none — XML-only)* | `<name>.doma.xml` | `ref --topic abapgit-xml-only` |
