@@ -32,6 +32,7 @@ grand_parent: ABAP Development
 | Table Type name (TTYP) | **30** |
 | Package name | **30** |
 | **CDS View Entity name (DDLS)** | **40** |
+| CDS Access Control name (DCLS) | **40** |
 | CDS field alias | **30** |
 | Message Class name (MSAG) | **20** |
 | Class method name | **30** |

@@ -106,6 +106,7 @@ Never assume Z/Y prefix without checking.
 | CLAS, INTF | **30 chars** | method names: **30 chars** |
 | TABL, STRU | **30 chars** | **field names: 16 chars** |
 | DDLS (CDS view entity) | **40 chars** | field alias: **30 chars** |
+| DCLS (CDS access control) | **40 chars** | — (name must match its DDLS view) |
 | FUGR (function group) | **26 chars** | function module name: **30 chars** |
 | MSAG (message class) | **20 chars** | — |
 | PROG, DTEL, DOMA, TTYP | **30 chars** | — |
@@ -156,7 +157,7 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 
         Object:   <NAME> (<Type>)
         Package:  <PACKAGE>
-        Files:    <folder>/<name>.<ext>.abap
+        Files:    <folder>/<name>.<ext>.abap    ← omit this line for XML-only types (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
                   <folder>/<name>.<ext>.xml
 
       Shall I proceed?"
