@@ -22,9 +22,12 @@ A FUGR with group name `ZMY_FUGR` and one FM `ZMY_MY_FUNCTION` requires these fi
 | `zmy_fugr.fugr.xml` | Main XML: group description, includes list, FM interfaces |
 | `zmy_fugr.fugr.lzmy_fugrtop.abap` | TOP include source |
 | `zmy_fugr.fugr.lzmy_fugrtop.xml` | TOP include metadata (`SUBC=I`) |
-| `zmy_fugr.fugr.saplzmy_fugr.abap` | Main include source |
+| `zmy_fugr.fugr.saplzmy_fugr.abap` | Main include source (lists all U-includes) |
 | `zmy_fugr.fugr.saplzmy_fugr.xml` | Main include metadata (`SUBC=F`) |
+| `zmy_fugr.fugr.lzmy_fugru01.abap` | FM implementation include (one per FM: U01, U02, …) |
 | `zmy_fugr.fugr.zmy_my_function.abap` | FM source (one file per FM, named after FM in lowercase) |
+
+> **7 files total for one FM** (6 without the U01 include causes a pull error — the SAPL source references `LZMY_FUGRU01` which abapGit can't find). For a second FM, add `lzmy_fugru02.abap` and `zmy_second_function.abap`.
 
 ---
 
@@ -145,12 +148,25 @@ FUNCTION zmy_my_function.
 ENDFUNCTION.
 ```
 
+### `zmy_fugr.fugr.lzmy_fugru01.abap`
+
+The FM implementation include — **always required**. The SAPL source references `INCLUDE LZMY_FUGRU01.` so this file must exist or the pull fails.
+
+```abap
+*----------------------------------------------------------------------*
+***INCLUDE LZMY_FUGRU01.
+*----------------------------------------------------------------------*
+```
+
+For a second FM, create `zmy_fugr.fugr.lzmy_fugru02.abap` with the same pattern (replacing `U01` with `U02`).
+
 ---
 
 ## Key Rules
 
-- **Include naming**: TOP = `L<GROUP>TOP`, main = `SAPL<GROUP>` — uppercase in XML and filenames
+- **Include naming**: TOP = `L<GROUP>TOP`, main = `SAPL<GROUP>`, FM implementation = `L<GROUP>U01` (U02, U03, …) — uppercase in XML and filenames
 - **FM source file**: named after the FM in **lowercase** (`zmy_my_function.abap`, not `ZMY_MY_FUNCTION.abap`)
+- **U-include file required**: `lzmy_fugru01.abap` must exist — the SAPL source references it; missing it causes a pull error
 - **`INCLUDES` list** in the main XML: only lists TOP and SAPL includes — FM source includes are implicit
 - **`REMOTE_CALL>R`**: add only for RFC-enabled FMs; omit for local FMs
 - **Optional parameters**: include both `<OPTIONAL>X</OPTIONAL>` and `<DEFAULT>...</DEFAULT>`

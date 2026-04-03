@@ -170,6 +170,12 @@ A **text table** stores translatable texts for another table (the "main table").
 
 > Pull with: `pull --files src/zmy_dtel.dtel.xml`
 
+**Two variants — choose based on whether the DTEL defines its own type or references a domain:**
+
+#### Variant 1: Built-in type (no domain)
+
+Use when the data element directly defines `DATATYPE` and `LENG` without referencing a domain.
+
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
@@ -192,13 +198,38 @@ A **text table** stores translatable texts for another table (the "main table").
 </abapGit>
 ```
 
+#### Variant 2: Domain reference
+
+Use when the data element's type and length come from an existing domain (`DOMNAME`). Do **not** include `DATATYPE` or `LENG` — the domain owns those.
+
+```xml
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DTEL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD04V>
+    <ROLLNAME>ZMY_DTEL</ROLLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Description of data element</DDTEXT>
+    <REPTEXT>Description</REPTEXT>
+    <SCRTEXT_S>Short text</SCRTEXT_S>
+    <SCRTEXT_M>Medium text</SCRTEXT_M>
+    <SCRTEXT_L>Long description text</SCRTEXT_L>
+    <DTELMASTER>E</DTELMASTER>
+    <DOMNAME>ZMY_DOMAIN</DOMNAME>
+   </DD04V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
 **Key Fields**:
 - `ROLLNAME`: Data element name
 - `DDTEXT`: Description (**not** `DESCRIPT`)
 - `REPTEXT` / `SCRTEXT_S` / `SCRTEXT_M` / `SCRTEXT_L`: Field labels (report heading, short, medium, long)
 - `DTELMASTER`: Language key for label master (`E` for English)
-- `DATATYPE`: Data type (`CHAR`, `NUMC`, `DATS`, `TIMS`, `INT4`, etc.)
-- `LENG`: Length padded to 6 digits (e.g. `000010` for 10 characters)
+- `DATATYPE` + `LENG`: Use for built-in type variant only (e.g. `CHAR` + `000010`)
+- `DOMNAME`: Use for domain-reference variant only — omit `DATATYPE` and `LENG` entirely
 
 **Omit `<PARAMID>`** unless you specifically need a SET/GET parameter ID — the serializer omits it when empty.
 
