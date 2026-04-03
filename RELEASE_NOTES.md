@@ -2,6 +2,20 @@
 title: Release Notes
 ---
 
+## v1.15.3
+
+### Documentation
+
+- Added naming length limits guide (30/16/40 chars by object type)
+- Fixed FUGR: DOCUMENTATION and U-include file are required
+- Fixed STRU: must use `.tabl.xml` extension, not `.stru.xml`
+- Fixed DCLS: pass `.xml` file to `pull --files`, not `.asdcls`
+
+---
+
+---
+
+
 ## v1.15.2
 
 ### Bug Fixes
