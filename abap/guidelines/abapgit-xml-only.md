@@ -242,6 +242,11 @@ Use when the data element's type and length come from an existing domain (`DOMNA
 > abapGit uses the same TABL serializer for STRU.
 > Pull with: `pull --files src/zmy_struct.stru.xml`
 
+> **⚠️ abapGit version requirement**: Older versions of abapGit do not include `STRU` in the DDIC
+> activation type list (`ZCL_ABAPGIT_OBJECTS_ACTIVATION=>is_ddic_type`). If activation fails with
+> "Step DDIC is only for DDIC objects", the installed abapGit is too old to handle STRU objects —
+> upgrade abapGit to a version that adds STRU support.
+
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
