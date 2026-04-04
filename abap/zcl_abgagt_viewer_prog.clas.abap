@@ -20,6 +20,17 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
     rs_info-type_text = 'Program'.
     rs_info-description = |Program { iv_name }|.
 
+    " Check TADIR first — READ REPORT can succeed even after deletion (REPOSRC not immediately cleared)
+    SELECT SINGLE pgmid FROM tadir
+      INTO @DATA(lv_dummy)
+      WHERE pgmid = 'R3TR'
+        AND object = 'PROG'
+        AND obj_name = @iv_name.
+    IF sy-subrc <> 0.
+      rs_info-not_found = abap_true.
+      RETURN.
+    ENDIF.
+
     " Try to read the program/source include directly
     READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.
