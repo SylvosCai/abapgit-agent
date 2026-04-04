@@ -531,8 +531,8 @@ async function getTopic(topic) {
           return {
             topic,
             file: guidelineFile,
-            content: content.slice(0, 15000),
-            truncated: content.length > 15000,
+            content: content.slice(0, 20000),
+            truncated: content.length > 20000,
             totalLength: content.length,
             source: 'guidelines'
           };
@@ -616,8 +616,8 @@ async function getTopic(topic) {
         return {
           topic,
           file: exactMatch,
-          content: content.slice(0, 15000),
-          truncated: content.length > 15000,
+          content: content.slice(0, 20000),
+          truncated: content.length > 20000,
           totalLength: content.length,
           source: 'built-in guidelines'
         };
@@ -630,8 +630,8 @@ async function getTopic(topic) {
         return {
           topic,
           file: partialMatches[0],
-          content: content.slice(0, 15000),
-          truncated: content.length > 15000,
+          content: content.slice(0, 20000),
+          truncated: content.length > 20000,
           totalLength: content.length,
           source: 'built-in guidelines'
         };
@@ -814,11 +814,10 @@ function displayTopic(result) {
   console.log('  ' + '─'.repeat(60));
   console.log('');
 
-  // Display up to 300 lines (covers full guideline files without truncation)
-  const lines = result.content.split('\n').slice(0, 300);
+  // Display full content (char limit already applied when reading)
+  const lines = result.content.split('\n');
   lines.forEach(line => {
-    const trimmed = line.slice(0, 100);
-    console.log(`  ${trimmed}`);
+    console.log(`  ${line}`);
   });
 
   if (result.truncated) {
