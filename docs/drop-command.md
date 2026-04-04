@@ -14,6 +14,7 @@ Physically delete a single ABAP object from the ABAP system and optionally re-ac
 ```bash
 abapgit-agent drop --files <file>
 abapgit-agent drop --files <file> --pull
+abapgit-agent drop --files <file> --pull --conflict-mode ignore
 abapgit-agent drop --files <file> --transport <TRANSPORT>
 ```
 
@@ -32,6 +33,7 @@ Use `drop` when an ABAP object is in a broken or inconsistent state that prevent
 | `--files <file>` | ✅ Yes | Path to the ABAP source file or XML metadata file. The object type and name are derived from the filename. The file must exist on disk. |
 | `--transport <TRANSPORT>` | No | Transport request (e.g. `DEVK900001`). Required if the system enforces transports. |
 | `--pull` | No | Re-activate the object via `pull` immediately after deletion. |
+| `--conflict-mode <mode>` | No | Conflict mode for the re-pull: `abort` (default) or `ignore`. Only applies when `--pull` is used. Follows the same resolution order as the `pull` command: CLI flag → `conflictDetection.mode` in `.abapgit-agent.json` → `abort`. |
 
 ## Accepted File Formats
 
@@ -40,8 +42,14 @@ Use `drop` when an ABAP object is in a broken or inconsistent state that prevent
 | `abap/zcl_foo.clas.abap` | CLAS ZCL_FOO | ✅ |
 | `abap/zif_bar.intf.abap` | INTF ZIF_BAR | ✅ |
 | `abap/zmy_prog.prog.abap` | PROG ZMY_PROG | ✅ |
+| `abap/zmy_fugr.fugr.xml` | FUGR ZMY_FUGR | ✅ |
 | `abap/zmy_table.tabl.xml` | TABL ZMY_TABLE | ✅ |
+| `abap/zmy_stru.tabl.xml` | STRU ZMY_STRU | ✅ |
 | `abap/zmy_type.ttyp.xml` | TTYP ZMY_TYPE | ✅ |
+| `abap/zmy_doma.doma.xml` | DOMA ZMY_DOMA | ✅ |
+| `abap/zmy_msag.msag.xml` | MSAG ZMY_MSAG | ✅ |
+| `abap/zc_view.ddls.xml` | DDLS ZC_VIEW | ✅ |
+| `abap/zc_view.dcls.xml` | DCLS ZC_VIEW | ✅ |
 | `abap/zmy_elem.dtel.xml` | DTEL ZMY_ELEM | ❌ Not supported |
 
 The file must exist locally — this ensures the object can be re-pulled after deletion.
