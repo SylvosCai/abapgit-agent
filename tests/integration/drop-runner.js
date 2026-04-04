@@ -290,6 +290,10 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     printInfo(colorize('cyan', `  Testing: ${obj.name}`));
 
     // Step 1: view → confirm object exists in ABAP system
+    // Ensure clean state for objects that might have been cascade-deleted by a previous test
+    if (obj.type === 'INTF' || obj.type === 'CLAS') {
+      runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
+    }
     const existsBefore = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists before drop`, existsBefore);
 
