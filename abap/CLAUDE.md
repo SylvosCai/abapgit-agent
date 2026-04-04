@@ -494,7 +494,16 @@ Never assume — wait for the user's answer before proceeding.
 
 **Critical rules for `debug` sessions:**
 
-1. **Always use `--json`** for all debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable
+```
+❌ WRONG: abapgit-agent debug attach
+❌ WRONG: abapgit-agent debug vars
+❌ WRONG: abapgit-agent debug step --type continue
+✅ CORRECT: abapgit-agent debug attach --json > /tmp/a.json 2>&1 &
+✅ CORRECT: abapgit-agent debug vars --json
+✅ CORRECT: abapgit-agent debug step --type continue --json
+```
+
+1. **Always use `--json`** for ALL debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable. This is non-negotiable.
 2. **Attach BEFORE trigger** — start `debug attach --json` in background first, wait for `"Listener active"`, THEN fire the trigger (`unit`/`pull`/`run`)
 3. **Never pull to trigger** if a simpler trigger works — use `unit` when a test exists, `run` for a class runner; use `pull` only when the bug is specifically in the pull flow
 4. **Never pass `--session`** to `step/vars/stack` — it bypasses the daemon and causes errors
