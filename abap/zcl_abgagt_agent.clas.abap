@@ -14,7 +14,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING
         io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
         io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL
-        io_rtti              TYPE REF TO zif_abgagt_rtti_provider      OPTIONAL.
+        io_rtti              TYPE REF TO zif_abgagt_rtti_provider      OPTIONAL
+        io_util              TYPE REF TO zif_abgagt_util               OPTIONAL.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
 
@@ -31,6 +32,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA: mo_conflict_detector TYPE REF TO zif_abgagt_conflict_detector.
     DATA: mo_obj_filter        TYPE REF TO zif_abapgit_object_filter.
     DATA: mo_rtti              TYPE REF TO zif_abgagt_rtti_provider.
+    DATA: mo_util              TYPE REF TO zif_abgagt_util.
     " Remote files fetched pre-pull in build_file_entries_from_remote.
     " Reused in get_local_xml_files — get_files_remote() after the pull may
     " re-fetch from GitHub (invalidated cache) causing a slow second round-trip.
@@ -137,6 +139,17 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_xml_files) TYPE zif_abgagt_agent=>ty_xml_files.
 
+    METHODS abapgit_delete
+      IMPORTING
+        it_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt
+      RAISING
+        zcx_abapgit_exception.
+
+    METHODS tadir_delete_single
+      IMPORTING
+        iv_object   TYPE tadir-object
+        iv_obj_name TYPE tadir-obj_name.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_agent IMPLEMENTATION.
@@ -152,6 +165,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDIF.
     mo_rtti = COND #( WHEN io_rtti IS BOUND THEN io_rtti
                       ELSE NEW lcl_rtti_provider( ) ).
+    mo_util = COND #( WHEN io_util IS BOUND THEN io_util
+                      ELSE zcl_abgagt_util=>get_instance( ) ).
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~pull.
@@ -206,12 +221,15 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           it_files             = it_files
           iv_transport_request = iv_transport_request ).
 
-        DATA lv_activation_cancelled TYPE abap_bool VALUE abap_false.
+        DATA(lv_activation_cancelled) = abap_false.
         TRY.
             run_deserialize( ls_checks ).
           CATCH zcx_abapgit_exception INTO DATA(lx_deser).
-            " "Activation cancelled" means nothing needed to be re-activated.
-            " Treat it as a non-error so XML sync can still check for file drift.
+            " "Activation cancelled" is raised when DD_MASS_ACT_C3 returns rc > 4.
+            " This can happen for two reasons:
+            "   1. All objects were already active (skip-unchanged) → nothing to activate → OK
+            "   2. CBDA in-memory activation failed (e.g. after drop+re-pull creates
+            "      DD04L='L' + DD04T='N' mismatch) → workaround: normalize text rows and retry
             IF lx_deser->get_text( ) CS 'Activation cancelled' OR
                lx_deser->get_text( ) CS 'activation cancelled'.
               lv_activation_cancelled = abap_true.
@@ -397,16 +415,14 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       DATA: ls_msg TYPE zif_abapgit_log=>ty_log_out.
       lt_messages = lo_log->get_messages( ).
 
-      DATA lv_first TYPE abap_bool VALUE abap_false.
+      DATA(lv_first) = abap_false.
 
       LOOP AT lt_messages INTO ls_msg.
         IF ls_msg-type = 'E' OR ls_msg-type = 'A' OR ls_msg-type = 'W'.
-          DATA: lv_msg TYPE string.
-          IF ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
-            lv_msg = |{ ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|.
-          ELSE.
-            lv_msg = ls_msg-text.
-          ENDIF.
+          DATA(lv_msg) = COND string(
+            WHEN ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL
+            THEN |{ ls_msg-obj_type } { ls_msg-obj_name }: { ls_msg-text }|
+            ELSE ls_msg-text ).
           " Add exception text if available
           IF ls_msg-exception IS BOUND.
             lv_msg = |{ lv_msg }\nException: { ls_msg-exception->get_text( ) }|.
@@ -431,7 +447,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
   METHOD get_object_lists.
     " Extract activated and failed objects from the log with full details
     DATA: lo_log TYPE REF TO zif_abapgit_log.
-    DATA: lv_key TYPE string.
 
     CLEAR: rs_result-log_messages, rs_result-activated_objects, rs_result-failed_objects.
 
@@ -453,8 +468,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Exception is a REF, need to convert to string
         " Also append exception text to the message for better error reporting
         IF ls_msg-exception IS BOUND.
-          DATA: lv_exc_text TYPE string.
-          lv_exc_text = ls_msg-exception->get_text( ).
+          DATA(lv_exc_text) = ls_msg-exception->get_text( ).
           ls_object-exception = lv_exc_text.
           " Append exception text to the main text if it's not already there
           IF lv_exc_text IS NOT INITIAL AND ls_msg-text NA lv_exc_text.
@@ -468,7 +482,6 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         " Success messages (type 'S') - add to activated objects if unique
         IF ls_msg-type = 'S' AND ls_msg-obj_type IS NOT INITIAL AND ls_msg-obj_name IS NOT INITIAL.
           " Check for duplicates
-          lv_key = |{ ls_msg-obj_type }{ ls_msg-obj_name }|.
           READ TABLE rs_result-activated_objects WITH KEY obj_type = ls_msg-obj_type
                                                         obj_name = ls_msg-obj_name
                                                   TRANSPORTING NO FIELDS.
@@ -492,8 +505,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     DATA: lx_prev TYPE REF TO cx_root.
     lx_prev = ix_exception->previous.
     WHILE lx_prev IS BOUND.
-      DATA: lv_msg TYPE string.
-      lv_msg = lx_prev->get_text( ).
+      DATA(lv_msg) = lx_prev->get_text( ).
       IF lv_msg IS NOT INITIAL.
         rs_result-error_detail = rs_result-error_detail && '\n  -> ' && lv_msg.
       ENDIF.
@@ -577,16 +589,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
         " Extract directory path for gitv2 tree pruning
         " e.g. 'src/git/foo.clas.abap' -> '/src/git/'
-        DATA lv_slash_pos TYPE i.
-        DATA lv_path      TYPE string.
-        DATA lv_len       TYPE i.
-        lv_slash_pos = find( val = lv_file sub = '/' occ = -1 ).
-        IF lv_slash_pos > 0.
-          lv_len  = lv_slash_pos + 1.
-          lv_path = '/' && lv_file(lv_len).
-        ELSE.
-          lv_path = '/'.
-        ENDIF.
+        DATA(lv_slash_pos) = find( val = lv_file sub = '/' occ = -1 ).
+        DATA(lv_path)      = COND string(
+          WHEN lv_slash_pos > 0
+          THEN '/' && substring( val = lv_file len = lv_slash_pos + 1 )
+          ELSE '/' ).
         READ TABLE lt_paths WITH KEY table_line = lv_path TRANSPORTING NO FIELDS.
         IF sy-subrc <> 0.
           APPEND lv_path TO lt_paths.
@@ -642,14 +649,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA lv_git_ref TYPE string.
-    IF iv_branch CS 'refs/'.
-      lv_git_ref = iv_branch.
-    ELSEIF iv_branch(1) = 'v' AND iv_branch CN ' '.
-      lv_git_ref = |refs/tags/{ iv_branch }|.
-    ELSE.
-      lv_git_ref = |refs/heads/{ iv_branch }|.
-    ENDIF.
+    DATA(lv_git_ref) = COND string(
+      WHEN iv_branch CS 'refs/'            THEN iv_branch
+      WHEN iv_branch(1) = 'v' AND iv_branch CN ' ' THEN |refs/tags/{ iv_branch }|
+      ELSE |refs/heads/{ iv_branch }| ).
 
     TRY.
         DATA li_repo_online TYPE REF TO zif_abapgit_repo_online.
@@ -754,15 +757,12 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     DATA lt_filter TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
       LOOP AT it_files INTO DATA(lv_req_file).
-        DATA lv_fn TYPE string.
         " Extract just the filename (strip path)
         DATA(lv_pos) = find( val = reverse( lv_req_file ) sub = '/' ).
-        IF lv_pos > 0.
-          DATA(lv_offs) = strlen( lv_req_file ) - lv_pos.
-          lv_fn = lv_req_file+lv_offs.
-        ELSE.
-          lv_fn = lv_req_file.
-        ENDIF.
+        DATA(lv_fn)  = COND string(
+          WHEN lv_pos > 0
+          THEN substring( val = lv_req_file off = strlen( lv_req_file ) - lv_pos )
+          ELSE lv_req_file ).
         TRANSLATE lv_fn TO UPPER CASE.
         INSERT lv_fn INTO TABLE lt_filter.
       ENDLOOP.
@@ -779,8 +779,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       IF lv_last_dot <= 0.
         CONTINUE.
       ENDIF.
-      DATA lv_suffix_off TYPE i.
-      lv_suffix_off = lv_ext_len - lv_last_dot - 1.
+      DATA(lv_suffix_off) = lv_ext_len - lv_last_dot - 1.
       DATA(lv_true_ext) = lv_ext+lv_suffix_off.
       IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS'.
         CONTINUE.
@@ -813,9 +812,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
 
       " Convert xstring content to string (UTF-8)
-      DATA lv_content TYPE string.
       TRY.
-          lv_content = cl_abap_codepage=>convert_from(
+          DATA(lv_content) = cl_abap_codepage=>convert_from(
             source   = ls_remote_file-data
             codepage = 'UTF-8' ).
         CATCH cx_root.
@@ -834,7 +832,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     " collected and store_pull_metadata depends on it being returned.
     " On failure we simply skip populating local_content (no LOCAL_EDIT detection).
     DATA lt_local TYPE zif_abapgit_definitions=>ty_files_item_tt.
-    DATA lv_local_read_ok TYPE abap_bool VALUE abap_true.
+    DATA(lv_local_read_ok) = abap_true.
     TRY.
         IF paths_param_available( ) = abap_true AND mo_obj_filter IS BOUND.
           lt_local = mo_repo->get_files_local_filtered( ii_obj_filter = mo_obj_filter ).
@@ -861,8 +859,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       IF lv_local_dot <= 0.
         CONTINUE.
       ENDIF.
-      DATA lv_local_off TYPE i.
-      lv_local_off = lv_local_len - lv_local_dot - 1.
+      DATA(lv_local_off) = lv_local_len - lv_local_dot - 1.
       DATA(lv_local_ext) = lv_local_fn+lv_local_off.
       IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS'.
         CONTINUE.
@@ -871,9 +868,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      DATA lv_local_content TYPE string.
       TRY.
-          lv_local_content = cl_abap_codepage=>convert_from(
+          DATA(lv_local_content) = cl_abap_codepage=>convert_from(
             source   = ls_local_item-file-data
             codepage = 'UTF-8' ).
         CATCH cx_root.
@@ -954,6 +950,90 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ls_xml-data     = cl_http_utility=>encode_x_base64( unencoded = ls_item-file-data ).
       APPEND ls_xml TO rt_xml_files.
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD zif_abgagt_agent~drop.
+    DATA: lv_obj_type TYPE string,
+          lv_obj_name TYPE string.
+
+    " Validate file parameter
+    IF iv_file IS INITIAL.
+      rs_result-error = 'file is required'.
+      RETURN.
+    ENDIF.
+
+    " Parse file path to object type and name
+    mo_util->parse_file_to_object(
+      EXPORTING iv_file     = iv_file
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    IF lv_obj_type IS INITIAL OR lv_obj_name IS INITIAL.
+      rs_result-error = |Cannot derive object type/name from file: { iv_file }|.
+      RETURN.
+    ENDIF.
+
+    " DTEL cannot be re-activated after deletion (SAP CBDA limitation)
+    IF lv_obj_type = 'DTEL'.
+      rs_result-error = 'drop does not support DTEL objects. Edit the XML and use pull instead.'.
+      RETURN.
+    ENDIF.
+
+    " Look up package in TADIR
+    DATA lv_package TYPE devclass.
+    SELECT SINGLE devclass FROM tadir
+      WHERE pgmid    = 'R3TR'
+        AND object   = @lv_obj_type
+        AND obj_name = @lv_obj_name
+      INTO @lv_package.
+
+    IF sy-subrc <> 0.
+      rs_result-error = |Object { lv_obj_name } ({ lv_obj_type }) not found in TADIR|.
+      RETURN.
+    ENDIF.
+
+    " Build TADIR entry for abapGit delete
+    DATA(ls_tadir) = VALUE zif_abapgit_definitions=>ty_tadir(
+      pgmid    = 'R3TR'
+      object   = lv_obj_type
+      obj_name = lv_obj_name
+      devclass = lv_package
+      korrnum  = iv_transport_request ).
+
+    " Delete via abapGit
+    TRY.
+        abapgit_delete( VALUE #( ( ls_tadir ) ) ).
+      CATCH zcx_abapgit_exception INTO DATA(lx_error).
+        rs_result-error = lx_error->get_text( ).
+        RETURN.
+    ENDTRY.
+
+    " Explicitly remove TADIR entry — DDIC object handlers (TABL, TTYP, etc.)
+    " call RS_DD_DELETE_OBJ which removes DDIC metadata but not the TADIR row.
+    tadir_delete_single(
+      iv_object   = CONV #( lv_obj_type )
+      iv_obj_name = CONV #( lv_obj_name ) ).
+
+    COMMIT WORK AND WAIT.
+
+    rs_result-success  = abap_true.
+    rs_result-obj_type = lv_obj_type.
+    rs_result-obj_name = lv_obj_name.
+    rs_result-message  = 'Object deleted successfully'.
+  ENDMETHOD.
+
+  METHOD abapgit_delete.
+    zcl_abapgit_objects=>delete( it_tadir = it_tadir ).
+  ENDMETHOD.
+
+  METHOD tadir_delete_single.
+    TRY.
+        zcl_abapgit_factory=>get_tadir( )->delete_single(
+          iv_object   = iv_object
+          iv_obj_name = iv_obj_name ).
+      CATCH cx_root.
+        " Ignore — object may already be gone from TADIR
+    ENDTRY.
   ENDMETHOD.
 
 ENDCLASS.

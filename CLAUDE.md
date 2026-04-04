@@ -63,7 +63,7 @@ This ensures you use correct ABAP syntax rather than guessing.
 **High-level workflow:**
 ```
 1. Edit ABAP file(s)
-2. syntax (for CLAS/INTF/PROG only - if files are independent)
+2. syntax (for CLAS/INTF/PROG/DDLS/FUGR only - if files are independent)
 3. git add && git commit && git push
 4. pull --files <files>
 5. Verify output (if errors: use inspect)
@@ -72,7 +72,7 @@ This ensures you use correct ABAP syntax rather than guessing.
 
 **Quick examples:**
 ```bash
-# Check syntax before commit (CLAS/INTF/PROG only)
+# Check syntax before commit (CLAS/INTF/PROG/DDLS/FUGR only)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 
 # Pull and activate after push
@@ -221,7 +221,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 
 | Scenario | Command | Documentation |
 |----------|---------|---------------|
-| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG only) | `syntax` | [docs/syntax-command.md](docs/syntax-command.md) |
+| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG/DDLS/FUGR only) | `syntax` | [docs/syntax-command.md](docs/syntax-command.md) |
 | Run abaplint static analysis on changed files (offline) | `lint` | [docs/lint-command.md](docs/lint-command.md) |
 | Activate code AFTER push to git | `pull` | [docs/pull-command.md](docs/pull-command.md) |
 | Check activated code with Code Inspector | `inspect` | [docs/inspect-command.md](docs/inspect-command.md) |
@@ -300,7 +300,7 @@ Key workflow:
 1. Read .abapGitAgent → get folder value
 2. Research → use ref command for unfamiliar topics
 3. Write code → place in correct folder
-4. Syntax check (CLAS/INTF/PROG only):
+4. Syntax check (CLAS/INTF/PROG/DDLS/FUGR only):
    - Independent files → use syntax command
    - Dependent files → skip syntax
 5. Commit and push
@@ -313,12 +313,12 @@ Key workflow:
 
 ```
 Modified ABAP files?
-├─ CLAS/INTF/PROG files?
+├─ CLAS/INTF/PROG/DDLS/FUGR files?
 │  ├─ Independent files (no cross-dependencies)?
 │  │  └─ ✅ Use: syntax → commit → push → pull
 │  └─ Dependent files (interface + class, class uses class)?
 │     └─ ✅ Use: skip syntax → commit → push → pull
-└─ Other types (DDLS, FUGR, TABL, etc.)?
+└─ Other types (TABL, STRU, DCLS, etc.)?
    └─ ✅ Use: skip syntax → commit → push → pull → (if errors: inspect)
 ```
 

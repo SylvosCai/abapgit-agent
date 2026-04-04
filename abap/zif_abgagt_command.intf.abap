@@ -16,7 +16,8 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_where TYPE string VALUE 'WHERE',
     gc_syntax TYPE string VALUE 'SYNTAX',
     gc_dump TYPE string VALUE 'DUMP',
-    gc_transport TYPE string VALUE 'TRANSPORT'.
+    gc_transport TYPE string VALUE 'TRANSPORT',
+    gc_drop TYPE string VALUE 'DROP'.
 
   "! Get the name of this command
   "! @parameter rv_name | Command name constant (e.g., 'PULL', 'SYNTAX')

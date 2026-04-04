@@ -30,5 +30,6 @@ module.exports = {
   pull:      require('./pull'),
   upgrade:   require('./upgrade'),
   transport: require('./transport'),
-  lint:      require('./lint')
+  lint:      require('./lint'),
+  drop:      require('./drop')
 };

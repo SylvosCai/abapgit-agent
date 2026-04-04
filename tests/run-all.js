@@ -7,7 +7,8 @@
  * 3. Command tests - CLI commands against real ABAP system
  * 4. Lifecycle tests - init, create, import, delete workflow
  * 5. Pull tests - git ref switching (tags/branches) workflow
- * 6. Debug scenarios - REPL and scripted AI (--json) session tests
+ * 6. Drop tests - drop command end-to-end (drop + re-pull per object type)
+ * 7. Debug scenarios - REPL and scripted AI (--json) session tests
  *
  * Usage:
  *   npm run test:all              # Run all tests
@@ -17,6 +18,7 @@
  *   npm run test:cmd --demo       # Command tests in demo mode (shows command and output)
  *   npm run test:lifecycle        # Lifecycle tests only
  *   npm run test:pull             # Pull workflow tests only
+ *   npm run test:drop             # Drop command tests only
  *   npm run test:debug:scenarios  # Debug scenarios only (REPL + scripted AI)
  */
 
@@ -37,6 +39,7 @@ const { runSyncXmlTests } = require('./integration/sync-xml-runner');
 const { runXmlOnlyTests } = require('./integration/xml-only-runner');
 const { runJUnitTests } = require('./integration/junit-runner');
 const { runDebugTests } = require('./integration/debug-runner');
+const { runDropTests } = require('./integration/drop-runner');
 
 // Colors for output
 const colors = {
@@ -212,6 +215,17 @@ function runDebugTestsWrapper() {
     printError,
     printWarning,
     printInfo,
+    colorize,
+    colors
+  });
+}
+
+function runDropTestsWrapper() {
+  return runDropTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
     colorize,
     colors
   });
@@ -710,6 +724,21 @@ function printSummary(results) {
     }
   }
 
+  // Drop command tests
+  if (results.drop) {
+    if (results.drop.skipped) {
+      printWarning('Drop Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.drop.duration);
+      if (results.drop.success) {
+        printSuccess(`Drop Tests: ${results.drop.passedCount}/${results.drop.totalCount} PASSED (${results.drop.duration}s)`);
+      } else {
+        printError(`Drop Tests: ${results.drop.passedCount}/${results.drop.totalCount} FAILED (${results.drop.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   // Debug scenario tests (always last — interactive ADT sessions, runs after cooldown)
   if (results.debug) {
     if (results.debug.skipped) {
@@ -744,7 +773,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--drop'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -753,7 +782,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -768,6 +797,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
@@ -781,6 +811,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
@@ -794,6 +825,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
@@ -807,6 +839,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
@@ -820,6 +853,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
     runAunit = false;
@@ -833,6 +867,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
     runAunit = false;
@@ -846,6 +881,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
     runAunit = false;
@@ -859,6 +895,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--xml-only')) {
     runJest = false;
     runAunit = false;
@@ -872,6 +909,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--junit')) {
     runJest = false;
     runAunit = false;
@@ -885,6 +923,7 @@ async function main() {
     runJunit = true;
     runDebug = false;
     runDebugBp = false;
+    runDrop = false;
   } else if (args.includes('--debug')) {
     runJest = false;
     runAunit = false;
@@ -898,6 +937,7 @@ async function main() {
     runJunit = false;
     runDebug = false;
     runDebugBp = true;
+    runDrop = false;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
     runAunit = false;
@@ -911,6 +951,21 @@ async function main() {
     runJunit = false;
     runDebug = true;
     runDebugBp = false;
+    runDrop = false;
+  } else if (args.includes('--drop')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebug = false;
+    runDebugBp = false;
+    runDrop = true;
   } else {
     // Run all tests
     // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
@@ -920,6 +975,7 @@ async function main() {
     runAunit = true;
     runCmd = true;
     runJunit = true;
+    runDrop = true;
     runLifecycle = false;   // Lifecycle tests run as part of cmd tests
     runPull = false;        // Pull tests run as part of cmd tests
     runFullPull = false;    // Full pull tests run as part of cmd tests
@@ -1002,6 +1058,11 @@ async function main() {
   // Run Debug breakpoint tests (requires abgagt-debug-test repo)
   if (runDebugBp) {
     results.debugBp = runDebugTestsWrapper();
+  }
+
+  // Run Drop command tests
+  if (runDrop) {
+    results.drop = runDropTestsWrapper();
   }
 
   // Cooldown between command tests and debug scenarios.

@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZCL_ABGAGT_VIEWER_STOB</CLSNAME>
+    <CLSNAME>ZCL_ABGAGT_RESOURCE_DROP</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>STOB Viewer - Structured Objects</DESCRIPT>
+    <DESCRIPT>ABAP Git Agent - REST Resource Drop</DESCRIPT>
     <STATE>1</STATE>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>

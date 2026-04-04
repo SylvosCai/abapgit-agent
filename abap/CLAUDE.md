@@ -179,20 +179,21 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 
 ---
 
-### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG, DDLS)
+### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG, DDLS, FUGR)
 
 ```
 ❌ WRONG: Make changes → Commit → Push → Pull → Find errors → Fix → Repeat
 ✅ CORRECT: Make changes → Run syntax → Fix locally → Commit → Push → Pull → Done
 ```
 
-**For CLAS, INTF, PROG, DDLS files**: Run `syntax` command BEFORE commit to catch errors early.
+**For CLAS, INTF, PROG, DDLS, FUGR files**: Run `syntax` command BEFORE commit to catch errors early.
 
 ```bash
 # Check syntax of local code (no commit/push needed)
 # Use the actual filename from your project (name comes from objects.local.md)
 abapgit-agent syntax --files src/<name>.clas.abap
 abapgit-agent syntax --files src/<name>.ddls.asddls
+abapgit-agent syntax --files src/<name>.fugr.<fm_name>.abap
 
 # Check multiple INDEPENDENT files
 abapgit-agent syntax --files src/<name1>.clas.abap,src/<name2>.clas.abap
@@ -424,7 +425,39 @@ After activating a class, stop and tell the user: `"Class is activated. Run with
 
 ---
 
-### 10. Probe and PoC Objects — Always Z/Y, Never in SAP Packages
+### 10. Never Run `drop` Command Without Explicit Permission
+
+**Never call `abapgit-agent drop` unless the user explicitly confirms.** Dropping an object physically deletes it from the ABAP system — this is irreversible without a subsequent pull.
+
+**When to SUGGEST `drop --pull`:**
+
+When an object is in a broken or inconsistent state that cannot be resolved by re-pulling:
+- `inspect` reports **"INCLUDE report ... not found"** (stale include in ABAP not present in git)
+- Pull repeatedly fails with **"Activation cancelled"** and re-pulling doesn't fix it
+- Object has a corrupt inactive version that permanently blocks activation
+
+In these cases, suggest the fix and wait for confirmation:
+
+```
+"The object ZCL_FOO has an inconsistent state (stale include in ABAP).
+ This can be fixed by dropping and re-pulling it:
+
+   abapgit-agent drop --files abap/zcl_foo.clas.abap --pull
+
+ This will delete ZCL_FOO from ABAP and immediately re-activate it from git.
+ Confirm when ready."
+```
+
+**What `drop --pull` does:**
+1. Physically deletes the object from the ABAP system
+2. Immediately re-pulls and re-activates it from git (clean state)
+3. Does NOT touch the git repository file
+
+**Constraint:** Only CLAS, INTF, PROG, TABL, TTYP are supported. DTEL (data elements) are rejected — edit the XML and use `pull` instead.
+
+---
+
+### 11. Probe and PoC Objects — Always Z/Y, Never in SAP Packages
 
 ```
 ❌ WRONG: Create a probe/PoC object with the project's SAP namespace prefix
@@ -450,7 +483,7 @@ Never assume — wait for the user's answer before proceeding.
 
 ---
 
-### 11. Troubleshooting ABAP Issues
+### 12. Troubleshooting ABAP Issues
 
 | Symptom | Tool | When |
 |---|---|---|
@@ -761,6 +794,7 @@ Modified ABAP files?
 | `ref --topic cds-testing` | CDS Testing (Test Double Framework) |
 | `ref --topic json` | JSON Handling |
 | `ref --topic common-errors` | Common ABAP Errors - Quick Fixes |
+| `ref --topic string-template` | String Templates — syntax, escaping `\{` `\}`, JSON payloads |
 | `ref --topic abapgit` | abapGit XML Metadata — **use for CDS/DDLS XML**, also CLAS, INTF, PROG, DCLS, FUGR |
 | `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `ref --topic abapgit-fugr` | abapGit XML Metadata — Function Group (FUGR) details |

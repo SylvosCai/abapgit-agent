@@ -38,6 +38,14 @@ INTERFACE zif_abgagt_agent PUBLIC.
     local_xml_files TYPE ty_xml_files,
   END OF ty_result.
 
+  TYPES: BEGIN OF ty_drop_result,
+    success  TYPE abap_bool,
+    obj_type TYPE string,
+    obj_name TYPE string,
+    message  TYPE string,
+    error    TYPE string,
+  END OF ty_drop_result.
+
   "! Pull objects from remote git repository and activate them
   "! @parameter iv_url | Git repository URL
   "! @parameter iv_branch | Branch to pull (default: main)
@@ -70,5 +78,16 @@ INTERFACE zif_abgagt_agent PUBLIC.
       iv_url TYPE string
     RETURNING
       VALUE(rv_status) TYPE string.
+
+  "! Drop (physically delete) a single ABAP object from the system
+  "! @parameter iv_file               | File path (e.g., 'src/zcl_foo.clas.abap')
+  "! @parameter iv_transport_request  | Transport request (optional)
+  "! @parameter rs_result             | Drop result with success flag and details
+  METHODS drop
+    IMPORTING
+      iv_file              TYPE string
+      iv_transport_request TYPE string OPTIONAL
+    RETURNING
+      VALUE(rs_result) TYPE ty_drop_result.
 
 ENDINTERFACE.

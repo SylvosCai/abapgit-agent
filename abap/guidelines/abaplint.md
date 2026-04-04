@@ -80,6 +80,41 @@ lv_response = lv_response && '"key":"val"}'.
 | `DATA(lv) = 'literal'.` followed by `&&` | ❌ | Infers `C LENGTH N`, truncates |
 | `DATA(lv) = 'literal'.` used only in `\|{ lv }\|` | ⚠️ | Technically works but misleading — prefer explicit type |
 | `DATA(lv) = 'X'.` used as abap_bool flag | ✅ | `C LENGTH 1` is correct for flags |
+| `DATA(lv) = COND string( WHEN ... THEN str+off ELSE str ).` | ❌ | Offset notation on `string` inside COND raises `CX_SY_RANGE_OUT_OF_BOUNDS` at runtime |
+
+### The offset-notation-in-COND trap
+
+Offset/length notation (`str+off` or `str(len)`) on a `string`-typed variable **cannot appear
+as a result expression inside `COND`** — even when the `COND` is explicitly typed as `string`.
+ABAP evaluates both branch types at generation time and the offset expression on a dynamic
+string is invalid, causing a `CX_SY_RANGE_OUT_OF_BOUNDS` crash at runtime.
+
+```abap
+DATA lv_file TYPE string VALUE 'src/foo.clas.abap'.
+DATA(lv_pos) = find( val = lv_file sub = '/' occ = -1 ).
+
+* WRONG — CX_SY_RANGE_OUT_OF_BOUNDS at runtime
+DATA(lv_path) = COND string(
+  WHEN lv_pos > 0 THEN '/' && lv_file(lv_pos + 1)   " ← offset on string = crash
+  ELSE '/' ).
+
+* CORRECT — use substring() which returns string and is safe in COND
+DATA(lv_path) = COND string(
+  WHEN lv_pos > 0 THEN '/' && substring( val = lv_file len = lv_pos + 1 )
+  ELSE '/' ).
+
+* ALSO CORRECT — keep IF/ELSE with DATA x TYPE string
+DATA lv_path TYPE string.
+IF lv_pos > 0.
+  DATA(lv_len) = lv_pos + 1.
+  lv_path = '/' && lv_file(lv_len).
+ELSE.
+  lv_path = '/'.
+ENDIF.
+```
+
+**Rule**: whenever the prefer_inline quickfix would produce `COND ... THEN str+off` or
+`COND ... THEN str(len)`, use `substring()` instead, or keep the `IF/ELSE` form.
 
 ### Rule of thumb
 

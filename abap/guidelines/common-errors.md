@@ -8,7 +8,7 @@ grand_parent: ABAP Development
 
 # Common ABAP Errors - Quick Fixes
 
-**Searchable keywords**: error, syntax error, field mismatch, fixed point, comma, host variable, @ prefix, type incompatible
+**Searchable keywords**: error, syntax error, field mismatch, fixed point, comma, host variable, @ prefix, type incompatible, string template, expression limiter, literal brace, http 500, xml metadata mismatch, interface description, descript, recompilation, offset notation, cond trap, cx_sy_range_out_of_bounds
 
 ## Fixed Point Arithmetic Error
 
@@ -116,6 +116,83 @@ lv_response = lv_response && '"key":"value"}'.   " works correctly
 or declare the variable explicitly with `TYPE string`.
 
 → See `abaplint.md` for full guidance on the `prefer_inline` rule.
+
+---
+
+## Offset Notation on String in COND — CX_SY_RANGE_OUT_OF_BOUNDS
+
+**Symptom**: Pull succeeds but ABAP crashes at runtime with `CX_SY_RANGE_OUT_OF_BOUNDS`
+inside a method using `COND`.
+
+**Root cause**: Offset/length notation on a `string` variable (`str+off`, `str(len)`)
+**cannot be used as a result expression inside `COND`** — even with an explicit `COND string(...)` type.
+The abaplint `prefer_inline` quickfix can introduce this automatically when converting
+an `IF/ELSE` block that assigns from a string-variable offset.
+
+```abap
+* WRONG — crashes at runtime with CX_SY_RANGE_OUT_OF_BOUNDS
+DATA(lv_path) = COND string(
+  WHEN lv_pos > 0 THEN '/' && lv_file(lv_pos + 1)   " ← string offset in COND
+  ELSE '/' ).
+
+* CORRECT — use substring() instead
+DATA(lv_path) = COND string(
+  WHEN lv_pos > 0 THEN '/' && substring( val = lv_file len = lv_pos + 1 )
+  ELSE '/' ).
+```
+
+**Fix**: Replace `str+off` / `str(len)` inside `COND` results with `substring( val = str off = off )` or
+`substring( val = str len = len )`, or revert to the `IF/ELSE` form with `DATA x TYPE string`.
+
+→ See `abaplint.md` for the full safe/unsafe table for `prefer_inline`.
+
+---
+
+## XML Metadata Mismatch — HTTP 500 on Pull
+
+**Symptom**: `pull` returns HTTP 500 with no short dump (ST22) for the request user.
+Other objects pull fine; only a specific interface or class fails.
+
+**Root cause**: The `.intf.xml` or `.clas.xml` file in git has a metadata field (e.g. `DESCRIPT`,
+`UNICODE`, `STATE`) that differs from the active ABAP system value. abapGit writes the git
+value back to VSEOINTERF/VSEOCLASS, which forces the SAP class framework to recompile all
+implementing/inheriting objects. If any implementing class has a syntax or generation
+issue with the current active source, the recompilation crashes outside the normal exception
+handler — producing HTTP 500 with no dump.
+
+**Diagnosis**:
+1. No dump in ST22 for your user → not a user-code crash
+2. Only one specific INTF/CLAS fails → metadata delta in its XML triggers recompilation
+3. Check what differs: `abapgit-agent view --objects ZIF_MY_INTF --type INTF` and compare
+   `DESCRIPT` / other fields with the XML file in git
+
+**Fix**: Sync the XML to match the ABAP system value. The easiest way:
+
+```bash
+# Pull without --sync-xml first to let abapGit rewrite the XML from the system
+abapgit-agent pull --files abap/zif_my_intf.intf.abap --sync-xml
+```
+
+Or manually correct the field in the XML file to match the system value, then push and pull.
+
+**Prevention**: Always use `--sync-xml` after pulling new objects so the XML stays in sync
+with what the ABAP serializer produces.
+
+---
+
+**Error**: `Expression limiter '{' in string template not followed by space`
+
+Literal `{` and `}` (e.g. in JSON payloads) must be escaped as `\{` and `\}` inside `|...|`.
+
+```abap
+" WRONG — unescaped { in JSON triggers parse error
+rv_result = |{"success":"X","name":"{ lv_name }"}|.
+
+" CORRECT
+rv_result = |\{"success":"X","name":"{ lv_name }"\}|.
+```
+
+→ Full escaping rules and examples: `abapgit-agent ref --topic string-template`
 
 ---
 
