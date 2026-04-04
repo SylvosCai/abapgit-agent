@@ -156,6 +156,8 @@ Examples:
   abapgit-agent health                                       # Health check
   abapgit-agent status                                       # Configuration status
 
+Run "abapgit-agent <command> --help" for detailed usage of any command.
+
 For more info: https://github.com/SylvosCai/abapgit-agent
 `);
   }
