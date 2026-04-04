@@ -277,11 +277,17 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     'src/zabgagt_drp_dtel.dtel.xml',
     ...TEST_OBJECTS.map(o => o.file)
   ].join(',');
-  const { output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);
+  let { output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);
+  // "Activation cancelled" means the EZABAPGIT lock was held (e.g. by a prior cmd test run).
+  // Retry once after a short wait to ensure all objects land in TADIR.
+  if (resetOutput.includes('Activation cancelled') && !resetOutput.includes('Pull completed successfully')) {
+    printInfo('  Reset got "Activation cancelled" — retrying after 5s...');
+    execSync('sleep 5');
+    ({ output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']));
+  }
   const resetOk = resetOutput.includes('Pull completed successfully') ||
                   resetOutput.includes('already active') ||
-                  resetOutput.includes('nothing to activate') ||
-                  resetOutput.includes('Activation cancelled');
+                  resetOutput.includes('nothing to activate');
   if (!resetOk) {
     printError(`  Reset pull failed: ${resetOutput.substring(0, 200)}`);
   }

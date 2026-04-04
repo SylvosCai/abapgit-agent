@@ -1060,6 +1060,15 @@ async function main() {
     results.debugBp = runDebugTestsWrapper();
   }
 
+  // Cooldown between command tests and drop tests.
+  // Command tests make ~90 HTTP requests; the EZABAPGIT lock may still be held
+  // briefly when drop tests start, causing the reset pull to return
+  // "Activation cancelled" — leaving PROG/FUGR absent from TADIR.
+  if (runCmd && runDrop) {
+    printInfo('  Cooling down 10s after command tests before drop tests...');
+    await new Promise(r => setTimeout(r, 10000));
+  }
+
   // Run Drop command tests
   if (runDrop) {
     results.drop = runDropTestsWrapper();
