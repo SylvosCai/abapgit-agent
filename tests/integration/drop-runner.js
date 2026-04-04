@@ -174,7 +174,24 @@ function runPull(agentBin, repoRoot, file, extraArgs = []) {
 }
 
 /**
- * Run `abapgit-agent drop` against the drop-test repo.
+ * Run `abapgit-agent pull` from the drop-test repo directory (uses .abapGitAgent in DROP_REPO_DIR).
+ * This ensures abapGit fetches fresh commit state from remote, bypassing any cached commit hash.
+ */
+function runPullFromDropRepo(agentBin, file, extraArgs = []) {
+  const cmd = [
+    'node', agentBin,
+    'pull',
+    '--files', file,
+    ...extraArgs
+  ].join(' ');
+
+  try {
+    const output = execSync(cmd, { cwd: DROP_REPO_DIR, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000 });
+    return { output, exitCode: 0 };
+  } catch (err) {
+    return { output: (err.stdout || '') + (err.stderr || ''), exitCode: err.status || 1 };
+  }
+}
  * The drop-test repo is used as cwd so that relative file paths resolve correctly.
  */
 function runDrop(agentBin, file, extraArgs = []) {
@@ -251,9 +268,9 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   // ─── Reset: establish known baseline for all objects ───────────────────────
   printInfo(colorize('cyan', '  Reset: activating all test objects (--conflict-mode ignore)'));
   // Pull DTEL first (dependency for TTYP) — not in TEST_OBJECTS since drop is unsupported
-  runPull(agentBin, repoRoot, 'src/zabgagt_drp_dtel.dtel.xml', ['--conflict-mode', 'ignore']);
+  runPullFromDropRepo(agentBin, 'src/zabgagt_drp_dtel.dtel.xml', ['--conflict-mode', 'ignore']);
   for (const obj of TEST_OBJECTS) {
-    const { output } = runPull(agentBin, repoRoot, obj.file, ['--conflict-mode', 'ignore']);
+    const { output } = runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
     const ok = output.includes('Pull completed successfully') ||
                output.includes('already active') ||
                output.includes('nothing to activate') ||
@@ -283,7 +300,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     addResult(`${obj.name} — gone after drop`, !existsAfterDrop);
 
     // Step 3: pull → re-activate; verify via view
-    runPull(agentBin, repoRoot, obj.file, ['--conflict-mode', 'ignore']);
+    runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
     const existsAfterPull = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists after re-pull`, existsAfterPull);
 
