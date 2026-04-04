@@ -12,6 +12,13 @@
  *     - src/zabgagt_drp_dtel.dtel.xml        DTEL ZABGAGT_DRP_DTEL
  *     - src/zabgagt_drp_tabl.tabl.xml        TABL ZABGAGT_DRP_TABL
  *     - src/zabgagt_drp_ttyp.ttyp.xml        TTYP ZABGAGT_DRP_TTYP
+ *     - src/zabgagt_drp_prog.prog.abap        PROG ZABGAGT_DRP_PROG
+ *     - src/zabgagt_drp_fugr.fugr.xml         FUGR ZABGAGT_DRP_FUGR
+ *     - src/zabgagt_drp_stru.tabl.xml         STRU ZABGAGT_DRP_STRU
+ *     - src/zabgagt_drp_doma.doma.xml         DOMA ZABGAGT_DRP_DOMA
+ *     - src/zc_abgagt_drp.ddls.xml            DDLS ZC_ABGAGT_DRP
+ *     - src/zc_abgagt_drp.dcls.xml            DCLS ZC_ABGAGT_DRP
+ *     - src/zabgagt_drp_msag.msag.xml         MSAG ZABGAGT_DRP_MSAG
  *
  * Test sequence per object type:
  *   Reset:   pull --files <file>  --conflict-mode ignore  → idempotent baseline
@@ -24,7 +31,8 @@
  *
  * Note: CLAS depends on INTF, so INTF is always activated before CLAS.
  * DTEL is not tested with drop (unsupported — CBDA cannot re-activate after deletion).
- * Order: TABL → TTYP → INTF → CLAS
+ * DDLS depends on TABL, DCLS depends on DDLS — ordering is critical.
+ * Order: DOMA → TABL → TTYP → STRU → PROG → FUGR → MSAG → DDLS → DCLS → INTF → CLAS
  *
  * Run:
  *   node tests/run-all.js --drop
@@ -43,24 +51,77 @@ const DROP_REPO_DIR = path.join(os.tmpdir(), 'abgagt-drop-test');
  * Each entry defines the file path (relative to repo root) and expected object name in output.
  */
 const TEST_OBJECTS = [
+  // DOMA first — no dependencies
+  {
+    name:   'DOMA ZABGAGT_DRP_DOMA',
+    file:   'src/zabgagt_drp_doma.doma.xml',
+    type:   'DOMA',
+    object: 'ZABGAGT_DRP_DOMA'
+  },
+  // TABL next — no DOMA dependency (uses raw CHAR field)
   {
     name:   'TABL ZABGAGT_DRP_TABL',
     file:   'src/zabgagt_drp_tabl.tabl.xml',
     type:   'TABL',
     object: 'ZABGAGT_DRP_TABL'
   },
+  // TTYP depends on TABL
   {
     name:   'TTYP ZABGAGT_DRP_TTYP',
     file:   'src/zabgagt_drp_ttyp.ttyp.xml',
     type:   'TTYP',
     object: 'ZABGAGT_DRP_TTYP'
   },
+  // STRU — independent structure
+  {
+    name:   'STRU ZABGAGT_DRP_STRU',
+    file:   'src/zabgagt_drp_stru.tabl.xml',
+    type:   'STRU',
+    object: 'ZABGAGT_DRP_STRU'
+  },
+  // PROG — no dependencies
+  {
+    name:   'PROG ZABGAGT_DRP_PROG',
+    file:   'src/zabgagt_drp_prog.prog.abap',
+    type:   'PROG',
+    object: 'ZABGAGT_DRP_PROG'
+  },
+  // FUGR — no dependencies
+  {
+    name:   'FUGR ZABGAGT_DRP_FUGR',
+    file:   'src/zabgagt_drp_fugr.fugr.xml',
+    type:   'FUGR',
+    object: 'ZABGAGT_DRP_FUGR'
+  },
+  // MSAG — no dependencies
+  {
+    name:   'MSAG ZABGAGT_DRP_MSAG',
+    file:   'src/zabgagt_drp_msag.msag.xml',
+    type:   'MSAG',
+    object: 'ZABGAGT_DRP_MSAG'
+  },
+  // DDLS depends on TABL (selects from ZABGAGT_DRP_TABL)
+  {
+    name:   'DDLS ZC_ABGAGT_DRP',
+    file:   'src/zc_abgagt_drp.ddls.xml',
+    type:   'DDLS',
+    object: 'ZC_ABGAGT_DRP'
+  },
+  // DCLS depends on DDLS
+  {
+    name:   'DCLS ZC_ABGAGT_DRP',
+    file:   'src/zc_abgagt_drp.dcls.xml',
+    type:   'DCLS',
+    object: 'ZC_ABGAGT_DRP'
+  },
+  // INTF — no dependencies
   {
     name:   'INTF ZIF_ABGAGT_DRP_TEST',
     file:   'src/zif_abgagt_drp_test.intf.abap',
     type:   'INTF',
     object: 'ZIF_ABGAGT_DRP_TEST'
   },
+  // CLAS depends on INTF
   {
     name:   'CLAS ZCL_ABGAGT_DRP_TEST',
     file:   'src/zcl_abgagt_drp_test.clas.abap',
@@ -189,7 +250,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
 
   // ─── Reset: establish known baseline for all objects ───────────────────────
   printInfo(colorize('cyan', '  Reset: activating all test objects (--conflict-mode ignore)'));
-  // Pull DTEL first (dependency for TABL and TTYP) — not in TEST_OBJECTS since drop is unsupported
+  // Pull DTEL first (dependency for TTYP) — not in TEST_OBJECTS since drop is unsupported
   runPull(agentBin, repoRoot, 'src/zabgagt_drp_dtel.dtel.xml', ['--conflict-mode', 'ignore']);
   for (const obj of TEST_OBJECTS) {
     const { output } = runPull(agentBin, repoRoot, obj.file, ['--conflict-mode', 'ignore']);
