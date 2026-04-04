@@ -148,6 +148,28 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent tree --package <package> [--depth <n>] [--include-types] [--json]
+
+Description:
+  Display the package hierarchy tree from the ABAP system.
+
+Parameters:
+  --package <package>  Root package to display (required). Enclose $-packages in quotes.
+  --depth <n>          Maximum depth to traverse (default: unlimited).
+  --include-types      Show object type counts per package.
+  --json               Output as JSON.
+
+Examples:
+  abapgit-agent tree --package ZMY_PACKAGE
+  abapgit-agent tree --package '$MY_LOCAL_PKG'
+  abapgit-agent tree --package ZMY_PACKAGE --depth 2 --include-types
+`);
+      return;
+    }
+
     const packageArgIndex = args.indexOf('--package');
     if (packageArgIndex === -1) {
       console.error('Error: --package parameter required');

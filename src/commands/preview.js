@@ -11,6 +11,36 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp, validators } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent preview --objects <obj1>,... [--type <type>] [--limit <n>] [--offset <n>]
+                        [--where <condition>] [--columns <cols>] [--vertical] [--compact] [--json]
+
+Description:
+  Preview data from ABAP tables or CDS views.
+
+Parameters:
+  --objects <obj1,...>   Comma-separated table/view names (required).
+  --type <type>          Object type: TABL, DDLS (auto-detected if omitted).
+  --limit <n>            Maximum number of rows (default: 20).
+  --offset <n>           Skip first N rows (for pagination).
+  --where <condition>    WHERE clause filter (e.g. "CARRID = 'AA'").
+  --columns <cols>       Comma-separated column names to display.
+  --vertical             Display each row vertically (field: value).
+  --compact              Compact output (no borders).
+  --json                 Output as JSON.
+
+Examples:
+  abapgit-agent preview --objects SFLIGHT
+  abapgit-agent preview --objects SFLIGHT --limit 5
+  abapgit-agent preview --objects SFLIGHT --where "CARRID = 'AA'"
+  abapgit-agent preview --objects ZC_MY_VIEW --type DDLS
+  abapgit-agent preview --objects SFLIGHT --offset 10 --limit 20
+`);
+      return;
+    }
+
     const objectsArgIndex = args.indexOf('--objects');
     if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
       console.error('Error: --objects parameter required');

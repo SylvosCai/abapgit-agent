@@ -232,6 +232,29 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent unit --files <file1>,<file2>,... [--coverage] [--junit-output <file>] [--json]
+
+Description:
+  Run AUnit tests for ABAP test class files (.testclasses.abap).
+  Objects must be already active in the ABAP system (run pull first).
+
+Parameters:
+  --files <file1,...>     Comma-separated .testclasses.abap files (required).
+  --coverage              Include code coverage data in output.
+  --junit-output <file>   Write results as JUnit XML to this file.
+  --json                  Output as JSON.
+
+Examples:
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --junit-output reports/unit.xml
+`);
+      return;
+    }
+
     const jsonOutput = args.includes('--json');
     const verbose = args.includes('--verbose');
     const filesArgIndex = args.indexOf('--files');

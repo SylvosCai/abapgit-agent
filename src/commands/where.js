@@ -11,6 +11,30 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--offset <n>] [--json]
+
+Description:
+  Find where-used list for ABAP objects (classes, interfaces, programs, etc.).
+
+Parameters:
+  --objects <obj1,...>  Comma-separated object names (required).
+  --type <type>         Object type (e.g. CLAS, INTF — auto-detected if omitted).
+  --limit <n>           Maximum number of results (default: 50).
+  --offset <n>          Skip first N results (for pagination).
+  --json                Output as JSON.
+
+Examples:
+  abapgit-agent where --objects ZCL_MY_CLASS
+  abapgit-agent where --objects ZIF_MY_INTERFACE
+  abapgit-agent where --objects ZCL_MY_CLASS --limit 20
+  abapgit-agent where --objects ZCL_MY_CLASS --offset 50 --limit 20
+`);
+      return;
+    }
+
     const objectsArgIndex = args.indexOf('--objects');
     if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
       console.error('Error: --objects parameter required');

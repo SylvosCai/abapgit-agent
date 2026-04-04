@@ -14,6 +14,28 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent syntax --files <file1>,<file2>,... [--cloud] [--json]
+
+Description:
+  Check syntax of local ABAP source files WITHOUT pulling or activating them.
+  Reads source from local files and checks directly in the ABAP system.
+
+Parameters:
+  --files <file1,...>  Comma-separated ABAP source files (required). Accepts CLAS, INTF, PROG.
+  --cloud              Use ABAP Cloud (BTP) stricter syntax check.
+  --json               Output as JSON.
+
+Examples:
+  abapgit-agent syntax --files src/zcl_my_class.clas.abap
+  abapgit-agent syntax --files src/zcl_foo.clas.abap,src/zif_foo.intf.abap
+  abapgit-agent syntax --files src/zmy_prog.prog.abap --cloud
+`);
+      return;
+    }
+
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');

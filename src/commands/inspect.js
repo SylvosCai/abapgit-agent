@@ -250,6 +250,29 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>] [--junit-output <file>] [--json]
+
+Description:
+  Run SAP Code Inspector checks on activated ABAP objects. Requires the objects
+  to be already active in the ABAP system (run pull first).
+
+Parameters:
+  --files <file1,...>       Comma-separated ABAP source files (required).
+  --variant <variant>       Code Inspector variant (default: system default).
+  --junit-output <file>     Write results as JUnit XML to this file.
+  --json                    Output as JSON.
+
+Examples:
+  abapgit-agent inspect --files src/zcl_my_class.clas.abap
+  abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
+  abapgit-agent inspect --files src/zcl_my_class.clas.abap --junit-output reports/inspect.xml
+`);
+      return;
+    }
+
     const jsonOutput = args.includes('--json');
     const verbose = args.includes('--verbose');
     const filesArgIndex = args.indexOf('--files');

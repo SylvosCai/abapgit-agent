@@ -33,6 +33,27 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, getSafeguards } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent run --program <NAME>
+  abapgit-agent run --class <NAME>
+
+Description:
+  Execute an ABAP program or a class implementing IF_OO_ADT_CLASSRUN and display its output.
+
+Parameters:
+  --program <NAME>  Execute an ABAP report/program.
+  --class <NAME>    Execute a class implementing IF_OO_ADT_CLASSRUN (run method).
+  --json            Output as JSON.
+
+Examples:
+  abapgit-agent run --program ZMY_REPORT
+  abapgit-agent run --class ZCL_MY_RUNNER
+`);
+      return;
+    }
+
     // Check project-level safeguards
     const safeguards = getSafeguards();
     if (safeguards.disableRun) {

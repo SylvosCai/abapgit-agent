@@ -193,6 +193,35 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent view --objects <obj1>,<obj2>,... [--type <type>] [--full] [--lines] [--json]
+  abapgit-agent view --objects <FUGR> --type FUGR [--full] [--fm <name>] [--lines]
+
+Description:
+  View ABAP object definitions from the ABAP system.
+
+Parameters:
+  --objects <obj1,...>  Comma-separated object names (required).
+  --type <type>         Object type: CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DOMA,
+                        DDLS, DCLS, MSAG, FUGR (auto-detected from TADIR if omitted).
+  --full                Show full source including all method implementations.
+  --lines               Show dual line numbers (G = global for debug set, [N] = include-local).
+  --fm <name>           With --full: show only the specified function module (FUGR only).
+  --json                Output as JSON.
+
+Examples:
+  abapgit-agent view --objects ZCL_MY_CLASS
+  abapgit-agent view --objects ZCL_MY_CLASS --full
+  abapgit-agent view --objects ZCL_MY_CLASS --full --lines
+  abapgit-agent view --objects ZMY_TABLE --type TABL
+  abapgit-agent view --objects SUSR --type FUGR --full --fm AUTHORITY_CHECK --lines
+  abapgit-agent view --objects ZCL_FOO,ZIF_BAR
+`);
+      return;
+    }
+
     const objectsArgIndex = args.indexOf('--objects');
     if (objectsArgIndex === -1 || objectsArgIndex + 1 >= args.length) {
       console.error('Error: --objects parameter required');

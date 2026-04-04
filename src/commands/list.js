@@ -11,6 +11,31 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent list --package <package> [--type <types>] [--name <pattern>] [--limit <n>] [--offset <n>] [--json]
+
+Description:
+  List ABAP objects in a package with optional filtering and pagination.
+
+Parameters:
+  --package <package>   Package to list (required). Enclose $-packages in quotes.
+  --type <types>        Comma-separated object types to filter (e.g. CLAS,INTF).
+  --name <pattern>      Filter by object name pattern (e.g. ZCL_MY*).
+  --limit <n>           Maximum number of results (default: 100).
+  --offset <n>          Skip first N results (for pagination).
+  --json                Output as JSON.
+
+Examples:
+  abapgit-agent list --package ZMY_PACKAGE
+  abapgit-agent list --package ZMY_PACKAGE --type CLAS,INTF
+  abapgit-agent list --package ZMY_PACKAGE --name ZCL_MY*
+  abapgit-agent list --package ZMY_PACKAGE --limit 20 --offset 40
+`);
+      return;
+    }
+
     const packageArgIndex = args.indexOf('--package');
     if (packageArgIndex === -1) {
       console.error('Error: --package parameter required');
