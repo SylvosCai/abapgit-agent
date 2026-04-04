@@ -335,8 +335,10 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
 
   // ─── drop --pull: combined delete + re-activate in one command ───────────────
   // Use INTF (no dependents) so the re-pull is self-contained.
+  // Ensure INTF is in TADIR (previous test cycles may have left it absent due to lock issues).
   printInfo(colorize('cyan', '  Testing: drop --pull (INTF ZIF_ABGAGT_DRP_TEST)'));
   const intfObj = TEST_OBJECTS.find(o => o.type === 'INTF');
+  runPullFromDropRepo(agentBin, intfObj.file, ['--conflict-mode', 'ignore']);
   const dropPullResult = runDrop(agentBin, intfObj.file, ['--pull']);
   const dropPullDropOk = dropPullResult.output.includes('Object deleted successfully') ||
                          dropPullResult.output.includes('deleted successfully');
