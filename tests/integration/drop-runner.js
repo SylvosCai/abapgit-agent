@@ -270,17 +270,20 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
 
   // ─── Reset: establish known baseline for all objects ───────────────────────
   printInfo(colorize('cyan', '  Reset: activating all test objects (--conflict-mode ignore)'));
-  // Pull DTEL first (dependency for TTYP) — not in TEST_OBJECTS since drop is unsupported
-  runPullFromDropRepo(agentBin, 'src/zabgagt_drp_dtel.dtel.xml', ['--conflict-mode', 'ignore']);
-  for (const obj of TEST_OBJECTS) {
-    const { output } = runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
-    const ok = output.includes('Pull completed successfully') ||
-               output.includes('already active') ||
-               output.includes('nothing to activate') ||
-               output.includes('Activation cancelled');
-    if (!ok) {
-      printError(`  Reset failed for ${obj.name}: ${output.substring(0, 120)}`);
-    }
+  // Pull all objects in a single call so dependencies (TABL→TTYP, TABL→DDLS, DDLS→DCLS,
+  // INTF→CLAS) are activated together in one DDIC mass-activation batch.
+  // DTEL is included first as it is a dependency but not in TEST_OBJECTS (drop is unsupported).
+  const allResetFiles = [
+    'src/zabgagt_drp_dtel.dtel.xml',
+    ...TEST_OBJECTS.map(o => o.file)
+  ].join(',');
+  const { output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);
+  const resetOk = resetOutput.includes('Pull completed successfully') ||
+                  resetOutput.includes('already active') ||
+                  resetOutput.includes('nothing to activate') ||
+                  resetOutput.includes('Activation cancelled');
+  if (!resetOk) {
+    printError(`  Reset pull failed: ${resetOutput.substring(0, 200)}`);
   }
   printInfo('  Reset complete.');
   printInfo('');
