@@ -11,6 +11,18 @@ module.exports = {
   async execute(args, context) {
     const { config, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent health
+
+Description:
+  Check if the ABAP REST API (z_abapgit_agent) is reachable and responding.
+  Useful for verifying connectivity and configuration.
+`);
+      return;
+    }
+
     try {
       const http = new AbapHttp(config);
       const result = await http.get('/sap/bc/z_abapgit_agent/health');

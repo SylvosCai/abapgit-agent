@@ -196,6 +196,36 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent dump [--user <user>] [--date <date>] [--time <HH:MM..HH:MM>]
+                     [--program <prog>] [--error <error>] [--limit <n>] [--detail <n>] [--json]
+
+Description:
+  Query short dumps (ST22) from the ABAP system.
+
+Parameters:
+  --user <user>           Filter by user name.
+  --date <date>           Filter by date: TODAY, YESTERDAY, or YYYYMMDD or YYYYMMDD..YYYYMMDD.
+  --time <HH:MM..HH:MM>   Filter by time range (e.g. 08:00..17:00).
+  --program <prog>        Filter by program name.
+  --error <error>         Filter by error type (e.g. RABAX_STATE).
+  --timezone <tz>         Timezone for date/time filter (default: system timezone).
+  --limit <n>             Maximum number of results (default: 10).
+  --detail <n>            Show full detail of the Nth result (1-based).
+  --json                  Output as JSON.
+
+Examples:
+  abapgit-agent dump
+  abapgit-agent dump --date TODAY
+  abapgit-agent dump --user DEVELOPER
+  abapgit-agent dump --date TODAY --limit 20
+  abapgit-agent dump --user DEVELOPER --detail 1
+`);
+      return;
+    }
+
     const idx = (flag) => args.indexOf(flag);
     const val = (flag) => {
       const i = idx(flag);

@@ -14,6 +14,34 @@ module.exports = {
   async execute(args, context) {
     const { versionCheck, loadConfig, isAbapIntegrationEnabled } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent upgrade [--abap-only] [--cli-only] [--version <v>] [--check] [--yes]
+
+Description:
+  Upgrade the abapgit-agent CLI (npm package) and/or the ABAP backend to the latest
+  or a specific version.
+
+Parameters:
+  --abap-only        Upgrade only the ABAP backend (skip CLI npm upgrade).
+  --cli-only         Upgrade only the CLI npm package (skip ABAP backend).
+  --version <v>      Upgrade to a specific version (e.g. 1.15.0).
+  --check            Check for available upgrades without installing.
+  --transport <T>    Transport request for ABAP backend upgrade.
+  --yes, -y          Skip confirmation prompt.
+  --dry-run          Show what would be done without making changes.
+
+Examples:
+  abapgit-agent upgrade
+  abapgit-agent upgrade --check
+  abapgit-agent upgrade --cli-only
+  abapgit-agent upgrade --abap-only --transport DEVK900001
+  abapgit-agent upgrade --version 1.15.0
+`);
+      return;
+    }
+
     // Parse flags
     const flags = this.parseFlags(args);
 

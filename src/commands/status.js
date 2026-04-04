@@ -13,6 +13,19 @@ module.exports = {
   async execute(args, context) {
     const { gitUtils, isAbapIntegrationEnabled, AbapHttp, loadConfig } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent status
+
+Description:
+  Check whether ABAP integration is configured for the current repository.
+  Shows the config location, SAP host, and whether the abapGit online repository
+  is registered in the ABAP system.
+`);
+      return;
+    }
+
     if (isAbapIntegrationEnabled()) {
       console.log('✅ ABAP Git Agent is ENABLED');
       console.log('   Config location:', pathModule.join(process.cwd(), '.abapGitAgent'));

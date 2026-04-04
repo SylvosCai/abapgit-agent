@@ -42,6 +42,38 @@ module.exports = {
 
   async execute(args, context) {
     const { loadConfig, AbapHttp, gitUtils, getTransport, getSafeguards, getConflictSettings, getTransportSettings } = context;
+
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent pull [--url <git-url>] [--branch <branch>] [--files <file1,file2,...>]
+                     [--transport <TRANSPORT>] [--conflict-mode <mode>] [--sync-xml]
+
+Description:
+  Pull and activate ABAP objects from a git repository into the ABAP system.
+  Auto-detects git remote URL and branch from the current directory.
+
+Parameters:
+  --url <git-url>         Git repository URL. Auto-detected from git remote if omitted.
+  --branch <branch>       Branch to pull from. Auto-detected from current branch if omitted.
+  --files <file1,...>     Comma-separated list of files to pull (selective activation).
+  --transport <TRANSPORT> Transport request (e.g. DEVK900001).
+  --conflict-mode <mode>  Conflict handling: abort (default) or ignore.
+  --sync-xml              Rewrite XML metadata files to match ABAP serializer output.
+  --verbose               Show detailed activation output.
+
+Examples:
+  abapgit-agent pull
+  abapgit-agent pull --branch develop
+  abapgit-agent pull --files src/zcl_my_class.clas.abap
+  abapgit-agent pull --files src/zcl_foo.clas.abap,src/zif_foo.intf.abap
+  abapgit-agent pull --transport DEVK900001
+  abapgit-agent pull --conflict-mode ignore
+  abapgit-agent pull --files src/zcl_foo.clas.abap --sync-xml
+`);
+      return;
+    }
+
     const verbose = args.includes('--verbose');
     const syncXml = args.includes('--sync-xml');
 

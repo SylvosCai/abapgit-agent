@@ -24,6 +24,32 @@ module.exports = {
   requiresAbapConfig: false,
 
   execute(args) {
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent lint [--files <file1,...>] [--base <branch>] [--config <file>]
+                     [--outformat <format>] [--outfile <file>]
+
+Description:
+  Run abaplint static analysis on changed ABAP files. Requires .abaplint.json in repo root.
+  By default detects files changed vs HEAD~1 (or vs --base branch).
+
+Parameters:
+  --files <file1,...>   Check specific files instead of auto-detecting changed files.
+  --base <branch>       Diff against this branch instead of HEAD~1 (e.g. main).
+  --config <file>       abaplint config file (default: .abaplint.json).
+  --outformat <format>  Output format: checkstyle (default: text).
+  --outfile <file>      Write output to file instead of stdout.
+
+Examples:
+  abapgit-agent lint
+  abapgit-agent lint --base main
+  abapgit-agent lint --files src/zcl_foo.clas.abap
+  abapgit-agent lint --outformat checkstyle --outfile reports/abaplint.xml
+`);
+      return;
+    }
+
     const configPath  = argValue(args, '--config')    || '.abaplint.json';
     const baseBranch  = argValue(args, '--base');
     const filesArg    = argValue(args, '--files');
