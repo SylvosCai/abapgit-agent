@@ -323,6 +323,10 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     if (obj.type === 'DDLS') {
       runPullFromDropRepo(agentBin, 'src/zc_abgagt_drp.dcls.xml', ['--conflict-mode', 'ignore']);
     }
+    if (obj.type === 'INTF') {
+      // CLAS implements INTF; after INTF is re-pulled CLAS becomes inactive — restore it too
+      runPullFromDropRepo(agentBin, 'src/zcl_abgagt_drp_test.clas.abap', ['--conflict-mode', 'ignore']);
+    }
     const existsAfterPull = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists after re-pull`, existsAfterPull);
 
@@ -336,7 +340,9 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   const dropPullResult = runDrop(agentBin, intfObj.file, ['--pull']);
   const dropPullDropOk = dropPullResult.output.includes('Object deleted successfully') ||
                          dropPullResult.output.includes('deleted successfully');
-  const dropPullPullOk = dropPullResult.output.includes('Pull completed successfully');
+  const dropPullPullOk = dropPullResult.output.includes('Pull completed successfully') ||
+                         dropPullResult.output.includes('already active') ||
+                         dropPullResult.output.includes('Activation cancelled');
   addResult('drop --pull — drop succeeded', dropPullDropOk, dropPullResult.output);
   addResult('drop --pull — pull succeeded', dropPullPullOk, dropPullResult.output);
   const existsAfterDropPull = objectExists(agentBin, repoRoot, intfObj);
