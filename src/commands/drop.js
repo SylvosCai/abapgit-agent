@@ -32,7 +32,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp, gitUtils, getTransport } = context;
+    const { loadConfig, AbapHttp, gitUtils, getTransport, getConflictSettings } = context;
 
     // Show help if requested
     if (args.includes('--help') || args.includes('-h')) {
@@ -55,6 +55,7 @@ Parameters:
                           The file must exist on disk.
   --transport <TRANSPORT> Transport request (e.g. DEVK900001). Optional.
   --pull                  Re-activate the object via pull after deletion.
+  --conflict-mode <mode>  Conflict mode for --pull: abort (default) or ignore.
 
 Examples:
   abapgit-agent drop --files abap/zcl_foo.clas.abap
@@ -66,6 +67,7 @@ Examples:
 
     const filesArgIndex = args.indexOf('--files');
     const transportArgIndex = args.indexOf('--transport');
+    const conflictModeArgIndex = args.indexOf('--conflict-mode');
     const doPull = args.includes('--pull');
 
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
@@ -104,6 +106,7 @@ Examples:
     }
 
     const transportRequest = transportArgIndex !== -1 ? args[transportArgIndex + 1] : (getTransport ? getTransport() : null);
+    const conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : (getConflictSettings ? getConflictSettings().mode : 'abort');
 
     console.log(`\n🗑️  Dropping ${obj ? obj.type + ' ' + obj.name : filePath} from ABAP system...`);
     if (transportRequest) {
@@ -157,7 +160,7 @@ Examples:
       try {
         await pullCommand.pull(
           gitUrl, branch, [filePath], transportRequest || null,
-          loadConfig, AbapHttp, false, undefined, 'abort', false, false
+          loadConfig, AbapHttp, false, undefined, conflictMode, false, false
         );
       } catch (pullError) {
         // pull() already printed the error
