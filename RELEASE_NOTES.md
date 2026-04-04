@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.16.0
+
+### New Features
+
+- **`drop` command**: delete a single ABAP object by file path
+  - Supported types: CLAS, INTF, PROG, FUGR, TABL, TTYP, DOMA, STRU, DDLS, DCLS, MSAG
+  - DTEL not supported (SAP CBDA limitation)
+  - `--pull` flag to re-pull clean after deletion
+  - `--conflict-mode` flag respected during `--pull`
+- **FUGR syntax check**: syntax check now supports function groups
+
+### Documentation
+
+- `drop` command docs: added `--conflict-mode` flag and full object type list
+
+---
+
+---
+
+
 ## v1.15.3
 
 ### Documentation
