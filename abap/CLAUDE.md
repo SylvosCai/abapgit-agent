@@ -511,7 +511,12 @@ Never assume — wait for the user's answer before proceeding.
 
 **Finding the right line number for a breakpoint:**
 
-Use `view --full --lines` to get ready-to-use `debug set` commands per method:
+```
+❌ WRONG: abapgit-agent debug set --objects ZCL_FOO:42   ← never guess a line number
+✅ CORRECT: abapgit-agent view --objects ZCL_FOO --full --lines   ← get exact line from output
+```
+
+Always run `view --full --lines` first — it prints a ready-to-use `debug set` command for every method. Never guess or estimate line numbers.
 
 ```bash
 abapgit-agent view --objects ZCL_FOO --full --lines
@@ -551,7 +556,8 @@ abapgit-agent debug set --objects LSUSRU04:50
 
 Minimal correct sequence:
 ```bash
-abapgit-agent debug set --objects ZCL_FOO:42        # 1. set breakpoint
+abapgit-agent view --objects ZCL_FOO --full --lines  # 0. get exact line number from output hint
+abapgit-agent debug set --objects ZCL_FOO:42        # 1. set breakpoint (use line from step 0)
 abapgit-agent debug attach --json > /tmp/a.json 2>&1 &   # 2. attach (background)
 until grep -q "Listener active" /tmp/a.json 2>/dev/null; do sleep 0.3; done
 abapgit-agent unit --files src/zcl_foo.clas.testclasses.abap > /tmp/t.json 2>&1 &  # 3. trigger
