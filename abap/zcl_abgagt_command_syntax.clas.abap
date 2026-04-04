@@ -1,14 +1,18 @@
 "! <p class="shorttext synchronized">Syntax Command - Check source without activation</p>
 "! Checks ABAP source code syntax directly without requiring pull/activation.
 "! Uses object-type specific checkers via factory.
-CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
+class ZCL_ABGAGT_COMMAND_SYNTAX definition
+  public
+  final
+  create public .
 
-  PUBLIC SECTION.
+public section.
 
-    INTERFACES zif_abgagt_command.
+  interfaces ZIF_ABGAGT_COMMAND .
 
+  types:
     " Request parameters
-    TYPES: BEGIN OF ty_source_object,
+    BEGIN OF ty_source_object,
              type        TYPE string,      " CLAS, INTF, PROG
              name        TYPE string,      " Object name
              source      TYPE string,      " Source code (newline separated)
@@ -16,33 +20,32 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
              locals_imp  TYPE string,      " Local class implementations (optional, for CLAS)
              testclasses TYPE string,      " Test classes (optional, for CLAS)
              fixpt       TYPE string,      " FIXPT flag from XML metadata (optional, for CLAS)
-           END OF ty_source_object.
-
-    TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
-
-    TYPES: BEGIN OF ty_syntax_params,
+           END OF ty_source_object .
+  types:
+    ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY .
+  types:
+    BEGIN OF ty_syntax_params,
              objects   TYPE ty_source_objects,
              uccheck   TYPE string,    " 'X' (Standard) or '5' (Cloud) - default: X
-           END OF ty_syntax_params.
-
+           END OF ty_syntax_params .
     " Result types (re-export from interface)
-    TYPES ty_error TYPE zif_abgagt_syntax_checker=>ty_error.
-    TYPES ty_errors TYPE zif_abgagt_syntax_checker=>ty_errors.
-    TYPES ty_warning TYPE zif_abgagt_syntax_checker=>ty_warning.
-    TYPES ty_warnings TYPE zif_abgagt_syntax_checker=>ty_warnings.
-    TYPES ty_result TYPE zif_abgagt_syntax_checker=>ty_result.
-
+  types TY_ERROR type ZIF_ABGAGT_SYNTAX_CHECKER=>TY_ERROR .
+  types TY_ERRORS type ZIF_ABGAGT_SYNTAX_CHECKER=>TY_ERRORS .
+  types TY_WARNING type ZIF_ABGAGT_SYNTAX_CHECKER=>TY_WARNING .
+  types TY_WARNINGS type ZIF_ABGAGT_SYNTAX_CHECKER=>TY_WARNINGS .
+  types TY_RESULT type ZIF_ABGAGT_SYNTAX_CHECKER=>TY_RESULT .
+  types:
     " Response structure
-    TYPES: BEGIN OF ty_response,
+    BEGIN OF ty_response,
              success TYPE abap_bool,
              command TYPE string,
              message TYPE string,
              results TYPE STANDARD TABLE OF ty_result WITH NON-UNIQUE DEFAULT KEY,
-           END OF ty_response.
+           END OF ty_response .
 
     " Command constant
-    CONSTANTS gc_syntax TYPE string VALUE 'SYNTAX'.
-
+  constants GC_SYNTAX type STRING value 'SYNTAX' ##NO_TEXT.
+protected section.
   PRIVATE SECTION.
 
     "! Parse source string to string table (split by newlines)
@@ -58,88 +61,10 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
 ENDCLASS.
 
-CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
 
-  METHOD zif_abgagt_command~get_name.
-    rv_name = gc_syntax.
-  ENDMETHOD.
 
-  METHOD zif_abgagt_command~execute.
-    DATA: ls_params   TYPE ty_syntax_params,
-          ls_response TYPE ty_response,
-          lv_uccheck  TYPE trdir-uccheck,
-          ls_object   TYPE ty_source_object,
-          ls_result   TYPE ty_result,
-          lv_total    TYPE i,
-          lv_failed   TYPE i.
+CLASS ZCL_ABGAGT_COMMAND_SYNTAX IMPLEMENTATION.
 
-    " Initialize response
-    ls_response-command = gc_syntax.
-    ls_response-success = abap_true.
-
-    " Parse parameters
-    IF is_param IS SUPPLIED.
-      MOVE-CORRESPONDING is_param TO ls_params.
-    ENDIF.
-
-    " Validate input
-    IF ls_params-objects IS INITIAL.
-      ls_response-success = abap_false.
-      ls_response-message = 'No objects provided for syntax check'.
-      rv_result = /ui2/cl_json=>serialize( data = ls_response ).
-      RETURN.
-    ENDIF.
-
-    " Set uccheck default
-    IF ls_params-uccheck IS INITIAL OR ls_params-uccheck = 'X'.
-      lv_uccheck = 'X'.  " Standard ABAP
-    ELSEIF ls_params-uccheck = '5'.
-      lv_uccheck = '5'.  " ABAP for Cloud
-    ELSE.
-      lv_uccheck = 'X'.
-    ENDIF.
-
-    " Check each object
-    LOOP AT ls_params-objects INTO ls_object.
-      ls_result = check_object(
-        is_object  = ls_object
-        iv_uccheck = lv_uccheck ).
-
-      APPEND ls_result TO ls_response-results.
-
-      " Update overall success
-      IF ls_result-success = abap_false.
-        ls_response-success = abap_false.
-      ENDIF.
-    ENDLOOP.
-
-    " Set overall message
-    lv_total = lines( ls_response-results ).
-    LOOP AT ls_response-results TRANSPORTING NO FIELDS WHERE success = abap_false.
-      ADD 1 TO lv_failed.
-    ENDLOOP.
-
-    IF lv_failed = 0.
-      ls_response-message = |All { lv_total } object(s) passed syntax check|.
-    ELSE.
-      ls_response-message = |{ lv_failed } of { lv_total } object(s) have syntax errors|.
-    ENDIF.
-
-    rv_result = /ui2/cl_json=>serialize( data = ls_response ).
-  ENDMETHOD.
-
-  METHOD parse_source.
-
-    DATA lv_source TYPE string.
-    lv_source = iv_source.
-
-    " Replace CRLF with LF
-    REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf
-      IN lv_source WITH cl_abap_char_utilities=>newline.
-
-    " Split by newline
-    SPLIT lv_source AT cl_abap_char_utilities=>newline INTO TABLE rt_lines.
-  ENDMETHOD.
 
   METHOD check_object.
     DATA: lt_source        TYPE string_table,
@@ -206,4 +131,87 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
       it_source = lt_source ).
   ENDMETHOD.
 
+
+  METHOD parse_source.
+
+    DATA lv_source TYPE string.
+    lv_source = iv_source.
+
+    " Replace CRLF with LF
+    REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf
+      IN lv_source WITH cl_abap_char_utilities=>newline.
+
+    " Split by newline
+    SPLIT lv_source AT cl_abap_char_utilities=>newline INTO TABLE rt_lines.
+  ENDMETHOD.
+
+
+  METHOD zif_abgagt_command~execute.
+    DATA: ls_params   TYPE ty_syntax_params,
+          ls_response TYPE ty_response,
+          lv_uccheck  TYPE trdir-uccheck,
+          ls_object   TYPE ty_source_object,
+          ls_result   TYPE ty_result,
+          lv_total    TYPE i,
+          lv_failed   TYPE i.
+
+    " Initialize response
+    ls_response-command = gc_syntax.
+    ls_response-success = abap_true.
+
+    " Parse parameters
+    IF is_param IS SUPPLIED.
+      MOVE-CORRESPONDING is_param TO ls_params.
+    ENDIF.
+
+    " Validate input
+    IF ls_params-objects IS INITIAL.
+      ls_response-success = abap_false.
+      ls_response-message = 'No objects provided for syntax check'.
+      rv_result = /ui2/cl_json=>serialize( data = ls_response ).
+      RETURN.
+    ENDIF.
+
+    " Set uccheck default
+    IF ls_params-uccheck IS INITIAL OR ls_params-uccheck = 'X'.
+      lv_uccheck = 'X'.  " Standard ABAP
+    ELSEIF ls_params-uccheck = '5'.
+      lv_uccheck = '5'.  " ABAP for Cloud
+    ELSE.
+      lv_uccheck = 'X'.
+    ENDIF.
+
+    " Check each object
+    LOOP AT ls_params-objects INTO ls_object.
+      ls_result = check_object(
+        is_object  = ls_object
+        iv_uccheck = lv_uccheck ).
+
+      APPEND ls_result TO ls_response-results.
+
+      " Update overall success
+      IF ls_result-success = abap_false.
+        ls_response-success = abap_false.
+      ENDIF.
+    ENDLOOP.
+
+    " Set overall message
+    lv_total = lines( ls_response-results ).
+    LOOP AT ls_response-results TRANSPORTING NO FIELDS WHERE success = abap_false.
+      ADD 1 TO lv_failed.
+    ENDLOOP.
+
+    IF lv_failed = 0.
+      ls_response-message = |All { lv_total } object(s) passed syntax check|.
+    ELSE.
+      ls_response-message = |{ lv_failed } of { lv_total } object(s) have syntax errors|.
+    ENDIF.
+
+    rv_result = /ui2/cl_json=>serialize( data = ls_response ).
+  ENDMETHOD.
+
+
+  METHOD zif_abgagt_command~get_name.
+    rv_name = gc_syntax.
+  ENDMETHOD.
 ENDCLASS.

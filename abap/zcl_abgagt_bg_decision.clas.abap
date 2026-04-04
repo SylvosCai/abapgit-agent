@@ -5,9 +5,15 @@ CLASS zcl_abgagt_bg_decision DEFINITION
 
   PUBLIC SECTION.
     INTERFACES zif_abgagt_bg_decision.
+protected section.
+private section.
 ENDCLASS.
 
-CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
+
+
+CLASS ZCL_ABGAGT_BG_DECISION IMPLEMENTATION.
+
+
   METHOD zif_abgagt_bg_decision~should_run_in_background.
     DATA lo_progressable TYPE REF TO zif_abgagt_progressable.
 
@@ -61,8 +67,11 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
       WHEN 'PULL'.
         " Large file counts
         TRY.
+            FIELD-SYMBOLS <lt_files> TYPE ANY TABLE.
             ASSIGN COMPONENT 'FILES' OF STRUCTURE is_request_data
-              TO FIELD-SYMBOL(<lt_files>).
+              TO <lt_files>
+*              TO FIELD-SYMBOL(<lt_files>)
+              .
             IF sy-subrc = 0 AND lines( <lt_files> ) > 10.
               rv_result = abap_true.
               RETURN.
