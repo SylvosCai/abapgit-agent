@@ -2,6 +2,31 @@
 title: Release Notes
 ---
 
+## v1.16.1
+
+### New Features
+
+- `--help` flag added to pull, lint, dump, upgrade, health, status commands
+
+### Bug Fixes
+
+- Fixed `--help` shown before required-arg validation in view, inspect, syntax, unit, run, tree, list, preview, where
+- Fixed missing commands in help output (drop, run, lint, debug, transport, preview, upgrade)
+- Added cooldown and retry logic to fix intermittent drop test failures
+
+### Improvements
+
+- `ref` command: removed line truncation, raised content limit to 20000
+
+### Documentation
+
+- Clarified debug setup: always use `view --full --lines` before `debug set`
+
+---
+
+---
+
+
 ## v1.16.0
 
 ### New Features
