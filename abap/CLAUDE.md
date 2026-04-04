@@ -564,7 +564,7 @@ abapgit-agent debug step --type continue --json     # 4. release
 
 ---
 
-### 12. abaplint — Static Analysis (Optional, Project-Controlled)
+### 13. abaplint — Static Analysis (Optional, Project-Controlled)
 
 abaplint is **optional**. Only run it if `.abaplint.json` exists in the project root.
 Each project defines its own rules — never assume which rules are active.
