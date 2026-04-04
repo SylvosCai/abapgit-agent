@@ -192,6 +192,9 @@ function runPullFromDropRepo(agentBin, file, extraArgs = []) {
     return { output: (err.stdout || '') + (err.stderr || ''), exitCode: err.status || 1 };
   }
 }
+
+/**
+ * Run `abapgit-agent drop` against the drop-test repo.
  * The drop-test repo is used as cwd so that relative file paths resolve correctly.
  */
 function runDrop(agentBin, file, extraArgs = []) {
