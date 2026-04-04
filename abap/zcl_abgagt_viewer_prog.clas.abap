@@ -21,7 +21,7 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
     rs_info-description = |Program { iv_name }|.
 
     " Check TADIR first — READ REPORT can succeed even after deletion (REPOSRC not immediately cleared)
-    SELECT SINGLE pgmid FROM tadir
+    SELECT SINGLE pgmid FROM tadir BYPASSING BUFFER
       INTO @DATA(lv_dummy)
       WHERE pgmid = 'R3TR'
         AND object = 'PROG'
