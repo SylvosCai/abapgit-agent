@@ -48,6 +48,24 @@ Commands:
   unit --files <file1>,<file2>,...
     Run AUnit tests for ABAP test class files (.testclasses.abap)
 
+  run --program <NAME> | --class <NAME>
+    Execute an ABAP program or class (IF_OO_ADT_CLASSRUN) and display its output.
+
+  drop --files <file> [--pull] [--transport <TRANSPORT>] [--conflict-mode <mode>]
+    Physically delete a single ABAP object from the ABAP system.
+    Use --pull to immediately re-activate from git after deletion.
+
+  lint [--files <file1,...>] [--base <branch>] [--config <file>]
+    Run abaplint static analysis on changed ABAP files. Requires .abaplint.json.
+
+  debug <subcommand> [options]
+    Manage ABAP debugger breakpoints and attach debug sessions.
+    Subcommands: set, list, delete, attach, step, vars, stack
+
+  transport <subcommand> [options]
+    List and manage SAP transport requests.
+    Subcommands: list, create, release
+
   tree --package <package> [--depth <n>] [--include-types] [--json]
     Display package hierarchy tree from ABAP system
 
@@ -56,6 +74,9 @@ Commands:
 
   view --objects <obj1>,<obj2>,... [--type <type>] [--json]
     View ABAP object definitions from the ABAP system
+
+  preview --objects <obj1>,... [--type <type>] [--limit <n>] [--where <cond>] [--json]
+    Preview data from ABAP tables or CDS views
 
   where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--json]
     Find where-used list for ABAP objects (classes, interfaces, programs)
@@ -93,6 +114,9 @@ Commands:
     - Use --dry-run to preview changes without applying them
     - Use --yes to skip confirmation prompt
 
+  upgrade [--abap-only] [--cli-only] [--version <v>]
+    Upgrade CLI and/or ABAP backend to latest or specific version.
+
   health
     Check if ABAP REST API is healthy
 
@@ -114,9 +138,14 @@ Examples:
   abapgit-agent syntax --files src/zcl_my_class.clas.abap        # Check without pull
   abapgit-agent syntax --files src/zmy_prog.prog.abap --cloud    # ABAP Cloud check
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run unit tests
-  abapgit-agent tree --package $MY_PACKAGE                   # Display package tree
+  abapgit-agent run --program ZMY_REPORT                         # Execute report
+  abapgit-agent run --class ZCL_MY_RUNNER                        # Execute class
+  abapgit-agent drop --files src/zcl_foo.clas.abap --pull        # Drop and re-activate
+  abapgit-agent lint                                             # abaplint on changed files
+  abapgit-agent tree --package $MY_PACKAGE                       # Display package tree
   abapgit-agent list --package $MY_PACKAGE --type CLAS,INTF  # List classes & interfaces
   abapgit-agent view --objects ZCL_MY_CLASS                  # View class definition
+  abapgit-agent preview --objects SFLIGHT                    # Preview table data
   abapgit-agent where --objects ZCL_MY_CLASS                 # Find where class is used
   abapgit-agent dump --date TODAY                            # Recent short dumps
   abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
