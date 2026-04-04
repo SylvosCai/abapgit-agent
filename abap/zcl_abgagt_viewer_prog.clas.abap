@@ -20,16 +20,6 @@ CLASS zcl_abgagt_viewer_prog IMPLEMENTATION.
     rs_info-type_text = 'Program'.
     rs_info-description = |Program { iv_name }|.
 
-    " Check TRDIR (active program directory) — TADIR and REPOSRC persist after abapGit drop,
-    " but TRDIR only contains truly active programs
-    SELECT SINGLE name FROM trdir BYPASSING BUFFER
-      INTO @DATA(lv_trdir_name)
-      WHERE name = @iv_name.
-    IF sy-subrc <> 0.
-      rs_info-not_found = abap_true.
-      RETURN.
-    ENDIF.
-
     " Try to read the program/source include directly
     READ REPORT lv_prog INTO lt_source.
     IF sy-subrc = 0.

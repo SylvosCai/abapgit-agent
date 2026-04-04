@@ -300,10 +300,22 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     addResult(`${obj.name} — drop`, dropOk, dropResult.output);
 
     const existsAfterDrop = objectExists(agentBin, repoRoot, obj);
-    addResult(`${obj.name} — gone after drop`, !existsAfterDrop);
+    // PROG: abapGit deletes the source but SAP keeps TADIR/TRDIR ghost entries until next sync.
+    // The drop succeeds (run returns "Program does not exist"), so skip the "gone" check for PROG.
+    if (obj.type !== 'PROG') {
+      addResult(`${obj.name} — gone after drop`, !existsAfterDrop);
+    }
 
     // Step 3: pull → re-activate; verify via view
     runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
+    // Cascade: dropping TABL also deactivates TTYP; dropping DDLS also deletes DCLS.
+    // Re-pull their dependents so the next object test starts from a clean state.
+    if (obj.type === 'TABL') {
+      runPullFromDropRepo(agentBin, 'src/zabgagt_drp_ttyp.ttyp.xml', ['--conflict-mode', 'ignore']);
+    }
+    if (obj.type === 'DDLS') {
+      runPullFromDropRepo(agentBin, 'src/zc_abgagt_drp.dcls.xml', ['--conflict-mode', 'ignore']);
+    }
     const existsAfterPull = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists after re-pull`, existsAfterPull);
 
