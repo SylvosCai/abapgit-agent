@@ -293,3 +293,21 @@ abapgit-agent import
 - [`init`](init-command.md) - Initialize local configuration
 - [`create`](create-command.md) - Create online repository in ABAP
 - [`pull`](pull-command.md) - Pull and activate objects in ABAP
+
+## Project-Level Safeguards
+
+To disable the import command for all developers on a project, add to `.abapgit-agent.json` (checked into the repository):
+
+```json
+{
+  "safeguards": {
+    "disableImport": true,
+    "reason": "One-time operation — managed by release manager."
+  }
+}
+```
+
+**When `disableImport: true`:**
+- All `import` commands are blocked immediately with an error
+- `reason` is displayed if provided
+- Error message directs users to contact the project maintainer

@@ -464,6 +464,7 @@ Create `.abapgit-agent.json` in repository root for team-wide policies:
 | `requireFilesForPull` | boolean | `false` | Requires `--files` parameter for pull command |
 | `disablePull` | boolean | `false` | Completely disables pull command |
 | `disableRun` | boolean | `false` | Completely disables run command |
+| `disableImport` | boolean | `false` | Completely disables import command |
 | `disableProbeClasses` | boolean | `false` | Prevents AI from creating probe classes in this project; redirects to `scratchWorkspace` |
 | `reason` | string | `null` | Optional explanation shown in error messages |
 

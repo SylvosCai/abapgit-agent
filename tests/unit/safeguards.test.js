@@ -43,6 +43,7 @@ describe('Project Safeguards', () => {
         requireFilesForPull: false,
         disablePull: false,
         disableRun: false,
+        disableImport: false,
         disableProbeClasses: false,
         reason: null
       });
@@ -147,6 +148,30 @@ describe('Project Safeguards', () => {
 
       expect(safeguards.disableProbeClasses).toBe(true);
       expect(safeguards.reason).toBe('Production-adjacent system');
+    });
+
+    test('disableImport defaults to false', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: { disablePull: false }
+      }));
+
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().disableImport).toBe(false);
+    });
+
+    test('disableImport reads true from config', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: {
+          disableImport: true,
+          reason: 'One-time operation managed by release manager'
+        }
+      }));
+
+      const { getSafeguards } = require('../../src/config');
+      const safeguards = getSafeguards();
+
+      expect(safeguards.disableImport).toBe(true);
+      expect(safeguards.reason).toBe('One-time operation managed by release manager');
     });
   });
 

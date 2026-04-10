@@ -73,6 +73,7 @@ describe('Import Command - Async Job Pattern', () => {
     let pollCount = 0;
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443, package: '$ZTEST' })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
       gitUtils: {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
         getBranch: jest.fn(() => 'master')
@@ -134,6 +135,7 @@ describe('Import Command - Async Job Pattern', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443, package: '$ZTEST' })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
       gitUtils: {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
         getBranch: jest.fn(() => 'master')
@@ -172,6 +174,7 @@ describe('Import Command - Async Job Pattern', () => {
     let pollCount = 0;
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
       gitUtils: {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
         getBranch: jest.fn(() => 'master')
@@ -212,6 +215,7 @@ describe('Import Command - Async Job Pattern', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
       gitUtils: {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
         getBranch: jest.fn(() => 'master')
@@ -249,6 +253,7 @@ describe('Import Command - Async Job Pattern', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443, package: '$ZTEST' })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
       gitUtils: {
         getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
         getBranch: jest.fn(() => 'master')
@@ -271,5 +276,39 @@ describe('Import Command - Async Job Pattern', () => {
     const output = consoleOutput.join('\n');
 
     expect(output).toMatch(/failed.*start.*job|error/i);
+  });
+
+  test('rejects import when disableImport safeguard is true', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    const consoleErrorOutput = [];
+    const originalConsoleError2 = console.error;
+    console.error = (...args) => consoleErrorOutput.push(args.join(' '));
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        disableImport: true,
+        reason: 'One-time operation managed by release manager'
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      AbapHttp: jest.fn()
+    };
+
+    try {
+      await importCommand.execute([], mockContext);
+    } catch (e) {
+      // Expected: process.exit(1) throws
+    }
+
+    console.error = originalConsoleError2;
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+    const errorText = consoleErrorOutput.join('\n');
+    expect(errorText).toMatch(/import command is disabled/);
+    expect(errorText).toMatch(/One-time operation managed by release manager/);
+    // Must not reach network layer
+    expect(mockContext.AbapHttp).not.toHaveBeenCalled();
   });
 });

@@ -632,6 +632,7 @@ Checked into the repository — applies to all developers. **Read this file at t
 |---------|--------|---------|--------|
 | `safeguards.requireFilesForPull` | `true`/`false` | `false` | Requires `--files` on every pull |
 | `safeguards.disablePull` | `true`/`false` | `false` | Disables pull entirely (CI/CD-only projects) |
+| `safeguards.disableImport` | `true`/`false` | `false` | Disables import entirely (one-time or managed operation) |
 | `conflictDetection.mode` | `"abort"`/`"ignore"` | `"abort"` | Whether to abort pull on conflict |
 | `transports.hook.path` | string | `null` | Path to JS module that auto-selects a transport for pull |
 | `transports.hook.description` | string | `null` | Optional label shown when the hook runs |
@@ -723,6 +724,10 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 **When `safeguards.disableRun = true`:**
 1. ✗ Do not run `abapgit-agent run` at all
 2. ✓ Inform the user that run is disabled for this project
+
+**When `safeguards.disableImport = true`:**
+1. ✗ Do not run `abapgit-agent import` at all
+2. ✓ Inform the user that import is disabled for this project
 
 **When `safeguards.disableProbeClasses = true`:**
 1. ✗ Do not create probe classes in the current project

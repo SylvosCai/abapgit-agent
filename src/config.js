@@ -123,6 +123,7 @@ function getSafeguards() {
       requireFilesForPull: projectConfig.safeguards.requireFilesForPull === true,
       disablePull: projectConfig.safeguards.disablePull === true,
       disableRun: projectConfig.safeguards.disableRun === true,
+      disableImport: projectConfig.safeguards.disableImport === true,
       disableProbeClasses: projectConfig.safeguards.disableProbeClasses === true,
       reason: projectConfig.safeguards.reason || null
     };
@@ -133,6 +134,7 @@ function getSafeguards() {
     requireFilesForPull: false,
     disablePull: false,
     disableRun: false,
+    disableImport: false,
     disableProbeClasses: false,
     reason: null
   };

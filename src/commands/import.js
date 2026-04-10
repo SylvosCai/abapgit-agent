@@ -18,7 +18,7 @@ module.exports = {
 
   async execute(args, context) {
     try {
-      const { loadConfig, gitUtils, AbapHttp } = context;
+      const { loadConfig, gitUtils, AbapHttp, getSafeguards } = context;
 
       // Show help if requested
     const helpIndex = args.findIndex(a => a === '--help' || a === '-h');
@@ -46,6 +46,18 @@ Examples:
   abapgit-agent import --message "Initial import from SAP"
 `);
       return;
+    }
+
+    // Get parameters from config
+    const safeguards = getSafeguards();
+    if (safeguards.disableImport) {
+      console.error('❌ Error: import command is disabled for this project\n');
+      if (safeguards.reason) {
+        console.error(`Reason: ${safeguards.reason}\n`);
+      }
+      console.error('The import command has been disabled in .abapgit-agent.json');
+      console.error('Please contact the project maintainer to enable it.');
+      process.exit(1);
     }
 
     // Get parameters from config
