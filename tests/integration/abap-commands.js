@@ -5,7 +5,7 @@
  * see pull-runner.js, lifecycle-runner.js, and xml-only-runner.js.
  *
  * Test Distribution:
- *   - syntax: 29 tests (validation, auto-detection, DDLS, FIXPT, FUGR)
+ *   - syntax: 32 tests (validation, auto-detection, DDLS, FIXPT, FUGR, INCLUDE)
  *   - view:    9 tests (class, interface, table, class --full, class --full --lines,
  *                       domain, message class, function group, access control)
  *   - tree:    3 tests (package, depth, types)
@@ -27,7 +27,7 @@
  *   - status:  1 test  (config check)
  *   - inspect: 2 tests  (code inspector, --junit-output)
  *   - health:  1 test  (system health)
- *   Total:    95 tests
+ *   Total:    98 tests
  *
  * Run specific command tests:
  *   npm run test:cmd:syntax
@@ -1294,6 +1294,50 @@ ENDCLASS.`;
       const hasFilename = output.includes('zabgagt_st_err.fugr.zabgagt_st_err_fm.abap');
       const hasLine = /Line \d+/.test(output);
       return hasFmLabel && hasFilename && hasLine;
+    }
+  },
+
+  // ===================================================================
+  // SYNTAX COMMAND - INCLUDE program tests (2 tests)
+  // Purpose: Verify INCLUDE programs auto-detect their parent and are
+  // checked by assembling parent source with INCLUDE substituted in-place.
+  // Clean INCLUDE → pass; error in INCLUDE → reported at include line number.
+  // Fixture files: tests/fixtures/include-prog-test/
+  //                tests/fixtures/include-prog-error-test/
+  // ===================================================================
+
+  {
+    command: 'syntax',
+    name: 'syntax check INCLUDE program: auto-detects parent, check passes (clean source)',
+    args: ['--files', 'tests/fixtures/include-prog-test/zinclude_test.prog.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        // Should succeed — parent was auto-detected and assembled source is valid
+        return result && result.SUCCESS === true && result.ERROR_COUNT === 0;
+      } catch (e) {
+        return false;
+      }
+    }
+  },
+
+  {
+    command: 'syntax',
+    name: 'syntax check INCLUDE program: error in INCLUDE remapped to include line number',
+    args: ['--files', 'tests/fixtures/include-prog-error-test/zinclude_err_test.prog.abap', '--json'],
+    expectSuccess: false,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        if (!result || result.SUCCESS !== false || result.ERROR_COUNT === 0) return false;
+        const errors = result.ERRORS || [];
+        return errors.length > 0;
+      } catch (e) {
+        return false;
+      }
     }
   },
 

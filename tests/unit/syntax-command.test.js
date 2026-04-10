@@ -951,6 +951,71 @@ describe('Syntax Command - File Type Detection via execute()', () => {
     const fixpt = sentObj.fixpt !== undefined ? sentObj.fixpt : sentObj.FIXPT;
     expect(fixpt).toBe('');
   });
+
+  test('INCLUDE program (SUBC=I) with no parent found: exits with warning', async () => {
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('.prog.xml')) return true;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('.prog.xml')) return '<PROGDIR><SUBC>I</SUBC><FIXPT>X</FIXPT></PROGDIR>';
+      return 'DATA gv_x TYPE i.';
+    });
+    fs.readdirSync = jest.fn(() => []); // No other files in directory → no parent found
+
+    const postMock = jest.fn();
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    let exitCode = null;
+    const origExit = process.exit;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await syntaxCommand.execute(['--files', 'zinclude_test.prog.abap'], mockContext);
+    } catch (e) {
+      // expected process.exit
+    }
+    process.exit = origExit;
+
+    // Should not have called post (no objects to check)
+    expect(postMock).not.toHaveBeenCalled();
+    // Should have exited with code 1
+    expect(exitCode).toBe(1);
+  });
+
+  test('reads SUBC=1 from PROG XML for executable program', async () => {
+    fs.existsSync = jest.fn((p) => {
+      if (p.endsWith('.prog.xml')) return true;
+      return true;
+    });
+    fs.readFileSync = jest.fn((p) => {
+      if (p.endsWith('.prog.xml')) return '<PROGDIR><SUBC>1</SUBC><FIXPT>X</FIXPT></PROGDIR>';
+      return 'REPORT zmy_prog.';
+    });
+
+    const postMock = jest.fn().mockResolvedValue({
+      SUCCESS: true,
+      RESULTS: [{ OBJECT_TYPE: 'PROG', OBJECT_NAME: 'ZMY_PROG', SUCCESS: true, ERROR_COUNT: 0, ERRORS: [] }]
+    });
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: postMock
+      }))
+    };
+
+    await syntaxCommand.execute(['--files', 'zmy_prog.prog.abap'], mockContext);
+
+    const callBody = postMock.mock.calls[0][1];
+    const sentObj = (callBody.objects || callBody.OBJECTS || [callBody])[0];
+    expect(sentObj.subc || sentObj.SUBC).toBe('1');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -10,9 +10,15 @@ CLASS zcl_abgagt_syntax_chk_prog DEFINITION PUBLIC FINAL CREATE PUBLIC.
     METHODS set_uccheck
       IMPORTING iv_uccheck TYPE trdir-uccheck.
 
+    "! Set program subtype (from XML metadata)
+    "! @parameter iv_subc | Program subtype (I=Include, 1=Executable, etc.)
+    METHODS set_subc
+      IMPORTING iv_subc TYPE string.
+
   PRIVATE SECTION.
     DATA mv_uccheck TYPE trdir-uccheck VALUE 'X'.
     DATA mv_fixpt TYPE string.
+    DATA mv_subc TYPE trdir-subc.
 
 ENDCLASS.
 
@@ -24,6 +30,10 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
 
   METHOD set_uccheck.
     mv_uccheck = iv_uccheck.
+  ENDMETHOD.
+
+  METHOD set_subc.
+    mv_subc = CONV #( iv_subc ).
   ENDMETHOD.
 
   METHOD zif_abgagt_syntax_checker~set_fixpt.
@@ -53,10 +63,12 @@ CLASS zcl_abgagt_syntax_chk_prog IMPLEMENTATION.
     ENDIF.
 
     " Set TRDIR entry for syntax check context
-    ls_dir-name = lv_progname.
+    ls_dir-name    = lv_progname.
     ls_dir-uccheck = mv_uccheck.
-    " Use FIXPT from XML metadata
-    ls_dir-fixpt = mv_fixpt.
+    ls_dir-fixpt   = mv_fixpt.
+    IF mv_subc IS NOT INITIAL.
+      ls_dir-subc = mv_subc.
+    ENDIF.
 
     " Run syntax check
     SYNTAX-CHECK FOR it_source

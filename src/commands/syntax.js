@@ -71,6 +71,7 @@ Examples:
     // Group class files together (main + locals)
     const classFilesMap = new Map(); // className -> { main, locals_def, locals_imp }
     const fugrGroupMap = new Map();  // groupName -> { dir, fmFiles: Map<fmName, source> }
+    const progIncludeMap = new Map(); // includeName -> { filePath, source }
     const objects = [];
 
     for (const file of syntaxFiles) {
@@ -165,7 +166,7 @@ Examples:
           source: source
         };
 
-        // Read FIXPT from XML metadata for INTF and PROG
+        // Read FIXPT and SUBC from XML metadata for INTF and PROG
         if (objType === 'INTF' || objType === 'PROG') {
           const dir = pathModule.dirname(filePath);
           let xmlFile;
@@ -176,13 +177,21 @@ Examples:
           }
           if (xmlFile && fs.existsSync(xmlFile)) {
             const xmlContent = fs.readFileSync(xmlFile, 'utf8');
-            // Simple regex to extract FIXPT value
             const fixptMatch = xmlContent.match(/<FIXPT>([^<]+)<\/FIXPT>/);
             if (fixptMatch && fixptMatch[1] === 'X') {
               obj.fixpt = 'X';
             } else {
-              // No FIXPT tag means FIXPT=false (blank)
               obj.fixpt = '';
+            }
+            if (objType === 'PROG') {
+              const subcMatch = xmlContent.match(/<SUBC>([^<]+)<\/SUBC>/);
+              obj.subc = subcMatch ? subcMatch[1] : '';
+
+              // INCLUDE programs: stash for parent auto-detection instead of pushing directly
+              if (obj.subc === 'I') {
+                progIncludeMap.set(objName, { filePath, source });
+                continue; // skip objects.push — handled after auto-detection below
+              }
             }
           }
         }
@@ -352,12 +361,102 @@ Examples:
       }
     }
 
+    // Helper: read SUBC from a .prog.xml file
+    function readProgSubc(xmlPath) {
+      if (!fs.existsSync(xmlPath)) return '';
+      const xml = fs.readFileSync(xmlPath, 'utf8');
+      const m = xml.match(/<SUBC>([^<]+)<\/SUBC>/);
+      return m ? m[1] : '';
+    }
+
+    // Helper: read FIXPT from a .prog.xml file
+    function readProgFixpt(xmlPath) {
+      if (!fs.existsSync(xmlPath)) return '';
+      const xml = fs.readFileSync(xmlPath, 'utf8');
+      const m = xml.match(/<FIXPT>([^<]+)<\/FIXPT>/);
+      return (m && m[1] === 'X') ? 'X' : '';
+    }
+
+    // Auto-detect parent program for INCLUDE files
+    // Scan the same directory for .prog.abap files that contain INCLUDE <name>.
+    // Assemble the parent source with the INCLUDE source substituted in-place.
+    for (const [includeName, includeData] of progIncludeMap) {
+      const includeDir = pathModule.dirname(includeData.filePath);
+      let parentFound = false;
+
+      let dirEntries;
+      try {
+        dirEntries = fs.readdirSync(includeDir);
+      } catch (e) {
+        dirEntries = [];
+      }
+
+      for (const entry of dirEntries) {
+        if (!entry.toLowerCase().endsWith('.prog.abap')) continue;
+        const candidatePath = pathModule.join(includeDir, entry);
+        if (candidatePath === includeData.filePath) continue; // skip itself
+
+        // Only consider executable/non-include programs as parents
+        const candidateName = entry.split('.')[0].toUpperCase();
+        const candidateXml = pathModule.join(includeDir, `${candidateName.toLowerCase()}.prog.xml`);
+        const candidateSubc = readProgSubc(candidateXml);
+        if (candidateSubc === 'I') continue; // another INCLUDE — skip
+
+        const parentSource = fs.readFileSync(candidatePath, 'utf8');
+        const parentLines = parentSource.split('\n');
+
+        // Find `INCLUDE <includeName>.` line (case-insensitive)
+        const includeRegex = new RegExp(`^\\s*INCLUDE\\s+${includeName}\\s*\\.`, 'i');
+        const includeLineIdx = parentLines.findIndex(l => includeRegex.test(l));
+        if (includeLineIdx === -1) continue;
+
+        // Found parent — assemble: replace INCLUDE statement with include's source lines
+        const includeLines = includeData.source.split('\n');
+        const assembled = [
+          ...parentLines.slice(0, includeLineIdx),
+          ...includeLines,
+          ...parentLines.slice(includeLineIdx + 1)
+        ];
+        const assembledSource = assembled.join('\n');
+
+        if (!jsonOutput) {
+          console.log(`  Auto-detected parent: ${entry} (contains INCLUDE ${includeName}.)`);
+        }
+
+        objects.push({
+          type: 'PROG',
+          name: candidateName,
+          source: assembledSource,
+          subc: candidateSubc || '1',
+          fixpt: readProgFixpt(candidateXml),
+          // offset into assembled source where include lines start (1-based)
+          include_offset: includeLineIdx + 1,
+          include_line_count: includeLines.length,
+          // carry include name for error line mapping
+          include_name: includeName
+        });
+
+        parentFound = true;
+        break; // use first matching parent
+      }
+
+      if (!parentFound) {
+        if (!jsonOutput) {
+          console.error(`  Warning: No parent program found for INCLUDE ${includeName} — cannot syntax-check standalone`);
+        }
+      }
+    }
+
     if (objects.length === 0) {
       console.error('  No valid files to check');
       process.exit(1);
     }
     const data = {
-      objects: objects,
+      objects: objects.map(o => {
+        // Strip client-side INCLUDE tracking fields before sending to ABAP
+        const { include_offset, include_line_count, include_name, ...abapObj } = o; // eslint-disable-line no-unused-vars
+        return abapObj;
+      }),
       uccheck: cloudMode ? '5' : 'X'
     };
 
@@ -387,26 +486,56 @@ Examples:
         const fugrFmLabel = (objType === 'FUGR' && sentObj.fugr_include_name)
           ? ` (${sentObj.fugr_include_name})` : '';
 
+        // For INCLUDE-backed checks: determine display label and line remapping
+        const includeLabel = sentObj.include_name
+          ? ` (checking via parent ${objName})` : '';
+
         if (objSuccess) {
-          console.log(`✅ ${objType} ${objName}${fugrFmLabel} - Syntax check passed`);
+          if (sentObj.include_name) {
+            console.log(`✅ PROG ${sentObj.include_name} - Syntax check passed${includeLabel}`);
+          } else {
+            console.log(`✅ ${objType} ${objName}${fugrFmLabel} - Syntax check passed`);
+          }
           if (warnings.length > 0) {
             console.log(`   (${warnings.length} warning(s))`);
           }
         } else {
-          console.log(`❌ ${objType} ${objName}${fugrFmLabel} - Syntax check failed (${errorCount} error(s))`);
+          if (sentObj.include_name) {
+            console.log(`❌ PROG ${sentObj.include_name} - Syntax check failed (${errorCount} error(s))${includeLabel}`);
+          } else {
+            console.log(`❌ ${objType} ${objName}${fugrFmLabel} - Syntax check failed (${errorCount} error(s))`);
+          }
           console.log('');
           console.log('Errors:');
           console.log('─'.repeat(60));
 
           for (const err of errors) {
-            const line = err.LINE || err.line || '?';
+            let line = err.LINE || err.line || '?';
             const column = err.COLUMN || err.column || '';
             const text = err.TEXT || err.text || 'Unknown error';
             const methodName = err.METHOD_NAME || err.method_name || '';
             const include = err.INCLUDE || err.include || '';
 
+            // Remap line numbers for INCLUDE-backed checks
+            let remappedFile = null;
+            if (sentObj.include_name && typeof line === 'number') {
+              const offset = sentObj.include_offset || 0;
+              const count = sentObj.include_line_count || 0;
+              if (line >= offset && line < offset + count) {
+                // Error is inside the INCLUDE — remap to include-relative line
+                line = line - offset + 1;
+                remappedFile = `${sentObj.include_name.toLowerCase()}.prog.abap`;
+              } else {
+                // Error is in the parent program context (e.g. header line)
+                remappedFile = `${objName.toLowerCase()}.prog.abap (parent)`;
+              }
+            }
+
             // Display which file/include the error is in
-            if (include) {
+            if (remappedFile) {
+              // INCLUDE-backed check: show the actual source file the error maps to
+              console.log(`  In: ${remappedFile}`);
+            } else if (include) {
               // For FUGR: include = lowercase FM name → display as '<group>.fugr.<fm_name>.abap'
               if (objType === 'FUGR') {
                 const fugrFile = `${objName.toLowerCase()}.fugr.${include}.abap`;

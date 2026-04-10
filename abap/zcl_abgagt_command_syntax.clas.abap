@@ -17,6 +17,7 @@ CLASS zcl_abgagt_command_syntax DEFINITION PUBLIC FINAL CREATE PUBLIC.
              testclasses       TYPE string,      " Test classes (optional, for CLAS)
              fixpt             TYPE string,      " FIXPT flag from XML metadata (optional, for CLAS)
              fugr_include_name TYPE string,      " FM name for FUGR check (e.g. 'ZMY_MY_FUNCTION')
+             subc              TYPE string,      " Program subtype from XML (e.g. 'I'=Include, '1'=Executable)
            END OF ty_source_object.
 
     TYPES ty_source_objects TYPE STANDARD TABLE OF ty_source_object WITH NON-UNIQUE DEFAULT KEY.
@@ -182,10 +183,13 @@ CLASS zcl_abgagt_command_syntax IMPLEMENTATION.
         ENDIF.
 
       WHEN 'PROG'.
-        " Set uccheck for programs
+        " Set uccheck and subc for programs
         DATA lo_prog_checker TYPE REF TO zcl_abgagt_syntax_chk_prog.
         lo_prog_checker ?= lo_checker.
         lo_prog_checker->set_uccheck( iv_uccheck ).
+        IF is_object-subc IS NOT INITIAL.
+          lo_prog_checker->set_subc( is_object-subc ).
+        ENDIF.
 
       WHEN 'FUGR'.
         " Set FM name for function group check
