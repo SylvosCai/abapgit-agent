@@ -50,14 +50,26 @@ Examples:
 
     // Get parameters from config
     const safeguards = getSafeguards();
+
+    // disableImport check — bypass if current user is in importAllowedUsers
     if (safeguards.disableImport) {
-      console.error('❌ Error: import command is disabled for this project\n');
-      if (safeguards.reason) {
-        console.error(`Reason: ${safeguards.reason}\n`);
+      const config0 = loadConfig();
+      const currentUser = (config0.user || '').toUpperCase();
+      const allowedUsers = safeguards.importAllowedUsers || [];
+      const isAllowed = allowedUsers.length > 0 && allowedUsers.includes(currentUser);
+
+      if (!isAllowed) {
+        console.error('❌ Error: import command is disabled for this project\n');
+        if (safeguards.reason) {
+          console.error(`Reason: ${safeguards.reason}\n`);
+        }
+        if (allowedUsers.length > 0) {
+          console.error(`Allowed users: ${allowedUsers.join(', ')}`);
+        }
+        console.error('The import command has been disabled in .abapgit-agent.json');
+        console.error('Please contact the project maintainer to enable it.');
+        process.exit(1);
       }
-      console.error('The import command has been disabled in .abapgit-agent.json');
-      console.error('Please contact the project maintainer to enable it.');
-      process.exit(1);
     }
 
     // Get parameters from config
@@ -73,6 +85,16 @@ Examples:
     let commitMessage = null;
     if (messageArgIndex !== -1 && messageArgIndex + 1 < args.length) {
       commitMessage = args[messageArgIndex + 1];
+    }
+
+    if (safeguards.requireImportMessage && !commitMessage) {
+      console.error('❌ Error: import requires a commit message for this project\n');
+      console.error('Please provide one with:');
+      console.error('  abapgit-agent import --message "Your descriptive message"\n');
+      if (safeguards.reason) {
+        console.error(`Reason: ${safeguards.reason}\n`);
+      }
+      process.exit(1);
     }
 
     console.log(`\n📦 Starting import job`);

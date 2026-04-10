@@ -311,4 +311,117 @@ describe('Import Command - Async Job Pattern', () => {
     // Must not reach network layer
     expect(mockContext.AbapHttp).not.toHaveBeenCalled();
   });
+
+  test('allows import when disableImport is true but current user is in importAllowedUsers', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443, user: 'i045696' })),
+      getSafeguards: jest.fn(() => ({
+        disableImport: true,
+        importAllowedUsers: ['I045696'],
+        reason: 'Managed by release manager',
+        requireImportMessage: false
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockResolvedValue({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' }),
+        get: jest.fn().mockResolvedValue({ STATUS: 'completed', RESULT: JSON.stringify({ success: 'X', filesStaged: 5, commitMessage: 'test' }) })
+      }))
+    };
+
+    // Should not exit(1) — allowed user bypasses the block
+    mockExit.mockClear();
+    await importCommand.execute(['--message', 'release import'], mockContext);
+    expect(mockExit).not.toHaveBeenCalledWith(1);
+    expect(mockContext.AbapHttp).toHaveBeenCalled();
+  });
+
+  test('blocks import when disableImport is true and user is not in importAllowedUsers', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    const consoleErrorOutput = [];
+    const orig = console.error;
+    console.error = (...args) => consoleErrorOutput.push(args.join(' '));
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443, user: 'OTHER_USER' })),
+      getSafeguards: jest.fn(() => ({
+        disableImport: true,
+        importAllowedUsers: ['I045696', 'JOHN'],
+        reason: 'Managed by release manager',
+        requireImportMessage: false
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      AbapHttp: jest.fn()
+    };
+
+    try { await importCommand.execute([], mockContext); } catch (e) { /* expected */ }
+    console.error = orig;
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+    const errorText = consoleErrorOutput.join('\n');
+    expect(errorText).toMatch(/import command is disabled/);
+    expect(errorText).toMatch(/I045696, JOHN/);
+    expect(mockContext.AbapHttp).not.toHaveBeenCalled();
+  });
+
+  test('blocks import when requireImportMessage is true and no --message provided', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    const consoleErrorOutput = [];
+    const orig = console.error;
+    console.error = (...args) => consoleErrorOutput.push(args.join(' '));
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        disableImport: false,
+        requireImportMessage: true,
+        importAllowedUsers: null,
+        reason: 'All imports must be traceable'
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      AbapHttp: jest.fn()
+    };
+
+    try { await importCommand.execute([], mockContext); } catch (e) { /* expected */ }
+    console.error = orig;
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+    const errorText = consoleErrorOutput.join('\n');
+    expect(errorText).toMatch(/requires a commit message/);
+    expect(errorText).toMatch(/All imports must be traceable/);
+    expect(mockContext.AbapHttp).not.toHaveBeenCalled();
+  });
+
+  test('allows import when requireImportMessage is true and --message is provided', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({
+        disableImport: false,
+        requireImportMessage: true,
+        importAllowedUsers: null,
+        reason: null
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockResolvedValue({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' }),
+        get: jest.fn().mockResolvedValue({ STATUS: 'completed', RESULT: JSON.stringify({ success: 'X', filesStaged: 5, commitMessage: 'my import' }) })
+      }))
+    };
+
+    mockExit.mockClear();
+    await importCommand.execute(['--message', 'my import'], mockContext);
+    expect(mockExit).not.toHaveBeenCalledWith(1);
+    expect(mockContext.AbapHttp).toHaveBeenCalled();
+  });
 });

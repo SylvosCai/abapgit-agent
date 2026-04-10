@@ -7,6 +7,11 @@
   "safeguards": {
     "requireFilesForPull": false,
     "disablePull": false,
+    "disableRun": false,
+    "disableImport": false,
+    "importAllowedUsers": null,
+    "requireImportMessage": false,
+    "disableProbeClasses": false,
     "reason": null
   },
 

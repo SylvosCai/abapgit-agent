@@ -44,6 +44,8 @@ describe('Project Safeguards', () => {
         disablePull: false,
         disableRun: false,
         disableImport: false,
+        requireImportMessage: false,
+        importAllowedUsers: null,
         disableProbeClasses: false,
         reason: null
       });
@@ -172,6 +174,44 @@ describe('Project Safeguards', () => {
 
       expect(safeguards.disableImport).toBe(true);
       expect(safeguards.reason).toBe('One-time operation managed by release manager');
+    });
+
+    test('requireImportMessage defaults to false', () => {
+      fs.writeFileSync(configPath, JSON.stringify({ safeguards: {} }));
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().requireImportMessage).toBe(false);
+    });
+
+    test('requireImportMessage reads true from config', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: { requireImportMessage: true, reason: 'All imports must be traceable' }
+      }));
+      const { getSafeguards } = require('../../src/config');
+      const safeguards = getSafeguards();
+      expect(safeguards.requireImportMessage).toBe(true);
+      expect(safeguards.reason).toBe('All imports must be traceable');
+    });
+
+    test('importAllowedUsers defaults to null', () => {
+      fs.writeFileSync(configPath, JSON.stringify({ safeguards: {} }));
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().importAllowedUsers).toBeNull();
+    });
+
+    test('importAllowedUsers normalizes string to uppercase array', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: { disableImport: true, importAllowedUsers: 'i045696' }
+      }));
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().importAllowedUsers).toEqual(['I045696']);
+    });
+
+    test('importAllowedUsers normalizes array to uppercase', () => {
+      fs.writeFileSync(configPath, JSON.stringify({
+        safeguards: { disableImport: true, importAllowedUsers: ['i045696', 'john'] }
+      }));
+      const { getSafeguards } = require('../../src/config');
+      expect(getSafeguards().importAllowedUsers).toEqual(['I045696', 'JOHN']);
     });
   });
 

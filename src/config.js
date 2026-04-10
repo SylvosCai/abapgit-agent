@@ -119,11 +119,21 @@ function getSafeguards() {
   const projectConfig = loadProjectConfig();
 
   if (projectConfig?.safeguards) {
+    // importAllowedUsers: accept string (single) or array; normalize to uppercase array
+    const rawAllowed = projectConfig.safeguards.importAllowedUsers;
+    let importAllowedUsers = null;
+    if (rawAllowed) {
+      const arr = Array.isArray(rawAllowed) ? rawAllowed : [rawAllowed];
+      importAllowedUsers = arr.map(u => String(u).toUpperCase());
+    }
+
     return {
       requireFilesForPull: projectConfig.safeguards.requireFilesForPull === true,
       disablePull: projectConfig.safeguards.disablePull === true,
       disableRun: projectConfig.safeguards.disableRun === true,
       disableImport: projectConfig.safeguards.disableImport === true,
+      requireImportMessage: projectConfig.safeguards.requireImportMessage === true,
+      importAllowedUsers,
       disableProbeClasses: projectConfig.safeguards.disableProbeClasses === true,
       reason: projectConfig.safeguards.reason || null
     };
@@ -135,6 +145,8 @@ function getSafeguards() {
     disablePull: false,
     disableRun: false,
     disableImport: false,
+    requireImportMessage: false,
+    importAllowedUsers: null,
     disableProbeClasses: false,
     reason: null
   };

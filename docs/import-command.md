@@ -311,3 +311,47 @@ To disable the import command for all developers on a project, add to `.abapgit-
 - All `import` commands are blocked immediately with an error
 - `reason` is displayed if provided
 - Error message directs users to contact the project maintainer
+
+### Allow Specific Users to Bypass `disableImport`
+
+Use `importAllowedUsers` to allow one or more SAP users to run import even when `disableImport: true`:
+
+```json
+{
+  "safeguards": {
+    "disableImport": true,
+    "importAllowedUsers": ["ALICE", "JOHN"],
+    "reason": "Import is restricted to the release manager."
+  }
+}
+```
+
+- Accepts a string (single user) or an array of strings
+- User IDs are case-insensitive (matched against the `user` field in `.abapGitAgent`)
+- If the current user is in the list, the `disableImport` block is bypassed
+
+### Require a Commit Message
+
+Use `requireImportMessage` to force developers to always supply `--message`:
+
+```json
+{
+  "safeguards": {
+    "requireImportMessage": true,
+    "reason": "All imports must be traceable via commit message."
+  }
+}
+```
+
+**When `requireImportMessage: true`:**
+- `abapgit-agent import` → ❌ blocked, shows error and usage hint
+- `abapgit-agent import --message "Initial import"` → ✅ allowed
+
+### Safeguard Options Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `disableImport` | boolean | `false` | Completely disables the import command |
+| `importAllowedUsers` | string \| string[] | `null` | Users who can bypass `disableImport` |
+| `requireImportMessage` | boolean | `false` | Forces `--message` to be provided |
+| `reason` | string | `null` | Optional explanation shown in error messages |
