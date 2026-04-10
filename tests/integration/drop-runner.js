@@ -291,6 +291,8 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   if (!resetOk) {
     printError(`  Reset pull failed: ${resetOutput.substring(0, 200)}`);
   }
+  // Brief cooldown after reset to let TADIR writes settle before per-object view checks.
+  execSync('sleep 3');
   printInfo('  Reset complete.');
   printInfo('');
 

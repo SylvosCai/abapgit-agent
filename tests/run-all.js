@@ -1065,8 +1065,8 @@ async function main() {
   // briefly when drop tests start, causing the reset pull to return
   // "Activation cancelled" — leaving PROG/FUGR absent from TADIR.
   if (runCmd && runDrop) {
-    printInfo('  Cooling down 10s after command tests before drop tests...');
-    await new Promise(r => setTimeout(r, 10000));
+    printInfo('  Cooling down 15s after command tests before drop tests...');
+    await new Promise(r => setTimeout(r, 15000));
   }
 
   // Run Drop command tests
