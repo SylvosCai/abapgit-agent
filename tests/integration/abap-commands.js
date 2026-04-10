@@ -1334,7 +1334,10 @@ ENDCLASS.`;
         const result = json.RESULTS && json.RESULTS[0];
         if (!result || result.SUCCESS !== false || result.ERROR_COUNT === 0) return false;
         const errors = result.ERRORS || [];
-        return errors.length > 0;
+        // Assembled source: line 1 = "REPORT zparent_err_test.", line 2 = include content
+        // ABAP reports error at assembled line 2 — JS display layer remaps to include line 1
+        const line = errors[0] && (errors[0].LINE || errors[0].line);
+        return errors.length > 0 && line === 2;
       } catch (e) {
         return false;
       }
