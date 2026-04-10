@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.16.2
+
+### New Features
+
+- Auto-detect parent program for INCLUDE syntax check
+- Add `disableImport` safeguard to project config
+
+### Bug Fixes
+
+- Increase cmd→drop cooldown to 15s; add 3s post-reset settle time
+
+---
+
+---
+
+
 ## v1.16.1
 
 ### New Features
