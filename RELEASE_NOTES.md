@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.16.3
+
+### New Features
+
+- `requireImportMessage`: blocks import without `--message`
+- `importAllowedUsers`: whitelist users to bypass `disableImport`
+
+### Documentation
+
+- `syntax` command: document INCLUDE program auto-detection
+
+---
+
+---
+
+
 ## v1.16.2
 
 ### New Features
