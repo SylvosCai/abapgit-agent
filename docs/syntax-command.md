@@ -15,7 +15,7 @@ Check syntax of ABAP source files directly WITHOUT pull/activation. Reads source
 - `syntax` - Checks LOCAL source code BEFORE commit (no pull needed)
 - `inspect` - Checks ACTIVATED code AFTER pull (uses Code Inspector)
 
-**Auto-detection:** When checking any class file (main, locals_def, locals_imp, or testclasses), the command automatically detects and includes ALL companion files for a complete syntax check. When checking any FUGR file for a function group, the command automatically detects and includes ALL FM source files in that group.
+**Auto-detection:** When checking any class file (main, locals_def, locals_imp, or testclasses), the command automatically detects and includes ALL companion files for a complete syntax check. When checking any FUGR file for a function group, the command automatically detects and includes ALL FM source files in that group. When checking an INCLUDE program (SUBC=I), the command automatically detects the parent program in the same directory and assembles the source before checking.
 
 ## Command
 
@@ -31,6 +31,9 @@ abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
 # Check CDS view
 abapgit-agent syntax --files src/zc_my_view.ddls.asddls
+
+# Check INCLUDE program - auto-detects parent program in same directory
+abapgit-agent syntax --files src/zmy_include.prog.abap
 
 # Check function group - provide ANY FUGR file, auto-detects all FM source files
 abapgit-agent syntax --files src/zmy_fugr.fugr.zmy_my_function.abap
@@ -52,9 +55,10 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
-- Supported object types: CLAS, INTF, PROG, DDLS, FUGR
+- Supported object types: CLAS, INTF, PROG (including INCLUDEs), DDLS, FUGR
 - For class files: Companion files are auto-detected if they exist
 - For FUGR files: All FM source files in the function group are auto-detected
+- For INCLUDE programs (SUBC=I): Parent program is auto-detected in the same directory
 
 ## Parameters
 
@@ -262,18 +266,18 @@ Errors:
 
 ## Key Behaviors
 
-1. **Line numbers match source file** - Error line numbers correspond to the actual line in the source file
+1. **Line numbers match source file** - Error line numbers correspond to the actual line in the source file (including remapping for INCLUDE programs)
 2. **All companion files auto-detected** - When any class file is checked, ALL companion files are automatically included:
    - Main class (`.clas.abap`)
    - Local definitions (`.clas.locals_def.abap`)
    - Local implementations (`.clas.locals_imp.abap`)
    - Test classes (`.clas.testclasses.abap`)
-3. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_my_class.clas.locals_imp.abap)")
-4. **Test classes fully supported** - `.testclasses.abap` files can be checked by providing just the testclasses file
-5. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-6. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
-7. **No database writes** - Source is checked in memory only
-7. **No database writes** - Source is checked in memory only
+3. **INCLUDE programs auto-detect parent** - When a `.prog.abap` with SUBC=I is checked, the parent program containing `INCLUDE <name>.` is found in the same directory and the source is assembled before checking. Errors are remapped to include-relative line numbers.
+4. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_my_class.clas.locals_imp.abap)")
+5. **Test classes fully supported** - `.testclasses.abap` files can be checked by providing just the testclasses file
+6. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
+7. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+8. **No database writes** - Source is checked in memory only
 
 ---
 
@@ -286,13 +290,15 @@ Errors:
 | CLAS | Local implementations | `.clas.locals_imp.abap` |
 | CLAS | Test classes | `.clas.testclasses.abap` |
 | INTF | Interface | `.intf.abap` |
-| PROG | Program | `.prog.abap` |
+| PROG | Program (executable) | `.prog.abap` |
+| PROG | INCLUDE program | `.prog.abap` (SUBC=I in `.prog.xml`) |
 | DDLS | CDS View | `.ddls.asddls` |
 | FUGR | Function module source | `<group>.fugr.<fm_name>.abap` |
 
 **Note:**
 - For class files, ALL companion files are automatically detected and included
 - For FUGR files, ALL FM source files in the function group are automatically detected and checked
+- For INCLUDE programs (SUBC=I), the parent program is auto-detected in the same directory; if no parent is found, a warning is printed and the check is skipped
 - For DDLS: Requires `@AbapCatalog.sqlViewName` annotation for CDS views
 - For other types (TABL, STRU, etc.), use `pull` then `inspect`
 
@@ -309,6 +315,7 @@ When checking any class file, the command automatically detects and includes ALL
 | `.clas.locals_imp.abap` | main, locals_def, testclasses |
 | `.clas.testclasses.abap` | main, locals_def, locals_imp |
 | Any `.fugr.*.abap` file | All FM source files for that function group |
+| `.prog.abap` (SUBC=I) | Parent `.prog.abap` in same directory containing `INCLUDE <name>.` |
 
 **Example:**
 ```bash
@@ -364,6 +371,7 @@ Files are parsed to extract object type and name:
 | `zc_my_view.ddls.asddls` | DDLS | ZC_MY_VIEW |
 | `zmy_fugr.fugr.zmy_my_function.abap` | FUGR | ZMY_FUGR (FM: ZMY_MY_FUNCTION) |
 | `zmy_fugr.fugr.lzmy_fugrtop.abap` | FUGR | ZMY_FUGR (triggers auto-detection) |
+| `zmy_include.prog.abap` (SUBC=I) | PROG | ZMY_INCLUDE (checked via parent) |
 
 ---
 
@@ -383,6 +391,28 @@ abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 
 # All produce the same complete syntax check
 ```
+
+### INCLUDE Program
+
+```bash
+# Check INCLUDE program — parent is auto-detected in same directory
+abapgit-agent syntax --files src/zmy_include.prog.abap
+```
+
+The command scans the directory for a non-INCLUDE `.prog.abap` containing `INCLUDE ZMY_INCLUDE.`, assembles the source, and reports errors with line numbers relative to the include file:
+
+```
+  Auto-detected parent: zparent_prog.prog.abap (contains INCLUDE ZMY_INCLUDE.)
+
+✅ PROG ZMY_INCLUDE - Syntax check passed (checking via parent ZPARENT_PROG)
+```
+
+If no parent is found in the same directory, a warning is printed:
+```
+  Warning: No parent program found for INCLUDE ZMY_INCLUDE — cannot syntax-check standalone
+```
+
+In that case, use the normal `pull` + `inspect` workflow after pushing.
 
 ### Multiple Independent Objects
 
