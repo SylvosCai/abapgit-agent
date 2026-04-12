@@ -315,23 +315,18 @@ curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=$
 
 ```json
 {
-  "success": true,
-  "command": "import",
-  "status": "accepted",
-  "jobName": "IMPORT_20260305103045",
-  "jobNumber": "12345678",
-  "message": "Command scheduled for background execution"
+  "SUCCESS": "X",
+  "JOB_NAME": "IMPORT_20260305103045",
+  "JOB_NUMBER": "12345678"
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `success` | Boolean | Always `true` when job is scheduled |
-| `command` | String | Command type ("import") |
-| `status` | String | Always "accepted" for initial response |
-| `jobName` | String | Background job name |
-| `jobNumber` | String | Job number for polling (8 digits with leading zeros) |
-| `message` | String | Status message |
+| `SUCCESS` | String | `"X"` when job is scheduled successfully |
+| `JOB_NAME` | String | Background job name |
+| `JOB_NUMBER` | String | Job number for polling (8 digits with leading zeros) |
+| `ERROR` | String | Error message when `SUCCESS` is not `"X"` |
 
 ---
 
@@ -352,16 +347,12 @@ curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=1
 
 ```json
 {
-  "job_name": "IMPORT_20260305103045",
-  "job_number": "12345678",
-  "status": "running",
-  "stage": "STAGE_FILES",
-  "message": "Staging files (1250 of 3701)",
-  "progress": 65,
-  "current": 1250,
-  "total": 3701,
-  "started_at": "20260305103045",
-  "updated_at": "20260305103112"
+  "JOB_NAME": "IMPORT_20260305103045",
+  "JOB_NUMBER": "12345678",
+  "STATUS": "running",
+  "MESSAGE": "Staging files (1250 of 3701)",
+  "PROGRESS": 65,
+  "STARTED_AT": "20260305103045"
 }
 ```
 
@@ -369,16 +360,14 @@ curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=1
 
 ```json
 {
-  "job_name": "IMPORT_20260305103045",
-  "job_number": "12345678",
-  "status": "completed",
-  "stage": "FINISHED",
-  "message": "Import completed successfully",
-  "progress": 100,
-  "result": "{\"success\":\"X\",\"filesStaged\":\"3701\",\"commitMessage\":\"feat: initial import from ABAP package $MY_PACKAGE\"}",
-  "started_at": "20260305103045",
-  "updated_at": "20260305103520",
-  "completed_at": "20260305103520"
+  "JOB_NAME": "IMPORT_20260305103045",
+  "JOB_NUMBER": "12345678",
+  "STATUS": "completed",
+  "MESSAGE": "Import completed successfully",
+  "PROGRESS": 100,
+  "RESULT": "{\"success\":\"X\",\"filesStaged\":\"3701\",\"commitMessage\":\"feat: initial import from ABAP package $MY_PACKAGE\"}",
+  "STARTED_AT": "20260305103045",
+  "COMPLETED_AT": "20260305103520"
 }
 ```
 
@@ -386,16 +375,14 @@ curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=1
 
 ```json
 {
-  "job_name": "IMPORT_20260305103045",
-  "job_number": "12345678",
-  "status": "error",
-  "stage": "FAILED",
-  "message": "Error during import",
-  "error_message": "Repository not found",
-  "progress": 30,
-  "started_at": "20260305103045",
-  "updated_at": "20260305103112",
-  "completed_at": "20260305103112"
+  "JOB_NAME": "IMPORT_20260305103045",
+  "JOB_NUMBER": "12345678",
+  "STATUS": "error",
+  "MESSAGE": "Error during import",
+  "ERROR_MESSAGE": "Repository not found",
+  "PROGRESS": 30,
+  "STARTED_AT": "20260305103045",
+  "COMPLETED_AT": "20260305103112"
 }
 ```
 
@@ -403,42 +390,22 @@ curl -X GET "https://your-system:44300/sap/bc/z_abapgit_agent/import?jobNumber=1
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `job_name` | String | Background job name |
-| `job_number` | String | Job number (8 digits) |
-| `status` | String | `scheduled`, `running`, `completed`, or `error` |
-| `stage` | String | Current stage: `INITIALIZATION`, `EXECUTION`, `FIND_REPOSITORY`, `REFRESH_REPOSITORY`, `STAGE_FILES`, `PREPARE_COMMIT`, `PUSH`, `FINISHED`, `FAILED` |
-| `message` | String | Human-readable status message |
-| `progress` | Integer | Progress percentage (0-100) |
-| `current` | Integer | Current item (for staging files) |
-| `total` | Integer | Total items (for staging files) |
-| `result` | String | JSON string with final result (when status is "completed") |
-| `error_message` | String | Error details (when status is "error") |
-| `started_at` | String | Timestamp when job started (YYYYMMDDHHmmss) |
-| `updated_at` | String | Timestamp of last status update |
-| `completed_at` | String | Timestamp when job finished (present when status is "completed" or "error") |
-
-### Import Stages
-
-The import job progresses through these stages:
-
-| Stage | Progress | Description |
-|-------|----------|-------------|
-| `INITIALIZATION` | 0% | Job scheduled, waiting to start |
-| `FIND_REPOSITORY` | 10% | Locating abapGit repository by URL |
-| `REFRESH_REPOSITORY` | 30% | Refreshing repository state from ABAP |
-| `STAGE_FILES` | 50-70% | Staging local files from package (shows file count) |
-| `PREPARE_COMMIT` | 70% | Building commit message and metadata |
-| `PUSH` | 90% | Committing and pushing to remote repository |
-| `FINISHED` | 100% | Import completed successfully |
-| `FAILED` | - | Error occurred (check `error_message`) |
+| `JOB_NAME` | String | Background job name |
+| `JOB_NUMBER` | String | Job number (8 digits) |
+| `STATUS` | String | `running`, `completed`, or `error` |
+| `MESSAGE` | String | Human-readable status message |
+| `PROGRESS` | Integer | Progress percentage (0-100) |
+| `RESULT` | String | JSON string with final result (when `STATUS` is `"completed"`) |
+| `ERROR_MESSAGE` | String | Error details (when `STATUS` is `"error"`) |
+| `STARTED_AT` | String | Timestamp when job started (YYYYMMDDHHmmss) |
+| `COMPLETED_AT` | String | Timestamp when job finished (present when `STATUS` is `"completed"` or `"error"`) |
 
 ### Polling Recommendations
 
 - **Poll interval**: 2 seconds
 - **Timeout**: 10 minutes (for very large packages)
-- **Error handling**: If GET request fails, retry up to 3 times before giving up
-- **Status check**: Continue polling while `status` is `scheduled` or `running`
-- **Completion**: Stop polling when `status` is `completed` or `error`
+- **Status check**: Continue polling while `STATUS` is `running`
+- **Completion**: Stop polling when `STATUS` is `completed` or `error`
 
 ### Example Polling Script
 
@@ -454,9 +421,9 @@ for ((i=1; i<=MAX_ATTEMPTS; i++)); do
     -b cookies.txt \
     -u USER:PASSWORD)
 
-  STATUS=$(echo "$RESPONSE" | jq -r '.status')
-  MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
-  PROGRESS=$(echo "$RESPONSE" | jq -r '.progress')
+  STATUS=$(echo "$RESPONSE" | jq -r '.STATUS')
+  MESSAGE=$(echo "$RESPONSE" | jq -r '.MESSAGE')
+  PROGRESS=$(echo "$RESPONSE" | jq -r '.PROGRESS')
 
   echo "[$i] Status: $STATUS | Progress: $PROGRESS% | $MESSAGE"
 
@@ -464,7 +431,7 @@ for ((i=1; i<=MAX_ATTEMPTS; i++)); do
     echo "✅ Import completed successfully"
     exit 0
   elif [ "$STATUS" = "error" ]; then
-    ERROR=$(echo "$RESPONSE" | jq -r '.error_message')
+    ERROR=$(echo "$RESPONSE" | jq -r '.ERROR_MESSAGE')
     echo "❌ Import failed: $ERROR"
     exit 1
   fi
@@ -566,7 +533,8 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 |------|-------------|----------|
 | CLAS | Class | locals_def, locals_imp, testclasses, fixpt |
 | INTF | Interface | fixpt |
-| PROG | Program | uccheck, fixpt |
+| PROG | Executable program (SUBC=1) | uccheck, fixpt |
+| PROG (INCLUDE) | Include program (SUBC=I) | Auto-detected via parent program |
 | DDLS | CDS View/Entity | Annotations required |
 
 ### Response (success)
@@ -662,6 +630,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 - **Line numbers are exact** - they match the source code strings provided
 - **FIXPT support** - Reads from XML metadata, defaults to blank if not specified
 - **Auto-detection** - CLI automatically detects and includes companion files
+- **INCLUDE programs** - CLI auto-detects parent program for SUBC=I files; the include source is assembled into the parent and line numbers are remapped back to the include file for display
 - **No activation required** - Checks happen before git commit
 
 ## POST /inspect
@@ -1518,8 +1487,8 @@ Find where-used list for ABAP objects (classes, interfaces, programs).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `success` | Boolean | |
-| `command Whether the request succeeded` | String | Command name ("WHERE") |
+| `success` | Boolean | Whether the request succeeded |
+| `command` | String | Command name ("WHERE") |
 | `message` | String | Status message |
 | `objects` | Array | List of objects with where-used references |
 | `summary` | Object | Summary with total and total_references |
