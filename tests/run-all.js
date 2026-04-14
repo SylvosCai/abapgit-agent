@@ -40,6 +40,7 @@ const { runXmlOnlyTests } = require('./integration/xml-only-runner');
 const { runJUnitTests } = require('./integration/junit-runner');
 const { runDebugTests } = require('./integration/debug-runner');
 const { runDropTests } = require('./integration/drop-runner');
+const { runCustomizeTests } = require('./integration/customize-runner');
 
 // Colors for output
 const colors = {
@@ -222,6 +223,17 @@ function runDebugTestsWrapper() {
 
 function runDropTestsWrapper() {
   return runDropTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+function runCustomizeTestsWrapper() {
+  return runCustomizeTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -739,6 +751,21 @@ function printSummary(results) {
     }
   }
 
+  // Customize command tests
+  if (results.customize) {
+    if (results.customize.skipped) {
+      printWarning('Customize Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.customize.duration);
+      if (results.customize.success) {
+        printSuccess(`Customize Tests: ${results.customize.passedCount}/${results.customize.totalCount} PASSED (${results.customize.duration}s)`);
+      } else {
+        printError(`Customize Tests: ${results.customize.passedCount}/${results.customize.totalCount} FAILED (${results.customize.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   // Debug scenario tests (always last — interactive ADT sessions, runs after cooldown)
   if (results.debug) {
     if (results.debug.skipped) {
@@ -773,7 +800,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--drop'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--drop', '--customize'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -782,7 +809,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -798,6 +825,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
@@ -812,6 +840,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
@@ -826,6 +855,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
@@ -840,6 +870,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
@@ -854,6 +885,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
     runAunit = false;
@@ -868,6 +900,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
     runAunit = false;
@@ -882,6 +915,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
     runAunit = false;
@@ -896,6 +930,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--xml-only')) {
     runJest = false;
     runAunit = false;
@@ -910,6 +945,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--junit')) {
     runJest = false;
     runAunit = false;
@@ -924,6 +960,7 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--debug')) {
     runJest = false;
     runAunit = false;
@@ -938,6 +975,7 @@ async function main() {
     runDebug = false;
     runDebugBp = true;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--debug-scenarios')) {
     runJest = false;
     runAunit = false;
@@ -952,6 +990,7 @@ async function main() {
     runDebug = true;
     runDebugBp = false;
     runDrop = false;
+    runCustomize = false;
   } else if (args.includes('--drop')) {
     runJest = false;
     runAunit = false;
@@ -966,6 +1005,22 @@ async function main() {
     runDebug = false;
     runDebugBp = false;
     runDrop = true;
+    runCustomize = false;
+  } else if (args.includes('--customize')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebug = false;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = true;
   } else {
     // Run all tests
     // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
@@ -976,6 +1031,7 @@ async function main() {
     runCmd = true;
     runJunit = true;
     runDrop = true;
+    runCustomize = true;
     runLifecycle = false;   // Lifecycle tests run as part of cmd tests
     runPull = false;        // Pull tests run as part of cmd tests
     runFullPull = false;    // Full pull tests run as part of cmd tests
@@ -1072,6 +1128,11 @@ async function main() {
   // Run Drop command tests
   if (runDrop) {
     results.drop = runDropTestsWrapper();
+  }
+
+  // Run Customize command tests
+  if (runCustomize) {
+    results.customize = runCustomizeTestsWrapper();
   }
 
   // Cooldown between command tests and debug scenarios.

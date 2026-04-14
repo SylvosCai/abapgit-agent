@@ -54,6 +54,7 @@ CLASS zcl_abgagt_command_transport DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS list_transports
       IMPORTING iv_scope            TYPE string
+                iv_type             TYPE string OPTIONAL
       RETURNING VALUE(rs_result)    TYPE ty_transport_result.
 
     METHODS create_transport
@@ -103,7 +104,8 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
         IF lv_scope IS INITIAL.
           lv_scope = 'mine'.
         ENDIF.
-        ls_result = list_transports( lv_scope ).
+        ls_result = list_transports( iv_scope = lv_scope
+                                     iv_type  = ls_params-type ).
       WHEN 'CREATE'.
         ls_result = create_transport( iv_description = ls_params-description
                                       iv_type        = ls_params-type ).
@@ -130,6 +132,11 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
     rs_result-action = 'LIST'.
     rs_result-scope  = iv_scope.
 
+    " Determine trfunction filter: 'W' = customizing, 'K' = workbench (default)
+    DATA(lv_trfunction) = COND char1(
+      WHEN iv_type = 'customizing' THEN 'W'
+      ELSE 'K' ).
+
     CASE iv_scope.
 
       WHEN 'mine'.
@@ -138,7 +145,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           INNER JOIN e07t ON e07t~trkorr = e070~trkorr
                          AND e07t~langu   = @sy-langu
           WHERE e070~trstatus   = 'D'
-            AND e070~trfunction = 'K'
+            AND e070~trfunction = @lv_trfunction
             AND e070~as4user    = @sy-uname
           ORDER BY e070~as4date DESCENDING
           INTO TABLE @DATA(lt_raw_mine)
@@ -156,11 +163,11 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
         " Step 1: find parent transport orders of user's tasks
         " Note: task types include T (Development/Correction), S (Repair), X (Unclassified), etc.
         " Do not filter by trfunction — any task type belonging to the user qualifies.
-        " The parent transport (strkorr) is what matters; Step 4 filters for K (orders) only.
+        " The parent transport (strkorr) is what matters; Step 4 filters by lv_trfunction.
         SELECT DISTINCT strkorr
           FROM e070
           WHERE trstatus   = 'D'
-            AND trfunction <> 'K'
+            AND trfunction <> @lv_trfunction
             AND strkorr    <> ''
             AND as4user    = @sy-uname
           INTO TABLE @DATA(lt_from_tasks).
@@ -169,7 +176,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
         SELECT trkorr
           FROM e070
           WHERE trstatus   = 'D'
-            AND trfunction = 'K'
+            AND trfunction = @lv_trfunction
             AND as4user    = @sy-uname
           INTO TABLE @DATA(lt_owned).
 
@@ -197,7 +204,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           INNER JOIN e07t ON e07t~trkorr = e070~trkorr
                          AND e07t~langu   = @sy-langu
           WHERE e070~trstatus   = 'D'
-            AND e070~trfunction = 'K'
+            AND e070~trfunction = @lv_trfunction
             AND e070~trkorr IN @lt_range
           ORDER BY e070~as4date DESCENDING
           INTO TABLE @DATA(lt_raw_tasks)
@@ -217,7 +224,7 @@ CLASS zcl_abgagt_command_transport IMPLEMENTATION.
           INNER JOIN e07t ON e07t~trkorr = e070~trkorr
                          AND e07t~langu   = @sy-langu
           WHERE e070~trstatus   = 'D'
-            AND e070~trfunction = 'K'
+            AND e070~trfunction = @lv_trfunction
           ORDER BY e070~as4date DESCENDING
           INTO TABLE @DATA(lt_raw_all)
           UP TO 50 ROWS.

@@ -37,6 +37,7 @@
     "test:cmd:tree": "node tests/run-all.js --cmd --command=tree",
     "test:cmd:dump": "node tests/run-all.js --cmd --command=dump",
     "test:drop": "node tests/run-all.js --drop",
+    "test:customize": "node tests/run-all.js --customize",
     "test:cmd:debug": "node tests/run-all.js --cmd --command=debug",
     "test:debug": "node tests/run-all.js --debug",
     "test:debug:scenarios": "bash tests/integration/debug-scenarios.sh",

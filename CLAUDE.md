@@ -215,6 +215,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 | **Development** | `syntax`, `lint`, `pull`, `inspect`, `unit`, `run` | Core development workflow |
 | **Exploration** | `view`, `preview`, `tree`, `list`, `where` | Explore ABAP system |
 | **Setup** | `init`, `create`, `import`, `delete` | Repository setup |
+| **Configuration** | `customize` | Write SAP customizing table entries |
 | **Utility** | `ref`, `status`, `health` | Reference & diagnostics |
 
 ### When to Use Which Command
@@ -232,6 +233,7 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 | See table data | `preview` | [docs/preview-command.md](docs/preview-command.md) |
 | Find where object is used | `where` | [docs/where-command.md](docs/where-command.md) |
 | Search ABAP reference docs | `ref` | [docs/ref-command.md](docs/ref-command.md) |
+| Write a row to a SAP customizing table | `customize` | [docs/customize-command.md](docs/customize-command.md) |
 
 > **For ABAP development workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
 
@@ -609,6 +611,7 @@ All command specifications are maintained in the `docs/` folder:
 | list | [docs/list-command.md](docs/list-command.md) |
 | status | [docs/status-command.md](docs/status-command.md) |
 | health | [docs/health-command.md](docs/health-command.md) |
+| customize | [docs/customize-command.md](docs/customize-command.md) |
 
 ## For ABAP Code Generation
 

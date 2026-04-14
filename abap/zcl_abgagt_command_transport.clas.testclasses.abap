@@ -20,6 +20,9 @@ CLASS ltcl_cts_api_double IMPLEMENTATION.
   METHOD zif_abgagt_cts_api~release_transport.
     rv_subrc = mv_subrc.
   ENDMETHOD.
+  METHOD zif_abgagt_cts_api~add_to_transport.
+    rv_subrc = mv_subrc.
+  ENDMETHOD.
 ENDCLASS.
 
 CLASS ltcl_cmd_transport DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.

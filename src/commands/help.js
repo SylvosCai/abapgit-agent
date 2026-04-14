@@ -66,6 +66,9 @@ Commands:
     List and manage SAP transport requests.
     Subcommands: list, create, release
 
+  customize <table> --set <field>=<value> [<field>=<value> ...] [--transport <TRKORR>] [--no-transport] [--json]
+    Write a row (insert-or-update) into a SAP customizing table (delivery class C or E).
+
   tree --package <package> [--depth <n>] [--include-types] [--json]
     Display package hierarchy tree from ABAP system
 
@@ -147,6 +150,7 @@ Examples:
   abapgit-agent view --objects ZCL_MY_CLASS                  # View class definition
   abapgit-agent preview --objects SFLIGHT                    # Preview table data
   abapgit-agent where --objects ZCL_MY_CLASS                 # Find where class is used
+  abapgit-agent customize ZAPP_CONFIG --set KEY=X VALUE=Y --no-transport  # Write customizing entry
   abapgit-agent dump --date TODAY                            # Recent short dumps
   abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
   abapgit-agent ref "CORRESPONDING"                          # Search for pattern

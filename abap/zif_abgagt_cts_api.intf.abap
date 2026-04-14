@@ -29,4 +29,13 @@ INTERFACE zif_abgagt_cts_api PUBLIC.
     IMPORTING iv_trkorr        TYPE trkorr
     RETURNING VALUE(rv_subrc)  TYPE i.
 
+  "! Add a customizing table entry to a transport request
+  "! @parameter iv_tabname | Table name to record (PGMID=R3TR, OBJECT=TABU)
+  "! @parameter iv_trkorr  | Customizing transport request number
+  "! @parameter rv_subrc   | 0 = success, non-zero = failure
+  METHODS add_to_transport
+    IMPORTING iv_tabname       TYPE string
+              iv_trkorr        TYPE trkorr
+    RETURNING VALUE(rv_subrc)  TYPE i.
+
 ENDINTERFACE.

@@ -28,6 +28,11 @@ abapgit-agent transport list --scope task
 # List all open transports in the system
 abapgit-agent transport list --scope all
 
+# Filter by request type
+abapgit-agent transport list --type workbench      # workbench requests only (default)
+abapgit-agent transport list --type customizing    # customizing requests only
+abapgit-agent transport list --scope all --type customizing
+
 # Create a new transport request (defaults to Workbench request)
 abapgit-agent transport create
 abapgit-agent transport create --description "Sprint 42 transport"
@@ -47,6 +52,7 @@ abapgit-agent transport release --number DEVK900001
 # JSON output (for scripting)
 abapgit-agent transport list --json
 abapgit-agent transport list --scope task --json
+abapgit-agent transport list --type customizing --json
 abapgit-agent transport create --description "Sprint 42" --json
 abapgit-agent transport create --description "Sprint 42" --type workbench --json
 abapgit-agent transport create --description "FI settings" --type customizing --json
@@ -65,6 +71,7 @@ abapgit-agent transport release --number DEVK900001 --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--scope` | No | Which transports to list: `mine` (default), `task`, `all` |
+| `--type` | No | Filter by request type: `workbench` (default), `customizing` |
 | `--json` | No | Output raw JSON |
 
 ### `transport create`
@@ -95,7 +102,16 @@ abapgit-agent transport release --number DEVK900001 --json
 |-------|-------------|
 | `mine` | Transports owned by the current ABAP user *(default)* |
 | `task` | Transports where the current user owns the request or has a task (sub-order) |
-| `all` | All open, modifiable workbench transports in the system |
+| `all` | All open, modifiable transports in the system |
+
+### Type Filter (for `list`)
+
+| `--type` value | `TRFUNCTION` in E070 | Returns |
+|----------------|----------------------|---------|
+| `workbench` *(default)* | `K` | Workbench requests (ABAP code objects) |
+| `customizing` | `W` | Customizing requests (table entries, IMG settings) |
+
+Use `--type customizing` to find a transport number when using `abapgit-agent customize --transport <TRKORR>`.
 
 ### Request Types (for `create`)
 

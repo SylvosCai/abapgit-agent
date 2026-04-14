@@ -38,6 +38,7 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
       ( command = zif_abgagt_command=>gc_dump      class_name = 'ZCL_ABGAGT_COMMAND_DUMP' )
       ( command = zif_abgagt_command=>gc_transport class_name = 'ZCL_ABGAGT_COMMAND_TRANSPORT' )
       ( command = zif_abgagt_command=>gc_drop      class_name = 'ZCL_ABGAGT_COMMAND_DROP' )
+      ( command = zif_abgagt_command=>gc_customize class_name = 'ZCL_ABGAGT_COMMAND_CUSTOMIZE' )
     ).
   ENDMETHOD.
 

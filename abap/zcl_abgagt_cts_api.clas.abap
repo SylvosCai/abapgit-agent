@@ -57,4 +57,16 @@ CLASS zcl_abgagt_cts_api IMPLEMENTATION.
     rv_subrc = sy-subrc.
   ENDMETHOD.
 
+  METHOD zif_abgagt_cts_api~add_to_transport.
+    CALL FUNCTION 'CTS_API_ADD_TO_TRANSPORT_REQUEST'
+      EXPORTING
+        iv_pgmid    = 'R3TR'
+        iv_object   = 'TABU'
+        iv_obj_name = CONV trobj_name( iv_tabname )
+        iv_request  = iv_trkorr
+      EXCEPTIONS
+        OTHERS      = 1.
+    rv_subrc = sy-subrc.
+  ENDMETHOD.
+
 ENDCLASS.

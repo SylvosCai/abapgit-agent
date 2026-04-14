@@ -42,3 +42,7 @@ The `ref` command uses bundled guidelines automatically — no local `guidelines
 ## Project-Specific Naming Conventions
 
 See `guidelines/objects.local.md` for this project's naming convention overrides.
+
+## CLI Commands
+
+Run `abapgit-agent --help` to see all available commands (pull, customize, transport, preview, and more).

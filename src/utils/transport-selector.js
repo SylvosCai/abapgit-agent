@@ -38,11 +38,13 @@ async function runHook(hookPath, context) {
  *
  * @param {object} http
  * @param {string} scope - 'mine' | 'task' | 'all'
+ * @param {string} [type] - 'workbench' (default) | 'customizing'
  * @returns {Promise<Array>}
  */
-async function fetchTransports(http, scope = 'mine') {
+async function fetchTransports(http, scope = 'mine', type = 'workbench') {
   try {
-    const result = await http.get(`/sap/bc/z_abapgit_agent/transport?scope=${scope}`);
+    const typeParam = type === 'customizing' ? '&type=customizing' : '';
+    const result = await http.get(`/sap/bc/z_abapgit_agent/transport?scope=${scope}${typeParam}`);
     const raw = result.TRANSPORTS || result.transports || [];
     return raw.map(t => ({
       number:      t.NUMBER      || t.number      || '',
@@ -59,13 +61,14 @@ async function fetchTransports(http, scope = 'mine') {
  * Create a new transport request.
  * @param {object} http
  * @param {string} description
+ * @param {string} [type] - 'workbench' (default) | 'customizing'
  * @returns {Promise<string|null>} transport number or null
  */
-async function createTransport(http, description) {
+async function createTransport(http, description, type = 'workbench') {
   try {
     const result = await http.post(
       '/sap/bc/z_abapgit_agent/transport',
-      { action: 'CREATE', description: description || '' },
+      { action: 'CREATE', description: description || '', type },
       {}
     );
     return result.NUMBER || result.number || null;
@@ -79,9 +82,10 @@ async function createTransport(http, description) {
  * Presents a numbered menu; supports scope switching, create, and skip.
  *
  * @param {object} http
+ * @param {string} [type] - 'workbench' (default) | 'customizing'
  * @returns {Promise<string|null>}
  */
-async function interactivePicker(http) {
+async function interactivePicker(http, type = 'workbench') {
   const readline = require('readline');
 
   let scope = 'mine';
@@ -92,11 +96,12 @@ async function interactivePicker(http) {
   const ask = (q) => new Promise(resolve => rl.question(q, resolve));
 
   const fetchAndDisplay = async () => {
-    transports = await fetchTransports(http, scope);
+    transports = await fetchTransports(http, scope, type);
     fetchError = transports.length === 0;
 
     const scopeLabel = { mine: 'my transports', task: 'transports where I have a task', all: 'all open transports' }[scope];
-    process.stderr.write(`\nSelect a transport request (showing: ${scopeLabel}):\n\n`);
+    const typeLabel = type === 'customizing' ? ' (customizing)' : '';
+    process.stderr.write(`\nSelect a transport request (showing: ${scopeLabel}${typeLabel}):\n\n`);
 
     if (transports.length > 0) {
       transports.forEach((t, i) => {
@@ -144,7 +149,7 @@ async function interactivePicker(http) {
     if (answer === 'c') {
       const desc = (await ask('Description: ')).trim();
       rl.close();
-      const number = await createTransport(http, desc);
+      const number = await createTransport(http, desc, type);
       if (number) {
         process.stderr.write(`\n✅ Created transport ${number}\n`);
         return number;
@@ -173,18 +178,30 @@ async function interactivePicker(http) {
  *
  * Splits on whitespace, forces --json, captures output, returns parsed JSON.
  *
+ * When `type` is set, `transport list` calls automatically get `--type <type>`
+ * injected (unless the hook already passes --type explicitly). This means hooks
+ * written generically as `run('transport list ...')` automatically see only the
+ * right kind of transport (workbench or customizing) without any hook changes.
+ *
  * @param {object}   config               - Loaded ABAP config
  * @param {object}   http                 - Pre-built AbapHttp instance
  * @param {Function} loadConfig           - Config factory (from pull context)
  * @param {Function} AbapHttp             - AbapHttp constructor (from pull context)
  * @param {Function} getTransportSettings - Transport settings getter (from pull context)
+ * @param {string}   [type]               - 'workbench' (default) | 'customizing'
  * @returns {Function|undefined}          - The run helper, or undefined if factories are missing
  */
-function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings) {
+function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench') {
   if (!loadConfig || !AbapHttp) return undefined;
 
   return async function run(command) {
-    const [commandName, ...args] = command.trim().split(/\s+/);
+    let [commandName, ...args] = command.trim().split(/\s+/);
+
+    // Auto-inject --type for "transport list" so the hook gets the right request type
+    // without needing to know about the transport type explicitly.
+    if (commandName === 'transport' && args[0] === 'list' && !args.includes('--type') && type) {
+      args = [...args, '--type', type];
+    }
     const cmdModule = require(`../commands/${commandName}`);
 
     // Always force --json so output is parseable
@@ -220,7 +237,7 @@ function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings) {
 }
 
 /**
- * Main export — selects a transport request for use in the pull command.
+ * Main export — selects a transport request for use in the pull/customize command.
  * Returns the transport number, or null to proceed without one.
  *
  * @param {object}   config               - Loaded ABAP config
@@ -228,16 +245,21 @@ function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings) {
  * @param {Function} [loadConfig]         - Config factory (enables run helper in hook context)
  * @param {Function} [AbapHttp]           - AbapHttp constructor (enables run helper in hook context)
  * @param {Function} [getTransportSettings] - Transport settings getter
+ * @param {string}   [type]               - 'workbench' (default) | 'customizing'
+ *                                          Passed to hook as context.type and auto-injected into
+ *                                          run('transport list ...') calls so hooks work correctly
+ *                                          for both ABAP objects and customizing entries without
+ *                                          needing to handle type explicitly.
  * @returns {Promise<string|null>}
  */
-async function selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings) {
+async function selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench') {
   // Hook takes precedence over the interactive picker — runs in both TTY and non-TTY mode
   const hookConfig = module.exports._getTransportHookConfig();
   if (hookConfig && hookConfig.hook) {
     const hookPath = path.resolve(process.cwd(), hookConfig.hook);
-    const run = buildRun(config, http, loadConfig, AbapHttp, getTransportSettings);
+    const run = buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type);
     try {
-      return await module.exports.runHook(hookPath, { config, http, run });
+      return await module.exports.runHook(hookPath, { config, http, run, type });
     } catch {
       return null;
     }
@@ -249,7 +271,7 @@ async function selectTransport(config, http, loadConfig, AbapHttp, getTransportS
   }
 
   // Manual mode: interactive picker
-  return interactivePicker(http);
+  return interactivePicker(http, type);
 }
 
 /**

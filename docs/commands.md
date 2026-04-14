@@ -40,6 +40,7 @@ All available CLI commands for abapGit Agent.
 | [debug](debug-command.md) | ✅ | Interactive ABAP debugger via ADT REST API |
 | [run](run-command.md) | ✅ | Execute ABAP program (`--program`) or class implementing `IF_OO_ADT_CLASSRUN` (`--class`) |
 | [transport](transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
+| [customize](customize-command.md) | ✅ | Write a row to a SAP customizing table (delivery class C/E) |
 | [status](status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](health-command.md) | ✅ | Health check |
 | [upgrade](upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |
@@ -164,6 +165,10 @@ abapgit-agent status
 
 # Verify ABAP connection
 abapgit-agent health
+
+# Write a row to a SAP customizing table (delivery class C/E)
+abapgit-agent customize ZAPP_CONFIG --set CONFIG_KEY=FEATURE_X CONFIG_VALUE=X --no-transport
+abapgit-agent customize ZAPP_CONFIG --set KEY=MYAPP VALUE=active --transport DEVK900001
 ```
 
 ### Offline Reference

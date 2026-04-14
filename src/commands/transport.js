@@ -81,7 +81,16 @@ module.exports = {
       process.exit(1);
     }
 
-    const result = await http.get(`/sap/bc/z_abapgit_agent/transport?scope=${scope}`);
+    const typeIdx = args.indexOf('--type');
+    const type = typeIdx !== -1 ? args[typeIdx + 1] : null;
+
+    if (type && !VALID_TYPES.includes(type)) {
+      console.error(`❌ Error: Invalid type '${type}'. Valid values: ${VALID_TYPES.join(', ')}`);
+      process.exit(1);
+    }
+
+    const typeParam = type ? `&type=${type}` : '';
+    const result = await http.get(`/sap/bc/z_abapgit_agent/transport?scope=${scope}${typeParam}`);
 
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2));
@@ -90,8 +99,9 @@ module.exports = {
 
     const transports = result.TRANSPORTS || result.transports || [];
     const scopeLabel = { mine: 'mine', task: 'task — where I own or have a task', all: 'all' }[scope];
+    const typeLabel = type ? ` (${type})` : '';
 
-    console.log(`\n📋 Open Transport Requests (${scopeLabel})\n`);
+    console.log(`\n📋 Open Transport Requests (${scopeLabel}${typeLabel})\n`);
 
     if (transports.length === 0) {
       console.log('  No open transport requests found.');
