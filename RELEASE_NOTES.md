@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.17.0
+
+### New Features
+
+- New `customize` command — write SAP customizing table entries
+- ENHO (Enhancement Object) support for `view --full --lines`
+
+### Documentation
+
+- Added ENHO file format docs and pull command guidance
+
+---
+
+---
+
+
 ## v1.16.3
 
 ### New Features

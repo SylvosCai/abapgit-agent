@@ -1,6 +1,6 @@
 {
   "name": "abapgit-agent",
-  "version": "1.16.3",
+  "version": "1.17.0",
   "description": "ABAP Git Agent - Pull and activate ABAP code via abapGit from any git repository",
   "files": [
     "bin/",
