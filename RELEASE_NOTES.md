@@ -2,6 +2,20 @@
 title: Release Notes
 ---
 
+## v1.17.1
+
+### Documentation
+
+- Added ENHO object type to creation guide and workflow docs
+- Fixed FUGR file count: 1 per function module + includes
+- Added missing guideline entries: ENHO, string templates, abapGit XML, FUGR, probe/PoC patterns
+- Updated workflow examples: `--sync-xml` flag, abaplint command, ENHO syntax support
+
+---
+
+---
+
+
 ## v1.17.0
 
 ### New Features
