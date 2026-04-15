@@ -23,6 +23,7 @@ Replace `<name>` with the actual object name from this project's naming conventi
 | CDS View Entity (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` | **Use by default** — `ref --topic abapgit` |
 | CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` | `ref --topic abapgit` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` | `ref --topic abapgit` |
+| Enhancement (ENHO) | `<name>.enho.<hash>.abap` (one per hook) | `<name>.enho.xml` | `ref --topic enho` |
 | Table (TABL) | *(none — XML-only)* | `<name>.tabl.xml` | `ref --topic abapgit-xml-only` |
 | Structure (STRU) | *(none — XML-only)* | `<name>.tabl.xml` ⚠️ NOT `.stru.xml` | `ref --topic abapgit-xml-only` |
 | Data Element (DTEL) | *(none — XML-only)* | `<name>.dtel.xml` | `ref --topic abapgit-xml-only` |
