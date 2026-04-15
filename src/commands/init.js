@@ -129,7 +129,7 @@ Usage:
 
 Description:
   Initialize local repository configuration.
-  Creates .abapGitAgent, .abapgit.xml, .gitignore, CLAUDE.md, and guidelines folder.
+  Creates .abapGitAgent, .abapgit-agent.json, .abapgit.xml, .gitignore, CLAUDE.md, and guidelines folder.
 
 Options:
   --package <PACKAGE>             ABAP package name (required)
@@ -562,11 +562,42 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
       console.log(`✅ .abapgit.xml already exists, skipped`);
     }
 
+    // Create .abapgit-agent.json with default values (team config, checked into git)
+    const projectConfigPath = pathModule.join(process.cwd(), '.abapgit-agent.json');
+    if (!fs.existsSync(projectConfigPath)) {
+      const projectConfig = {
+        project: {
+          name: packageName,
+          description: ''
+        },
+        safeguards: {
+          requireFilesForPull: false,
+          disablePull: false,
+          disableRun: false,
+          disableImport: false,
+          requireImportMessage: false,
+          disableProbeClasses: false
+        },
+        conflictDetection: {
+          mode: 'abort'
+        }
+      };
+      try {
+        fs.writeFileSync(projectConfigPath, JSON.stringify(projectConfig, null, 2) + '\n');
+        console.log(`✅ Created .abapgit-agent.json (team config — commit this to git)`);
+      } catch (error) {
+        console.error(`Error creating .abapgit-agent.json: ${error.message}`);
+      }
+    } else {
+      console.log(`✅ .abapgit-agent.json already exists, skipped`);
+    }
+
     console.log(`
 📋 Next steps:
    1. Edit .abapGitAgent with your ABAP credentials (host, user, password)
-   2. Run 'abapgit-agent create --import' to create online repository
-   3. Run 'abapgit-agent pull' to activate objects
+   2. Review .abapgit-agent.json and commit it to git (team settings)
+   3. Run 'abapgit-agent create --import' to create online repository
+   4. Run 'abapgit-agent pull' to activate objects
 
 💡 Tips:
    • Only guidelines/objects.local.md needs to live in your repo.

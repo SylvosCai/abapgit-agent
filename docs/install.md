@@ -103,7 +103,7 @@ This command:
 - Copies `CLAUDE.md` for Claude Code integration
 - Copies `guidelines/` folder for ABAP reference
 
-After initialization, edit `.abapGitAgent` with your SAP system details. See [init command docs](docs/init-command.md) for configuration options.
+After initialization, edit `.abapGitAgent` with your SAP system details. See [init command docs](setup/init-command.md) for configuration options.
 
 Verify: `abapgit-agent health` should return `{"status": "OK", "version": "1.x.x"}`.
 
@@ -124,7 +124,7 @@ If your ABAP package already has objects in SAP that you want to add to git:
 
 This stages, commits, and pushes all objects from the package to your git repository.
 
-See [create](docs/create-command.md) and [import](docs/import-command.md) command docs for more details.
+See [create](setup/create-command.md) and [import](setup/import-command.md) command docs for more details.
 
 ---
 

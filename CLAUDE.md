@@ -222,18 +222,18 @@ All commands implement `ZIF_ABGAGT_COMMAND` interface.
 
 | Scenario | Command | Documentation |
 |----------|---------|---------------|
-| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG/DDLS/FUGR only) | `syntax` | [docs/syntax-command.md](docs/syntax-command.md) |
-| Run abaplint static analysis on changed files (offline) | `lint` | [docs/lint-command.md](docs/lint-command.md) |
-| Activate code AFTER push to git | `pull` | [docs/pull-command.md](docs/pull-command.md) |
-| Check activated code with Code Inspector | `inspect` | [docs/inspect-command.md](docs/inspect-command.md) |
-| Run unit tests | `unit` | [docs/unit-command.md](docs/unit-command.md) |
-| Execute ABAP report or class headlessly | `run` | [docs/run-command.md](docs/run-command.md) |
-| Explore package structure | `tree` | [docs/tree-command.md](docs/tree-command.md) |
-| Understand table/class/interface | `view` | [docs/view-command.md](docs/view-command.md) |
-| See table data | `preview` | [docs/preview-command.md](docs/preview-command.md) |
-| Find where object is used | `where` | [docs/where-command.md](docs/where-command.md) |
-| Search ABAP reference docs | `ref` | [docs/ref-command.md](docs/ref-command.md) |
-| Write a row to a SAP customizing table | `customize` | [docs/customize-command.md](docs/customize-command.md) |
+| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG/DDLS/FUGR only) | `syntax` | [docs/development/syntax-command.md](docs/development/syntax-command.md) |
+| Run abaplint static analysis on changed files (offline) | `lint` | [docs/development/lint-command.md](docs/development/lint-command.md) |
+| Activate code AFTER push to git | `pull` | [docs/development/pull-command.md](docs/development/pull-command.md) |
+| Check activated code with Code Inspector | `inspect` | [docs/development/inspect-command.md](docs/development/inspect-command.md) |
+| Run unit tests | `unit` | [docs/development/unit-command.md](docs/development/unit-command.md) |
+| Execute ABAP report or class headlessly | `run` | [docs/development/run-command.md](docs/development/run-command.md) |
+| Explore package structure | `tree` | [docs/explore/tree-command.md](docs/explore/tree-command.md) |
+| Understand table/class/interface | `view` | [docs/explore/view-command.md](docs/explore/view-command.md) |
+| See table data | `preview` | [docs/explore/preview-command.md](docs/explore/preview-command.md) |
+| Find where object is used | `where` | [docs/explore/where-command.md](docs/explore/where-command.md) |
+| Search ABAP reference docs | `ref` | [docs/utility/ref-command.md](docs/utility/ref-command.md) |
+| Write a row to a SAP customizing table | `customize` | [docs/development/customize-command.md](docs/development/customize-command.md) |
 
 > **For ABAP development workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
 
@@ -594,24 +594,24 @@ All command specifications are maintained in the `docs/` folder:
 | Command | Documentation |
 |---------|---------------|
 | Overview | [docs/commands.md](docs/commands.md) |
-| pull | [docs/pull-command.md](docs/pull-command.md) |
-| syntax | [docs/syntax-command.md](docs/syntax-command.md) |
-| inspect | [docs/inspect-command.md](docs/inspect-command.md) |
-| unit | [docs/unit-command.md](docs/unit-command.md) |
-| run | [docs/run-command.md](docs/run-command.md) |
-| tree | [docs/tree-command.md](docs/tree-command.md) |
-| view | [docs/view-command.md](docs/view-command.md) |
-| preview | [docs/preview-command.md](docs/preview-command.md) |
-| where | [docs/where-command.md](docs/where-command.md) |
-| ref | [docs/ref-command.md](docs/ref-command.md) |
-| init | [docs/init-command.md](docs/init-command.md) |
-| create | [docs/create-command.md](docs/create-command.md) |
-| import | [docs/import-command.md](docs/import-command.md) |
-| delete | [docs/delete-command.md](docs/delete-command.md) |
-| list | [docs/list-command.md](docs/list-command.md) |
-| status | [docs/status-command.md](docs/status-command.md) |
-| health | [docs/health-command.md](docs/health-command.md) |
-| customize | [docs/customize-command.md](docs/customize-command.md) |
+| pull | [docs/development/pull-command.md](docs/development/pull-command.md) |
+| syntax | [docs/development/syntax-command.md](docs/development/syntax-command.md) |
+| inspect | [docs/development/inspect-command.md](docs/development/inspect-command.md) |
+| unit | [docs/development/unit-command.md](docs/development/unit-command.md) |
+| run | [docs/development/run-command.md](docs/development/run-command.md) |
+| tree | [docs/explore/tree-command.md](docs/explore/tree-command.md) |
+| view | [docs/explore/view-command.md](docs/explore/view-command.md) |
+| preview | [docs/explore/preview-command.md](docs/explore/preview-command.md) |
+| where | [docs/explore/where-command.md](docs/explore/where-command.md) |
+| ref | [docs/utility/ref-command.md](docs/utility/ref-command.md) |
+| init | [docs/setup/init-command.md](docs/setup/init-command.md) |
+| create | [docs/setup/create-command.md](docs/setup/create-command.md) |
+| import | [docs/setup/import-command.md](docs/setup/import-command.md) |
+| delete | [docs/setup/delete-command.md](docs/setup/delete-command.md) |
+| list | [docs/explore/list-command.md](docs/explore/list-command.md) |
+| status | [docs/utility/status-command.md](docs/utility/status-command.md) |
+| health | [docs/utility/health-command.md](docs/utility/health-command.md) |
+| customize | [docs/development/customize-command.md](docs/development/customize-command.md) |
 
 ## For ABAP Code Generation
 

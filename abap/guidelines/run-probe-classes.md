@@ -63,5 +63,14 @@ User asks to create a probe class
 
 ### When `disableProbeClasses = true` and `scratchWorkspace` is NOT configured
 
-Refuse and tell the user to configure `scratchWorkspace` in `.abapGitAgent`.
-→ See `docs/run-command.md` (Scratch Workspace section) for setup instructions.
+Refuse and tell the user to configure `scratchWorkspace` in `.abapGitAgent`:
+
+```json
+{
+  "scratchWorkspace": {
+    "path": "/absolute/path/to/scratch-repo"
+  }
+}
+```
+
+The path must point to a separate git repo initialized with `abapgit-agent init --package <SCRATCH_PACKAGE>`.

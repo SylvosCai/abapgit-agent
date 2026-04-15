@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Test repository configuration
-const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-test.git';
+const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-lifecycle-test.git';
 
 /**
  * Read ABAP configuration from .abapGitAgent file
@@ -33,7 +33,7 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
 
   const startTime = Date.now();
   const results = [];
-  const testRepoDir = path.join(repoRoot, 'output', 'abgagt-test');
+  const testRepoDir = path.join(repoRoot, 'output', 'abgagt-lifecycle-test');
 
   // Step 1: Create output directory if needed
   const outputDir = path.join(repoRoot, 'output');
@@ -117,6 +117,11 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     const initPassed = output.includes('Created .abapGitAgent') ||
                        output.includes('initialized');
     addResult('init creates config files', initPassed, output);
+
+    const projectConfigPath = path.join(testDir, '.abapgit-agent.json');
+    const projectConfigCreated = fs.existsSync(projectConfigPath) &&
+      JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')).project.name === '$ABGAGT_TEST';
+    addResult('init creates .abapgit-agent.json with package name', projectConfigCreated, projectConfigPath);
 
     // Step 6: Edit .abapGitAgent with credentials from main project
     printInfo('Updating .abapGitAgent with credentials...');

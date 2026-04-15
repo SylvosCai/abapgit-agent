@@ -24,7 +24,6 @@ tests/
 coverage/
 
 # Development files
-IMPLEMENTATION_PLAN.md
 .claude/
 .gitignore
 .gitattributes
@@ -34,4 +33,3 @@ cookies.txt
 .abapGitAgent
 .abapgit_agent_cookies.txt
 .abapgit.xml
-O

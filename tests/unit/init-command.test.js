@@ -246,4 +246,37 @@ describe('Init Command Integration', () => {
     // File must not be overwritten
     expect(fs.readFileSync(xmlPath, 'utf8')).toBe(existingContent);
   });
+
+  test('init creates .abapgit-agent.json with default values and package name', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --package ZTEST_PKG`, { cwd: testDir, stdio: 'pipe' });
+
+    const configPath = path.join(testDir, '.abapgit-agent.json');
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config.project.name).toBe('ZTEST_PKG');
+    expect(config.safeguards.requireFilesForPull).toBe(false);
+    expect(config.safeguards.disablePull).toBe(false);
+    expect(config.safeguards.disableRun).toBe(false);
+    expect(config.conflictDetection.mode).toBe('abort');
+  });
+
+  test('init skips .abapgit-agent.json when it already exists', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    const configPath = path.join(testDir, '.abapgit-agent.json');
+    const existingContent = JSON.stringify({ project: { name: 'EXISTING' } });
+    fs.writeFileSync(configPath, existingContent);
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    execSync(`node "${binPath}" init --package ZTEST_PKG`, { cwd: testDir, stdio: 'pipe' });
+
+    const content = fs.readFileSync(configPath, 'utf8');
+    expect(JSON.parse(content).project.name).toBe('EXISTING');
+  });
 });

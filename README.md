@@ -45,7 +45,7 @@ abapgit-agent import
 abapgit-agent pull
 ```
 
-See [Creating New ABAP Projects](INSTALL.md#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.
+See [Creating New ABAP Projects](docs/install.md#creating-new-abap-projects) to set up a new ABAP repository with Claude Code integration.
 
 ## CLI Commands
 
@@ -115,9 +115,9 @@ npm run test:integration
 | Topic | File |
 |-------|------|
 | Full Documentation | [https://sylvoscai.github.io/abapgit-agent/](https://sylvoscai.github.io/abapgit-agent/) |
-| Installation & Setup | [INSTALL.md](INSTALL.md) |
+| Installation & Setup | [docs/install.md](docs/install.md) |
 | All Commands Overview | [docs/commands.md](docs/commands.md) |
-| REST API Reference | [API.md](API.md) |
+| REST API Reference | [docs/api.md](docs/api.md) |
 
 ## Dependent Projects
 

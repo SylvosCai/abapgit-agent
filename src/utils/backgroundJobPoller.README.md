@@ -215,4 +215,4 @@ npm test -- tests/unit/backgroundJobPoller.test.js
 
 - [Background Job Architecture](../../docs/architecture/README.md) - Complete architecture documentation
 - [Import Command](../commands/import.js) - Reference implementation
-- [API Documentation](../../API.md) - REST API for async commands
+- [API Documentation](../../docs/api.md) - REST API for async commands
