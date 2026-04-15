@@ -27,6 +27,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 - [POST /view](#post-view)
 - [POST /preview](#post-preview)
 - [POST /where](#post-where)
+- [POST /customize](#post-customize)
 
 ---
 
@@ -41,7 +42,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/import` | **Import objects from package to git (async)** |
 | GET | `/import?jobNumber=X` | **Poll import job status** |
 | POST | `/status` | Check if repo exists in ABAP system |
-| POST | `/syntax` | **Pre-commit syntax check (CLAS, INTF, PROG, DDLS)** |
+| POST | `/syntax` | **Pre-commit syntax check (CLAS, INTF, PROG, DDLS, ENHO)** |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
@@ -49,6 +50,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/view` | View ABAP object definitions |
 | POST | `/preview` | Preview table/CDS view data |
 | POST | `/where` | Find where-used list for ABAP objects |
+| POST | `/customize` | Write a single row to a SAP customizing table |
 
 ## GET /health
 
@@ -519,7 +521,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | String | Object type: CLAS, INTF, PROG, DDLS (required) |
+| `type` | String | Object type: CLAS, INTF, PROG, DDLS, ENHO (required) |
 | `name` | String | Object name (required) |
 | `source` | String | Main source code with `\n` line separators (required) |
 | `locals_def` | String | Local class definitions (CLAS only, optional) |
@@ -536,6 +538,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 | PROG | Executable program (SUBC=1) | uccheck, fixpt |
 | PROG (INCLUDE) | Include program (SUBC=I) | Auto-detected via parent program |
 | DDLS | CDS View/Entity | Annotations required |
+| ENHO | Enhancement (hook implementation) | Wraps hook body in REPORT skeleton; target class inferred from source header |
 
 ### Response (success)
 
@@ -898,8 +901,8 @@ View ABAP object definitions directly from ABAP system.
 | Field | Type | Description |
 |-------|------|-------------|
 | `objects` | Array | List of object names (required) |
-| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS). Auto-detected if not specified |
-| `full` | Boolean | Return all source sections instead of public section only. For CLAS: returns `sections[]` with CU/CO/CP/CM*/CCDEF/CCIMP/CCAU includes. For INTF/PROG/DDLS: returns single-entry `sections[]`. Default: `false` |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, ENHO). Auto-detected if not specified |
+| `full` | Boolean | Return all source sections instead of public section only. For CLAS: returns `sections[]` with CU/CO/CP/CM*/CCDEF/CCIMP/CCAU includes. For INTF/PROG/DDLS/ENHO: returns single-entry `sections[]`. Default: `false` |
 
 ### Supported Object Types
 
@@ -912,6 +915,7 @@ View ABAP object definitions directly from ABAP system.
 | DTEL | Data element |
 | TTYP | Table type |
 | DDLS | CDS View/Entity |
+| ENHO | Enhancement object hook sections |
 
 ### Response (success - class/interface)
 
@@ -1458,7 +1462,7 @@ Find where-used list for ABAP objects (classes, interfaces, programs).
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | String | Object name |
-| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS) |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, ENHO) |
 | `type_text` | String | Human-readable type |
 | `description` | String | Object description |
 | `source` | String | Source code (CLAS/INTF/DDLS) |
@@ -1524,3 +1528,86 @@ Find where-used list for ABAP objects (classes, interfaces, programs).
 | `method_name` | String | Failed test method name |
 | `error_kind` | String | Error type (e.g., 'ERROR', 'FAILURE') |
 | `error_text` | String | Detailed error message from AUnit |
+
+---
+
+## POST /customize
+
+Write a single row (insert or update) to a SAP customizing table.
+
+### Request Body
+
+```json
+{
+  "table_name": "ZTABLE_CONFIG",
+  "field_values": [
+    { "field": "CONFIG_KEY",   "value": "ENABLE_FEATURE" },
+    { "field": "CONFIG_VALUE", "value": "X" }
+  ],
+  "transport":    "DEVK900001",
+  "no_transport": ""
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `table_name` | String | Target customizing table name — uppercased automatically (required) |
+| `field_values` | Array | List of `{field, value}` objects to write (required) |
+| `transport` | String | Customizing transport request number (`TRFUNCTION='W'`). Optional |
+| `no_transport` | String | `"X"` to bypass transport recording entirely. Optional |
+
+### Supported Table Types
+
+Only tables with delivery class `C` (Customer Customizing) or `E` (System Settings) are accepted. Tables with delivery class `A`, `L`, `S`, `W`, or `G` are rejected.
+
+### Response (success)
+
+```json
+{
+  "success": "X",
+  "command": "Customize",
+  "message": "Customizing entry MODIFIED in ZTABLE_CONFIG",
+  "error": "",
+  "table_name": "ZTABLE_CONFIG",
+  "action": "MODIFIED",
+  "transport": "DEVK900001",
+  "delivery_class": "C"
+}
+```
+
+### Response (no transport needed — local package)
+
+```json
+{
+  "success": "X",
+  "command": "Customize",
+  "message": "Customizing entry MODIFIED in ZTABLE_CONFIG",
+  "error": "",
+  "table_name": "ZTABLE_CONFIG",
+  "action": "MODIFIED",
+  "transport": "",
+  "delivery_class": "C"
+}
+```
+
+### Response (error)
+
+```json
+{
+  "success": "",
+  "error": "Table ZTABLE_CONFIG is not a customizing table (delivery class: A)"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | String | `"X"` for success, `""` for error |
+| `command` | String | Always `"Customize"` |
+| `message` | String | Human-readable result message |
+| `error` | String | Error message (non-empty when `success` is `""`) |
+| `table_name` | String | Target table name |
+| `action` | String | `"MODIFIED"` (row updated) or `"INSERTED"` (new row created) |
+| `transport` | String | Transport request number used (empty if none recorded) |
+| `delivery_class` | String | Table delivery class (`C` or `E`) |
