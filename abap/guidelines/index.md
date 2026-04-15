@@ -22,7 +22,11 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `objects.md` | Object Naming Conventions |
 | `naming-limits.md` | Naming Length Limits (30/16/40 char rules per type) |
 | `json.md` | JSON Handling |
-| `abapgit.md` | abapGit XML Metadata Templates |
+| `string-template.md` | String Templates — syntax, escaping `\{` `\}`, JSON payloads |
+| `abapgit.md` | abapGit XML Metadata — CLAS, INTF, PROG, CDS/DDLS, DCLS, FUGR |
+| `abapgit-xml-only.md` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
+| `abapgit-fugr.md` | abapGit XML Metadata — Function Group (FUGR) details |
+| `enho.md` | Enhancement Objects (ENHO) — workflow, hash algorithm, creation guide |
 | `unit-testable-code.md` | Unit Testable Code Guidelines (Dependency Injection) |
 | `common-errors.md` | Common ABAP Errors - Quick Fixes |
 | `debug-session.md` | Debug Session Guide |
@@ -33,6 +37,8 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `cds-testing.md` | CDS Testing (Test Double Framework) |
 | `abaplint.md` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
 | `comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS //) |
+| `run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
+| `probe-poc.md` | Probe and PoC — Full Decision Flow |
 
 ## Usage
 
