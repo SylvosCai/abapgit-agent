@@ -105,7 +105,10 @@ When an ENHO already exists in both git and the ABAP system:
 # Edit the hook source
 vi src/zfoo_enh.enho.d639f45c.abap
 
-# Skip syntax (not supported for ENHO), commit, push, pull
+# Syntax check (optional — catches basic errors before commit)
+abapgit-agent syntax --files src/zfoo_enh.enho.d639f45c.abap
+
+# Commit, push, pull
 git add src/zfoo_enh.enho.d639f45c.abap
 git commit -m "fix: update enhancement hook"
 git push
