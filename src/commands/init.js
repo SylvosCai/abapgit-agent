@@ -565,24 +565,14 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
     // Create .abapgit-agent.json with default values (team config, checked into git)
     const projectConfigPath = pathModule.join(process.cwd(), '.abapgit-agent.json');
     if (!fs.existsSync(projectConfigPath)) {
-      const projectConfig = {
-        project: {
-          name: packageName,
-          description: ''
-        },
-        safeguards: {
-          requireFilesForPull: false,
-          disablePull: false,
-          disableRun: false,
-          disableImport: false,
-          requireImportMessage: false,
-          disableProbeClasses: false
-        },
-        conflictDetection: {
-          mode: 'abort'
-        }
-      };
+      const projectConfigSamplePath = pathModule.join(__dirname, '..', '..', '.abapgit-agent.example.json');
+      if (!fs.existsSync(projectConfigSamplePath)) {
+        console.error('Error: .abapgit-agent.example.json not found.');
+        process.exit(1);
+      }
       try {
+        const projectConfig = JSON.parse(fs.readFileSync(projectConfigSamplePath, 'utf8'));
+        projectConfig.project.name = packageName;
         fs.writeFileSync(projectConfigPath, JSON.stringify(projectConfig, null, 2) + '\n');
         console.log(`✅ Created .abapgit-agent.json (team config — commit this to git)`);
       } catch (error) {

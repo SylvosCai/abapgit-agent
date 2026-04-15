@@ -1,7 +1,7 @@
 {
   "project": {
-    "name": "abapgit-agent",
-    "description": "CLI tool for pulling and activating ABAP objects from git repositories"
+    "name": "MY_PACKAGE",
+    "description": ""
   },
 
   "safeguards": {
@@ -9,14 +9,11 @@
     "disablePull": false,
     "disableRun": false,
     "disableImport": false,
-    "importAllowedUsers": null,
     "requireImportMessage": false,
-    "disableProbeClasses": false,
-    "reason": null
+    "disableProbeClasses": false
   },
 
   "conflictDetection": {
-    "mode": "abort",
-    "reason": null
+    "mode": "abort"
   }
 }

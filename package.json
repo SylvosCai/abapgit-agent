@@ -10,7 +10,8 @@
     "abap/CLAUDE.slim.md",
     "abap/.github/copilot-instructions.md",
     "abap/.github/copilot-instructions.slim.md",
-    ".abapGitAgent.example"
+    ".abapGitAgent.example",
+    ".abapgit-agent.example.json"
   ],
   "bin": {
     "abapgit-agent": "bin/abapgit-agent",
