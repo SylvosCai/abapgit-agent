@@ -22,7 +22,7 @@ Interface          | zif_*.intf.abap              | zif_*.intf.xml
 Program            | z*.prog.abap                 | z*.prog.xml
 CDS View (DDLS)    | zc_*.ddls.asddls             | zc_*.ddls.xml
 CDS Access Control | zc_*.dcls.asdcls             | zc_*.dcls.xml
-Function Group     | z*fugr*.abap (6 files)       | z*.fugr.xml
+Function Group     | z*fugr*.abap (1 per FM + includes) | z*.fugr.xml
 Enhancement (ENHO) | z*.enho.<hash>.abap (N files)| z*.enho.xml
 ```
 
