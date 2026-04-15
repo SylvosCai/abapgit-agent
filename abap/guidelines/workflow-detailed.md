@@ -18,9 +18,9 @@ grand_parent: ABAP Development
 3. Write code → place in correct folder (e.g., src/zcl_*.clas.abap)
        │
        ▼
-4. Syntax check (for CLAS, INTF, PROG, DDLS only)
+4. Syntax check (for CLAS, INTF, PROG, DDLS, ENHO only)
        │
-       ├─► CLAS/INTF/PROG/DDLS → abapgit-agent syntax --files <file>
+       ├─► CLAS/INTF/PROG/DDLS/ENHO → abapgit-agent syntax --files <file>
        │       │
        │       ├─► Errors? → Fix locally (no commit needed), re-run syntax
        │       │
@@ -31,7 +31,7 @@ grand_parent: ABAP Development
                ▼
 4b. abaplint (OPTIONAL — only if .abaplint.json exists in repo root)
        │
-       ├─► .abaplint.json exists → npx @abaplint/cli .abaplint.json
+       ├─► .abaplint.json exists → abapgit-agent lint
        │       │
        │       ├─► Issues? → Fix locally, re-run abaplint
        │       │   ⚠️  Before applying any quickfix: run abapgit-agent ref --topic abaplint
@@ -45,7 +45,7 @@ grand_parent: ABAP Development
 5. Commit and push → git add . && git commit && git push
        │
        ▼
-6. Activate → abapgit-agent pull --files src/file.clas.abap
+6. Activate → abapgit-agent pull --files src/file.clas.abap --sync-xml
        │         (behaviour depends on .abapgit-agent.json — see AI Tool Guidelines)
        │
        ▼
@@ -67,6 +67,7 @@ grand_parent: ABAP Development
 | INTF (interfaces) | ✅ Supported | Run `syntax` before commit |
 | PROG (programs) | ✅ Supported | Run `syntax` before commit |
 | DDLS (CDS views) | ✅ Supported | Run `syntax` before commit (requires annotations) |
+| ENHO (enhancements) | ✅ Supported | Run `syntax` before commit (basic errors only — no target class context) |
 | FUGR (function groups) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
 | TABL/DTEL/DOMA/MSAG/SHLP | ❌ Not supported | Skip syntax, just `pull` |
 | All other types | ❌ Not supported | Skip syntax, just `pull` |
@@ -90,7 +91,7 @@ abapgit-agent syntax --files src/zif_my_interface.intf.abap  # ✅ Works (no dep
 git add src/zif_my_interface.intf.abap src/zif_my_interface.intf.xml
 git commit -m "feat: add interface"
 git push
-abapgit-agent pull --files src/zif_my_interface.intf.abap   # Interface now activated
+abapgit-agent pull --files src/zif_my_interface.intf.abap --sync-xml   # Interface now activated
 
 # Step 2: Create class, syntax check, commit, activate
 vim src/zcl_my_class.clas.abap
@@ -98,7 +99,7 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap     # ✅ Works (interfa
 git add src/zcl_my_class.clas.abap src/zcl_my_class.clas.xml
 git commit -m "feat: add class implementing interface"
 git push
-abapgit-agent pull --files src/zcl_my_class.clas.abap
+abapgit-agent pull --files src/zcl_my_class.clas.abap --sync-xml
 ```
 
 **Benefits:**
@@ -123,7 +124,7 @@ git commit -m "feat: add interface and implementing class"
 git push
 
 # Pull both together
-abapgit-agent pull --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap
+abapgit-agent pull --files src/zif_my_interface.intf.abap,src/zcl_my_class.clas.abap --sync-xml
 
 # Use inspect if errors occur
 abapgit-agent inspect --files src/zcl_my_class.clas.abap
@@ -150,7 +151,7 @@ git commit -m "feat: add class and CDS view"
 git push
 
 # Pull all files together
-abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
+abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls --sync-xml
 ```
 
 **When to use syntax vs abaplint vs inspect vs view**:
@@ -169,6 +170,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
    ├─ .intf.abap → INTF ✅ syntax supported
    ├─ .prog.abap → PROG ✅ syntax supported
    ├─ .ddls.asddls → DDLS ✅ syntax supported (requires proper annotations)
+   ├─ .enho.<hash>.abap → ENHO ✅ syntax supported (basic errors; no target class context)
    └─ All other extensions → ❌ syntax not supported
 
 2. Check for dependencies:
@@ -177,25 +179,25 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
    ├─ CDS view uses table? → INDEPENDENT (table already exists)
    └─ Unrelated bug fixes across files? → INDEPENDENT
 
-3. For SUPPORTED types (CLAS/INTF/PROG/DDLS):
-   ├─ INDEPENDENT files → Run syntax → [abaplint if enabled] → Fix errors → Commit → Push → Pull
+3. For SUPPORTED types (CLAS/INTF/PROG/DDLS/ENHO):
+   ├─ INDEPENDENT files → Run syntax → [abaplint if enabled] → Fix errors → Commit → Push → Pull --sync-xml
    │
    └─ DEPENDENT files (NEW objects):
        ├─ RECOMMENDED: Create underlying object first (interface, base class, etc.)
-       │   1. Create underlying object → Syntax → [abaplint] → Commit → Push → Pull
-       │   2. Create dependent object → Syntax (works!) → [abaplint] → Commit → Push → Pull
+       │   1. Create underlying object → Syntax → [abaplint] → Commit → Push → Pull --sync-xml
+       │   2. Create dependent object → Syntax (works!) → [abaplint] → Commit → Push → Pull --sync-xml
        │   ✅ Benefits: Both syntax checks work, cleaner workflow
        │
        └─ ALTERNATIVE: If interface design uncertain, commit both together
-           → Skip syntax → [abaplint] → Commit both → Push → Pull → (if errors: inspect)
+           → Skip syntax → [abaplint] → Commit both → Push → Pull --sync-xml → (if errors: inspect)
 
 4. For UNSUPPORTED types (FUGR, TABL, etc.):
-   Write code → Skip syntax → [abaplint] → Commit → Push → Pull → (if errors: inspect)
+   Write code → Skip syntax → [abaplint] → Commit → Push → Pull --sync-xml → (if errors: inspect)
 
 5. For MIXED types (some supported + some unsupported):
-   Write all code → Run syntax on independent supported files ONLY → [abaplint] → Commit ALL → Push → Pull ALL
+   Write all code → Run syntax on independent supported files ONLY → [abaplint] → Commit ALL → Push → Pull ALL --sync-xml
 
-[abaplint] = run npx @abaplint/cli .abaplint.json only if .abaplint.json exists in repo root
+[abaplint] = run abapgit-agent lint only if .abaplint.json exists in repo root
              before applying any quickfix: run abapgit-agent ref --topic abaplint
 ```
 
@@ -207,13 +209,13 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
 vim src/zif_calculator.intf.abap
 abapgit-agent syntax --files src/zif_calculator.intf.abap  # ✅ Works
 git commit -am "feat: add calculator interface" && git push
-abapgit-agent pull --files src/zif_calculator.intf.abap    # Interface activated
+abapgit-agent pull --files src/zif_calculator.intf.abap --sync-xml    # Interface activated
 
 # Step 2: Class next
 vim src/zcl_calculator.clas.abap
 abapgit-agent syntax --files src/zcl_calculator.clas.abap  # ✅ Works (interface exists!)
 git commit -am "feat: implement calculator" && git push
-abapgit-agent pull --files src/zcl_calculator.clas.abap
+abapgit-agent pull --files src/zcl_calculator.clas.abap --sync-xml
 ```
 
 **Scenario 2: Multiple independent classes**
@@ -222,7 +224,7 @@ abapgit-agent pull --files src/zcl_calculator.clas.abap
 vim src/zcl_class1.clas.abap src/zcl_class2.clas.abap
 abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
 git commit -am "feat: add utility classes" && git push
-abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
+abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap --sync-xml
 ```
 
 **Error indicators after pull:**
@@ -240,10 +242,10 @@ abapgit-agent syntax --files src/zc_my_view.ddls.asddls
 abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap,src/zc_view.ddls.asddls
 
 # 2. Pull/activate AFTER pushing to git
-abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap
+abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap --sync-xml
 
 # Override conflict detection for a single pull (e.g. deliberate branch switch)
-abapgit-agent pull --files src/zcl_class1.clas.abap --conflict-mode ignore
+abapgit-agent pull --files src/zcl_class1.clas.abap --conflict-mode ignore --sync-xml
 
 # 3. Inspect AFTER pull (for errors or unsupported types)
 abapgit-agent inspect --files src/zcl_class1.clas.abap
