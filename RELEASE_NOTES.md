@@ -2,6 +2,18 @@
 title: Release Notes
 ---
 
+## v1.17.2
+
+### Documentation
+
+- Reorganised docs/ into subdirectories: development/, explore/, setup/, utility/
+- `init` command now creates `.abapgit-agent.json`
+
+---
+
+---
+
+
 ## v1.17.1
 
 ### Documentation
