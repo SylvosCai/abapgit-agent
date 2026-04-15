@@ -24,7 +24,7 @@ Description:
   Reads source from local files and checks directly in the ABAP system.
 
 Parameters:
-  --files <file1,...>  Comma-separated ABAP source files (required). Accepts CLAS, INTF, PROG.
+  --files <file1,...>  Comma-separated ABAP source files (required). Accepts CLAS, INTF, PROG, ENHO.
   --cloud              Use ABAP Cloud (BTP) stricter syntax check.
   --json               Output as JSON.
 
@@ -102,6 +102,9 @@ Examples:
         objName = baseName.split('.')[0].toUpperCase();
       } else if (baseName.includes('.prog.')) {
         objType = 'PROG';
+        objName = baseName.split('.')[0].toUpperCase();
+      } else if (/\.enho\.[0-9a-f]{8}\.abap$/i.test(baseName)) {
+        objType = 'ENHO';
         objName = baseName.split('.')[0].toUpperCase();
       } else if (baseName.includes('.ddls.asddls')) {
         objType = 'DDLS';

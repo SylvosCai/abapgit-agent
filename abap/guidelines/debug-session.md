@@ -42,6 +42,27 @@ The output varies by section type:
 
 The hint already points to the first **executable** line, skipping `METHOD`, blank lines, comments, and all declaration forms (`DATA`, `DATA:`, `DATA(`).
 
+**Classes with active ENHO hook enhancements** — `view --full --lines` injects the ENHO hook lines into the CM section so you can see the runtime code layout. The `G` numbers for injected lines are shown for reference, but the BP hint uses **base-source coordinates** (subtracting the injected ENHO lines) because ADT validates breakpoints against the non-injected `/source/main`:
+
+```
+  * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_CAIS_DBG_TRIGGER:33 ----
+    29 [  1]    METHOD compute.
+    30 [  2]  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)
+    31 [  3]    DATA lv_enho_marker TYPE i.
+    32 [  4]    lv_enho_marker = iv_a * iv_b.
+    33 [  5]  *"* ENHO END
+    34 [  6]      " compute: add two integers...
+    35 [  7]      DATA lv_sum TYPE i.
+    36 [  8]
+    37 [  9]      lv_sum = iv_a + iv_b.       ← lives at G=37 in runtime layout
+    38 [ 10]      rv_result = lv_sum.
+    39 [ 11]    ENDMETHOD.
+```
+
+The first executable original line is `lv_sum = iv_a + iv_b.` at runtime G=37, but its position in ADT's base source (without the 4 injected ENHO lines) is G=33 (37 − 4). The hint says `:33`, not `:37`. ADT accepts `:33` and the breakpoint fires correctly inside the ENHO-affected method.
+
+> **ENHO body lines (G 30–32 in the example) cannot be used as breakpoints.** Setting a BP at those G numbers returns "Not registered on server" — ADT's base source has no ENHO lines. The BP hint already points past the ENHO block to the first original executable line.
+
 **Two scenarios for CM* methods:**
 
 | Scenario | Command |

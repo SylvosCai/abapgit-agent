@@ -19,6 +19,7 @@
  *     - src/zc_abgagt_drp.ddls.xml            DDLS ZC_ABGAGT_DRP
  *     - src/zc_abgagt_drp.dcls.xml            DCLS ZC_ABGAGT_DRP
  *     - src/zabgagt_drp_msag.msag.xml         MSAG ZABGAGT_DRP_MSAG
+ *     - src/zabgagt_drp_enho.enho.xml         ENHO ZABGAGT_DRP_ENHO
  *
  * Test sequence per object type:
  *   Reset:   pull --files <file>  --conflict-mode ignore  → idempotent baseline
@@ -32,7 +33,8 @@
  * Note: CLAS depends on INTF, so INTF is always activated before CLAS.
  * DTEL is not tested with drop (unsupported — CBDA cannot re-activate after deletion).
  * DDLS depends on TABL, DCLS depends on DDLS — ordering is critical.
- * Order: DOMA → TABL → TTYP → STRU → PROG → FUGR → MSAG → DDLS → DCLS → INTF → CLAS
+ * ENHO enhances ZCL_ABGAGT_DRP_TEST — tested after CLAS so the target class is always active.
+ * Order: DOMA → TABL → TTYP → STRU → PROG → FUGR → MSAG → DDLS → DCLS → INTF → CLAS → ENHO
  *
  * Run:
  *   node tests/run-all.js --drop
@@ -127,6 +129,13 @@ const TEST_OBJECTS = [
     file:   'src/zcl_abgagt_drp_test.clas.abap',
     type:   'CLAS',
     object: 'ZCL_ABGAGT_DRP_TEST'
+  },
+  // ENHO enhances ZCL_ABGAGT_DRP_TEST — must come after CLAS
+  {
+    name:   'ENHO ZABGAGT_DRP_ENHO',
+    file:   'src/zabgagt_drp_enho.enho.xml',
+    type:   'ENHO',
+    object: 'ZABGAGT_DRP_ENHO'
   }
 ];
 
@@ -302,7 +311,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
 
     // Step 1: view → confirm object exists in ABAP system
     // Ensure clean state for objects that might have been cascade-deleted by a previous test
-    if (obj.type === 'INTF' || obj.type === 'CLAS') {
+    if (obj.type === 'INTF' || obj.type === 'CLAS' || obj.type === 'ENHO') {
       runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
     }
     const existsBefore = objectExists(agentBin, repoRoot, obj);
@@ -334,6 +343,10 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     if (obj.type === 'INTF') {
       // CLAS implements INTF; after INTF is re-pulled CLAS becomes inactive — restore it too
       runPullFromDropRepo(agentBin, 'src/zcl_abgagt_drp_test.clas.abap', ['--conflict-mode', 'ignore']);
+    }
+    if (obj.type === 'CLAS') {
+      // ENHO enhances ZCL_ABGAGT_DRP_TEST; after CLAS drop/re-pull the enhancement is gone — restore it
+      runPullFromDropRepo(agentBin, 'src/zabgagt_drp_enho.enho.xml', ['--conflict-mode', 'ignore']);
     }
     const existsAfterPull = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists after re-pull`, existsAfterPull);

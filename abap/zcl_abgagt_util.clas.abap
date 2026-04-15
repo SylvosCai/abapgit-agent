@@ -18,8 +18,10 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
   METHOD zif_abgagt_util~parse_file_to_object.
     " Parse file path to extract obj_type and obj_name
-    " Example: "zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
-    " Example: "src/zcl_my_class.clas.abap" -> CLAS, ZCL_MY_CLASS
+    " 3-part pattern: "zcl_my_class.clas.abap"         -> CLAS, ZCL_MY_CLASS
+    " 3-part pattern: "src/zcl_my_class.clas.abap"     -> CLAS, ZCL_MY_CLASS
+    " 4-part pattern: "zcl_foo.enho.28bbfe2f.abap"     -> ENHO, ZCL_FOO
+    "                 (hash middle segment is discarded; only obj_type+obj_name needed)
 
     DATA(lv_upper) = iv_file.
     TRANSLATE lv_upper TO UPPER CASE.
@@ -30,38 +32,54 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
     DATA(lv_part_count) = lines( lt_parts ).
 
-    IF lv_part_count < 3.
+    DATA lv_obj_name TYPE string.
+
+    IF lv_part_count = 4.
+      " 4-part pattern: <name>.<type>.<hash>.<ext>
+      " Currently only ENHO uses this pattern.
+      READ TABLE lt_parts INDEX 4 INTO DATA(lv_ext4).
+      IF lv_ext4 <> 'ABAP' AND lv_ext4 <> 'ASDDLS' AND lv_ext4 <> 'XML'.
+        RETURN.
+      ENDIF.
+      READ TABLE lt_parts INDEX 2 INTO DATA(lv_type4).
+      IF lv_type4 <> 'ENHO'.
+        RETURN.  " Unknown 4-part pattern — not yet supported
+      ENDIF.
+      READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+      ev_obj_type = 'ENHO'.
+
+    ELSEIF lv_part_count = 3.
+      " 3-part pattern: <name>.<type>.<ext>
+      " Last part should be 'ABAP', 'ASDDLS', or 'XML' (XML-only objects: TABL, STRU, DTEL, TTYP, ...)
+      READ TABLE lt_parts INDEX 3 INTO DATA(lv_last).
+      IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS' AND lv_last <> 'XML'.
+        RETURN.
+      ENDIF.
+
+      READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+      READ TABLE lt_parts INDEX 2 INTO DATA(lv_obj_type_raw).
+
+      " Convert file extension to object type
+      CASE lv_obj_type_raw.
+        WHEN 'CLAS' OR 'CLASS'.
+          ev_obj_type = 'CLAS'.
+        WHEN 'INTF' OR 'INTERFACE'.
+          ev_obj_type = 'INTF'.
+        WHEN 'PROG' OR 'PROGRAM'.
+          ev_obj_type = 'PROG'.
+        WHEN 'FUGR' OR 'FUGROUP'.
+          ev_obj_type = 'FUGR'.
+        WHEN 'TABL' OR 'TABLE'.
+          ev_obj_type = 'TABL'.
+        WHEN 'DDLS'.
+          ev_obj_type = 'DDLS'.
+        WHEN OTHERS.
+          ev_obj_type = lv_obj_type_raw.
+      ENDCASE.
+
+    ELSE.
       RETURN.
     ENDIF.
-
-    " Last part should be 'ABAP', 'ASDDLS', or 'XML' (XML-only objects: TABL, STRU, DTEL, TTYP, ...)
-    READ TABLE lt_parts INDEX lv_part_count INTO DATA(lv_last).
-    IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS' AND lv_last <> 'XML'.
-      RETURN.
-    ENDIF.
-
-    " First part is obj_name (may contain path), second part is obj_type
-
-    READ TABLE lt_parts INDEX 1 INTO DATA(lv_obj_name).
-    READ TABLE lt_parts INDEX 2 INTO DATA(lv_obj_type_raw).
-
-    " Convert file extension to object type
-    CASE lv_obj_type_raw.
-      WHEN 'CLAS' OR 'CLASS'.
-        ev_obj_type = 'CLAS'.
-      WHEN 'INTF' OR 'INTERFACE'.
-        ev_obj_type = 'INTF'.
-      WHEN 'PROG' OR 'PROGRAM'.
-        ev_obj_type = 'PROG'.
-      WHEN 'FUGR' OR 'FUGROUP'.
-        ev_obj_type = 'FUGR'.
-      WHEN 'TABL' OR 'TABLE'.
-        ev_obj_type = 'TABL'.
-      WHEN 'DDLS'.
-        ev_obj_type = 'DDLS'.
-      WHEN OTHERS.
-        ev_obj_type = lv_obj_type_raw.
-    ENDCASE.
 
     " Extract file name from obj_name (remove path prefix)
 
@@ -362,7 +380,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     SELECT SINGLE object obj_name devclass FROM tadir
       INTO (rs_info-obj_type, rs_info-obj_name, rs_info-devclass)
       WHERE obj_name = lv_obj_name
-        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG', 'STOB').
+        AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG', 'STOB', 'ENHO').
 
     CASE rs_info-obj_type.
       WHEN 'CLAS'. rs_info-type_text = 'Class'.
@@ -374,6 +392,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       WHEN 'DDLS'. rs_info-type_text = 'CDS View'.
       WHEN 'PROG'. rs_info-type_text = 'Program'.
       WHEN 'STOB'. rs_info-type_text = 'Structured Object'.
+      WHEN 'ENHO'. rs_info-type_text = 'Enhancement'.
     ENDCASE.
   ENDMETHOD.
 ENDCLASS.

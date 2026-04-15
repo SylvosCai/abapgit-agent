@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZCL_ABGAGT_RESOURCE_CUSTOMIZE</CLSNAME>
+    <CLSNAME>ZCL_ABGAGT_VIEWER_ENHO</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>CUSTOMIZE command REST resource handler</DESCRIPT>
+    <DESCRIPT>Viewer for Enhancement Objects (ENHO)</DESCRIPT>
     <STATE>1</STATE>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>

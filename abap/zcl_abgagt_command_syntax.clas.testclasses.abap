@@ -489,10 +489,12 @@ CLASS ltcl_syntax_factory DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARML
     METHODS test_create_intf FOR TESTING.
     METHODS test_create_prog FOR TESTING.
     METHODS test_create_fugr FOR TESTING.
+    METHODS test_create_enho FOR TESTING.
     METHODS test_create_unsupported FOR TESTING.
     METHODS test_create_lowercase FOR TESTING.
     METHODS test_is_supported_clas FOR TESTING.
     METHODS test_is_supported_fugr FOR TESTING.
+    METHODS test_is_supported_enho FOR TESTING.
     METHODS test_is_supported_unsupported FOR TESTING.
 ENDCLASS.
 
@@ -554,6 +556,20 @@ CLASS ltcl_syntax_factory IMPLEMENTATION.
       msg = 'Object type should be FUGR' ).
   ENDMETHOD.
 
+  METHOD test_create_enho.
+    " Test factory creates ENHO checker
+    DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( 'ENHO' ).
+
+    cl_abap_unit_assert=>assert_bound(
+      act = lo_checker
+      msg = 'Should create ENHO checker' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_checker->get_object_type( )
+      exp = 'ENHO'
+      msg = 'Object type should be ENHO' ).
+  ENDMETHOD.
+
   METHOD test_create_unsupported.
     " Test factory returns empty for unsupported type
     DATA(lo_checker) = zcl_abgagt_syntax_chk_factory=>create( 'TABL' ).
@@ -595,6 +611,16 @@ CLASS ltcl_syntax_factory IMPLEMENTATION.
       act = lv_supported
       exp = abap_true
       msg = 'FUGR should be supported' ).
+  ENDMETHOD.
+
+  METHOD test_is_supported_enho.
+    " Test is_supported returns true for ENHO
+    DATA(lv_supported) = zcl_abgagt_syntax_chk_factory=>is_supported( 'ENHO' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_supported
+      exp = abap_true
+      msg = 'ENHO should be supported' ).
   ENDMETHOD.
 
   METHOD test_is_supported_unsupported.
@@ -901,6 +927,127 @@ CLASS ltcl_syntax_chk_prog IMPLEMENTATION.
       act = ls_result-object_name
       exp = 'ZCLOUD_PROG'
       msg = 'Object name should match' ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+"**********************************************************************
+" Test class for ENHO syntax checker
+CLASS ltcl_syntax_chk_enho DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+  PRIVATE SECTION.
+    DATA mo_cut TYPE REF TO zcl_abgagt_syntax_chk_enho.
+
+    METHODS setup.
+    METHODS test_get_object_type FOR TESTING.
+    METHODS test_check_valid_enho FOR TESTING.
+    METHODS test_check_empty_source FOR TESTING.
+    METHODS test_check_no_name_comment FOR TESTING.
+    METHODS test_check_syntax_error FOR TESTING.
+ENDCLASS.
+
+CLASS ltcl_syntax_chk_enho IMPLEMENTATION.
+
+  METHOD setup.
+    mo_cut = NEW #( ).
+  ENDMETHOD.
+
+  METHOD test_get_object_type.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->zif_abgagt_syntax_checker~get_object_type( )
+      exp = 'ENHO'
+      msg = 'Object type should be ENHO' ).
+  ENDMETHOD.
+
+  METHOD test_check_valid_enho.
+    " Test checking valid ENHO source with correct Name: comment
+    DATA lt_source TYPE string_table.
+    APPEND '"Name: \TY:ZCL_ABGAGT_AGENT\ME:PULL\SE:BEGIN\EI' TO lt_source.
+    APPEND 'ENHANCEMENT 0 ZTEST_ENH.' TO lt_source.
+    APPEND '  DATA lv_result TYPE string.' TO lt_source.
+    APPEND '  lv_result = ''ok''.' TO lt_source.
+    APPEND 'ENDENHANCEMENT.' TO lt_source.
+
+    DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
+      iv_name   = 'ZTEST_ENH'
+      it_source = lt_source ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_type
+      exp = 'ENHO'
+      msg = 'Object type should be ENHO' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-object_name
+      exp = 'ZTEST_ENH'
+      msg = 'Object name should match' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_true
+      msg = 'Valid ENHO source should pass syntax check' ).
+  ENDMETHOD.
+
+  METHOD test_check_empty_source.
+    " Test checking empty source
+    DATA lt_source TYPE string_table.
+
+    DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
+      iv_name   = 'ZTEST_ENH'
+      it_source = lt_source ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Success should be false for empty source' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-error_count
+      exp = 1
+      msg = 'Should have 1 error' ).
+    cl_abap_unit_assert=>assert_char_cp(
+      act = ls_result-message
+      exp = '*No source*'
+      msg = 'Message should indicate no source' ).
+  ENDMETHOD.
+
+  METHOD test_check_no_name_comment.
+    " Test checking source without the "Name: \TY:... comment on line 1
+    DATA lt_source TYPE string_table.
+    APPEND 'ENHANCEMENT 0 ZTEST_ENH.' TO lt_source.
+    APPEND '  DATA lv_x TYPE i.' TO lt_source.
+    APPEND 'ENDENHANCEMENT.' TO lt_source.
+
+    DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
+      iv_name   = 'ZTEST_ENH'
+      it_source = lt_source ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Should fail when Name: comment is missing' ).
+    cl_abap_unit_assert=>assert_char_cp(
+      act = ls_result-message
+      exp = '*Cannot determine target class*'
+      msg = 'Message should indicate missing class info' ).
+  ENDMETHOD.
+
+  METHOD test_check_syntax_error.
+    " Test that a syntax error in the hook body is detected
+    DATA lt_source TYPE string_table.
+    APPEND '"Name: \TY:ZCL_ABGAGT_AGENT\ME:PULL\SE:BEGIN\EI' TO lt_source.
+    APPEND 'ENHANCEMENT 0 ZTEST_ENH.' TO lt_source.
+    APPEND '  THIS IS NOT VALID ABAP SYNTAX.' TO lt_source.
+    APPEND 'ENDENHANCEMENT.' TO lt_source.
+
+    DATA(ls_result) = mo_cut->zif_abgagt_syntax_checker~check(
+      iv_name   = 'ZTEST_ENH'
+      it_source = lt_source ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-success
+      exp = abap_false
+      msg = 'Should detect syntax error in hook body' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = ls_result-error_count
+      exp = 1
+      msg = 'Should report 1 error' ).
   ENDMETHOD.
 
 ENDCLASS.

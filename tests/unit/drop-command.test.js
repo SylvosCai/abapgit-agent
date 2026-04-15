@@ -225,4 +225,52 @@ describe('Drop Command - success response', () => {
       false, undefined, 'abort', false, false
     );
   });
+
+  test('accepts ENHO XML file (.enho.xml) without unrecognized-extension error', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+
+    const dropCommand = require('../../src/commands/drop');
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          OBJECT: 'ZFOO_ENH',
+          TYPE: 'ENHO',
+          MESSAGE: 'Object deleted successfully'
+        })
+      })),
+      gitUtils: {},
+      getTransport: jest.fn(() => null)
+    };
+
+    await dropCommand.execute(['--files', 'abap/zfoo_enh.enho.xml'], mockContext);
+    expect(consoleOutput.join('\n')).toMatch(/✅/);
+  });
+
+  test('accepts ENHO hash source file (.enho.<hash>.abap)', async () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(true);
+
+    const dropCommand = require('../../src/commands/drop');
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          SUCCESS: 'X',
+          OBJECT: 'ZFOO_ENH',
+          TYPE: 'ENHO',
+          MESSAGE: 'Object deleted successfully'
+        })
+      })),
+      gitUtils: {},
+      getTransport: jest.fn(() => null)
+    };
+
+    await dropCommand.execute(['--files', 'abap/zfoo_enh.enho.d639f45c.abap'], mockContext);
+    expect(consoleOutput.join('\n')).toMatch(/✅/);
+  });
 });

@@ -156,9 +156,21 @@ function findFirstExecutableLine(lines) {
   const commentPattern = /^\s*[*"]/;
   // Program-level header/declaration keywords that are not executable statements
   const progDeclPattern = /^\s*(report|program|parameters|tables|selection-screen|select-options|class-pool|function-pool|interface-pool|type-pool|include)\b/i;
+  // ENHO injected block marker: *"* ENHO: ... through *"* ENHO END
+  const enhoStartPattern = /^\s*\*"\* ENHO:/;
+  const enhoEndPattern = /^\s*\*"\* ENHO END/;
   let inDeclBlock = false; // true while inside a multi-line DATA:/TYPES:/PARAMETERS: block
+  let inEnhoBlock = false; // true while inside an injected ENHO block
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
+    if (inEnhoBlock) {
+      if (enhoEndPattern.test(trimmed)) inEnhoBlock = false;
+      continue;
+    }
+    if (enhoStartPattern.test(trimmed)) {
+      inEnhoBlock = true;
+      continue;
+    }
     if (inDeclBlock) {
       // continuation line — skip until the block closes with a period
       if (trimmed.endsWith('.')) inDeclBlock = false;
@@ -182,6 +194,34 @@ function findFirstExecutableLine(lines) {
   return 0;
 }
 
+/**
+ * Count the number of injected ENHO lines in `lines[0..upToIndex-1]`.
+ * An ENHO block spans from a `*"* ENHO:` marker line through (and including) the
+ * `*"* ENHO END` marker line.  All lines in these blocks are injected by the ABAP
+ * backend and do not exist in the base class source that ADT uses for BP validation.
+ *
+ * Subtracting this count from the execOffset returned by findFirstExecutableLine
+ * converts the injected-array index back to the base-source line offset, which is
+ * the coordinate system ADT accepts for breakpoints.
+ */
+function countEnhoLines(lines, upToIndex) {
+  const enhoStartPattern = /^\s*\*"\* ENHO:/;
+  const enhoEndPattern = /^\s*\*"\* ENHO END/;
+  let count = 0;
+  let inEnhoBlock = false;
+  for (let i = 0; i < upToIndex && i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (inEnhoBlock) {
+      count++;
+      if (enhoEndPattern.test(trimmed)) inEnhoBlock = false;
+    } else if (enhoStartPattern.test(trimmed)) {
+      inEnhoBlock = true;
+      count++;
+    }
+  }
+  return count;
+}
+
 module.exports = {
   name: 'view',
   description: 'View ABAP object definitions from ABAP system',
@@ -189,6 +229,7 @@ module.exports = {
   requiresVersionCheck: true,
   _buildMethodLineMap: buildMethodLineMap,
   _findFirstExecutableLine: findFirstExecutableLine,
+  _countEnhoLines: countEnhoLines,
 
   async execute(args, context) {
     const { loadConfig, AbapHttp } = context;
@@ -339,7 +380,8 @@ Examples:
             const file = section.FILE || section.file || '';
             const lines = section.LINES || section.lines || [];
             const isCmSection = suffix.startsWith('CM') && methodName;
-            const isFugrFmSection = !isCmSection && !!methodName;
+            const isEnhoSection = /^[0-9a-f]{8}$/i.test(suffix);
+            const isFugrFmSection = !isCmSection && !isEnhoSection && !!methodName;
 
             if (linesMode) {
               // --full --lines: dual line numbers (G [N]) for debugging
@@ -359,7 +401,10 @@ Examples:
                 let bpHint;
                 if (globalStart) {
                   const execOffset = findFirstExecutableLine(lines);
-                  const execLine = globalStart + execOffset;
+                  // Subtract injected ENHO lines that appear before execOffset so
+                  // the BP hint uses base-source coordinates (what ADT validates against)
+                  const enhoCount = countEnhoLines(lines, execOffset);
+                  const execLine = globalStart + execOffset - enhoCount;
                   bpHint = `debug set --objects ${objName}:${execLine}`;
                 } else {
                   bpHint = `debug set --objects ${objName}:<global_line>`;
@@ -390,6 +435,10 @@ Examples:
                 }
                 const bpHint = `debug set --objects ${suffix}:${firstExecLine}`;
                 console.log(`  * ---- FM: ${methodName} (${suffix}) — breakpoint: ${bpHint} ----`);
+              } else if (isEnhoSection) {
+                const desc = section.DESCRIPTION || section.description || '';
+                console.log(`  * ---- Hook: ${methodName} (${suffix}) ----`);
+                if (desc && desc !== methodName) console.log(`  *      full_name: ${desc}`);
               } else if (file) {
                 console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
               } else if (suffix) {
@@ -453,6 +502,10 @@ Examples:
                 console.log(`  * ---- Method: ${methodName} (${suffix}) ----`);
               } else if (isFugrFmSection) {
                 console.log(`  * ---- FM: ${methodName} (${suffix}) ----`);
+              } else if (isEnhoSection) {
+                const desc = section.DESCRIPTION || section.description || '';
+                console.log(`  * ---- Hook: ${methodName} (${suffix}) ----`);
+                if (desc && desc !== methodName) console.log(`  *      full_name: ${desc}`);
               } else if (file) {
                 console.log(`  * ---- Section: ${section.DESCRIPTION || section.description} (from .clas.${file}.abap) ----`);
               } else if (suffix) {

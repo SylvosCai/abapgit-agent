@@ -153,8 +153,9 @@ Examples:
         console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls) or XML-only object files (name.type.xml).');
         console.error('   The following file(s) are not recognised:');
         nonSourceFiles.forEach(f => console.error(`     ${f}`));
-        console.error('   Tip: for source objects pass the .abap file; for XML-only objects (TABL, STRU, DTEL, TTYP)');
-        console.error('   pass the .xml file, e.g. --files abap/ztable.tabl.xml');
+        console.error('   Tip: for source objects pass the .abap file (e.g. zcl_foo.clas.abap or zcl_foo.enho.28bbfe2f.abap);');
+        console.error('   for XML-only objects (TABL, STRU, DTEL, TTYP) or enhancement metadata,');
+        console.error('   pass the .xml file, e.g. --files abap/ztable.tabl.xml or abap/zfoo.enho.xml');
         process.exit(1);
       }
 

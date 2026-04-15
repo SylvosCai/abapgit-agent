@@ -150,6 +150,23 @@ describe('Pull Command - Logic Tests', () => {
         'src/zc_c.ddls.asddls',
       ])).toHaveLength(0);
     });
+
+    test('accepts ENHO hash source file (.enho.<hash>.abap)', () => {
+      expect(findNonSourceFiles(['src/zcl_foo.enho.28bbfe2f.abap'])).toHaveLength(0);
+    });
+
+    test('accepts ENHO XML metadata file (.enho.xml)', () => {
+      expect(findNonSourceFiles(['src/zcl_foo.enho.xml'])).toHaveLength(0);
+    });
+
+    test('accepts mixed list with ENHO and regular files', () => {
+      expect(findNonSourceFiles([
+        'src/zcl_foo.clas.abap',
+        'src/zcl_bar.enho.28bbfe2f.abap',
+        'src/zcl_bar.enho.668ab52c.abap',
+        'src/zcl_bar.enho.xml',
+      ])).toHaveLength(0);
+    });
   });
 
   describe('Object type detection', () => {

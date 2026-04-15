@@ -12,12 +12,15 @@
  * Group A (13 tests): Hardcoded known-good lines — verify ADT accepts them and
  *   returns the expected LINE_NR (include-relative) and line (global) values.
  *
- * Group B (16 tests): view --full --lines → parse hint → debug set → debug list
- *   round-trip for CLAS main, testclasses, locals_imp, and FUGR include.
+ * Group B (24 tests): view --full --lines → parse hint → debug set → debug list
+ *   round-trip for CLAS main, testclasses, locals_imp, FUGR include, CLAS main
+ *   with active ENHO (verifies countEnhoLines correction gives base-source line),
+ *   and non-ENHO method in the same ENHO-active class (verifies no hint shift).
  *   Catches regressions where view --lines emits wrong line numbers.
  *
- * Group C (6 tests): Unexecutable line rejection — comments, blank lines, DATA
- *   declarations, METHOD statements. ADT must exit 1 with stale JSON.
+ * Group C (8 tests): Unexecutable line rejection — comments, blank lines, DATA
+ *   declarations, METHOD statements, and ENHO-injected G numbers.
+ *   ADT must return stale JSON.
  *
  * Confirmed ADT-accepted lines (probed via direct POST, 2026-04-02):
  *   ZCL_CAIS_DBG_TRIGGER main:        line 33, LINE_NR=5  (lv_sum = iv_a + iv_b)
@@ -89,6 +92,8 @@ function buildTestCases() {
     testclasses: null,
     localsImp: null,
     fugr: null,
+    clasMainEnho: null,      // B5: CLAS main with active ENHO (COMPUTE method)
+    clasMainNoEnho: null,    // B5b: non-ENHO method in same ENHO-active class (MAIN)
   };
 
   return [
@@ -371,7 +376,104 @@ function buildTestCases() {
       }
     },
     {
-      name: '[B] debug delete --all (final cleanup)',
+      name: '[B] debug delete --all (final cleanup after B4)',
+      args: ['delete', '--all'],
+      expectSuccess: true,
+      verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+    },
+
+    // B5: CLAS main with active ENHO (ZCAIS_DBG_ENHO hooks into COMPUTE at BEGIN)
+    // view --full --lines must show the injected ENHO block and emit a BP hint that
+    // uses base-source coordinates (countEnhoLines subtraction), not runtime G numbers.
+    // With ENHO active: METHOD compute. at G=29, ENHO injects 4 lines (G 30-33),
+    // lv_sum = iv_a + iv_b. is at G=37 in the display but the hint must say :33
+    // (base-source line that ADT validates against). LINE_NR=5 (include-relative).
+    {
+      name: '[B5] view --full --lines CLAS with ENHO: parse COMPUTE hint (expect base-source :33)',
+      run: 'view',
+      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      expectSuccess: true,
+      verify: (output) => {
+        // Must contain the injected ENHO block marker
+        if (!output.includes('*"* ENHO: ZCAIS_DBG_ENHO')) return false;
+        const hint = parseViewHint(output, 'COMPUTE');
+        if (!hint) return false;
+        viewParsed.clasMainEnho = hint;
+        // Hint must be base-source line 33, not runtime G=37
+        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+          hint.line === 33 &&
+          hint.include === null;
+      }
+    },
+    {
+      name: '[B5] debug set CLAS+ENHO at hint line 33 — ADT accepts (LINE_NR=5)',
+      get args() {
+        const h = viewParsed.clasMainEnho;
+        return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['--help'];
+      },
+      expectSuccess: true,
+      verify: (output) => {
+        const h = viewParsed.clasMainEnho;
+        return h !== null && adtLineNr(output) === h.lineNr && jsonLine(output) === h.line;
+      }
+    },
+    {
+      name: '[B5] debug list confirms CLAS+ENHO BP at line 33',
+      args: ['list'],
+      expectSuccess: true,
+      verify: (output) => {
+        const h = viewParsed.clasMainEnho;
+        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes('33');
+      }
+    },
+    {
+      name: '[B5] debug delete --all (cleanup after B5)',
+      args: ['delete', '--all'],
+      expectSuccess: true,
+      verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
+    },
+
+    // B5b: non-ENHO method (IF_OO_ADT_CLASSRUN~MAIN, CM002) in the same ENHO-active class.
+    // ENHO only injects into COMPUTE; MAIN must be unaffected — its G numbers and hint
+    // must NOT be shifted by the ENHO lines that appear in a preceding CM section.
+    {
+      name: '[B5b] view --full --lines CLAS+ENHO: parse IF_OO_ADT_CLASSRUN~MAIN hint (no shift)',
+      run: 'view',
+      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      expectSuccess: true,
+      verify: (output) => {
+        // MAIN must appear and the hint must be ADT-accepted (LINE_NR=4 = [4] in output)
+        const hint = parseViewHint(output, 'IF_OO_ADT_CLASSRUN~MAIN');
+        if (!hint) return false;
+        viewParsed.clasMainNoEnho = hint;
+        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+          hint.line >= 1 && hint.line <= 999 &&
+          hint.include === null;
+      }
+    },
+    {
+      name: '[B5b] debug set CLAS+ENHO non-ENHO method at hint line — ADT accepts (LINE_NR=4)',
+      get args() {
+        const h = viewParsed.clasMainNoEnho;
+        return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['--help'];
+      },
+      expectSuccess: true,
+      verify: (output) => {
+        const h = viewParsed.clasMainNoEnho;
+        return h !== null && adtLineNr(output) === h.lineNr && jsonLine(output) === h.line;
+      }
+    },
+    {
+      name: '[B5b] debug list confirms non-ENHO method BP',
+      args: ['list'],
+      expectSuccess: true,
+      verify: (output) => {
+        const h = viewParsed.clasMainNoEnho;
+        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
+      }
+    },
+    {
+      name: '[B5b] debug delete --all (cleanup after B5b)',
       args: ['delete', '--all'],
       expectSuccess: true,
       verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
@@ -431,6 +533,23 @@ function buildTestCases() {
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":12')
+    },
+
+    // ENHO-injected lines in view --full --lines show G numbers 30-32 for the hook body.
+    // These G numbers do NOT exist in ADT's base-source validation → rejected.
+    {
+      name: '[C] debug set CLAS+ENHO line 30 (injected ENHO marker) — rejected by ADT',
+      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:30', '--json'],
+      expectSuccess: false,
+      verify: (output) =>
+        output.includes('"error"') && output.includes('"stale"') && output.includes('"line":30')
+    },
+    {
+      name: '[C] debug set CLAS+ENHO line 32 (injected ENHO body) — rejected by ADT',
+      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:32', '--json'],
+      expectSuccess: false,
+      verify: (output) =>
+        output.includes('"error"') && output.includes('"stale"') && output.includes('"line":32')
     },
   ];
 }

@@ -9,6 +9,9 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_intf FOR TESTING.
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
+    METHODS test_parse_enho_hash_file FOR TESTING.
+    METHODS test_parse_enho_with_path FOR TESTING.
+    METHODS test_parse_enho_unknown_4part FOR TESTING.
     METHODS test_detect_include_method FOR TESTING.
     METHODS test_detect_intf_section FOR TESTING.
     METHODS test_detect_public_section FOR TESTING.
@@ -84,6 +87,54 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       act = lv_obj_type msg = 'Invalid file should return empty type' ).
     cl_abap_unit_assert=>assert_initial(
       act = lv_obj_name msg = 'Invalid file should return empty name' ).
+  ENDMETHOD.
+
+  METHOD test_parse_enho_hash_file.
+    " 4-part ENHO file: <name>.enho.<hash>.abap → type=ENHO, name=ZCL_FOO
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+
+    mo_util->parse_file_to_object(
+      EXPORTING iv_file = 'zcl_foo.enho.28bbfe2f.abap'
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_obj_type exp = 'ENHO' msg = 'Object type should be ENHO' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_obj_name exp = 'ZCL_FOO' msg = 'Object name should be ZCL_FOO' ).
+  ENDMETHOD.
+
+  METHOD test_parse_enho_with_path.
+    " Path-prefixed ENHO hash file
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+
+    mo_util->parse_file_to_object(
+      EXPORTING iv_file = 'src/zcl_foo.enho.d639f45c.abap'
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_obj_type exp = 'ENHO' msg = 'Object type should be ENHO' ).
+    cl_abap_unit_assert=>assert_equals(
+      act = lv_obj_name exp = 'ZCL_FOO' msg = 'Path should be stripped' ).
+  ENDMETHOD.
+
+  METHOD test_parse_enho_unknown_4part.
+    " 4-part file with unknown type should return empty
+    DATA lv_obj_type TYPE string.
+    DATA lv_obj_name TYPE string.
+
+    mo_util->parse_file_to_object(
+      EXPORTING iv_file = 'zcl_foo.unkn.d639f45c.abap'
+      IMPORTING ev_obj_type = lv_obj_type
+                ev_obj_name = lv_obj_name ).
+
+    cl_abap_unit_assert=>assert_initial(
+      act = lv_obj_type msg = 'Unknown 4-part type should return empty type' ).
+    cl_abap_unit_assert=>assert_initial(
+      act = lv_obj_name msg = 'Unknown 4-part type should return empty name' ).
   ENDMETHOD.
 
   METHOD test_detect_include_method.

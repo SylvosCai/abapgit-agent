@@ -1,0 +1,5 @@
+"Name: \TY:ZCL_ABGAGT_AGENT\ME:PULL\SE:BEGIN\EI
+ENHANCEMENT 0 ZABGAGT_ST_ENHO_CLEAN.
+  DATA lv_marker TYPE string.
+  lv_marker = 'syntax check ok'.
+ENDENHANCEMENT.

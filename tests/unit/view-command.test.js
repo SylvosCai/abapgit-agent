@@ -578,6 +578,88 @@ describe('View Command - CLI Output Format', () => {
     // No leading numeric columns
     expect(output).not.toMatch(/^\s+\d+\s+\[/m);
   });
+
+  test('ENHO sections render as Hook: header, not FM:', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZFOO_ENH',
+            type: 'ENHO',
+            type_text: 'Enhancement',
+            description: 'Enhancement ZFOO_ENH',
+            not_found: false,
+            sections: [
+              {
+                suffix: 'd639f45c',
+                method_name: 'GET_VALUE@BEGIN',
+                description: '\\TY:ZCL_TARGET\\ME:GET_VALUE\\SE:BEGIN\\EI',
+                lines: ['  DATA lv_result TYPE string.', '  lv_result = \'modified\'.']
+              }
+            ]
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZFOO_ENH', '--full'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/Hook:.*GET_VALUE@BEGIN.*d639f45c/);
+    expect(output).not.toMatch(/FM:.*GET_VALUE/);
+    expect(output).not.toMatch(/debug set.*ZFOO_ENH/);
+    expect(output).toMatch(/full_name:.*\\TY:ZCL_TARGET/);
+    expect(output).toMatch(/lv_result = 'modified'/);
+  });
+
+  test('ENHO sections with --lines render with line numbers, no breakpoint hint', async () => {
+    const viewCommand = require('../../src/commands/view');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: true,
+          message: 'Retrieved object(s)',
+          objects: [{
+            name: 'ZFOO_ENH',
+            type: 'ENHO',
+            type_text: 'Enhancement',
+            description: 'Enhancement ZFOO_ENH',
+            not_found: false,
+            sections: [
+              {
+                suffix: 'd639f45c',
+                method_name: 'GET_VALUE@BEGIN',
+                description: '\\TY:ZCL_TARGET\\ME:GET_VALUE\\SE:BEGIN\\EI',
+                lines: ['  DATA lv_result TYPE string.', '  lv_result = \'modified\'.']
+              }
+            ]
+          }],
+          summary: { total: 1 }
+        })
+      }))
+    };
+
+    await viewCommand.execute(['--objects', 'ZFOO_ENH', '--full', '--lines'], mockContext);
+
+    const output = consoleOutput.join('\n');
+
+    expect(output).toMatch(/Hook:.*GET_VALUE@BEGIN.*d639f45c/);
+    expect(output).not.toMatch(/FM:.*GET_VALUE/);
+    expect(output).not.toMatch(/debug set/);
+    expect(output).toMatch(/^\s+1\s+DATA lv_result/m);
+  });
+
 });
 
 describe('View Command - buildMethodLineMap()', () => {
@@ -841,5 +923,141 @@ describe('View Command - findFirstExecutableLine()', () => {
       '  TRY.'
     ];
     expect(viewCommand._findFirstExecutableLine(lines)).toBe(10);
+  });
+
+  test('skips injected ENHO block (BEGIN marker through ENHO END)', () => {
+    const lines = [
+      '  METHOD compute.',
+      '  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)',
+      '    DATA lv_enho_marker TYPE i.',
+      '    lv_enho_marker = iv_a * iv_b.',
+      '  *"* ENHO END',
+      '    DATA lv_sum TYPE i.',
+      '    lv_sum = iv_a + iv_b.',
+    ];
+    // Should skip METHOD, the entire ENHO block, the DATA decl, and land on lv_sum = ...
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(6);
+  });
+
+  test('skips multiple injected ENHO blocks before first executable line', () => {
+    const lines = [
+      '  METHOD run.',
+      '  *"* ENHO: ZENHO1 (BEGIN)',
+      '    WRITE \'hook1\'.',
+      '  *"* ENHO END',
+      '  *"* ENHO: ZENHO2 (BEGIN)',
+      '    WRITE \'hook2\'.',
+      '  *"* ENHO END',
+      '    DATA lv_x TYPE i.',
+      '    lv_x = 1.',
+    ];
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(8);
+  });
+
+  test('skips ENHO block at END spot before ENDMETHOD', () => {
+    const lines = [
+      '  METHOD run.',
+      '    DATA lv_x TYPE i.',
+      '  *"* ENHO: ZENHO1 (END)',
+      '    WRITE \'hook\'.',
+      '  *"* ENHO END',
+      '  ENDMETHOD.',
+    ];
+    // lv_x declaration is after METHOD — but it's a DATA decl, skip it.
+    // *"* ENHO: is a comment — BUT we now detect it as ENHO block start, skip through ENHO END
+    // ENDMETHOD line reached with no executable — returns 0
+    // Actually the ENHO block contains non-declaration lines, but those are inside the block (skipped).
+    // Only ENDMETHOD remains, which is executable. Its index is 5.
+    expect(viewCommand._findFirstExecutableLine(lines)).toBe(5);
+  });
+});
+
+describe('View Command - countEnhoLines()', () => {
+  let viewCommand;
+
+  beforeEach(() => {
+    viewCommand = require('../../src/commands/view');
+  });
+
+  test('returns 0 for lines with no ENHO block', () => {
+    const lines = [
+      '  METHOD compute.',
+      '    DATA lv_x TYPE i.',
+      '    lv_x = 1.',
+    ];
+    expect(viewCommand._countEnhoLines(lines, 3)).toBe(0);
+  });
+
+  test('counts all lines of one BEGIN ENHO block', () => {
+    const lines = [
+      '  METHOD compute.',
+      '  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)',
+      '    DATA lv_enho_marker TYPE i.',
+      '    lv_enho_marker = iv_a * iv_b.',
+      '  *"* ENHO END',
+      '    DATA lv_sum TYPE i.',
+      '    lv_sum = iv_a + iv_b.',
+    ];
+    // ENHO block: indices 1,2,3,4 = 4 lines; upToIndex=7 covers all
+    expect(viewCommand._countEnhoLines(lines, 7)).toBe(4);
+    // upToIndex=5 covers indices 0..4 → 4 ENHO lines
+    expect(viewCommand._countEnhoLines(lines, 5)).toBe(4);
+    // upToIndex=6 (execOffset for lv_sum after skipping ENHO+DATA) → still 4
+    expect(viewCommand._countEnhoLines(lines, 6)).toBe(4);
+  });
+
+  test('counts only ENHO lines up to upToIndex', () => {
+    const lines = [
+      '  METHOD compute.',
+      '  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)',
+      '    DATA lv_enho_marker TYPE i.',
+      '  *"* ENHO END',
+      '    lv_sum = iv_a + iv_b.',
+    ];
+    // upToIndex=2 covers indices 0..1 — index 1 is the ENHO start marker (1 line counted)
+    expect(viewCommand._countEnhoLines(lines, 2)).toBe(1);
+    // upToIndex=4 covers full ENHO block (3 lines: start marker + 1 body + end)
+    expect(viewCommand._countEnhoLines(lines, 4)).toBe(3);
+  });
+
+  test('counts lines across two ENHO blocks', () => {
+    const lines = [
+      '  METHOD run.',
+      '  *"* ENHO: ZENHO1 (BEGIN)',
+      '    WRITE \'hook1\'.',
+      '  *"* ENHO END',
+      '  *"* ENHO: ZENHO2 (BEGIN)',
+      '    WRITE \'hook2\'.',
+      '  *"* ENHO END',
+      '    DATA lv_x TYPE i.',
+      '    lv_x = 1.',
+    ];
+    // Both blocks: 3 + 3 = 6 ENHO lines
+    expect(viewCommand._countEnhoLines(lines, 9)).toBe(6);
+    // Only first block: 3 lines (upToIndex=4)
+    expect(viewCommand._countEnhoLines(lines, 4)).toBe(3);
+  });
+
+  test('BP hint offset: execOffset - enhoCount gives base-source offset', () => {
+    // Simulate the COMPUTE method with ENHO: METHOD at index 0, ENHO block at 1-4,
+    // DATA at 5, blank at 6 (but blank skipped), lv_sum at index 6 after DATA/blank.
+    // Matches real ZCL_CAIS_DBG_TRIGGER COMPUTE section.
+    const lines = [
+      '  METHOD compute.',
+      '  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)',
+      '    DATA lv_enho_marker TYPE i.',
+      '    lv_enho_marker = iv_a * iv_b.',
+      '  *"* ENHO END',
+      '      " compute: add two integers',
+      '      DATA lv_sum TYPE i.',
+      '  ',
+      '      lv_sum = iv_a + iv_b.',
+    ];
+    const execOffset = viewCommand._findFirstExecutableLine(lines); // 8
+    const enhoCount = viewCommand._countEnhoLines(lines, execOffset); // 4
+    // base-source offset = execOffset - enhoCount = 8 - 4 = 4
+    // globalStart = 29 (METHOD at line 29)
+    // execLine = 29 + 4 = 33 — matches base-source lv_sum = iv_a + iv_b.
+    expect(execOffset - enhoCount).toBe(4);
   });
 });

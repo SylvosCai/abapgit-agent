@@ -12,12 +12,13 @@
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
  *   - where:   3 tests (class, interface, type filter)
- *   - debug:   35 tests — require abgagt-debug-test repo at ../abgagt-debug-test
+ *   - debug:   45 tests — require abgagt-debug-test repo at ../abgagt-debug-test
  *                         (skipped on Jenkins where only abapgit-agent is checked out)
  *                         Group A: hardcoded lines, Group B: view→set→verify round-trip,
  *                          Group C: unexecutable line rejection; CLAS main/testclasses/
- *                          locals_imp and FUGR include; set tests use --json to verify
- *                          ADT-accepted line number; full session in debug-scenarios.sh)
+ *                          locals_imp, FUGR include, ENHO-active class (COMPUTE + MAIN);
+ *                          set tests use --json to verify ADT-accepted line number;
+ *                          full session in debug-scenarios.sh)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)
@@ -1338,6 +1339,54 @@ ENDCLASS.`;
         // ABAP reports error at assembled line 2 — JS display layer remaps to include line 1
         const line = errors[0] && (errors[0].LINE || errors[0].line);
         return errors.length > 0 && line === 2;
+      } catch (e) {
+        return false;
+      }
+    }
+  },
+
+  // ===================================================================
+  // SYNTAX COMMAND - ENHO (Enhancement) tests (2 tests)
+  // Purpose: Verify ENHO hook implementation syntax checking end-to-end
+  // Fixtures:
+  //   zabgagt_st_enho_clean.enho.cc77b069.abap  - clean hook body targeting ZCL_ABGAGT_AGENT
+  //   zabgagt_st_enho_err.enho.6544bbb9.abap    - deliberate syntax error on line 5
+  // Hash: SHA1('\TY:ZCL_ABGAGT_AGENT\ME:PULL\SE:BEGIN\EI')[0:8] = cc77b069
+  //       SHA1('\TY:ZCL_ABGAGT_AGENT\ME:PULL\SE:END\EI')[0:8]   = 6544bbb9
+  // ===================================================================
+
+  {
+    command: 'syntax',
+    name: 'syntax check ENHO hash file passes (clean hook body)',
+    args: ['--files', 'tests/fixtures/zabgagt_st_enho_clean.enho.cc77b069.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.SUCCESS === true && result.OBJECT_TYPE === 'ENHO';
+      } catch (e) {
+        return false;
+      }
+    }
+  },
+
+  {
+    command: 'syntax',
+    name: 'syntax check ENHO detects error and reports line in hook body',
+    args: ['--files', 'tests/fixtures/zabgagt_st_enho_err.enho.6544bbb9.abap', '--json'],
+    expectSuccess: false,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        if (!result || result.SUCCESS !== false || result.ERROR_COUNT === 0) return false;
+        const errors = result.ERRORS || [];
+        // Error is on line 5 of the fixture (inside the hook body, after 4 clean lines).
+        // The ENHO checker wraps the body in a REPORT skeleton (1 header line), so the
+        // adjusted line = raw_line - 1. Accept lines 3-5 to tolerate minor ABAP counting.
+        const line = errors[0] && (errors[0].LINE || errors[0].line);
+        return errors.length > 0 && line >= 3 && line <= 5;
       } catch (e) {
         return false;
       }

@@ -23,6 +23,7 @@ Program            | z*.prog.abap                 | z*.prog.xml
 CDS View (DDLS)    | zc_*.ddls.asddls             | zc_*.ddls.xml
 CDS Access Control | zc_*.dcls.asdcls             | zc_*.dcls.xml
 Function Group     | z*fugr*.abap (6 files)       | z*.fugr.xml
+Enhancement (ENHO) | z*.enho.<hash>.abap (N files)| z*.enho.xml
 ```
 
 > **XML-only objects** (TABL, STRU, DTEL, TTYP, DOMA, MSAG) have **no ABAP source file** and are not covered here.
@@ -299,6 +300,16 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 FUGR serializes as multiple files (main XML + TOP include + SAPL include + one source file per FM). The format is straightforward for screenless function groups — Claude can generate it from scratch.
 
 → Full template and file-set rules: `abapgit-agent ref --topic abapgit-fugr`
+
+---
+
+### Enhancement (ENHO)
+
+**Files**: `src/<name>.enho.xml` + `src/<name>.enho.<hash>.abap` (one per hook)
+
+ENHO is a rare, specialized object type. For the full XML template, hash algorithm, and workflow:
+
+→ `abapgit-agent ref --topic enho`
 
 ---
 

@@ -8,7 +8,7 @@ const { printHttpError } = require('../utils/format-error');
 const EXT_TO_TYPE = {
   clas: 'CLAS', intf: 'INTF', prog: 'PROG', fugr: 'FUGR',
   tabl: 'TABL', dtel: 'DTEL', ttyp: 'TTYP', doma: 'DOMA',
-  ddls: 'DDLS', dcls: 'DCLS', msag: 'MSAG', stru: 'STRU'
+  ddls: 'DDLS', dcls: 'DCLS', msag: 'MSAG', stru: 'STRU', enho: 'ENHO'
 };
 
 /**

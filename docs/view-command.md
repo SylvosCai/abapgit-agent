@@ -64,7 +64,14 @@ abapgit-agent view --objects ZMY_PROGRAM --type PROG
 abapgit-agent view --objects ZCL_MY_CLASS --full
 
 # View FULL source with dual line numbers (for setting breakpoints / debugging)
+# Classes with active ENHO: injected hook lines shown with G numbers; BP hint
+# skips the ENHO block and points to the first original executable line.
 abapgit-agent view --objects ZCL_MY_CLASS --full --lines
+
+# View ENHO (Enhancement Object) hook sections
+# Shows hook source with section-local [N] line numbers (no BP hint).
+# To debug inside an ENHO hook, use view on the TARGET CLASS instead.
+abapgit-agent view --objects ZCAIS_DBG_ENHO --type ENHO --full
 
 # Lowercase names and types are supported
 abapgit-agent view --objects zcl_my_class --type clas
@@ -87,8 +94,8 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS). Auto-detected from TADIR if not specified |
-| `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections. For INTF/PROG/DDLS: shows full source |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS, ENHO). Auto-detected from TADIR if not specified |
+| `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections plus any active ENHO hook lines injected into CM sections. For INTF/PROG/DDLS: shows full source |
 | `--lines` | No | Add dual line numbers to `--full` output: `G [N]  code` where G is assembled-source global line and [N] is include-relative. Also adds breakpoint hints to method headers. Only meaningful with `--full` |
 | `--json` | No | Output raw JSON only (for scripting) |
 
@@ -206,6 +213,29 @@ Adding `--lines` renders dual line numbers on every line and adds a ready-to-use
 ```
 
 Line numbers in sub-include sections are **section-local** (matching the `.clas.testclasses.abap` / `.clas.locals_imp.abap` file), not assembled-source globals. The `--include` flag value mirrors the abapGit file suffix.
+
+**Classes with active ENHO hook enhancements** — `--full --lines` injects the active ENHO hook lines directly into the CM section so you can see the runtime code layout. The BP hint uses **base-source coordinates** (subtracting injected lines) because ADT validates breakpoints against the non-injected `/source/main`:
+
+```
+  * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_CAIS_DBG_TRIGGER:33 ----
+    29 [  1]    METHOD compute.
+    30 [  2]  *"* ENHO: ZCAIS_DBG_ENHO (BEGIN)
+    31 [  3]    DATA lv_enho_marker TYPE i.
+    32 [  4]    lv_enho_marker = iv_a * iv_b.
+    33 [  5]  *"* ENHO END
+    34 [  6]      " compute: add two integers...
+    35 [  7]      DATA lv_sum TYPE i.
+    36 [  8]
+    37 [  9]      lv_sum = iv_a + iv_b.
+    38 [ 10]      rv_result = lv_sum.
+    39 [ 11]    ENDMETHOD.
+```
+
+The first executable original line is `lv_sum = iv_a + iv_b.` at runtime G=37, but its position in ADT's base source (without the 4 injected ENHO lines) is G=33 (37 − 4). The hint says `:33`, not `:37`. ADT accepts `:33` and the breakpoint fires correctly inside the ENHO-affected method.
+
+> **ENHO body lines (G 30–32 in the example) cannot be used as breakpoints.** Setting a BP at those G numbers returns "Not registered on server" — ADT's base source has no ENHO lines. The BP hint already points past the ENHO block to the first original executable line.
+
+**Viewing an ENHO object directly** (`view --objects <ENHO> --full --lines`) shows the hook sections with section-local `[N]` line numbers only — no `G` column and no BP hint, because ENHO objects have no assembled-source coordinate system. To debug code inside an ENHO hook, view the **target class** with `--full --lines` instead.
 
 **How global line numbers are computed:** Node.js reads the local `.clas.abap` file (own classes) or fetches `/sap/bc/adt/oo/classes/<name>/source/main` from ADT (library classes), then scans for `METHOD <name>.` to determine each method's start line.
 
@@ -550,7 +580,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG|DOMA|MSAG|FUGR|DCLS",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG|DOMA|MSAG|FUGR|DCLS|ENHO",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL: domain name
@@ -635,6 +665,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
 | `MSAG` | Message Class | Message class with all message texts |
 | `FUGR` | Function Group | Function group with function module list |
 | `DCLS` | Access Control | CDS access control (DCL source) |
+| `ENHO` | Enhancement | Enhancement object hook sections |
 
 ---
 

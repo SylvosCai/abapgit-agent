@@ -123,6 +123,7 @@ Use the object name from `objects.local.md` (or `objects.md` as fallback) in pla
 | CDS View (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` |
 | CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` |
+| Enhancement (ENHO) | `<name>.enho.<hash>.abap` (one per hook) | `<name>.enho.xml` |
 | Table (TABL) | *(none)* | `<name>.tabl.xml` |
 | Structure (STRU) | *(none)* | `<name>.tabl.xml` ⚠️ NOT `.stru.xml` |
 | Data Element (DTEL) | *(none)* | `<name>.dtel.xml` |
@@ -786,6 +787,11 @@ Modified ABAP files?
    ├─ DCLS (CDS access control)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/zc_view.dcls.xml --sync-xml
    │         ⚠️  Pass the .xml file — pull --files does NOT accept .asdcls extensions
+   ├─ ENHO (Enhancement)?
+   │  └─ ✅ Use: syntax (optional) → [abaplint] → commit → push → pull --files abap/<name>.enho.xml --sync-xml
+   │         ⚠️  syntax checks basic errors in the hook body; semantic checks require pull
+   │         ⚠️  Pass the .enho.xml file to pull — hash .abap files also work but xml is preferred
+   │         → see: abapgit-agent ref --topic enho
    └─ Other complex objects?
       └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
 
@@ -818,6 +824,7 @@ Modified ABAP files?
 | `ref --topic abapgit` | abapGit XML Metadata — **use for CDS/DDLS XML**, also CLAS, INTF, PROG, DCLS, FUGR |
 | `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `ref --topic abapgit-fugr` | abapGit XML Metadata — Function Group (FUGR) details |
+| `ref --topic enho` | Enhancement Objects (ENHO) — workflow, hash algorithm, creation guide |
 | `ref --topic abaplint` | abaplint Rule Guidelines (prefer_inline trap, safe patterns) |
 | `ref --topic debug-session` | Debug Session Guide |
 | `ref --topic debug-dump` | Dump Analysis Guide |

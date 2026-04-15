@@ -6,6 +6,14 @@ CLASS zcl_abgagt_viewer_clas DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_viewer.
 
+  PRIVATE SECTION.
+    "! Inject active ENHO hook bodies into the matching CM sections
+    "! @parameter iv_clsname | Target class name
+    "! @parameter ct_sections | Sections table to inject into
+    METHODS inject_enho_hooks
+      IMPORTING iv_clsname  TYPE seoclsname
+      CHANGING  ct_sections TYPE zcl_abgagt_command_view=>ty_sections.
+
 ENDCLASS.
 
 CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
@@ -131,7 +139,7 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         CLEAR ls_section.
         ls_section-suffix      = lv_cm_suffix.
         ls_section-description = 'Class Method'.
-        ls_section-method_name = CONV string( ls_method-methodname ).
+        ls_section-method_name = ls_method-methodname.
         CLEAR lt_source.
         READ REPORT lv_include_pad INTO lt_source.
         IF sy-subrc = 0.
@@ -139,6 +147,9 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
         ENDIF.
         APPEND ls_section TO rs_info-sections.
       ENDLOOP.
+
+      inject_enho_hooks( EXPORTING iv_clsname  = lv_clsname
+                         CHANGING  ct_sections = rs_info-sections ).
 
       " Auxiliary sections: CCDEF, CCIMP, CCAU
       " These live in separate git files (not part of the assembled .clas.abap source).
@@ -178,6 +189,101 @@ CLASS zcl_abgagt_viewer_clas IMPLEMENTATION.
       ENDIF.
       APPEND ls_section TO rs_info-sections.
     ENDIF.
+  ENDMETHOD.
+
+  METHOD inject_enho_hooks.
+    " Inject active ENHO hook bodies into CM sections.
+    " This makes view --full --lines show runtime-accurate line numbers:
+    " the hook lines are injected at the same position as the runtime CP program,
+    " so the G numbers in the output match ADT breakpoint coordinates.
+    TRY.
+        SELECT obj_name FROM tadir
+          INTO TABLE @DATA(lt_enho_names)
+          WHERE pgmid  = 'R3TR'
+            AND object = 'ENHO'.
+
+        LOOP AT lt_enho_names INTO DATA(ls_enho_entry).
+          TRY.
+              DATA(li_enh_tool) = cl_enh_factory=>get_enhancement(
+                enhancement_id = CONV enhname( ls_enho_entry-obj_name ) ).
+              DATA(lo_hook_impl) = CAST cl_enh_tool_hook_impl( li_enh_tool ).
+
+              " Check if this ENHO targets our class
+              DATA: lv_org_name TYPE trobj_name,
+                    lv_org_type TYPE trobjtype.
+              lo_hook_impl->get_original_object(
+                IMPORTING obj_name = lv_org_name
+                          obj_type = lv_org_type ).
+
+              IF lv_org_name <> iv_clsname.
+                CONTINUE.
+              ENDIF.
+
+              " This ENHO targets our class — inject each hook into its CM section
+              DATA(lt_hooks) = lo_hook_impl->get_hook_impls( ).
+              LOOP AT lt_hooks INTO DATA(ls_hook).
+                " Parse method name and spot from full_name: \TY:CLASS\ME:METHOD\SE:SPOT\EI
+                DATA(lv_me_pos) = find( val = ls_hook-full_name sub = '\ME:' ).
+                DATA(lv_se_pos) = find( val = ls_hook-full_name sub = '\SE:' ).
+                DATA(lv_ei_pos) = find( val = ls_hook-full_name sub = '\EI' ).
+                IF lv_me_pos < 0 OR lv_se_pos <= lv_me_pos.
+                  CONTINUE.
+                ENDIF.
+                DATA(lv_hook_method) = substring(
+                  val = ls_hook-full_name
+                  off = lv_me_pos + 4
+                  len = lv_se_pos - lv_me_pos - 4 ).
+                TRANSLATE lv_hook_method TO UPPER CASE.
+                DATA(lv_hook_spot) = substring(
+                  val = ls_hook-full_name
+                  off = lv_se_pos + 4
+                  len = lv_ei_pos - lv_se_pos - 4 ).
+                TRANSLATE lv_hook_spot TO UPPER CASE.
+
+                " Find the matching CM section
+                LOOP AT ct_sections ASSIGNING FIELD-SYMBOL(<ls_cm>).
+                  DATA(lv_cm_method_upper) = <ls_cm>-method_name.
+                  TRANSLATE lv_cm_method_upper TO UPPER CASE.
+                  IF lv_cm_method_upper <> lv_hook_method.
+                    CONTINUE.
+                  ENDIF.
+
+                  " Build marker + hook lines to inject
+                  DATA(lt_inject) = VALUE string_table(
+                    ( |*"* ENHO: { ls_enho_entry-obj_name } ({ lv_hook_spot })| ) ).
+                  LOOP AT ls_hook-source INTO DATA(lv_src_line).
+                    APPEND lv_src_line TO lt_inject.
+                  ENDLOOP.
+                  APPEND |*"* ENHO END| TO lt_inject.
+
+                  IF lv_hook_spot = 'BEGIN'.
+                    " Insert after METHOD statement (index 1)
+                    DATA(lv_insert_idx) = 1.
+                  ELSE.
+                    " END spot: insert before ENDMETHOD (last line)
+                    lv_insert_idx = lines( <ls_cm>-lines ).
+                    IF lv_insert_idx > 0.
+                      lv_insert_idx = lv_insert_idx - 1.
+                    ENDIF.
+                  ENDIF.
+
+                  " Insert lt_inject into <ls_cm>-lines after lv_insert_idx
+                  DATA(lv_inject_count) = lines( lt_inject ).
+                  DO lv_inject_count TIMES.
+                    DATA(lv_inject_line_idx) = lv_inject_count - sy-index + 1.
+                    READ TABLE lt_inject INDEX lv_inject_line_idx INTO DATA(lv_inject_line).
+                    INSERT lv_inject_line INTO <ls_cm>-lines INDEX lv_insert_idx + 1.
+                  ENDDO.
+                ENDLOOP.
+              ENDLOOP.
+            CATCH cx_root.
+              " ENHO not loadable or wrong tool type — skip silently
+              CONTINUE.
+          ENDTRY.
+        ENDLOOP.
+      CATCH cx_root.
+        " TADIR SELECT or outer failure — skip ENHO injection entirely
+    ENDTRY.
   ENDMETHOD.
 
 ENDCLASS.

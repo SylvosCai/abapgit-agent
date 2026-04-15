@@ -167,6 +167,25 @@ describe('Syntax Command - Logic Tests', () => {
       const result = detectObjectType('unknown_file.txt');
       expect(result.type).toBe('PROG');
     });
+
+    test('detects ENHO type from .enho.<hash>.abap', () => {
+      const baseName = 'zcl_foo.enho.28bbfe2f.abap';
+      const isEnho = /\.enho\.[0-9a-f]{8}\.abap$/i.test(baseName);
+      expect(isEnho).toBe(true);
+      expect(baseName.split('.')[0].toUpperCase()).toBe('ZCL_FOO');
+    });
+
+    test('ENHO detection is case-insensitive for hash chars', () => {
+      expect(/\.enho\.[0-9a-f]{8}\.abap$/i.test('zfoo.enho.D639F45C.abap')).toBe(true);
+    });
+
+    test('does not false-positive on .enho.xml as ENHO hash file', () => {
+      expect(/\.enho\.[0-9a-f]{8}\.abap$/i.test('zfoo.enho.xml')).toBe(false);
+    });
+
+    test('does not false-positive on a regular .abap file as ENHO', () => {
+      expect(/\.enho\.[0-9a-f]{8}\.abap$/i.test('zcl_foo.clas.abap')).toBe(false);
+    });
   });
 
   describe('Request building', () => {

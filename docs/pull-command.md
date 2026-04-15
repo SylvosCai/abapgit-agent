@@ -21,6 +21,12 @@ abapgit-agent pull
 # Pull specific files only (fast)
 abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
+# Pull enhancement (ENHO) object by XML metadata file
+abapgit-agent pull --files src/zfoo.enho.xml
+
+# Pull enhancement (ENHO) object by hash source file — activates whole ENHO
+abapgit-agent pull --files src/zfoo.enho.28bbfe2f.abap
+
 # Pull from specific branch
 abapgit-agent pull --branch develop
 
