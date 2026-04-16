@@ -8,5 +8,12 @@
   "protocol": "https",
   "gitUsername": "github-username",
   "gitPassword": "github-token",
-  "referenceFolder": "~/abap-reference"
+  "referenceFolder": "~/abap-reference",
+
+  "testRepos": {
+    "pull":      "https://github.com/your-org/abgagt-pull-test.git",
+    "drop":      "https://github.com/your-org/abgagt-drop-test.git",
+    "customize": "https://github.com/your-org/abgagt-customize-test.git",
+    "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git"
+  }
 }

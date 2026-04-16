@@ -6,8 +6,8 @@
  * (sibling of the abapgit-agent repo).
  *
  * Objects used:
- *   ZCL_CAIS_DBG_TRIGGER — trigger class (CLAS main, testclasses, locals_imp)
- *   LZCAIS_DBG_TESTU01   — FUGR include of ZCAIS_DBG_TEST
+ *   ZCL_ABGAGT_DBG_TRIGGER — trigger class (CLAS main, testclasses, locals_imp)
+ *   LZABGAGT_DBG_TESTU01   — FUGR include of ZABGAGT_DBG_TEST
  *
  * Group A (13 tests): Hardcoded known-good lines — verify ADT accepts them and
  *   returns the expected LINE_NR (include-relative) and line (global) values.
@@ -23,10 +23,10 @@
  *   ADT must return stale JSON.
  *
  * Confirmed ADT-accepted lines (probed via direct POST, 2026-04-02):
- *   ZCL_CAIS_DBG_TRIGGER main:        line 33, LINE_NR=5  (lv_sum = iv_a + iv_b)
- *   ZCL_CAIS_DBG_TRIGGER testclasses: line 13, LINE_NR=13 (rv_val = iv_val * lv_two)
- *   ZCL_CAIS_DBG_TRIGGER locals_imp:  line 6,  LINE_NR=6  (lv_label = 'debug-test')
- *   LZCAIS_DBG_TESTU01 (FUGR):        line 13, LINE_NR=13 (lv_result = iv_a + iv_b)
+ *   ZCL_ABGAGT_DBG_TRIGGER main:        line 33, LINE_NR=5  (lv_sum = iv_a + iv_b)
+ *   ZCL_ABGAGT_DBG_TRIGGER testclasses: line 13, LINE_NR=13 (rv_val = iv_val * lv_two)
+ *   ZCL_ABGAGT_DBG_TRIGGER locals_imp:  line 6,  LINE_NR=6  (lv_label = 'debug-test')
+ *   LZABGAGT_DBG_TESTU01 (FUGR):        line 13, LINE_NR=13 (lv_result = iv_a + iv_b)
  */
 
 'use strict';
@@ -49,8 +49,8 @@ function jsonLine(jsonOutput) {
 
 // Parse a `debug set --objects NAME:N` hint from view --lines output.
 // The hint appears in lines like:
-//   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_CAIS_DBG_TRIGGER:33 ----
-//   * ---- FM: ZCAIS_DBG_ADD (LZCAIS_DBG_TESTU01) — breakpoint: debug set --objects LZCAIS_DBG_TESTU01:13 ----
+//   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_ABGAGT_DBG_TRIGGER:33 ----
+//   * ---- FM: ZABGAGT_DBG_ADD (LZABGAGT_DBG_TESTU01) — breakpoint: debug set --objects LZABGAGT_DBG_TESTU01:13 ----
 //
 // For CLAS main methods the source lines use G [N] format:
 //     33 [  5]      lv_sum = iv_a + iv_b.
@@ -112,7 +112,7 @@ function buildTestCases() {
     {
       name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR=5)',
       // Global line 33 = CM001 include line 5 (as shown by view --lines: "33 [  5]")
-      args: ['set', '--object', 'ZCL_CAIS_DBG_TRIGGER', '--line', '33', '--json'],
+      args: ['set', '--object', 'ZCL_ABGAGT_DBG_TRIGGER', '--line', '33', '--json'],
       expectSuccess: true,
       verify: (output) => adtLineNr(output) === 5 && jsonLine(output) === 33
     },
@@ -120,7 +120,7 @@ function buildTestCases() {
       name: '[A] debug list shows CLAS main breakpoint',
       args: ['list'],
       expectSuccess: true,
-      verify: (output) => output.includes('ZCL_CAIS_DBG_TRIGGER') && output.includes('33')
+      verify: (output) => output.includes('ZCL_ABGAGT_DBG_TRIGGER') && output.includes('33')
     },
     {
       name: '[A] debug delete --all (cleanup after CLAS main test)',
@@ -132,14 +132,14 @@ function buildTestCases() {
       name: '[A] debug list shows no breakpoints after delete',
       args: ['list'],
       expectSuccess: true,
-      verify: (output) => !output.includes('ZCL_CAIS_DBG_TRIGGER')
+      verify: (output) => !output.includes('ZCL_ABGAGT_DBG_TRIGGER')
     },
 
     // --- testclasses include breakpoint ---
     {
       name: '[A] debug set testclasses — line 13 accepted by ADT (LINE_NR=13)',
       // (skips comment on line 10, DATA on line 11, blank on line 12)
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:13', '--include', 'testclasses', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:13', '--include', 'testclasses', '--json'],
       expectSuccess: true,
       verify: (output) => adtLineNr(output) === 13 && jsonLine(output) === 13
     },
@@ -147,14 +147,14 @@ function buildTestCases() {
       name: '[A] debug list shows testclasses breakpoint',
       args: ['list'],
       expectSuccess: true,
-      verify: (output) => output.includes('ZCL_CAIS_DBG_TRIGGER') && output.includes('13')
+      verify: (output) => output.includes('ZCL_ABGAGT_DBG_TRIGGER') && output.includes('13')
     },
 
     // --- locals_imp include breakpoint ---
     {
       name: '[A] debug set locals_imp — line 6 accepted by ADT (LINE_NR=6)',
       // (skips comment on line 3, DATA on line 4, blank on line 5)
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:6', '--include', 'locals_imp', '--json'],
       expectSuccess: true,
       verify: (output) => adtLineNr(output) === 6 && jsonLine(output) === 6
     },
@@ -163,7 +163,7 @@ function buildTestCases() {
       args: ['list'],
       expectSuccess: true,
       verify: (output) =>
-        output.includes('ZCL_CAIS_DBG_TRIGGER') &&
+        output.includes('ZCL_ABGAGT_DBG_TRIGGER') &&
         output.includes('13') &&
         output.includes('6')
     },
@@ -175,12 +175,12 @@ function buildTestCases() {
     },
 
     // --- FUGR include breakpoint (regression: wrong ADT URI /programs/includes/ before fix) ---
-    // LZCAIS_DBG_TESTU01 is the FM source include of ZCAIS_DBG_TEST.
+    // LZABGAGT_DBG_TESTU01 is the FM source include of ZABGAGT_DBG_TEST.
     // Before the fix, this was routed to /programs/includes/ (wrong path).
     // Correct path: /functions/groups/zcais_dbg_test/includes/lzcais_dbg_testu01/source/main
     {
       name: '[A] debug set FUGR include — line 13 accepted by ADT (LINE_NR=13)',
-      args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:13', '--json'],
+      args: ['set', '--objects', 'LZABGAGT_DBG_TESTU01:13', '--json'],
       expectSuccess: true,
       verify: (output) => adtLineNr(output) === 13 && jsonLine(output) === 13
     },
@@ -188,7 +188,7 @@ function buildTestCases() {
       name: '[A] debug list shows FUGR include breakpoint',
       args: ['list'],
       expectSuccess: true,
-      verify: (output) => output.includes('LZCAIS_DBG_TESTU01') && output.includes('13')
+      verify: (output) => output.includes('LZABGAGT_DBG_TESTU01') && output.includes('13')
     },
     {
       name: '[A] debug delete --all (cleanup after FUGR test)',
@@ -207,13 +207,13 @@ function buildTestCases() {
     {
       name: '[B] view --full --lines CLAS: parse COMPUTE method hint',
       run: 'view',
-      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
       verify: (output) => {
         const hint = parseViewHint(output, 'COMPUTE');
         if (!hint) return false;
         viewParsed.clasMain = hint;
-        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+        return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
           hint.line >= 1 && hint.line <= 999 &&
           hint.include === null;
       }
@@ -237,7 +237,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.clasMain;
-        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -251,13 +251,13 @@ function buildTestCases() {
     {
       name: '[B] view --full --lines CLAS: parse DOUBLE (testclasses) hint',
       run: 'view',
-      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
       verify: (output) => {
         const hint = parseViewHint(output, 'DOUBLE');
         if (!hint) return false;
         viewParsed.testclasses = hint;
-        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+        return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
           hint.line >= 1 && hint.line <= 999 &&
           hint.include === 'testclasses';
       }
@@ -282,7 +282,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.testclasses;
-        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -296,13 +296,13 @@ function buildTestCases() {
     {
       name: '[B] view --full --lines CLAS: parse DESCRIBE (locals_imp) hint',
       run: 'view',
-      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
       verify: (output) => {
         const hint = parseViewHint(output, 'DESCRIBE');
         if (!hint) return false;
         viewParsed.localsImp = hint;
-        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+        return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
           hint.line >= 1 && hint.line <= 999 &&
           hint.include === 'locals_imp';
       }
@@ -327,7 +327,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.localsImp;
-        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -337,17 +337,17 @@ function buildTestCases() {
       verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
     },
 
-    // B4: FUGR FM (ZCAIS_DBG_ADD)
+    // B4: FUGR FM (ZABGAGT_DBG_ADD)
     {
-      name: '[B] view --full --lines FUGR: parse ZCAIS_DBG_ADD FM hint',
+      name: '[B] view --full --lines FUGR: parse ZABGAGT_DBG_ADD FM hint',
       run: 'view',
-      args: ['--objects', 'ZCAIS_DBG_TEST', '--type', 'FUGR', '--full', '--fm', 'ZCAIS_DBG_ADD', '--lines'],
+      args: ['--objects', 'ZABGAGT_DBG_TEST', '--type', 'FUGR', '--full', '--fm', 'ZABGAGT_DBG_ADD', '--lines'],
       expectSuccess: true,
       verify: (output) => {
-        const hint = parseViewHint(output, 'ZCAIS_DBG_ADD');
+        const hint = parseViewHint(output, 'ZABGAGT_DBG_ADD');
         if (!hint) return false;
         viewParsed.fugr = hint;
-        return hint.object === 'LZCAIS_DBG_TESTU01' &&
+        return hint.object === 'LZABGAGT_DBG_TESTU01' &&
           hint.line >= 1 && hint.line <= 999 &&
           hint.include === null;
       }
@@ -372,7 +372,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.fugr;
-        return output.includes('LZCAIS_DBG_TESTU01') && h !== null && output.includes(String(h.line));
+        return output.includes('LZABGAGT_DBG_TESTU01') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -382,7 +382,7 @@ function buildTestCases() {
       verify: (output) => output.includes('deleted') || output.includes('No breakpoints') || output.length >= 0
     },
 
-    // B5: CLAS main with active ENHO (ZCAIS_DBG_ENHO hooks into COMPUTE at BEGIN)
+    // B5: CLAS main with active ENHO (ZABGAGT_DBG_ENHO hooks into COMPUTE at BEGIN)
     // view --full --lines must show the injected ENHO block and emit a BP hint that
     // uses base-source coordinates (countEnhoLines subtraction), not runtime G numbers.
     // With ENHO active: METHOD compute. at G=29, ENHO injects 4 lines (G 30-33),
@@ -391,16 +391,16 @@ function buildTestCases() {
     {
       name: '[B5] view --full --lines CLAS with ENHO: parse COMPUTE hint (expect base-source :33)',
       run: 'view',
-      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
       verify: (output) => {
         // Must contain the injected ENHO block marker
-        if (!output.includes('*"* ENHO: ZCAIS_DBG_ENHO')) return false;
+        if (!output.includes('*"* ENHO: ZABGAGT_DBG_ENHO')) return false;
         const hint = parseViewHint(output, 'COMPUTE');
         if (!hint) return false;
         viewParsed.clasMainEnho = hint;
         // Hint must be base-source line 33, not runtime G=37
-        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+        return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
           hint.line === 33 &&
           hint.include === null;
       }
@@ -423,7 +423,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.clasMainEnho;
-        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes('33');
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes('33');
       }
     },
     {
@@ -439,14 +439,14 @@ function buildTestCases() {
     {
       name: '[B5b] view --full --lines CLAS+ENHO: parse IF_OO_ADT_CLASSRUN~MAIN hint (no shift)',
       run: 'view',
-      args: ['--objects', 'ZCL_CAIS_DBG_TRIGGER', '--full', '--lines'],
+      args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
       verify: (output) => {
         // MAIN must appear and the hint must be ADT-accepted (LINE_NR=4 = [4] in output)
         const hint = parseViewHint(output, 'IF_OO_ADT_CLASSRUN~MAIN');
         if (!hint) return false;
         viewParsed.clasMainNoEnho = hint;
-        return hint.object === 'ZCL_CAIS_DBG_TRIGGER' &&
+        return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
           hint.line >= 1 && hint.line <= 999 &&
           hint.include === null;
       }
@@ -469,7 +469,7 @@ function buildTestCases() {
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.clasMainNoEnho;
-        return output.includes('ZCL_CAIS_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -493,7 +493,7 @@ function buildTestCases() {
 
     {
       name: '[C] debug set CLAS main line 16 (DATA decl) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:16', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:16', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') &&
@@ -501,35 +501,35 @@ function buildTestCases() {
     },
     {
       name: '[C] debug set CLAS main line 29 (METHOD stmt) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:29', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:29', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":29')
     },
     {
       name: '[C] debug set testclasses line 9 (METHOD stmt) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:9', '--include', 'testclasses', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:9', '--include', 'testclasses', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":9')
     },
     {
       name: '[C] debug set locals_imp line 2 (METHOD stmt) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:2', '--include', 'locals_imp', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:2', '--include', 'locals_imp', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":2')
     },
     {
       name: '[C] debug set FUGR line 2 (comment) — rejected by ADT',
-      args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:2', '--json'],
+      args: ['set', '--objects', 'LZABGAGT_DBG_TESTU01:2', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":2')
     },
     {
       name: '[C] debug set FUGR line 12 (blank line) — rejected by ADT',
-      args: ['set', '--objects', 'LZCAIS_DBG_TESTU01:12', '--json'],
+      args: ['set', '--objects', 'LZABGAGT_DBG_TESTU01:12', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":12')
@@ -539,14 +539,14 @@ function buildTestCases() {
     // These G numbers do NOT exist in ADT's base-source validation → rejected.
     {
       name: '[C] debug set CLAS+ENHO line 30 (injected ENHO marker) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:30', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:30', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":30')
     },
     {
       name: '[C] debug set CLAS+ENHO line 32 (injected ENHO body) — rejected by ADT',
-      args: ['set', '--objects', 'ZCL_CAIS_DBG_TRIGGER:32', '--json'],
+      args: ['set', '--objects', 'ZCL_ABGAGT_DBG_TRIGGER:32', '--json'],
       expectSuccess: false,
       verify: (output) =>
         output.includes('"error"') && output.includes('"stale"') && output.includes('"line":32')

@@ -47,7 +47,7 @@ const commandTestCases = [
   {
     command: 'pull',
     name: 'pull --files (specific file)',
-    args: ['--files', 'abap/zcl_abgagt_util.clas.abap'],
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap', '--branch', 'master'],
     expectSuccess: true,
     verify: (output) => {
       // Should contain either success or failure info, but not crash

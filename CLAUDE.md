@@ -257,11 +257,12 @@ npm test                    # Run all unit tests (Jest)
 npm run test:unit          # Same as npm test
 
 # Integration tests (require configured .abapGitAgent)
+npm run test:setup         # One-time setup: clone test repos + activate ABAP objects
 npm run test:integration   # Test against real ABAP system
 npm run test:cmd           # Command integration tests (all commands)
 npm run test:aunit         # AUnit integration tests
 npm run test:lifecycle     # Full lifecycle tests
-npm run test:all           # All tests (unit + integration)
+npm run test:all           # All tests (unit + integration; setup runs automatically)
 
 # Test specific commands only (NEW - fast feedback!)
 npm run test:cmd:syntax    # Test only syntax command
@@ -286,6 +287,8 @@ npm run test:cmd -- --command=syntax --demo  # Demo mode for specific command
 - `tests/integration/` - Tests against real ABAP system
 - Requires `.abapGitAgent` configuration
 - Tests actual command execution end-to-end
+- Setup is self-organizing: `npm run test:all` clones test repos and activates ABAP objects automatically on first run
+- See [docs/integration-tests.md](docs/integration-tests.md) for the full guide (prerequisites, suite breakdown, URL overrides, troubleshooting)
 
 **Manual testing:**
 ```bash

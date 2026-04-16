@@ -16,13 +16,14 @@
  *   3. conflict-mode ignore still works         → Pull completed
  *   4. no-conflict after baseline update        → Pull completed
  *
- * Test repository: https://github.tools.sap/I045696/abgagt-pull-test.git
+ * Test repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
  */
 
 const { execSync } = require('child_process');
 const path = require('path');
 
-const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const TEST_REPO_URL = getTestRepoUrl('pull');
 const TEST_OBJECT   = 'ZIF_ABGAGT_CONFLICT_TEST';
 const BRANCH_MAIN   = 'main';
 const BRANCH_FEAT   = 'feature/test-branch';

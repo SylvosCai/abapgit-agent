@@ -3,7 +3,7 @@
  *
  * Tests the `customize` command end-to-end against a real ABAP system.
  *
- * Test Repository: https://github.tools.sap/I045696/abgagt-customize-test.git
+ * Test Repository: abgagt-customize-test (URL configured via testRepos.customize in .abapGitAgent)
  *   Package: $ABGAGT_CUS_TST
  *   Branch:  main
  *   Objects:
@@ -34,7 +34,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const CUSTOMIZE_REPO_URL = 'https://github.tools.sap/I045696/abgagt-customize-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const CUSTOMIZE_REPO_URL = getTestRepoUrl('customize');
 const CUSTOMIZE_REPO_DIR = path.join(os.tmpdir(), 'abgagt-customize-test');
 const TEST_TABLE = 'ZABGAGT_CUS_TST';
 const TEST_TABLE_FILE = 'src/zabgagt_cus_tst.tabl.xml';
@@ -149,9 +150,20 @@ function runCustomizeTests(repoRoot, { printSubHeader, printInfo, printSuccess, 
     }
   };
 
-  // ─── Clone customize-test repo if not already present ──────────────────────
-  if (!fs.existsSync(CUSTOMIZE_REPO_DIR)) {
-    printInfo(`  Customize-test repo not found at ${CUSTOMIZE_REPO_DIR} — cloning...`);
+  // ─── Clone customize-test repo if not already present (or invalid) ────────
+  const isValidCustRepo = fs.existsSync(CUSTOMIZE_REPO_DIR) && (() => {
+    try {
+      execSync('git rev-parse --is-inside-work-tree', { cwd: CUSTOMIZE_REPO_DIR, encoding: 'utf8', stdio: 'pipe' });
+      return true;
+    } catch { return false; }
+  })();
+  if (!isValidCustRepo) {
+    if (fs.existsSync(CUSTOMIZE_REPO_DIR)) {
+      printInfo(`  Customize-test repo at ${CUSTOMIZE_REPO_DIR} is not a valid git repo — removing and re-cloning...`);
+      fs.rmSync(CUSTOMIZE_REPO_DIR, { recursive: true, force: true });
+    } else {
+      printInfo(`  Customize-test repo not found at ${CUSTOMIZE_REPO_DIR} — cloning...`);
+    }
     try {
       execSync(`git clone ${CUSTOMIZE_REPO_URL} ${CUSTOMIZE_REPO_DIR}`, { encoding: 'utf8', timeout: 60000 });
       printInfo('  Cloned successfully.');

@@ -5,9 +5,12 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+const { getTestRepoUrl } = require('./test-repos');
 
 // Test repository configuration
-const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-lifecycle-test.git';
+const TEST_REPO_URL = getTestRepoUrl('lifecycle');
 
 /**
  * Read ABAP configuration from .abapGitAgent file
@@ -33,15 +36,9 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
 
   const startTime = Date.now();
   const results = [];
-  const testRepoDir = path.join(repoRoot, 'output', 'abgagt-lifecycle-test');
+  const testRepoDir = path.join(os.tmpdir(), 'abgagt-lifecycle-test');
 
-  // Step 1: Create output directory if needed
-  const outputDir = path.join(repoRoot, 'output');
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  // Step 2: Clone or update test repo
+  // Step 1: Clone or update test repo
   let testDir = testRepoDir;
   if (fs.existsSync(testDir)) {
     printInfo('Test repo already exists, using existing copy');
@@ -113,24 +110,24 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
 
     // Step 5: Run init command
     printInfo('Running init command...');
-    output = runCli('init', ['--package', '$ABGAGT_TEST', '--folder', 'src/']);
+    output = runCli('init', ['--package', '$ABGAGT_LIFECYCLE_TEST', '--folder', 'src/']);
     const initPassed = output.includes('Created .abapGitAgent') ||
                        output.includes('initialized');
     addResult('init creates config files', initPassed, output);
 
     const projectConfigPath = path.join(testDir, '.abapgit-agent.json');
     const projectConfigCreated = fs.existsSync(projectConfigPath) &&
-      JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')).project.name === '$ABGAGT_TEST';
+      JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')).project.name === '$ABGAGT_LIFECYCLE_TEST';
     addResult('init creates .abapgit-agent.json with package name', projectConfigCreated, projectConfigPath);
 
     // Step 6: Edit .abapGitAgent with credentials from main project
     printInfo('Updating .abapGitAgent with credentials...');
     const config = readAbapConfig(repoRoot);
     if (config) {
-      config.package = '$ABGAGT_TEST';
+      config.package = '$ABGAGT_LIFECYCLE_TEST';
       config.folder = '/src/';
-      // In CI the main project uses PAT_grcaud-serviceuser which has no write access to
-      // I045696/* test repos. Override with the personal org token when available.
+      // In CI the main project uses a service user token which may have no write access to
+      // personal test repos. Override with a personal token when available.
       if (process.env.TEST_GIT_USR) config.gitUsername = process.env.TEST_GIT_USR;
       if (process.env.TEST_GIT_PSW) config.gitPassword = process.env.TEST_GIT_PSW;
       // Keep referenceFolder as-is for the test environment

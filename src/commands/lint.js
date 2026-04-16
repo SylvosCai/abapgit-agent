@@ -59,13 +59,13 @@ Examples:
     // ── Resolve changed files ─────────────────────────────────────────────────
     let abapFiles;
     if (filesArg) {
-      abapFiles = filesArg.split(',').map(f => f.trim()).filter(f => f.endsWith('.abap'));
+      abapFiles = filesArg.split(',').map(f => f.trim()).filter(f => isLintable(f) && fs.existsSync(f));
     } else {
       abapFiles = detectChangedAbapFiles(baseBranch);
     }
 
     if (abapFiles.length === 0) {
-      console.log('No changed .abap files found — nothing to lint.');
+      console.log('No changed .abap/.asddls files found — nothing to lint.');
       return;
     }
 
@@ -102,34 +102,29 @@ Examples:
     // keep <file> blocks for the originally changed files — suppressing any
     // pre-existing issues in dependency files that were not part of this change.
     try {
-      if (outformat === 'checkstyle') {
-        // Run to a temp file, filter, then write to the final destination.
-        const tempOut = '.abaplint-raw.xml';
-        const abapFilesSet = new Set(abapFiles.map(f => path.resolve(f)));
-        try {
-          const result = spawnSync(
-            `npx @abaplint/cli@latest ${scopedConfig} --outformat checkstyle --outfile ${tempOut}`,
-            { stdio: 'pipe', shell: true }
-          );
-          const raw = fs.existsSync(tempOut) ? fs.readFileSync(tempOut, 'utf8') : '<checkstyle version="8.0"/>';
-          const filtered = filterCheckstyleToFiles(raw, abapFilesSet);
+      const tempOut = '.abaplint-raw.xml';
+      const abapFilesSet = new Set(abapFiles.map(f => path.resolve(f)));
+      try {
+        spawnSync(
+          `npx @abaplint/cli@latest ${scopedConfig} --outformat checkstyle --outfile ${tempOut}`,
+          { stdio: 'pipe', shell: true }
+        );
+        const raw = fs.existsSync(tempOut) ? fs.readFileSync(tempOut, 'utf8') : '<checkstyle version="8.0"/>';
+        const filtered = filterCheckstyleToFiles(raw, abapFilesSet);
+        if (outformat === 'checkstyle') {
           if (outfile) {
             fs.writeFileSync(outfile, filtered);
           } else {
             process.stdout.write(filtered);
           }
-          const issueCount = (filtered.match(/<error /g) || []).length;
-          if (issueCount > 0) process.exitCode = 1;
-        } finally {
-          if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut);
+        } else {
+          // Interactive: print issues as human-readable text, scoped to changed files only.
+          printCheckstyleAsText(filtered);
         }
-      } else {
-        // Interactive: inherit stdio so abaplint's human-readable output flows through.
-        const result = spawnSync(
-          `npx @abaplint/cli@latest ${scopedConfig}`,
-          { stdio: 'inherit', shell: true }
-        );
-        if (result.status !== 0) process.exitCode = result.status;
+        const issueCount = (filtered.match(/<error /g) || []).length;
+        if (issueCount > 0) process.exitCode = 1;
+      } finally {
+        if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut);
       }
     } finally {
       fs.unlinkSync(scopedConfig);
@@ -156,12 +151,12 @@ function detectChangedAbapFiles(baseBranch) {
 
   let diffCmd;
   if (base) {
-    diffCmd = `git diff --name-only ${base}...HEAD -- '*.abap'`;
+    diffCmd = `git diff --name-only ${base}...HEAD -- '*.abap' '*.asddls'`;
   } else {
     // Fall back to uncommitted changes first, then last commit
-    const uncommitted = runGit('git diff --name-only HEAD -- *.abap').filter(Boolean);
+    const uncommitted = runGit(`git diff --name-only HEAD -- '*.abap' '*.asddls'`).filter(Boolean);
     if (uncommitted.length > 0) return filterAbapFiles(uncommitted);
-    diffCmd = `git diff --name-only HEAD~1 HEAD -- '*.abap'`;
+    diffCmd = `git diff --name-only HEAD~1 HEAD -- '*.abap' '*.asddls'`;
   }
 
   return filterAbapFiles(runGit(diffCmd));
@@ -190,7 +185,7 @@ function buildFileIndex(abapDir) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         walk(full);
-      } else if (entry.name.endsWith('.abap') || entry.name.endsWith('.xml')) {
+      } else if (entry.name.endsWith('.abap') || entry.name.endsWith('.xml') || entry.name.endsWith('.asddls')) {
         index.set(entry.name.toLowerCase(), full);
       }
     }
@@ -304,13 +299,47 @@ function filterCheckstyleToFiles(xml, abapFilesSet) {
 }
 
 /**
- * Keep only files that look like ABAP source files
- * (name.type.abap or name.type.subtype.abap).
+ * Print checkstyle XML as human-readable text, mirroring abaplint's default output format:
+ *   path/to/file.clas.abap:line - severity - message (rule)
+ */
+function printCheckstyleAsText(xml) {
+  const fileRe  = /<file\s+name="([^"]*)"([\s\S]*?)<\/file>/g;
+  const errorRe = /<error\s+[^>]*line="(\d+)"[^>]*severity="([^"]*)"[^>]*message="([^"]*)"[^>]*source="([^"]*)"/g;
+  let fileMatch;
+  let issueCount = 0;
+  while ((fileMatch = fileRe.exec(xml)) !== null) {
+    const filePath = fileMatch[1];
+    const block    = fileMatch[2];
+    errorRe.lastIndex = 0;
+    let errMatch;
+    while ((errMatch = errorRe.exec(block)) !== null) {
+      const [, line, severity, message, source] = errMatch;
+      const rule = source.split('.').pop();
+      const text = message.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'");
+      console.log(`${filePath}:${line} - ${severity} - ${text} (${rule})`);
+      issueCount++;
+    }
+  }
+  if (issueCount === 0) {
+    console.log('No issues found.');
+  }
+}
+
+/**
+ * Returns true if the file is a type abaplint can analyse.
+ * - .abap — all ABAP source files (CLAS, INTF, PROG, FUGR, ENHO, etc.)
+ * - .asddls — CDS view / view entity sources (DDLS)
+ */
+function isLintable(f) {
+  const lower = f.toLowerCase();
+  return lower.endsWith('.abap') || lower.endsWith('.asddls');
+}
+
+/**
+ * Keep only lintable files (name.type.abap / name.type.subtype.abap / name.ddls.asddls)
+ * that still exist on disk. Deleted files appear in git diff output but must not
+ * be passed to abaplint.
  */
 function filterAbapFiles(files) {
-  return files.filter(f => {
-    const parts = path.basename(f).split('.');
-    return (parts.length === 3 || parts.length === 4) &&
-           parts[parts.length - 1].toLowerCase() === 'abap';
-  });
+  return files.filter(f => isLintable(f) && fs.existsSync(f));
 }

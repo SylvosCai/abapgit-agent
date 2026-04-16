@@ -2,7 +2,7 @@
  * Sync-XML Integration Test Runner
  * Tests the --sync-xml flag end-to-end against a real ABAP system.
  *
- * Test Repository: https://github.tools.sap/I045696/abgagt-pull-test.git
+ * Test Repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
  *   Branch: feature/sync-xml-test
  *     - src/zif_simple_test.intf.xml has an extra <CATEGORY>00</CATEGORY>
  *       field that the abapGit serializer does NOT emit, so the bytes always
@@ -44,7 +44,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const TEST_REPO_URL  = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const TEST_REPO_URL  = getTestRepoUrl('pull');
 const TEST_BRANCH    = 'feature/sync-xml-test';
 const TEST_FILE      = 'src/zif_simple_test.intf.abap';
 const TEST_XML_FILE  = 'src/zif_simple_test.intf.xml';

@@ -4,7 +4,7 @@
  * Verifies that conflict detection and ref-switching work correctly when
  * activating all objects in a repository rather than a specific file list.
  *
- * Test Repository: https://github.tools.sap/I045696/abgagt-pull-test.git
+ * Test Repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
  *   - v0.1.0:              get_message only
  *   - v1.0.0:              get_message + validate_input
  *   - feature/test-branch: get_message + calculate_sum
@@ -32,7 +32,8 @@
 const { execSync } = require('child_process');
 const path = require('path');
 
-const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const TEST_REPO_URL = getTestRepoUrl('pull');
 const TEST_OBJECT   = 'ZIF_SIMPLE_TEST';
 
 function runPull(repoRoot, branch, extraArgs = []) {

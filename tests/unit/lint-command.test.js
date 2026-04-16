@@ -115,7 +115,9 @@ describe('lint command — missing config', () => {
   });
 
   test('exits with error when .abaplint.json not found', () => {
-    setupConfigMissing();
+    // existsSync: false for config, true for the changed .abap file (so it passes the filter)
+    mockFsExistsSync.mockImplementation((p) => p.endsWith('.abap'));
+    mockFsReaddirSync.mockReturnValue([]);
     mockExecSync.mockReturnValue('src/zcl_foo.clas.abap\n');
     mockSpawnSync.mockReturnValue({ status: 0 });
 
@@ -124,7 +126,8 @@ describe('lint command — missing config', () => {
   });
 
   test('shows hint to run from project root', () => {
-    setupConfigMissing();
+    mockFsExistsSync.mockImplementation((p) => p.endsWith('.abap'));
+    mockFsReaddirSync.mockReturnValue([]);
     mockExecSync.mockReturnValue('src/zcl_foo.clas.abap\n');
 
     expect(() => lint.execute([])).toThrow('process.exit(1)');
@@ -161,7 +164,7 @@ describe('lint command — no changed files', () => {
 
     lint.execute([]);
 
-    expect(logs.join('\n')).toMatch(/No changed .abap files found/);
+    expect(logs.join('\n')).toMatch(/No changed .abap\/.asddls files found/);
     expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 
@@ -171,7 +174,7 @@ describe('lint command — no changed files', () => {
 
     lint.execute([]);
 
-    expect(logs.join('\n')).toMatch(/No changed .abap files found/);
+    expect(logs.join('\n')).toMatch(/No changed .abap\/.asddls files found/);
     expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 });
@@ -218,14 +221,17 @@ describe('lint command — filterAbapFiles patterns', () => {
   });
 
   test('rejects plain .abap files from git diff (no type segment)', () => {
-    setupConfigExists();
+    // Only config file exists — plain.abap does not exist on disk
+    mockFsExistsSync.mockImplementation((p) => p === '.abaplint.json');
+    mockFsReadFileSync.mockReturnValue('{"global":{"files":"/src/**/*.abap"},"rules":{}}');
+    mockFsReaddirSync.mockReturnValue([]);
     // git diff returns a plain .abap file (only 2 dot-separated parts)
     mockExecSync.mockReturnValue('plain.abap\n');
     mockSpawnSync.mockReturnValue({ status: 0 });
 
     lint.execute([]);
 
-    // filterAbapFiles removes plain.abap (only 2 parts) → nothing to lint → spawnSync not called
+    // isLintable passes plain.abap (ends with .abap) but existsSync returns false → filtered out
     expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 });
@@ -320,11 +326,17 @@ describe('lint command — exit code', () => {
 
   test('sets process.exitCode when abaplint exits non-zero', () => {
     setupConfigExists();
+    // Simulate abaplint returning XML with an error entry
+    mockFsReadFileSync.mockImplementation((p) => {
+      if (p === '.abaplint.json') return '{"global":{"files":"/src/**/*.abap"},"rules":{}}';
+      if (p === '.abaplint-raw.xml') return `<?xml version="1.0"?><checkstyle version="8.0"><file name="src/zcl_foo.clas.abap"><error line="1" severity="error" message="msg" source="abaplint"/></file></checkstyle>`;
+      return '';
+    });
     mockSpawnSync.mockReturnValue({ status: 2 });
 
     lint.execute(['--files', 'src/zcl_foo.clas.abap']);
 
-    expect(process.exitCode).toBe(2);
+    expect(process.exitCode).toBe(1);
   });
 
   test('does not set process.exitCode when abaplint exits 0', () => {
@@ -383,9 +395,13 @@ describe('lint command — output format flags', () => {
 
     lint.execute(['--files', 'src/zcl_foo.clas.abap']);
 
+    // Interactive mode always runs abaplint via checkstyle internally (to filter output
+    // to changed files only), then prints as text. The internal command always uses
+    // --outformat checkstyle with the temp file, never the user-facing --outfile.
     const cmd = mockSpawnSync.mock.calls[0][0];
-    expect(cmd).not.toContain('--outformat');
-    expect(cmd).not.toContain('--outfile');
+    expect(cmd).toContain('--outformat checkstyle');
+    expect(cmd).toContain('--outfile .abaplint-raw.xml');
+    expect(cmd).not.toContain('--outfile reports/');
   });
 
   test('suppresses file list output when --outfile is set', () => {

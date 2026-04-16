@@ -20,6 +20,7 @@
   "scripts": {
     "test": "jest",
     "test:all": "node tests/run-all.js",
+    "test:setup": "node tests/run-all.js --setup",
     "test:unit": "jest",
     "test:jest": "jest",
     "test:integration": "node tests/run-all.js --cmd",

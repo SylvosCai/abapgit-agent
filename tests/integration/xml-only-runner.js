@@ -3,7 +3,7 @@
  * Tests that TABL, DTEL, and TTYP objects can be selectively pulled via --files
  * using their .xml file paths (no .abap source file exists for these types).
  *
- * Test Repository: https://github.tools.sap/I045696/abgagt-pull-test.git
+ * Test Repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
  *   Branch: feature/xml-only-test
  *     - src/zabgagt_xo_dtel.dtel.xml  (DTEL — 15 chars, within DDIC limit)
  *     - src/zabgagt_xo_tabl.tabl.xml  (TABL — 15 chars, within DDIC limit)
@@ -36,7 +36,8 @@
 const { execSync } = require('child_process');
 const path = require('path');
 
-const TEST_REPO_URL = 'https://github.tools.sap/I045696/abgagt-pull-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const TEST_REPO_URL = getTestRepoUrl('pull');
 const TEST_BRANCH   = 'feature/xml-only-test';
 
 const FILE_TABL = 'src/zabgagt_xo_tabl.tabl.xml';

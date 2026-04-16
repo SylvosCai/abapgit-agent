@@ -45,7 +45,7 @@ abapgit-agent lint --outformat checkstyle --outfile reports/abaplint-results.xml
 |-----------|----------|---------|-------------|
 | `--config` | No | `.abaplint.json` | Path to abaplint config file |
 | `--base` | No | auto-detected | Base branch for git diff (e.g. `main`) |
-| `--files` | No | auto-detected | Comma-separated list of `.abap` files to lint |
+| `--files` | No | auto-detected | Comma-separated list of `.abap` / `.asddls` files to lint |
 | `--outformat` | No | — | Output format (e.g. `checkstyle`) |
 | `--outfile` | No | — | Write output to this file instead of stdout |
 
@@ -57,25 +57,28 @@ When `--files` is not given, changed files are detected automatically:
 
 | Context | Detection Method |
 |---------|-----------------|
-| CI with `CHANGE_TARGET` env var set (PR build) | `git diff origin/$CHANGE_TARGET...HEAD -- '*.abap'` |
-| `--base <branch>` given | `git diff <branch>...HEAD -- '*.abap'` |
-| Local with uncommitted changes | `git diff HEAD -- *.abap` |
-| Local with no uncommitted changes | `git diff HEAD~1 HEAD -- '*.abap'` |
+| CI with `CHANGE_TARGET` env var set (PR build) | `git diff origin/$CHANGE_TARGET...HEAD -- '*.abap' '*.asddls'` |
+| `--base <branch>` given | `git diff <branch>...HEAD -- '*.abap' '*.asddls'` |
+| Local with uncommitted changes | `git diff HEAD -- '*.abap' '*.asddls'` |
+| Local with no uncommitted changes | `git diff HEAD~1 HEAD -- '*.abap' '*.asddls'` |
 
-Only files matching `name.type.abap` or `name.type.subtype.abap` patterns are included
-(e.g. `.clas.abap`, `.clas.testclasses.abap`). Plain `.abap` filenames are excluded.
+Detected files are filtered to those that exist on disk — deleted files that appear in git diff
+output are excluded. Supported file types:
+- `.abap` — all ABAP source files (CLAS, INTF, PROG, FUGR, ENHO, etc.)
+- `.asddls` — CDS view / view entity sources (DDLS)
 
 ---
 
 ## How It Works
 
-1. Resolve the list of `.abap` files to lint (from `--files` or git diff)
+1. Resolve the list of `.abap` / `.asddls` files to lint (from `--files` or git diff)
 2. Load the abaplint config (`.abaplint.json` by default)
-3. Override `global.files` in the config with only the resolved files
+3. Override `global.files` in the config with the resolved files + their direct dependencies
 4. Write the scoped config to a temporary `.abaplint-local.json`
-5. Run `npx @abaplint/cli@latest .abaplint-local.json [--outformat ...] [--outfile ...]`
-6. Delete the temporary config file
-7. Exit with the same exit code as abaplint (non-zero = issues found)
+5. Run `npx @abaplint/cli@latest` in checkstyle mode to a temp file, then filter output to only the originally changed files (dependency files are included for cross-reference resolution but their issues are suppressed)
+6. Print results as human-readable text (or write checkstyle XML if `--outformat checkstyle`)
+7. Delete the temporary config and raw output files
+8. Exit with non-zero if any issues were found in changed files
 
 ---
 
@@ -104,7 +107,7 @@ src/zcl_my_class.clas.abap(87): prefer_inline: use inline declaration
 ### No Changed Files
 
 ```
-No changed .abap files found — nothing to lint.
+No changed .abap/.asddls files found — nothing to lint.
 ```
 
 ### CheckStyle output (CI)

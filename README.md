@@ -99,16 +99,29 @@ abapgit-agent health                  # Verify ABAP connection
 # Install dependencies
 npm install
 
-# Run unit tests (no ABAP system needed)
-npm test
-
 # Test a command manually
 node bin/abapgit-agent --help
 node bin/abapgit-agent syntax --files src/zcl_my_class.clas.abap
-
-# Run integration tests against a real ABAP system (requires .abapGitAgent)
-npm run test:integration
 ```
+
+## Running Tests
+
+```bash
+# Unit tests — no ABAP system needed (fast)
+npm test
+
+# Integration tests — requires a configured .abapGitAgent
+npm run test:setup   # one-time setup: clone test repos + activate ABAP objects
+npm run test:all     # full suite (setup runs automatically on first run)
+
+# Run a single suite
+npm run test:cmd         # CLI command tests
+npm run test:drop        # drop command tests
+npm run test:customize   # customize command tests
+npm run test:aunit       # ABAP unit tests
+```
+
+> **Full integration test guide:** [docs/integration-tests.md](docs/integration-tests.md)
 
 ## Documentation
 

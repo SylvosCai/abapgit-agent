@@ -3,7 +3,7 @@
  *
  * Tests the `drop` command end-to-end against a real ABAP system.
  *
- * Test Repository: https://github.tools.sap/I045696/abgagt-drop-test.git
+ * Test Repository: abgagt-drop-test (URL configured via testRepos.drop in .abapGitAgent)
  *   Package: $ABGAGT_DROP_TEST
  *   Branch:  main
  *   Objects:
@@ -45,7 +45,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const DROP_REPO_URL = 'https://github.tools.sap/I045696/abgagt-drop-test.git';
+const { getTestRepoUrl } = require('./test-repos');
+const DROP_REPO_URL = getTestRepoUrl('drop');
 const DROP_REPO_DIR = path.join(os.tmpdir(), 'abgagt-drop-test');
 
 /**
@@ -247,9 +248,20 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     }
   };
 
-  // Check that the drop-test repo is cloned
-  if (!fs.existsSync(DROP_REPO_DIR)) {
-    printInfo(`  Drop-test repo not found at ${DROP_REPO_DIR} — cloning...`);
+  // Check that the drop-test repo is cloned and is a valid git repository
+  const isValidGitRepo = fs.existsSync(DROP_REPO_DIR) && (() => {
+    try {
+      execSync('git rev-parse --is-inside-work-tree', { cwd: DROP_REPO_DIR, encoding: 'utf8', stdio: 'pipe' });
+      return true;
+    } catch { return false; }
+  })();
+  if (!isValidGitRepo) {
+    if (fs.existsSync(DROP_REPO_DIR)) {
+      printInfo(`  Drop-test repo at ${DROP_REPO_DIR} is not a valid git repo — removing and re-cloning...`);
+      fs.rmSync(DROP_REPO_DIR, { recursive: true, force: true });
+    } else {
+      printInfo(`  Drop-test repo not found at ${DROP_REPO_DIR} — cloning...`);
+    }
     try {
       execSync(`git clone ${DROP_REPO_URL} ${DROP_REPO_DIR}`, { encoding: 'utf8', timeout: 60000 });
       printInfo('  Cloned successfully.');

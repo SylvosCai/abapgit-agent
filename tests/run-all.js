@@ -2,16 +2,19 @@
  * Unified Test Suite
  *
  * Runs all test types:
- * 1. npm test (Jest) - JavaScript unit tests
- * 2. AUnit tests - ABAP test classes
- * 3. Command tests - CLI commands against real ABAP system
- * 4. Lifecycle tests - init, create, import, delete workflow
- * 5. Pull tests - git ref switching (tags/branches) workflow
- * 6. Drop tests - drop command end-to-end (drop + re-pull per object type)
- * 7. Debug scenarios - REPL and scripted AI (--json) session tests
+ * 1. Setup phase - clone test repos, register in ABAP, activate test objects (auto, idempotent)
+ * 2. npm test (Jest) - JavaScript unit tests
+ * 3. AUnit tests - ABAP test classes
+ * 4. Command tests - CLI commands against real ABAP system
+ * 5. Lifecycle tests - init, create, import, delete workflow
+ * 6. Pull tests - git ref switching (tags/branches) workflow
+ * 7. Drop tests - drop command end-to-end (drop + re-pull per object type)
+ * 8. Debug scenarios - REPL and scripted AI (--json) session tests
  *
  * Usage:
- *   npm run test:all              # Run all tests
+ *   npm run test:all              # Run all tests (setup phase runs automatically)
+ *   npm run test:setup            # Run only the setup phase
+ *   npm run test:all -- --no-setup  # Skip auto-setup (manage prerequisites manually)
  *   npm run test:jest             # Jest only
  *   npm run test:aunit            # AUnit only
  *   npm run test:cmd              # Command tests only
@@ -41,6 +44,7 @@ const { runJUnitTests } = require('./integration/junit-runner');
 const { runDebugTests } = require('./integration/debug-runner');
 const { runDropTests } = require('./integration/drop-runner');
 const { runCustomizeTests } = require('./integration/customize-runner');
+const { runSetup } = require('./integration/setup-runner');
 
 // Colors for output
 const colors = {
@@ -798,6 +802,16 @@ function printSummary(results) {
 async function main() {
   const args = process.argv.slice(2);
 
+  // --setup: run only the setup phase (clone repos, register in ABAP, activate objects)
+  if (args.includes('--setup')) {
+    printHeader('INTEGRATION TEST SETUP');
+    const setupResult = runSetup(repoRoot, {
+      printSubHeader, printInfo, printSuccess, printError, printWarning, colorize
+    });
+    process.exit(setupResult.success ? 0 : 1);
+    return;
+  }
+
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
   const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--drop', '--customize'].includes(arg));
@@ -1048,6 +1062,25 @@ async function main() {
   printHeader('UNIFIED TEST SUITE');
 
   const results = {};
+
+  // Run setup phase before any ABAP-dependent integration tests.
+  // Skipped when running Jest-only (no ABAP connection needed).
+  // --no-setup flag disables auto-setup for developers who manage prerequisites manually.
+  const skipAutoSetup = args.includes('--no-setup');
+  const needsAbap = runAunit || runCmd || runDrop || runCustomize || runDebugBp ||
+                    runPull || runFullPull || runConflict || runSyncXml || runXmlOnly ||
+                    runJunit || runDebug || runLifecycle;
+  if (needsAbap && !skipAutoSetup) {
+    const setupResult = runSetup(repoRoot, {
+      printSubHeader, printInfo, printSuccess, printError, printWarning, colorize
+    });
+    if (!setupResult.success && setupResult.failedCount > 0) {
+      printError('  Setup failed — aborting test run. Fix the setup errors above and retry.');
+      printInfo('  Tip: run `npm run test:setup` standalone to diagnose.');
+      process.exit(1);
+    }
+    printInfo('');
+  }
 
   // Run Jest tests
   if (runJest) {

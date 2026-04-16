@@ -29,11 +29,18 @@ abapPipeline(
                 ABAP_REF_DIR="\$HOME/abap-reference"
                 mkdir -p "\$ABAP_REF_DIR"
 
-                # Patch .abapGitAgent: add referenceFolder for ref command tests
+                # Patch .abapGitAgent: add referenceFolder + testRepos (SAP GitHub URLs)
                 node -e "
                   var fs = require('fs');
                   var cfg = JSON.parse(fs.readFileSync('.abapGitAgent', 'utf8'));
                   cfg.referenceFolder = process.env.HOME + '/abap-reference';
+                  cfg.testRepos = {
+                    pull:      'https://github.tools.sap/I045696/abgagt-pull-test.git',
+                    drop:      'https://github.tools.sap/I045696/abgagt-drop-test.git',
+                    customize: 'https://github.tools.sap/I045696/abgagt-customize-test.git',
+                    lifecycle: 'https://github.tools.sap/I045696/abgagt-lifecycle-test.git',
+                    debug:     'https://github.tools.sap/I045696/abgagt-debug-test.git'
+                  };
                   fs.writeFileSync('.abapGitAgent', JSON.stringify(cfg, null, 2));
                 "
 
