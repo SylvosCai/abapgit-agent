@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.17.3
+
+### New Features
+
+- Integration tests auto-setup: clones repos and activates objects automatically
+
+### Improvements
+
+- Test repo URLs configurable via `.abapGitAgent`; no hardcoded personal identifiers
+- `init` reads defaults from `.abapgit-agent.example.json` instead of hardcoding
+
+### Documentation
+
+- ENHO headless pull support: explains silent failure fix for new ENHO objects
+
+---
+
+---
+
+
 ## v1.17.2
 
 ### Documentation
