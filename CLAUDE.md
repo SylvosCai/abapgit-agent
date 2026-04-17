@@ -2,620 +2,88 @@
 nav_exclude: true
 ---
 
-# ABAP Git Agent - CLI Tool Development
+# abapGit Agent — CLI Tool Development
 
-This is the **abapgit-agent** CLI tool project - a Node.js application for pulling and activating ABAP code from git repositories.
+This is the **abapgit-agent** Node.js CLI project. It has two development surfaces:
 
-## IMPORTANT: Before Writing Any ABAP Code
+- **Node.js CLI** (`src/`, `tests/`) — commands, utils, tests
+- **ABAP backend** (`abap/`) — REST handlers, command classes, viewers
 
-Read the full ABAP development guide by running:
+## ABAP Development
+
+Run the full ABAP development guide before writing any ABAP code:
 
 ```bash
 abapgit-agent guide
 ```
 
----
+**Never pipe `abapgit-agent guide` or `abapgit-agent ref` through `head`, `tail`, or any truncation command. Always read the full output.**
 
-
-
-```bash
-# Quick commands
-abapgit-agent syntax --files src/zcl_my_class.clas.abap    # Check syntax BEFORE commit (local files)
-abapgit-agent lint                                          # abaplint static analysis on changed files (only if .abaplint.json exists)
-abapgit-agent pull --files src/zcl_my_class.clas.abap      # Pull and activate (AFTER push)
-abapgit-agent inspect --files src/zcl_my_class.clas.abap   # Code Inspector check (AFTER pull)
-abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run unit tests
-abapgit-agent run --program ZMY_REPORT                     # Execute ABAP report
-abapgit-agent run --class ZCL_MY_RUNNER                    # Execute class (IF_OO_ADT_CLASSRUN)
-abapgit-agent preview --objects TABLE           # Preview table data
-abapgit-agent view --objects OBJ               # View object definition
-abapgit-agent tree --package '$PACKAGE'          # Show package hierarchy
-abapgit-agent ref "PATTERN"                    # Search ABAP reference (cheat sheets + guidelines)
-```
-
-## When Working on Unfamiliar ABAP Topics
-
-**IMPORTANT**: When working on unfamiliar ABAP syntax, patterns, or APIs, ALWAYS use the `ref` command first:
+## Node.js Development Workflow
 
 ```bash
-# Search for a specific pattern (searches SAP cheat sheets + custom guidelines)
-abapgit-agent ref "CORRESPONDING"
-abapgit-agent ref "FILTER #"
-abapgit-agent ref "VALUE #("
-
-# Browse by topic
-abapgit-agent ref --topic exceptions
-abapgit-agent ref --topic sql
-abapgit-agent ref --topic internal-tables
-
-# List all available topics
-abapgit-agent ref --list-topics
+npm test                          # Unit tests (Jest, no ABAP needed)
+node bin/abapgit-agent <command>  # Manual test
+npm run test:integration          # Integration tests (requires .abapGitAgent)
 ```
 
-This ensures you use correct ABAP syntax rather than guessing.
+See [docs/integration-tests.md](docs/integration-tests.md) for the full integration test guide.
 
-## Common Tasks
+## Adding a New Command
 
-### For ABAP Development Workflow
+When creating a new CLI command, complete **all** of the following:
 
-> **📖 For complete ABAP development workflow, see [abap/CLAUDE.md](abap/CLAUDE.md)**
+### 1. Implement `src/commands/<name>.js`
 
-**High-level workflow:**
-```
-1. Edit ABAP file(s)
-2. syntax (for CLAS/INTF/PROG/DDLS/FUGR only - if files are independent)
-3. git add && git commit && git push
-4. pull --files <files>
-5. Verify output (if errors: use inspect)
-6. (Optional) unit tests
-```
+- Export `{ name, description, requiresAbapConfig, execute(args, context) }`
+- First thing in `execute`: check `--help` / `-h` **before any validation**
 
-**Quick examples:**
-```bash
-# Check syntax before commit (CLAS/INTF/PROG/DDLS/FUGR only)
-abapgit-agent syntax --files src/zcl_my_class.clas.abap
-
-# Pull and activate after push
-abapgit-agent pull --files src/zcl_my_class.clas.abap
-
-# If errors, use inspect for details
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-```
-
-### For Exploring ABAP System
-
-**Exploring unknown tables/structures:**
-```bash
-abapgit-agent view --objects SFLIGHT --type TABL    # See table structure
-abapgit-agent preview --objects SFLIGHT              # See sample data
-```
-
-**Exploring unknown classes/interfaces:**
-```bash
-abapgit-agent view --objects ZCL_MY_CLASS            # See class definition
-abapgit-agent where --objects ZCL_MY_CLASS           # See where it's used
-```
-
-## Project Structure
-
-```
-abapgit-agent/
-├── bin/
-│   ├── abapgit-agent        # CLI entry point
-│   └── abgagt               # Alias for abapgit-agent
-├── src/
-│   ├── commands/            # Command implementations (CLI layer)
-│   ├── utils/               # Utility modules
-│   ├── agent.js             # Main agent class
-│   ├── config.js            # Configuration management
-│   ├── server.js            # HTTP server
-│   ├── logger.js            # Logging utilities
-│   └── index.js             # Main entry point
-├── abap/                    # ABAP backend components
-│   ├── guidelines/          # ABAP development guidelines
-│   ├── zcl_abgagt_agent.clas.abap           # Main agent class
-│   ├── zif_abgagt_agent.intf.abap           # Agent interface
-│   ├── zcl_abgagt_cmd_factory.clas.abap     # Command factory
-│   ├── zcl_abgagt_command_*.clas.abap       # Command implementations
-│   ├── zif_abgagt_command.intf.abap         # Command interface
-│   ├── zcl_abgagt_resource_*.clas.abap      # REST resource handlers
-│   ├── zcl_abgagt_rest_handler.clas.abap    # REST handler
-│   ├── zcl_abgagt_syntax_chk_*.clas.abap    # Syntax checkers
-│   ├── zif_abgagt_syntax_checker.intf.abap  # Syntax checker interface
-│   ├── zcl_abgagt_viewer_*.clas.abap        # Object viewers
-│   ├── zif_abgagt_viewer.intf.abap          # Viewer interface
-│   └── CLAUDE.md                            # ABAP project guidelines
-├── docs/                    # Command documentation (user docs)
-│   ├── commands.md          # All commands overview
-│   ├── pull-command.md      # Pull command detailed spec
-│   ├── syntax-command.md    # Syntax command detailed spec
-│   └── ...                  # Other command specs
-├── pages/                   # Website pages (Jekyll)
-│   ├── getting-started.md
-│   ├── development-commands.md
-│   └── ...
-├── tests/
-│   ├── integration/         # Integration tests
-│   ├── unit/                # Unit tests
-│   ├── fixtures/            # Test fixtures
-│   └── helpers/             # Test helpers
-├── scripts/                 # Build and release scripts
-├── CLAUDE.md                # Project guidelines (this file)
-└── package.json             # Node.js project configuration
-```
-
-## ABAP Architecture
-
-### Layered Architecture Pattern
-
-```
-CLI (bin/abapgit-agent)
-    ↓
-REST Client (src/agent.js + src/config.js)
-    ↓
-HTTP → ABAP REST Handler (ZCL_ABGAGT_REST_HANDLER)
-    ↓
-Resource Layer (ZCL_ABGAGT_RESOURCE_*)
-    ↓
-Command Factory (ZCL_ABGAGT_CMD_FACTORY)
-    ↓
-Command Layer (ZCL_ABGAGT_COMMAND_*)
-    ↓
-Core Agent (ZCL_ABGAGT_AGENT)
-```
-
-**Example flow:**
-```
-abapgit-agent pull --files ...
-    ↓
-ZCL_ABGAGT_RESOURCE_PULL
-    ↓
-ZCL_ABGAGT_CMD_FACTORY (creates COMMAND_PULL instance)
-    ↓
-ZCL_ABGAGT_COMMAND_PULL
-    ↓
-ZCL_ABGAGT_AGENT (executes pull logic)
-```
-
-### Components Overview
-
-| Layer | Pattern | Count | Purpose |
-|-------|---------|-------|---------|
-| **REST Handler** | `ZCL_ABGAGT_REST_HANDLER` | 1 | Routes HTTP requests to resources |
-| **Resources** | `ZCL_ABGAGT_RESOURCE_*` | 15 | REST endpoints, one per command |
-| **Factory** | `ZCL_ABGAGT_CMD_FACTORY` | 1 | Creates command instances dynamically |
-| **Commands** | `ZCL_ABGAGT_COMMAND_*` | 13 | Business logic (pull, syntax, inspect, unit, etc.) |
-| **Core Agent** | `ZCL_ABGAGT_AGENT` | 1 | Core operations (pull, activate, etc.) |
-| **Utilities** | `ZCL_ABGAGT_UTIL` | 1 | Helper methods |
-
-All commands implement `ZIF_ABGAGT_COMMAND` interface.
-
-### Specialized Sub-Architectures
-
-**Syntax Checkers** (type-specific with dynamic instantiation):
-- Pattern: `ZCL_ABGAGT_SYNTAX_CHK_{TYPE}` (CLAS, INTF, PROG)
-- Factory: `ZCL_ABGAGT_SYNTAX_CHK_FACTORY`
-- Interface: `ZIF_ABGAGT_SYNTAX_CHECKER`
-
-**Object Viewers** (type-specific with dynamic instantiation):
-- Pattern: `ZCL_ABGAGT_VIEWER_{TYPE}` (CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DDLS, STOB, DOMA, MSAG, FUGR, DCLS)
-- Factory: `ZCL_ABGAGT_VIEWER_FACTORY`
-- Interface: `ZIF_ABGAGT_VIEWER`
-
-**Key Design Principle:** Naming conventions enable dynamic instantiation via factory pattern.
-
-## CLI Commands Overview
-
-> **📖 For detailed command specifications, see [docs/commands.md](docs/commands.md)**
-
-### Command Categories
-
-| Category | Commands | Purpose |
-|----------|----------|---------|
-| **Development** | `syntax`, `lint`, `pull`, `inspect`, `unit`, `run` | Core development workflow |
-| **Exploration** | `view`, `preview`, `tree`, `list`, `where` | Explore ABAP system |
-| **Setup** | `init`, `create`, `import`, `delete` | Repository setup |
-| **Configuration** | `customize` | Write SAP customizing table entries |
-| **Utility** | `ref`, `status`, `health` | Reference & diagnostics |
-
-### When to Use Which Command
-
-| Scenario | Command | Documentation |
-|----------|---------|---------------|
-| Check LOCAL syntax BEFORE commit (CLAS/INTF/PROG/DDLS/FUGR only) | `syntax` | [docs/development/syntax-command.md](docs/development/syntax-command.md) |
-| Run abaplint static analysis on changed files (offline) | `lint` | [docs/development/lint-command.md](docs/development/lint-command.md) |
-| Activate code AFTER push to git | `pull` | [docs/development/pull-command.md](docs/development/pull-command.md) |
-| Check activated code with Code Inspector | `inspect` | [docs/development/inspect-command.md](docs/development/inspect-command.md) |
-| Run unit tests | `unit` | [docs/development/unit-command.md](docs/development/unit-command.md) |
-| Execute ABAP report or class headlessly | `run` | [docs/development/run-command.md](docs/development/run-command.md) |
-| Explore package structure | `tree` | [docs/explore/tree-command.md](docs/explore/tree-command.md) |
-| Understand table/class/interface | `view` | [docs/explore/view-command.md](docs/explore/view-command.md) |
-| See table data | `preview` | [docs/explore/preview-command.md](docs/explore/preview-command.md) |
-| Find where object is used | `where` | [docs/explore/where-command.md](docs/explore/where-command.md) |
-| Search ABAP reference docs | `ref` | [docs/utility/ref-command.md](docs/utility/ref-command.md) |
-| Write a row to a SAP customizing table | `customize` | [docs/development/customize-command.md](docs/development/customize-command.md) |
-
-> **For ABAP development workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
-
-## Development Workflow
-
-### For CLI Tool Development (Node.js)
-
-**Workflow:**
-```
-1. Make changes to CLI code (JavaScript in src/ or tests/)
-2. Run unit tests: npm test (or npm run test:unit)
-3. Test locally: node bin/abapgit-agent <command>
-4. (Optional) Run integration tests against ABAP system
-5. Commit and push
-```
-
-**Test structure:**
-```bash
-# Unit tests (fast, no ABAP system needed)
-npm test                    # Run all unit tests (Jest)
-npm run test:unit          # Same as npm test
-
-# Integration tests (require configured .abapGitAgent)
-npm run test:setup         # One-time setup: clone test repos + activate ABAP objects
-npm run test:integration   # Test against real ABAP system
-npm run test:cmd           # Command integration tests (all commands)
-npm run test:aunit         # AUnit integration tests
-npm run test:lifecycle     # Full lifecycle tests
-npm run test:all           # All tests (unit + integration; setup runs automatically)
-
-# Test specific commands only (NEW - fast feedback!)
-npm run test:cmd:syntax    # Test only syntax command
-npm run test:cmd:pull      # Test only pull command
-npm run test:cmd:inspect   # Test only inspect command
-npm run test:cmd:unit      # Test only unit command
-npm run test:cmd:view      # Test only view command
-npm run test:cmd:preview   # Test only preview command
-npm run test:cmd:tree      # Test only tree command
-
-# Or use the --command flag directly
-npm run test:cmd -- --command=syntax
-npm run test:cmd -- --command=syntax --demo  # Demo mode for specific command
-```
-
-**Unit tests location:**
-- `tests/unit/` - One test file per command/module
-- Example: `tests/unit/syntax-command.test.js` tests `src/commands/syntax.js`
-- Run fast, no external dependencies
-
-**Integration tests location:**
-- `tests/integration/` - Tests against real ABAP system
-- Requires `.abapGitAgent` configuration
-- Tests actual command execution end-to-end
-- Setup is self-organizing: `npm run test:all` clones test repos and activates ABAP objects automatically on first run
-- See [docs/integration-tests.md](docs/integration-tests.md) for the full guide (prerequisites, suite breakdown, URL overrides, troubleshooting)
-
-**Manual testing:**
-```bash
-node bin/abapgit-agent --help
-node bin/abapgit-agent syntax --files src/example.clas.abap
-```
-
-### For ABAP Backend Development
-
-**See [abap/CLAUDE.md](abap/CLAUDE.md) for complete workflow.**
-
-Key workflow:
-```
-1. Read .abapGitAgent → get folder value
-2. Research → use ref command for unfamiliar topics
-3. Write code → place in correct folder
-4. Syntax check (CLAS/INTF/PROG/DDLS/FUGR only):
-   - Independent files → use syntax command
-   - Dependent files → skip syntax
-5. Commit and push
-6. Activate → pull command
-7. Verify → check output
-8. (Optional) Run unit tests
-```
-
-### Decision Tree: When to Use syntax vs pull
-
-```
-Modified ABAP files?
-├─ CLAS/INTF/PROG/DDLS/FUGR files?
-│  ├─ Independent files (no cross-dependencies)?
-│  │  └─ ✅ Use: syntax → commit → push → pull
-│  └─ Dependent files (interface + class, class uses class)?
-│     └─ ✅ Use: skip syntax → commit → push → pull
-└─ Other types (TABL, STRU, DCLS, etc.)?
-   └─ ✅ Use: skip syntax → commit → push → pull → (if errors: inspect)
-```
-
-## Configuration
-
-### File-based (.abapGitAgent)
-Create `.abapGitAgent` in repository root:
-```json
-{
-  "host": "your-sap-system.com",
-  "sapport": 443,
-  "client": "100",
-  "user": "TECH_USER",
-  "password": "your-password",
-  "language": "EN",
-  "gitUsername": "git-username",
-  "gitPassword": "git-token",
-  "transport": "DEVK900001",
-  "protocol": "https",
-
-  "workflow": {
-    "mode": "branch"  // "branch" or "trunk" (default: trunk)
-  },
-
-  "scratchWorkspace": {
-    "path": "/absolute/path/to/scratch-repo"
-  },
-
-  "pocWorkspace": {
-    "path": "/absolute/path/to/poc-repo"
-  }
+```js
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`
+Usage:
+  abapgit-agent <name> [options]
+...
+`);
+  return;
 }
 ```
 
-#### Workflow Configuration
+### 2. Register in `src/commands/index.js`
 
-The `workflow` section controls git workflow behavior for AI coding tools:
+Add an entry to the command map.
 
-| Field | Values | Default | Description |
-|-------|--------|---------|-------------|
-| `mode` | `"branch"` or `"trunk"` | `"trunk"` | Workflow mode (see below) |
-| `defaultBranch` | String (e.g., `"main"`) | Auto-detected | Override auto-detected default branch |
+### 3. Write a unit test `tests/unit/<name>-command.test.js`
 
-#### Scratch Workspace Configuration
+One test file per command. See existing tests for the pattern.
 
-The `scratchWorkspace` section tells AI tools where to create probe/throwaway ABAP classes:
+### 4. Create the command spec `docs/<category>/<name>-command.md`
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `path` | string | — | **Required.** Absolute path to the scratch git repository |
-| `classPrefix` | string | `ZCL_{USER}_` | Prefix for generated class names (e.g. `ZCL_JOHN_`) |
-| `programPrefix` | string | `Z{USER}_` | Prefix for generated program names (e.g. `ZJOHN_`) |
+Use `docs/_template-command.md` as the starting point.
 
-`{USER}` is derived from the `user` field in `.abapGitAgent` (e.g. user `JOHN` → `ZCL_JOHN_`).
+Categories and their Jekyll `parent:` value:
 
-> **Note**: `scratchWorkspace` lives in `.abapGitAgent` (personal, per-machine) — never in `.abapgit-agent.json` (shared team config).
+| Category | Folder | `parent:` |
+|---|---|---|
+| Development | `docs/development/` | `Development Commands` |
+| Explore | `docs/explore/` | `Explore Commands` |
+| Setup | `docs/setup/` | `Setup Commands` |
+| Utility | `docs/utility/` | `Utility Commands` |
 
-#### PoC Workspace Configuration
+### 5. Add to `docs/commands.md`
 
-The `pocWorkspace` section tells AI tools where to create PoC objects that need a proper home
-and may persist longer than a throwaway probe:
+Add a row to the commands overview table.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `path` | string | — | **Required.** Absolute path to the PoC git repository |
+### 6. Add to `README.md`
 
-**Setup** (one-time, manual):
-1. Create a git repo for the PoC
-2. Run `abapgit-agent init --package <POC_PACKAGE>` from that repo to link it to an ABAP package
-3. Add `pocWorkspace.path` to `.abapGitAgent` in the main project
+Add a line under the relevant CLI section.
 
-**Switching PoCs**: update `pocWorkspace.path` to point to the new PoC repo. Claude always
-shows the current repo and package (from that repo's `.abapGitAgent`) and asks for confirmation
-before creating any objects — so a stale path is caught before anything is written.
+### 7. Add to ABAP backend (if needed)
 
-> **Note**: `pocWorkspace` lives in `.abapGitAgent` (personal, per-machine) — never in `.abapgit-agent.json` (shared team config).
+If the command calls the ABAP system, add:
+- `abap/zcl_abgagt_resource_<name>.clas.abap` + `.clas.xml`
+- `abap/zcl_abgagt_command_<name>.clas.abap` + `.clas.xml`
+- Register in `abap/zcl_abgagt_cmd_factory.clas.abap`
+- Register in `abap/zcl_abgagt_rest_handler.clas.abap`
 
-**Workflow Modes:**
-
-- **`"branch"`**: Feature branch workflow with rebase
-  - Create feature branches for new features
-  - Rebase to default branch before pull
-  - Create PRs with squash merge
-  - Prevents polluting main branch with WIP commits
-
-- **`"trunk"`**: Trunk-based development (default)
-  - Commit directly to default branch
-  - Simpler workflow for small teams
-  - No rebase or PRs required
-
-**Default Branch Detection:**
-
-The default branch (main/master/develop) is **auto-detected** using:
-1. Check `git symbolic-ref refs/remotes/origin/HEAD`
-2. Check for common branch names (main → master → develop)
-3. Fallback to `"main"`
-
-You only need to set `defaultBranch` if using a non-standard branch name.
-
-> **📖 For complete workflow details, see [abap/CLAUDE.md](abap/CLAUDE.md)**
-
-### Project-Level Configuration (.abapgit-agent.json)
-
-**Checked into repository** - applies to ALL developers
-
-Create `.abapgit-agent.json` in repository root for team-wide policies:
-
-```json
-{
-  "project": {
-    "name": "Project Name",
-    "description": "Optional project description"
-  },
-
-  "safeguards": {
-    "requireFilesForPull": true,
-    "disablePull": false,
-    "disableRun": false,
-    "reason": "Large project with 500+ objects. Selective activation required."
-  },
-
-  "conflictDetection": {
-    "mode": "abort",
-    "reason": "Multi-developer project — prevent accidental overwrites"
-  },
-
-  "transports": {
-    "hook": {
-      "path": "./scripts/get-transport.js",
-      "description": "Earliest open transport request owned by me"
-    },
-    "allowCreate": false,
-    "allowRelease": false,
-    "reason": "Transport requests are managed by the release manager."
-  }
-}
-```
-
-#### Safeguard Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `requireFilesForPull` | boolean | `false` | Requires `--files` parameter for pull command |
-| `disablePull` | boolean | `false` | Completely disables pull command |
-| `disableRun` | boolean | `false` | Completely disables run command |
-| `disableImport` | boolean | `false` | Completely disables import command |
-| `importAllowedUsers` | string \| string[] | `null` | Users who can bypass `disableImport` (case-insensitive) |
-| `requireImportMessage` | boolean | `false` | Forces `--message` to be provided on every import |
-| `disableProbeClasses` | boolean | `false` | Prevents AI from creating probe classes in this project; redirects to `scratchWorkspace` |
-| `reason` | string | `null` | Optional explanation shown in error messages |
-
-#### Conflict Detection Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `mode` | string | `"abort"` | `"abort"` — abort on conflict; `"ignore"` — disable detection |
-| `reason` | string | `null` | Optional explanation |
-
-CLI `--conflict-mode` flag always takes precedence over project config.
-
-#### Transport Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `allowCreate` | boolean | `true` | When `false`, `transport create` is blocked |
-| `allowRelease` | boolean | `true` | When `false`, `transport release` is blocked |
-| `reason` | string | `null` | Optional explanation shown in error messages |
-
-#### Use Cases
-
-**Large Projects (100+ objects):**
-```json
-{
-  "safeguards": {
-    "requireFilesForPull": true,
-    "reason": "Large project. Use --files to avoid timeout."
-  }
-}
-```
-
-**CI/CD Only Activation:**
-```json
-{
-  "safeguards": {
-    "disablePull": true,
-    "reason": "All activations must go through CI/CD pipeline."
-  }
-}
-```
-
-**Prevent AI from running ABAP code autonomously:**
-```json
-{
-  "safeguards": {
-    "disableRun": true,
-    "reason": "run command executes live ABAP code with potential side effects. Only use interactively."
-  }
-}
-```
-
-**Solo Developer (disable conflict detection):**
-```json
-{
-  "conflictDetection": {
-    "mode": "ignore"
-  }
-}
-```
-
-#### Behavior
-
-**When `requireFilesForPull: true`:**
-- `abapgit-agent pull` → ❌ Error: --files is required
-- `abapgit-agent pull --files ...` → ✅ Works
-
-**When `disablePull: true`:**
-- All `pull` commands are disabled
-- Error message directs users to project maintainer
-
-**When `disableRun: true`:**
-- All `run` commands are disabled
-- Error message directs users to project maintainer
-
-### Environment Variables
-```bash
-export ABAP_HOST="your-sap-system.com"
-export ABAP_PORT=443
-export ABAP_CLIENT="100"
-export ABAP_USER="TECH_USER"
-export ABAP_PASSWORD="your-password"
-export ABAP_LANGUAGE="EN"
-export ABAP_PROTOCOL="https"
-export GIT_USERNAME="git-username"
-export GIT_PASSWORD="git-token"
-export ABAP_TRANSPORT="DEVK900001"
-```
-
-### Transport Request Precedence
-
-When running `pull` command, the transport request is determined in this order:
-
-| Priority | Source | Example |
-|----------|--------|---------|
-| 1 | CLI `--transport` argument | `--transport DEVK900001` |
-| 2 | Config file `transport` | `"transport": "DEVK900001"` |
-| 3 | Environment variable `ABAP_TRANSPORT` | `export ABAP_TRANSPORT="DEVK900001"` |
-| 4 (default) | Not set | abapGit creates/uses default |
-
-## Troubleshooting
-
-**Pull fails with "Error updating where-used list":**
-- This means SYNTAX ERROR in the object
-- Run `abapgit-agent inspect --files <file>` for detailed errors
-
-**Pull shows "Failed Objects" > 0:**
-- Objects failed to activate - check the error messages
-- Fix syntax errors and pull again
-
-**Preview/View command fails:**
-- Check table/view exists in the ABAP system
-- Verify credentials in `.abapGitAgent`
-
-**"Table or view not found":**
-- Table may not exist or may have different name
-- Use `view` command to check available tables
-
-## Command Documentation
-
-All command specifications are maintained in the `docs/` folder:
-
-| Command | Documentation |
-|---------|---------------|
-| Overview | [docs/commands.md](docs/commands.md) |
-| pull | [docs/development/pull-command.md](docs/development/pull-command.md) |
-| syntax | [docs/development/syntax-command.md](docs/development/syntax-command.md) |
-| inspect | [docs/development/inspect-command.md](docs/development/inspect-command.md) |
-| unit | [docs/development/unit-command.md](docs/development/unit-command.md) |
-| run | [docs/development/run-command.md](docs/development/run-command.md) |
-| tree | [docs/explore/tree-command.md](docs/explore/tree-command.md) |
-| view | [docs/explore/view-command.md](docs/explore/view-command.md) |
-| preview | [docs/explore/preview-command.md](docs/explore/preview-command.md) |
-| where | [docs/explore/where-command.md](docs/explore/where-command.md) |
-| ref | [docs/utility/ref-command.md](docs/utility/ref-command.md) |
-| init | [docs/setup/init-command.md](docs/setup/init-command.md) |
-| create | [docs/setup/create-command.md](docs/setup/create-command.md) |
-| import | [docs/setup/import-command.md](docs/setup/import-command.md) |
-| delete | [docs/setup/delete-command.md](docs/setup/delete-command.md) |
-| list | [docs/explore/list-command.md](docs/explore/list-command.md) |
-| status | [docs/utility/status-command.md](docs/utility/status-command.md) |
-| health | [docs/utility/health-command.md](docs/utility/health-command.md) |
-| customize | [docs/development/customize-command.md](docs/development/customize-command.md) |
-
-## For ABAP Code Generation
-
-**NOTE**: This file is for developing the CLI tool itself. For guidelines on **generating ABAP code** for abapGit repositories, see [abap/CLAUDE.md](abap/CLAUDE.md).
+See [docs/architecture/](docs/architecture/) for the layered architecture overview.
