@@ -23,7 +23,7 @@ abapgit-agent guide
 
 ```bash
 npm test                          # Unit tests (Jest, no ABAP needed)
-node bin/abapgit-agent <command>  # Manual test
+abapgit-agent <command>           # Manual test
 npm run test:integration          # Integration tests (requires .abapGitAgent)
 ```
 
