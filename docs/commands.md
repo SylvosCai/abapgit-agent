@@ -22,36 +22,36 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
-| [init](init-command.md) | ✅ | Initialize local configuration (supports --update) |
-| [create](create-command.md) | ✅ | Create online repository in ABAP |
-| [delete](delete-command.md) | ✅ | Delete abapGit repository from ABAP |
-| [drop](drop-command.md) | ✅ | Physically delete a single ABAP object from the system |
-| [import](import-command.md) | ✅ | Import objects from ABAP package to git (`--branch` to target a specific branch) |
-| [pull](pull-command.md) | ✅ | Pull and activate objects in ABAP |
-| [syntax](syntax-command.md) | ✅ | Check syntax of local source files (BEFORE commit) |
-| [inspect](inspect-command.md) | ✅ | Syntax check activated ABAP objects (AFTER pull) |
-| [tree](tree-command.md) | ✅ | Display package hierarchy tree |
-| [list](list-command.md) | ✅ | List ABAP objects in package |
-| [unit](unit-command.md) | ✅ | Run AUnit tests |
-| [view](view-command.md) | ✅ | View ABAP object source code from system |
-| [where](where-command.md) | ✅ | Where-used list - find object references |
-| [preview](preview-command.md) | ✅ | Preview table/CDS view data |
-| [dump](dump-command.md) | ✅ | Query short dumps (ST22) from ABAP system |
-| [debug](debug-command.md) | ✅ | Interactive ABAP debugger via ADT REST API |
-| [run](run-command.md) | ✅ | Execute ABAP program (`--program`) or class implementing `IF_OO_ADT_CLASSRUN` (`--class`) |
-| [transport](transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
-| [customize](customize-command.md) | ✅ | Write a row to a SAP customizing table (delivery class C/E) |
-| [status](status-command.md) | ✅ | Status check - verify config and repo existence |
-| [health](health-command.md) | ✅ | Health check |
-| [upgrade](upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |
+| [init](setup/init-command.md) | ✅ | Initialize local configuration (supports --update) |
+| [create](setup/create-command.md) | ✅ | Create online repository in ABAP |
+| [delete](setup/delete-command.md) | ✅ | Delete abapGit repository from ABAP |
+| [drop](development/drop-command.md) | ✅ | Physically delete a single ABAP object from the system |
+| [import](setup/import-command.md) | ✅ | Import objects from ABAP package to git (`--branch` to target a specific branch) |
+| [pull](development/pull-command.md) | ✅ | Pull and activate objects in ABAP |
+| [syntax](development/syntax-command.md) | ✅ | Check syntax of local source files (BEFORE commit) |
+| [inspect](development/inspect-command.md) | ✅ | Syntax check activated ABAP objects (AFTER pull) |
+| [tree](explore/tree-command.md) | ✅ | Display package hierarchy tree |
+| [list](explore/list-command.md) | ✅ | List ABAP objects in package |
+| [unit](development/unit-command.md) | ✅ | Run AUnit tests |
+| [view](explore/view-command.md) | ✅ | View ABAP object source code from system |
+| [where](explore/where-command.md) | ✅ | Where-used list - find object references |
+| [preview](explore/preview-command.md) | ✅ | Preview table/CDS view data |
+| [dump](explore/dump-command.md) | ✅ | Query short dumps (ST22) from ABAP system |
+| [debug](development/debug-command.md) | ✅ | Interactive ABAP debugger via ADT REST API |
+| [run](development/run-command.md) | ✅ | Execute ABAP program (`--program`) or class implementing `IF_OO_ADT_CLASSRUN` (`--class`) |
+| [transport](development/transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
+| [customize](development/customize-command.md) | ✅ | Write a row to a SAP customizing table (delivery class C/E) |
+| [status](utility/status-command.md) | ✅ | Status check - verify config and repo existence |
+| [health](utility/health-command.md) | ✅ | Health check |
+| [upgrade](utility/upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |
 
 ### Offline Commands (No ABAP Connection Required)
 
 | Command | Status | Description |
 |---------|--------|-------------|
-| [lint](lint-command.md) | ✅ | Run abaplint static analysis on changed ABAP files (no ABAP connection) |
-| [guide](guide-command.md) | ✅ | Show full bundled ABAP development guide |
-| [ref](ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
+| [lint](development/lint-command.md) | ✅ | Run abaplint static analysis on changed ABAP files (no ABAP connection) |
+| [guide](utility/guide-command.md) | ✅ | Show full bundled ABAP development guide |
+| [ref](utility/ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
 
 ---
 
