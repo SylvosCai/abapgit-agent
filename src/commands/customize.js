@@ -17,6 +17,31 @@ module.exports = {
   async execute(args, context) {
     const { loadConfig, AbapHttp, getTransport, getTransportSettings } = context;
 
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`
+Usage:
+  abapgit-agent customize <table> --set <field=value> [<field=value>...]
+                          [--transport <TRKORR>] [--no-transport] [--json]
+
+Description:
+  Write a single row to a SAP customizing table (delivery class C or E).
+  The row is identified by the key fields you provide via --set.
+
+Parameters:
+  <table>               Name of the customizing table (e.g. ZTABLE_CONFIG).
+  --set <field=value>   One or more field=value pairs (space-separated after --set).
+  --transport <TRKORR>  Record the change in this transport request.
+  --no-transport        Write without a transport request (local change).
+  --json                Output result as JSON.
+
+Examples:
+  abapgit-agent customize ZTABLE_CONFIG --set KEY=APP VALUE=active
+  abapgit-agent customize ZTABLE_CONFIG --set KEY=APP VALUE=active --transport DEVK900001
+  abapgit-agent customize ZTABLE_CONFIG --set KEY=APP VALUE=active --no-transport
+`);
+      return;
+    }
+
     const jsonOutput = args.includes('--json');
     const verbose    = args.includes('--verbose');
     const noTransport = args.includes('--no-transport');
