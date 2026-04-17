@@ -19,6 +19,16 @@ abapgit-agent guide
 
 **Never pipe `abapgit-agent guide` or `abapgit-agent ref` through `head`, `tail`, or any truncation command. Always read the full output.**
 
+## Finding Your Way Around
+
+| Task | Start here |
+|---|---|
+| Understand what commands exist | `docs/commands.md` |
+| Read a command's spec | `docs/<category>/<name>-command.md` |
+| Fix a CLI bug | `src/commands/<name>.js` + `tests/unit/<name>-command.test.js` |
+| Improve docs | `docs/<category>/<name>-command.md` (Jekyll) or `README.md` |
+| Understand ABAP architecture | `docs/architecture/` |
+
 ## Node.js Development Workflow
 
 ```bash
@@ -59,7 +69,7 @@ One test file per command. See existing tests for the pattern.
 
 ### 4. Create the command spec `docs/<category>/<name>-command.md`
 
-Use `docs/_template-command.md` as the starting point.
+Copy the structure from an existing command doc in the same category.
 
 Categories and their Jekyll `parent:` value:
 
