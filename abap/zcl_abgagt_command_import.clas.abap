@@ -14,6 +14,7 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     TYPES: BEGIN OF ty_import_params,
              url TYPE string,
+             branch TYPE string,
              message TYPE string,
              username TYPE string,
              password TYPE string,
@@ -122,6 +123,15 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
 
         " Cast to online repo and configure credentials
         li_repo_online ?= li_repo.
+
+        " Select branch before staging so the push targets the right ref
+        IF ls_params-branch IS NOT INITIAL.
+          DATA(lv_git_ref) = COND string(
+            WHEN ls_params-branch CS 'refs/'                                     THEN ls_params-branch
+            WHEN ls_params-branch(1) = 'v' AND ls_params-branch CN ' '          THEN |refs/tags/{ ls_params-branch }|
+            ELSE |refs/heads/{ ls_params-branch }| ).
+          li_repo_online->select_branch( lv_git_ref ).
+        ENDIF.
 
         IF ls_params-username IS NOT INITIAL AND ls_params-password IS NOT INITIAL.
           li_user = get_user( ).

@@ -43,6 +43,22 @@ describe('Import Command - Logic Tests', () => {
 
     expect(message).toBe(null);
   });
+
+  test('--branch flag is parsed from args', () => {
+    const args = ['--branch', 'feature/my-branch'];
+    const branchArgIndex = args.indexOf('--branch');
+    const branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : null;
+
+    expect(branch).toBe('feature/my-branch');
+  });
+
+  test('branch falls back to null when --branch not provided', () => {
+    const args = [];
+    const branchArgIndex = args.indexOf('--branch');
+    const branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : null;
+
+    expect(branch).toBeNull();
+  });
 });
 
 describe('Import Command - Async Job Pattern', () => {
@@ -324,7 +340,7 @@ describe('Import Command - Async Job Pattern', () => {
         reason: 'Managed by release manager',
         requireImportMessage: false
       })),
-      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'), getBranch: jest.fn(() => 'main') },
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token'),
         post: jest.fn().mockResolvedValue({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' }),
@@ -385,7 +401,7 @@ describe('Import Command - Async Job Pattern', () => {
         importAllowedUsers: null,
         reason: 'All imports must be traceable'
       })),
-      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'), getBranch: jest.fn(() => 'main') },
       AbapHttp: jest.fn()
     };
 
@@ -411,7 +427,7 @@ describe('Import Command - Async Job Pattern', () => {
         importAllowedUsers: null,
         reason: null
       })),
-      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git') },
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'), getBranch: jest.fn(() => 'main') },
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token'),
         post: jest.fn().mockResolvedValue({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' }),
@@ -423,5 +439,67 @@ describe('Import Command - Async Job Pattern', () => {
     await importCommand.execute(['--message', 'my import'], mockContext);
     expect(mockExit).not.toHaveBeenCalledWith(1);
     expect(mockContext.AbapHttp).toHaveBeenCalled();
+  });
+
+  test('--branch value is included in HTTP request payload', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    let capturedPayload;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
+      gitUtils: {
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
+        getBranch: jest.fn(() => 'main')
+      },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockImplementation((endpoint, payload) => {
+          capturedPayload = payload;
+          return Promise.resolve({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' });
+        }),
+        get: jest.fn().mockResolvedValue({
+          STATUS: 'completed',
+          RESULT: JSON.stringify({ success: 'X', filesStaged: 5, commitMessage: 'test' })
+        })
+      }))
+    };
+
+    await importCommand.execute(['--branch', 'feature/my-branch', '--message', 'test'], mockContext);
+
+    expect(capturedPayload).toBeDefined();
+    expect(capturedPayload.branch).toBe('feature/my-branch');
+  });
+
+  test('branch is auto-detected from git when --branch not provided', async () => {
+    jest.resetModules();
+    const importCommand = require('../../src/commands/import');
+
+    let capturedPayload;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
+      gitUtils: {
+        getRemoteUrl: jest.fn(() => 'https://github.com/test/repo.git'),
+        getBranch: jest.fn(() => 'main')
+      },
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockImplementation((endpoint, payload) => {
+          capturedPayload = payload;
+          return Promise.resolve({ SUCCESS: 'X', JOB_NUMBER: '1234', JOB_NAME: 'IMPORT_TEST' });
+        }),
+        get: jest.fn().mockResolvedValue({
+          STATUS: 'completed',
+          RESULT: JSON.stringify({ success: 'X', filesStaged: 5, commitMessage: 'test' })
+        })
+      }))
+    };
+
+    await importCommand.execute(['--message', 'test'], mockContext);
+
+    expect(capturedPayload).toBeDefined();
+    expect(capturedPayload.branch).toBe('main');
   });
 });

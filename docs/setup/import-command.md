@@ -14,6 +14,8 @@ Import existing ABAP objects from a package into an existing abapGit online repo
 ```bash
 abapgit-agent import
 abapgit-agent import --message "Your commit message"
+abapgit-agent import --branch main
+abapgit-agent import --branch feature/my-branch --message "Your commit message"
 ```
 
 ## Prerequisites
@@ -35,6 +37,7 @@ The import command runs **asynchronously** as a background job:
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
+| `--branch` | No | Auto-detected from current git branch | Branch to push to |
 | `--message` | No | `feat: initial import from ABAP package <package>` | Commit message |
 | `--help` | No | - | Show help |
 

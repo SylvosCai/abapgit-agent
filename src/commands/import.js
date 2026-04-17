@@ -39,11 +39,14 @@ Prerequisites:
   - Package must have objects to import
 
 Options:
+  --branch     Branch to push to. Auto-detected from current git branch if omitted.
   --message    Commit message (default: "feat: initial import from ABAP package <package>")
 
 Examples:
   abapgit-agent import
   abapgit-agent import --message "Initial import from SAP"
+  abapgit-agent import --branch main
+  abapgit-agent import --branch feature/my-branch --message "Import objects"
 `);
       return;
     }
@@ -87,6 +90,9 @@ Examples:
       commitMessage = args[messageArgIndex + 1];
     }
 
+    const branchArgIndex = args.indexOf('--branch');
+    const branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : gitUtils.getBranch();
+
     if (safeguards.requireImportMessage && !commitMessage) {
       console.error('❌ Error: import requires a commit message for this project\n');
       console.error('Please provide one with:');
@@ -99,6 +105,7 @@ Examples:
 
     console.log(`\n📦 Starting import job`);
     console.log(`   URL: ${repoUrl}`);
+    console.log(`   Branch: ${branch}`);
     if (commitMessage) {
       console.log(`   Message: ${commitMessage}`);
     }
@@ -107,7 +114,8 @@ Examples:
     const csrfToken = await http.fetchCsrfToken();
 
     const data = {
-      url: repoUrl
+      url: repoUrl,
+      branch
     };
 
     if (commitMessage) {

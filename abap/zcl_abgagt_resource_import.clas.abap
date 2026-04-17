@@ -22,6 +22,7 @@ CLASS zcl_abgagt_resource_import DEFINITION PUBLIC FINAL
   PRIVATE SECTION.
     TYPES: BEGIN OF ty_import_request,
              url TYPE string,
+             branch TYPE string,
              message TYPE string,
              username TYPE string,
              password TYPE string,

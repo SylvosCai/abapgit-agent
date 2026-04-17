@@ -55,6 +55,7 @@ See [Creating New ABAP Projects](docs/install.md#creating-new-abap-projects) to 
 abapgit-agent init --package ZMY_PACKAGE   # Initialize local config
 abapgit-agent create                        # Create online repo in ABAP
 abapgit-agent import                        # Import objects from ABAP to git
+abapgit-agent import --branch main          # Import to specific branch
 abapgit-agent delete                        # Delete repo from ABAP
 ```
 

@@ -185,6 +185,15 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     ) || output.includes('No objects');
     addResult('import objects (async)', importPassed, output);
 
+    // Step 12b: Re-import with explicit --branch to verify branch parameter is accepted
+    printInfo('Re-importing with explicit --branch main...');
+    output = runCli('import', ['--message', 'test: re-import with branch', '--branch', 'main']);
+    const importWithBranchPassed = (
+      (output.includes('Job started') || output.includes('job started')) &&
+      (output.includes('Import completed successfully') || output.includes('completed'))
+    ) || output.includes('No objects');
+    addResult('import with --branch main (async)', importWithBranchPassed, output);
+
     // Step 13: Git pull to see new commits
     // Use fetch + reset --hard to avoid merge conflicts when the remote was force-reset
     // (the import step may have created .abapgit.xml on the remote which conflicts with
