@@ -2,6 +2,25 @@
 title: Release Notes
 ---
 
+## v1.17.4
+
+### New Features
+
+- `import` command now accepts `--branch <branch>` parameter
+
+### Bug Fixes
+
+- Fix `--help` flag not handled in `customize` command
+
+### Documentation
+
+- `import` command output examples now include branch line
+
+---
+
+---
+
+
 ## v1.17.3
 
 ### New Features
