@@ -113,6 +113,7 @@ The background job progresses through 5 stages:
 ```
 📦 Starting import job
    URL: https://github.com/user/repo.git
+   Branch: main
 
 ✅ Job started: 14334000
 
@@ -144,6 +145,8 @@ During import, a progress bar shows the current stage:
 ```
 📦 Starting import job
    URL: https://github.com/user/repo.git
+   Branch: main
+   Message: My custom import message
 
 ✅ Job started: 14335000
 
@@ -165,6 +168,7 @@ During import, a progress bar shows the current stage:
 ```
 📦 Starting import job
    URL: https://github.com/user/repo.git
+   Branch: main
 
 ✅ Job started: 14336000
 
@@ -179,6 +183,7 @@ During import, a progress bar shows the current stage:
 ```
 📦 Starting import job
    URL: https://github.com/user/repo.git
+   Branch: main
 
 ✅ Job started: 14337000
 
@@ -193,6 +198,7 @@ During import, a progress bar shows the current stage:
 ```
 📦 Starting import job
    URL: https://github.com/user/repo.git
+   Branch: main
 
 ✅ Job started: 14338000
 
