@@ -2,6 +2,7 @@
 layout: default
 title: Project Configuration (.abapgit-agent.json)
 nav_order: 3
+parent: Reference
 ---
 
 # Project Configuration — `.abapgit-agent.json`
