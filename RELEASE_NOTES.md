@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.17.7
+
+### New Features
+
+- Coverage policy config via `.abapgit-agent.json`
+
+### Bug Fixes
+
+- Per-class coverage failures injected into class testsuite
+
+### Documentation
+
+- Added `project-config.md` reference for `.abapgit-agent.json`
+- Unit command docs updated with coverage and JUnit parameters
+
+---
+
+---
+
+
 ## v1.17.6
 
 ### New Features
