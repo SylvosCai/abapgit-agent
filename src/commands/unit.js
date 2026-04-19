@@ -24,6 +24,11 @@ function escapeXml(str) {
  * Maps to JUnit schema:
  *   <testsuites>
  *     <testsuite name="ZCL_MY_TEST" tests="10" failures="2" errors="0">
+ *       <properties>
+ *         <property name="coverage.rate" value="67"/>
+ *         <property name="coverage.lines.total" value="120"/>
+ *         <property name="coverage.lines.covered" value="80"/>
+ *       </properties>
  *       <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST"/>
  *       <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST">
  *         <failure type="FAILURE" message="...">detail</failure>
@@ -33,53 +38,59 @@ function escapeXml(str) {
  *
  * One testsuite per test class file. Each failed test method becomes a <failure>.
  * Passing methods are listed as empty <testcase> elements (Jenkins counts them).
+ * Coverage stats (if present) are emitted as <properties> on the testsuite.
  */
 function buildUnitJUnit(results) {
   const suites = results.map(res => {
-    const success      = res.SUCCESS      || res.success;
     const testCount    = res.TEST_COUNT    || res.test_count    || 0;
     const passedCount  = res.PASSED_COUNT  || res.passed_count  || 0;
     const failedCount  = res.FAILED_COUNT  || res.failed_count  || 0;
     const errors       = res.ERRORS        || res.errors        || [];
     const className    = res._className    || 'UNKNOWN';  // injected by caller
+    const coverageStats = res.COVERAGE_STATS || res.coverage_stats;
 
-    // Build a set of failed method names for quick lookup
-    const failedMethods = new Set(
-      errors.map(e => (e.CLASS_NAME || e.class_name || '') + '=>' + (e.METHOD_NAME || e.method_name || ''))
-    );
+    const lines = [];
 
-    const testcases = [];
+    // Coverage <properties> block — only emitted when coverage data is present
+    if (coverageStats) {
+      const rate    = coverageStats.COVERAGE_RATE  || coverageStats.coverage_rate  || 0;
+      const total   = coverageStats.TOTAL_LINES    || coverageStats.total_lines    || 0;
+      const covered = coverageStats.COVERED_LINES  || coverageStats.covered_lines  || 0;
+      lines.push('    <properties>');
+      lines.push(`      <property name="coverage.rate"          value="${rate}"/>`);
+      lines.push(`      <property name="coverage.lines.total"   value="${total}"/>`);
+      lines.push(`      <property name="coverage.lines.covered" value="${covered}"/>`);
+      lines.push('    </properties>');
+    }
 
-    // Emit one <testcase> per failed test
+    // One <testcase> per failed test
     for (const err of errors) {
       const errClassName  = err.CLASS_NAME  || err.class_name  || className;
       const methodName    = err.METHOD_NAME || err.method_name || '?';
       const errorKind     = err.ERROR_KIND  || err.error_kind  || 'FAILURE';
       const errorText     = err.ERROR_TEXT  || err.error_text  || 'Test failed';
-      testcases.push(
+      lines.push(
         `    <testcase name="${escapeXml(methodName)}" classname="${escapeXml(errClassName)}">\n` +
         `      <failure type="${escapeXml(errorKind)}" message="${escapeXml(errorText)}">${escapeXml(errorText)}</failure>\n` +
         `    </testcase>`
       );
     }
 
-    // Emit empty <testcase> elements for passing tests (Jenkins shows total count)
-    // We can't enumerate them individually (ABAP doesn't return passing method names),
-    // so emit one aggregate passing testcase when passedCount > 0
+    // Aggregate passing testcase (ABAP doesn't return individual passing method names)
     if (passedCount > 0) {
-      testcases.push(
+      lines.push(
         `    <testcase name="(${passedCount} passing test(s))" classname="${escapeXml(className)}"/>`
       );
     }
 
     if (testCount === 0) {
-      testcases.push(`    <testcase name="(no tests)" classname="${escapeXml(className)}"/>`);
+      lines.push(`    <testcase name="(no tests)" classname="${escapeXml(className)}"/>`);
     }
 
     return (
       `  <testsuite name="${escapeXml(className)}" ` +
       `tests="${Math.max(testCount, 1)}" failures="${failedCount}" errors="0">\n` +
-      testcases.join('\n') + '\n' +
+      lines.join('\n') + '\n' +
       `  </testsuite>`
     );
   });
@@ -235,21 +246,23 @@ module.exports = {
     if (args.includes('--help') || args.includes('-h')) {
       console.log(`
 Usage:
-  abapgit-agent unit --files <file1>,<file2>,... [--coverage] [--junit-output <file>] [--json]
+  abapgit-agent unit --files <file1>,<file2>,... [options]
 
 Description:
   Run AUnit tests for ABAP test class files (.testclasses.abap).
   Objects must be already active in the ABAP system (run pull first).
 
 Parameters:
-  --files <file1,...>     Comma-separated .testclasses.abap files (required).
-  --coverage              Include code coverage data in output.
-  --junit-output <file>   Write results as JUnit XML to this file.
-  --json                  Output as JSON.
+  --files <file1,...>          Comma-separated .testclasses.abap files (required).
+  --coverage                   Include code coverage data in output.
+  --coverage-threshold <N>     Fail/warn when coverage is below N percent (0–100). Default: 0 (off).
+  --coverage-mode <warn|fail>  Action when below threshold: warn = UNSTABLE, fail = error. Default: fail.
+  --junit-output <file>        Write results as JUnit XML to this file.
+  --json                       Output as JSON.
 
 Examples:
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
-  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage --coverage-threshold 80
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --junit-output reports/unit.xml
 `);
       return;
@@ -260,17 +273,20 @@ Examples:
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
-      console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage] [--junit-output <file>] [--json]');
-      console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap');
-      console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage');
-      console.error('Example: abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --junit-output reports/unit.xml');
+      console.error('Usage: abapgit-agent unit --files <file1>,<file2>,... [--coverage] [--coverage-threshold <N>] [--junit-output <file>] [--json]');
       process.exit(1);
     }
 
     const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
-    // Check for coverage option
+    // Coverage options
     const coverage = args.includes('--coverage');
+
+    const coverageThresholdIdx = args.indexOf('--coverage-threshold');
+    const coverageThreshold = coverageThresholdIdx !== -1 ? parseInt(args[coverageThresholdIdx + 1], 10) : 0;
+
+    const coverageModeIdx = args.indexOf('--coverage-mode');
+    const coverageMode = coverageModeIdx !== -1 ? args[coverageModeIdx + 1] : 'fail';
 
     // Parse optional --junit-output parameter
     const junitArgIndex = args.indexOf('--junit-output');
@@ -324,6 +340,29 @@ Examples:
       fs.writeFileSync(outputPath, xml, 'utf8');
       if (!jsonOutput) {
         console.log(`  JUnit report written to: ${outputPath}`);
+      }
+    }
+
+    // Coverage threshold enforcement — aggregated across all files
+    if (coverage && coverageThreshold > 0) {
+      const totalLines   = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.TOTAL_LINES   || (r.COVERAGE_STATS || r.coverage_stats)?.total_lines   || 0), 0);
+      const coveredLines = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.COVERED_LINES || (r.COVERAGE_STATS || r.coverage_stats)?.covered_lines || 0), 0);
+
+      if (totalLines === 0) {
+        if (!jsonOutput) console.warn('⚠️  Coverage data unavailable — threshold not enforced');
+      } else {
+        const rate = Math.round((coveredLines / totalLines) * 100);
+        if (rate < coverageThreshold) {
+          const msg = `Coverage ${rate}% is below threshold ${coverageThreshold}%`;
+          if (coverageMode === 'warn') {
+            if (!jsonOutput) console.warn(`⚠️  ${msg}`);
+          } else {
+            if (!jsonOutput) console.error(`❌ ${msg}`);
+            hasErrors = true;
+          }
+        } else {
+          if (!jsonOutput) console.log(`✅ Coverage ${rate}% meets threshold ${coverageThreshold}%`);
+        }
       }
     }
 

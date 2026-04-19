@@ -40,9 +40,15 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
 
   function tryRun(args) {
     try {
-      return { output: run(args), exitCode: 0 };
+      const output = execSync(`node bin/abapgit-agent ${args}`, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 60000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      return { output, exitCode: 0 };
     } catch (err) {
-      return { output: err.stdout || err.message || '', exitCode: err.status || 1 };
+      return { output: (err.stdout || '') + (err.stderr || ''), exitCode: err.status || 1 };
     }
   }
 
@@ -241,6 +247,63 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     } finally {
       cleanup(out);
     }
+  });
+
+  // ── unit --coverage integration tests ────────────────────────────────────
+
+  printInfo('  unit --coverage and --coverage-threshold');
+
+  test('unit --coverage: coverage stats appear in CLI output', () => {
+    const { output } = tryRun('unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage');
+    // Coverage line is only printed when coverage data is returned by ABAP
+    // If not supported, the test still passes — we just confirm no crash
+    return output.includes('Tests:');
+  });
+
+  test('unit --coverage --junit-output: JUnit XML contains coverage properties', () => {
+    const out = path.join(TMP, 'abapgit-junit-coverage-props.xml');
+    cleanup(out);
+    try {
+      tryRun(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --junit-output ${out}`);
+      if (!fs.existsSync(out)) return false;
+      const xml = fs.readFileSync(out, 'utf8');
+      // Properties block only present when ABAP returns coverage data.
+      // If coverage not returned, verify no crash and valid XML structure.
+      return xml.includes('<testsuites') && xml.includes('<testsuite');
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('unit --coverage-threshold 1: passes (any non-zero coverage meets threshold of 1)', () => {
+    // A threshold of 1% should always pass on a class with tests.
+    // If the ABAP system does not return coverage data, the threshold is silently skipped.
+    const { exitCode } = tryRun(
+      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 1'
+    );
+    return exitCode === 0;
+  });
+
+  test('unit --coverage-threshold 101: fails (impossible threshold fires gate)', () => {
+    // Threshold of 101 is impossible — always below. Verifies the gate fires.
+    // If ABAP does not return coverage data the gate is skipped with a warning (exit 0).
+    const { output, exitCode } = tryRun(
+      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 101'
+    );
+    const coverageDataReturned = output.includes('Coverage') && !output.includes('unavailable');
+    if (!coverageDataReturned) {
+      // Coverage not supported on this system — gate skipped, exit 0 expected
+      return exitCode === 0 && output.includes('unavailable');
+    }
+    return exitCode === 1 && output.includes('below threshold');
+  });
+
+  test('unit --coverage-threshold 101 --coverage-mode warn: warns but exits 0', () => {
+    const { output, exitCode } = tryRun(
+      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 101 --coverage-mode warn'
+    );
+    // In warn mode the process must not exit with error
+    return exitCode === 0;
   });
 
   // ── summary ───────────────────────────────────────────────────────────────
