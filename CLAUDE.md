@@ -91,9 +91,7 @@ parent: Setup Commands  # must match the parent page's title exactly
 ---
 ```
 
-Top-level reference docs (not under a command category) use `parent: Reference` — see `docs/project-config.md` as an example.
-
-If a new doc mentions `.abapgit-agent.json`, add a link to `docs/project-config.md` (or `../project-config.md` from a subdirectory).
+`parent:` must exactly match the `title:` of the intended parent page. Command docs use the category parent above. Non-command reference docs (e.g. `docs/commands.md`, `docs/api.md`, `docs/project-config.md`) use `parent: Reference`.
 
 ### 5. Add to `docs/commands.md`
 
