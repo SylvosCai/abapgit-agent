@@ -54,7 +54,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap --sync-xml
 
 ## Project-Level Safeguards
 
-Project maintainers can configure safeguards and conflict detection defaults in `.abapgit-agent.json` (checked into repository):
+Project maintainers can configure safeguards and conflict detection defaults in `.abapgit-agent.json` (checked into repository). See [Project Configuration reference](../project-config.md) for the full schema.
 
 ```json
 {
@@ -371,7 +371,7 @@ abapgit-agent pull
 
 ## Project-Level Safeguards
 
-Project maintainers can configure safeguards and conflict detection defaults in `.abapgit-agent.json` (checked into repository):
+Project maintainers can configure safeguards and conflict detection defaults in `.abapgit-agent.json` (checked into repository). See [Project Configuration reference](../project-config.md) for the full schema.
 
 ```json
 {

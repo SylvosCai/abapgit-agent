@@ -305,7 +305,7 @@ abapgit-agent import
 
 ## Project-Level Safeguards
 
-To disable the import command for all developers on a project, add to `.abapgit-agent.json` (checked into the repository):
+To disable the import command for all developers on a project, add to `.abapgit-agent.json` (checked into the repository). See [Project Configuration reference](../project-config.md) for all available safeguards.
 
 ```json
 {

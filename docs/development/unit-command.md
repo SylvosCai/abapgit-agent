@@ -43,7 +43,8 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 > **When using the CI pipeline**, coverage policy (`threshold`, `mode`, `excludes`) is read
 > from `.abapgit-agent.json` instead of being passed as CLI flags — see
-> [CI pipeline docs](../../abapgit-agent-ci/docs/jenkins-setup-guide.md).
+> [CI pipeline docs](../../abapgit-agent-ci/docs/jenkins-setup-guide.md) and
+> [Project Configuration reference](../project-config.md#coverage).
 
 ---
 
