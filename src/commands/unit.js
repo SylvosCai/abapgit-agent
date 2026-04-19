@@ -327,23 +327,8 @@ Examples:
       }
     }
 
-    // JUnit output mode — write XML, then continue to normal output
-    if (junitOutput) {
-      const xml = buildUnitJUnit(results);
-      const outputPath = pathModule.isAbsolute(junitOutput)
-        ? junitOutput
-        : pathModule.join(process.cwd(), junitOutput);
-      const dir = pathModule.dirname(outputPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(outputPath, xml, 'utf8');
-      if (!jsonOutput) {
-        console.log(`  JUnit report written to: ${outputPath}`);
-      }
-    }
-
     // Coverage threshold enforcement — aggregated across all files
+    // Runs BEFORE JUnit output so the synthetic failure testcase lands in the XML.
     if (coverage && coverageThreshold > 0) {
       const totalLines   = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.TOTAL_LINES   || (r.COVERAGE_STATS || r.coverage_stats)?.total_lines   || 0), 0);
       const coveredLines = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.COVERED_LINES || (r.COVERAGE_STATS || r.coverage_stats)?.covered_lines || 0), 0);
@@ -359,10 +344,41 @@ Examples:
           } else {
             if (!jsonOutput) console.error(`❌ ${msg}`);
             hasErrors = true;
+            // Inject a synthetic failing testcase so the JUnit report shows the failure,
+            // not just a passing test badge alongside a red build.
+            results.push({
+              _className:   'Coverage',
+              _synthetic:   true,
+              TEST_COUNT:   1,
+              PASSED_COUNT: 0,
+              FAILED_COUNT: 1,
+              ERRORS: [{
+                CLASS_NAME:  'Coverage',
+                METHOD_NAME: 'coverage_threshold',
+                ERROR_KIND:  'FAILURE',
+                ERROR_TEXT:  msg
+              }]
+            });
           }
         } else {
           if (!jsonOutput) console.log(`✅ Coverage ${rate}% meets threshold ${coverageThreshold}%`);
         }
+      }
+    }
+
+    // JUnit output mode — write XML after threshold check so synthetic failure is included
+    if (junitOutput) {
+      const xml = buildUnitJUnit(results);
+      const outputPath = pathModule.isAbsolute(junitOutput)
+        ? junitOutput
+        : pathModule.join(process.cwd(), junitOutput);
+      const dir = pathModule.dirname(outputPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(outputPath, xml, 'utf8');
+      if (!jsonOutput) {
+        console.log(`  JUnit report written to: ${outputPath}`);
       }
     }
 

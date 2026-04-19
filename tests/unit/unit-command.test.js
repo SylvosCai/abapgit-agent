@@ -976,4 +976,34 @@ describe('Unit Command - Coverage Threshold', () => {
     expect(writtenXml).not.toContain('<properties>');
     expect(writtenXml).not.toContain('coverage.rate');
   });
+
+  test('JUnit XML contains synthetic failure testcase when coverage gate fires in fail mode', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+    let exitCode;
+    jest.spyOn(process, 'exit').mockImplementation((code) => { exitCode = code; });
+    await unitCommand.execute(
+      ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '90', '--junit-output', 'out.xml'],
+      makeMockContext({ total_lines: 10, covered_lines: 5, coverage_rate: 50 })
+    );
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('<testsuite name="Coverage"');
+    expect(writtenXml).toContain('failures="1"');
+    expect(writtenXml).toContain('<failure');
+    expect(writtenXml).toContain('coverage_threshold');
+    expect(writtenXml).toContain('Coverage 50% is below threshold 90%');
+    expect(exitCode).toBe(1);
+  });
+
+  test('JUnit XML does NOT contain synthetic failure in warn mode', async () => {
+    const fs = require('fs');
+    const unitCommand = require('../../src/commands/unit');
+    await unitCommand.execute(
+      ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '90', '--coverage-mode', 'warn', '--junit-output', 'out.xml'],
+      makeMockContext({ total_lines: 10, covered_lines: 5, coverage_rate: 50 })
+    );
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).not.toContain('coverage_threshold');
+    expect(writtenXml).not.toContain('<testsuite name="Coverage"');
+  });
 });
