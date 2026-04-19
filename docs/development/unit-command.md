@@ -33,18 +33,76 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--files` | Yes | Comma-separated list of test class files |
+| `--files` | Yes | Comma-separated list of `.testclasses.abap` files |
 | `--coverage` | No | Enable code coverage measurement |
+| `--coverage-threshold <N>` | No | Fail (or warn) when a class's coverage is below N percent (0–100). Default: `0` (off). Requires `--coverage`. |
+| `--coverage-mode <warn\|fail>` | No | Action when a class is below threshold: `fail` = exit 1 (default), `warn` = print warning only |
+| `--junit-output <file>` | No | Write results as JUnit XML to this file |
+| `--json` | No | Output results as JSON |
+| `--verbose` | No | Print raw response body on HTTP errors |
 
 ---
 
 ## Coverage Option
 
-When `--coverage` is specified, the command runs AUnit tests with code coverage enabled and displays coverage statistics.
+When `--coverage` is specified, the command runs AUnit tests with code coverage enabled and displays per-class coverage statistics.
 
 ```bash
-# Run tests with coverage
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
+```
+
+### Coverage Threshold
+
+Use `--coverage-threshold` to enforce a minimum coverage percentage per class. When a class falls below the threshold, a `coverage_threshold` failure is injected into that class's JUnit testsuite so the failure is clearly attributed.
+
+```bash
+# Fail the build if any class is below 80% coverage
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
+  --coverage --coverage-threshold 80
+
+# Warn instead of failing
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
+  --coverage --coverage-threshold 80 --coverage-mode warn
+```
+
+**Output when below threshold (fail mode):**
+```
+  ✅ ZCL_MY_TEST - All tests passed
+     Tests: 5 | Passed: 5 | Failed: 0
+     📊 Coverage: 20%
+❌ ZCL_MY_TEST: coverage 20% is below threshold 80%
+```
+
+The threshold is evaluated **per class** — a class that meets the threshold is unaffected even if another class fails the gate.
+
+---
+
+## JUnit Output
+
+Use `--junit-output` to write results as JUnit XML, suitable for CI systems like Jenkins.
+
+```bash
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
+  --coverage --coverage-threshold 80 \
+  --junit-output reports/unit-results.xml
+```
+
+When a class fails the coverage threshold in `fail` mode, a `coverage_threshold` `<failure>` element is injected into that class's `<testsuite>` in the XML — so the CI test report shows the failure alongside the class it belongs to, not as a separate unrelated node.
+
+Coverage statistics are also emitted as `<properties>` on each testsuite:
+
+```xml
+<testsuite name="ZCL_MY_TEST" tests="6" failures="1" errors="0">
+  <properties>
+    <property name="coverage.rate"          value="20"/>
+    <property name="coverage.lines.total"   value="10"/>
+    <property name="coverage.lines.covered" value="2"/>
+  </properties>
+  <testcase name="(5 passing test(s))" classname="ZCL_MY_TEST"/>
+  <testcase name="coverage_threshold" classname="ZCL_MY_TEST">
+    <failure type="FAILURE" message="ZCL_MY_TEST: coverage 20% is below threshold 80%">...</failure>
+  </testcase>
+</testsuite>
 ```
 
 ## Tasks
@@ -189,11 +247,20 @@ When a test fails, output includes:
 # Run tests
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
-# Multiple
+# Multiple files
 abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.clas.testclasses.abap
 
 # With coverage
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage
+
+# Fail build if coverage below 80%
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
+  --coverage --coverage-threshold 80
+
+# Write JUnit XML for CI
+abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
+  --coverage --coverage-threshold 80 \
+  --junit-output reports/unit-results.xml
 ```
 
 ## Implementation
