@@ -2,6 +2,19 @@
 title: Release Notes
 ---
 
+## v1.17.6
+
+### New Features
+
+- `--coverage-threshold <N>` flag to enforce line coverage gates
+- `--coverage-mode <warn|fail>` to control threshold breach behavior
+- Coverage stats (`coverage.rate`, `lines.total`, `lines.covered`) emitted as JUnit XML `<properties>`
+
+---
+
+---
+
+
 ## v1.17.5
 
 ### New Features
