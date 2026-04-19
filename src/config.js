@@ -233,6 +233,20 @@ function getScratchWorkspace() {
   };
 }
 
+/**
+ * Get coverage policy from project-level config (.abapgit-agent.json)
+ * @returns {{ threshold: number, mode: string, excludes: string[] }}
+ */
+function getCoverageConfig() {
+  const projectConfig = loadProjectConfig();
+  const coverage = projectConfig?.coverage || {};
+  return {
+    threshold: coverage.threshold || 0,
+    mode:      coverage.mode      || 'fail',
+    excludes:  Array.isArray(coverage.excludes) ? coverage.excludes : []
+  };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -246,5 +260,6 @@ module.exports = {
   loadProjectConfig,
   getTransportHookConfig,
   getTransportSettings,
-  getScratchWorkspace
+  getScratchWorkspace,
+  getCoverageConfig
 };
