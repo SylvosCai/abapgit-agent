@@ -2,6 +2,32 @@
 title: Release Notes
 ---
 
+## v1.17.5
+
+### New Features
+
+- Conflict detection and pull metadata now cover XML-only types (TABL, DTEL, DOMA, TTYP, MSAG, etc.)
+
+### Bug Fixes
+
+- Fix false LOCAL_EDIT conflicts caused by source/XML file deduplication
+- Fix `unit` command silently returning 0 tests for `.clas.testclasses.abap` files
+- Fix `conflict_mode=ignore` skipping metadata store after pull
+
+### Improvements
+
+- Retry transient git server errors automatically (up to 3× with back-off)
+- Poll for object existence after pull instead of fixed sleep
+
+### Documentation
+
+- Fix broken command page links in Commands Overview
+
+---
+
+---
+
+
 ## v1.17.4
 
 ### New Features
