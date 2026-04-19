@@ -327,42 +327,44 @@ Examples:
       }
     }
 
-    // Coverage threshold enforcement — aggregated across all files
-    // Runs BEFORE JUnit output so the synthetic failure testcase lands in the XML.
+    // Coverage threshold enforcement — per file, runs BEFORE JUnit output
+    // so the injected failure testcase lands in the correct class's testsuite.
     if (coverage && coverageThreshold > 0) {
-      const totalLines   = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.TOTAL_LINES   || (r.COVERAGE_STATS || r.coverage_stats)?.total_lines   || 0), 0);
-      const coveredLines = results.reduce((s, r) => s + ((r.COVERAGE_STATS || r.coverage_stats)?.COVERED_LINES || (r.COVERAGE_STATS || r.coverage_stats)?.covered_lines || 0), 0);
-
-      if (totalLines === 0) {
-        if (!jsonOutput) console.warn('⚠️  Coverage data unavailable — threshold not enforced');
-      } else {
+      let anyData = false;
+      for (const result of results) {
+        const stats = result.COVERAGE_STATS || result.coverage_stats;
+        if (!stats) continue;
+        anyData = true;
+        const totalLines   = stats.TOTAL_LINES   || stats.total_lines   || 0;
+        const coveredLines = stats.COVERED_LINES  || stats.covered_lines  || 0;
+        if (totalLines === 0) continue;
         const rate = Math.round((coveredLines / totalLines) * 100);
+        const className = result._className || 'UNKNOWN';
         if (rate < coverageThreshold) {
-          const msg = `Coverage ${rate}% is below threshold ${coverageThreshold}%`;
+          const msg = `${className}: coverage ${rate}% is below threshold ${coverageThreshold}%`;
           if (coverageMode === 'warn') {
             if (!jsonOutput) console.warn(`⚠️  ${msg}`);
           } else {
             if (!jsonOutput) console.error(`❌ ${msg}`);
             hasErrors = true;
-            // Inject a synthetic failing testcase so the JUnit report shows the failure,
-            // not just a passing test badge alongside a red build.
-            results.push({
-              _className:   'Coverage',
-              _synthetic:   true,
-              TEST_COUNT:   1,
-              PASSED_COUNT: 0,
-              FAILED_COUNT: 1,
-              ERRORS: [{
-                CLASS_NAME:  'Coverage',
-                METHOD_NAME: 'coverage_threshold',
-                ERROR_KIND:  'FAILURE',
-                ERROR_TEXT:  msg
-              }]
+            // Inject failure into this class's own testsuite so Jenkins shows
+            // which class failed the gate and what its actual coverage was.
+            const errors = result.ERRORS || result.errors || [];
+            errors.push({
+              CLASS_NAME:  className,
+              METHOD_NAME: 'coverage_threshold',
+              ERROR_KIND:  'FAILURE',
+              ERROR_TEXT:  msg
             });
+            result.ERRORS = errors;
+            result.FAILED_COUNT = (result.FAILED_COUNT || result.failed_count || 0) + 1;
           }
         } else {
-          if (!jsonOutput) console.log(`✅ Coverage ${rate}% meets threshold ${coverageThreshold}%`);
+          if (!jsonOutput) console.log(`✅ ${className}: coverage ${rate}% meets threshold ${coverageThreshold}%`);
         }
+      }
+      if (!anyData) {
+        if (!jsonOutput) console.warn('⚠️  Coverage data unavailable — threshold not enforced');
       }
     }
 

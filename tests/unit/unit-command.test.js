@@ -789,7 +789,7 @@ describe('Unit Command - Coverage Threshold', () => {
       ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '60'],
       makeMockContext({ total_lines: 100, covered_lines: 70, coverage_rate: 70 })
     );
-    expect(consoleOutput.join('\n')).toContain('✅ Coverage 70% meets threshold 60%');
+    expect(consoleOutput.join('\n')).toContain('✅ ZCL_T: coverage 70% meets threshold 60%');
   });
 
   test('passes when coverage exactly equals threshold (boundary)', async () => {
@@ -798,7 +798,7 @@ describe('Unit Command - Coverage Threshold', () => {
       ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '70'],
       makeMockContext({ total_lines: 100, covered_lines: 70, coverage_rate: 70 })
     );
-    expect(consoleOutput.join('\n')).toContain('✅ Coverage 70% meets threshold 70%');
+    expect(consoleOutput.join('\n')).toContain('✅ ZCL_T: coverage 70% meets threshold 70%');
   });
 
   test('exits with code 1 in fail mode when coverage is below threshold', async () => {
@@ -809,7 +809,7 @@ describe('Unit Command - Coverage Threshold', () => {
         makeMockContext({ total_lines: 100, covered_lines: 50, coverage_rate: 50 })
       )
     ).rejects.toThrow('process.exit(1)');
-    expect(consoleErrors.join('\n')).toContain('Coverage 50% is below threshold 80%');
+    expect(consoleErrors.join('\n')).toContain('ZCL_T: coverage 50% is below threshold 80%');
   });
 
   test('fail is the default coverage-mode when not specified', async () => {
@@ -821,7 +821,7 @@ describe('Unit Command - Coverage Threshold', () => {
         makeMockContext({ total_lines: 100, covered_lines: 50, coverage_rate: 50 })
       )
     ).rejects.toThrow('process.exit(1)');
-    expect(consoleErrors.join('\n')).toContain('Coverage 50% is below threshold 80%');
+    expect(consoleErrors.join('\n')).toContain('ZCL_T: coverage 50% is below threshold 80%');
   });
 
   test('warns but does not exit in warn mode when coverage is below threshold', async () => {
@@ -830,7 +830,7 @@ describe('Unit Command - Coverage Threshold', () => {
       ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '80', '--coverage-mode', 'warn'],
       makeMockContext({ total_lines: 100, covered_lines: 50, coverage_rate: 50 })
     );
-    expect(consoleWarns.join('\n')).toContain('Coverage 50% is below threshold 80%');
+    expect(consoleWarns.join('\n')).toContain('ZCL_T: coverage 50% is below threshold 80%');
     // Should NOT have exited with error
     expect(consoleErrors.join('\n')).not.toContain('below threshold');
   });
@@ -868,10 +868,10 @@ describe('Unit Command - Coverage Threshold', () => {
 
   // ── multi-file aggregation ───────────────────────────────────────────────
 
-  test('aggregates coverage across multiple files before applying threshold', async () => {
+  test('per-class: passes when each file meets threshold individually', async () => {
     const unitCommand = require('../../src/commands/unit');
-    // File 1: 40/100 (40%), File 2: 80/100 (80%) → aggregate 120/200 = 60%
-    // Threshold is 55% → should pass
+    // File 1: 40/100 (40%) — below 35% threshold? No, 40 > 35 → passes
+    // File 2: 80/100 (80%) — passes
     const mockPost = jest.fn()
       .mockResolvedValueOnce({
         SUCCESS: 'X', TEST_COUNT: 5, PASSED_COUNT: 5, FAILED_COUNT: 0, ERRORS: [],
@@ -890,15 +890,17 @@ describe('Unit Command - Coverage Threshold', () => {
     };
     await unitCommand.execute(
       ['--files', 'zcl_a.clas.testclasses.abap,zcl_b.clas.testclasses.abap',
-       '--coverage', '--coverage-threshold', '55'],
+       '--coverage', '--coverage-threshold', '35'],
       ctx
     );
-    expect(consoleOutput.join('\n')).toContain('✅ Coverage 60% meets threshold 55%');
+    expect(consoleOutput.join('\n')).toContain('ZCL_A: coverage 40% meets threshold 35%');
+    expect(consoleOutput.join('\n')).toContain('ZCL_B: coverage 80% meets threshold 35%');
   });
 
-  test('aggregated coverage below threshold fails the build', async () => {
+  test('per-class: only the class below threshold fails, not the passing one', async () => {
     const unitCommand = require('../../src/commands/unit');
-    // File 1: 20/100, File 2: 20/100 → aggregate 40/200 = 20% < 50%
+    // File 1: 20/100 (20%) — below 50% → fails
+    // File 2: 80/100 (80%) — above 50% → passes
     const mockPost = jest.fn()
       .mockResolvedValueOnce({
         SUCCESS: 'X', TEST_COUNT: 2, PASSED_COUNT: 2, FAILED_COUNT: 0, ERRORS: [],
@@ -906,7 +908,7 @@ describe('Unit Command - Coverage Threshold', () => {
       })
       .mockResolvedValueOnce({
         SUCCESS: 'X', TEST_COUNT: 2, PASSED_COUNT: 2, FAILED_COUNT: 0, ERRORS: [],
-        coverage_stats: { total_lines: 100, covered_lines: 20, coverage_rate: 20 }
+        coverage_stats: { total_lines: 100, covered_lines: 80, coverage_rate: 80 }
       });
     const ctx = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
@@ -922,7 +924,8 @@ describe('Unit Command - Coverage Threshold', () => {
         ctx
       )
     ).rejects.toThrow('process.exit(1)');
-    expect(consoleErrors.join('\n')).toContain('Coverage 20% is below threshold 50%');
+    expect(consoleErrors.join('\n')).toContain('ZCL_A: coverage 20% is below threshold 50%');
+    expect(consoleErrors.join('\n')).not.toContain('ZCL_B');
   });
 
   // ── uppercase ABAP key variant ───────────────────────────────────────────
@@ -943,7 +946,7 @@ describe('Unit Command - Coverage Threshold', () => {
       ['--files', 'zcl_t.clas.testclasses.abap', '--coverage', '--coverage-threshold', '70'],
       ctx
     );
-    expect(consoleOutput.join('\n')).toContain('✅ Coverage 80% meets threshold 70%');
+    expect(consoleOutput.join('\n')).toContain('✅ ZCL_T: coverage 80% meets threshold 70%');
   });
 
   // ── JUnit XML coverage properties ────────────────────────────────────────
@@ -977,7 +980,7 @@ describe('Unit Command - Coverage Threshold', () => {
     expect(writtenXml).not.toContain('coverage.rate');
   });
 
-  test('JUnit XML contains synthetic failure testcase when coverage gate fires in fail mode', async () => {
+  test('JUnit XML contains failure inside the class testsuite when coverage gate fires in fail mode', async () => {
     const fs = require('fs');
     const unitCommand = require('../../src/commands/unit');
     let exitCode;
@@ -987,15 +990,17 @@ describe('Unit Command - Coverage Threshold', () => {
       makeMockContext({ total_lines: 10, covered_lines: 5, coverage_rate: 50 })
     );
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
-    expect(writtenXml).toContain('<testsuite name="Coverage"');
+    // Failure injected into ZCL_T's own testsuite — no separate Coverage node
+    expect(writtenXml).toContain('<testsuite name="ZCL_T"');
+    expect(writtenXml).not.toContain('<testsuite name="Coverage"');
     expect(writtenXml).toContain('failures="1"');
     expect(writtenXml).toContain('<failure');
     expect(writtenXml).toContain('coverage_threshold');
-    expect(writtenXml).toContain('Coverage 50% is below threshold 90%');
+    expect(writtenXml).toContain('ZCL_T: coverage 50% is below threshold 90%');
     expect(exitCode).toBe(1);
   });
 
-  test('JUnit XML does NOT contain synthetic failure in warn mode', async () => {
+  test('JUnit XML does NOT contain coverage_threshold failure in warn mode', async () => {
     const fs = require('fs');
     const unitCommand = require('../../src/commands/unit');
     await unitCommand.execute(
@@ -1004,6 +1009,5 @@ describe('Unit Command - Coverage Threshold', () => {
     );
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
     expect(writtenXml).not.toContain('coverage_threshold');
-    expect(writtenXml).not.toContain('<testsuite name="Coverage"');
   });
 });
