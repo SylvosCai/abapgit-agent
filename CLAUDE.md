@@ -80,6 +80,21 @@ Categories and their Jekyll `parent:` value:
 | Setup | `docs/setup/` | `Setup Commands` |
 | Utility | `docs/utility/` | `Utility Commands` |
 
+The site uses **Just the Docs** (Jekyll). Navigation is driven entirely by front matter — no sidebar config file. Every doc needs:
+
+```yaml
+---
+layout: default
+title: My Command
+nav_order: <N>        # position within the parent section
+parent: Setup Commands  # must match the parent page's title exactly
+---
+```
+
+Top-level reference docs (not under a command category) use `parent: Reference` — see `docs/project-config.md` as an example.
+
+If a new doc mentions `.abapgit-agent.json`, add a link to `docs/project-config.md` (or `../project-config.md` from a subdirectory).
+
 ### 5. Add to `docs/commands.md`
 
 Add a row to the commands overview table.
