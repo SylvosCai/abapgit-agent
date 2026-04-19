@@ -374,8 +374,19 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   // 5. Create git tag
   console.log(`Creating git tag v${newVersion}...`);
   try {
-    execSync(`git tag v${newVersion}`, { cwd: repoRoot });
-    console.log(`✅ Created tag: v${newVersion}`);
+    const existingTagSha = (() => {
+      try { return execSync(`git rev-list -n1 v${newVersion}`, { cwd: repoRoot, encoding: 'utf8' }).trim(); }
+      catch { return null; }
+    })();
+    const headSha = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
+    if (existingTagSha === headSha) {
+      console.log(`✅ Tag v${newVersion} already exists at HEAD — skipping`);
+    } else if (existingTagSha) {
+      console.log(`⚠️ Tag v${newVersion} already exists but points to a different commit — skipping`);
+    } else {
+      execSync(`git tag v${newVersion}`, { cwd: repoRoot });
+      console.log(`✅ Created tag: v${newVersion}`);
+    }
   } catch (e) {
     console.log('⚠️ Tag creation failed:', e.message);
   }
