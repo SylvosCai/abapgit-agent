@@ -41,6 +41,10 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 | `--json` | No | Output results as JSON |
 | `--verbose` | No | Print raw response body on HTTP errors |
 
+> **When using the CI pipeline**, coverage policy (`threshold`, `mode`, `excludes`) is read
+> from `.abapgit-agent.json` instead of being passed as CLI flags — see
+> [CI pipeline docs](../../abapgit-agent-ci/docs/jenkins-setup-guide.md).
+
 ---
 
 ## Coverage Option

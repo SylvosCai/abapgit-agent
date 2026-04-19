@@ -460,24 +460,58 @@ describe('Config', () => {
     });
   });
 
-  describe('getWorkflowConfig()', () => {
-    test('returns trunk mode by default', () => {
+  describe('getCoverageConfig()', () => {
+    test('returns defaults when .abapgit-agent.json does not exist', () => {
       const fs = require('fs');
-      fs.existsSync.mockReturnValue(true);
-      fs.readFileSync.mockReturnValue(JSON.stringify({ host: 'test.com', user: 'u', password: 'p' }));
-      const { getWorkflowConfig } = require('../../src/config');
-      expect(getWorkflowConfig()).toEqual({ mode: 'trunk', defaultBranch: null });
+      fs.existsSync.mockReturnValue(false);
+      const { getCoverageConfig } = require('../../src/config');
+      expect(getCoverageConfig()).toEqual({ threshold: 0, mode: 'fail', excludes: [] });
     });
 
-    test('returns configured workflow mode and branch', () => {
+    test('returns defaults when coverage section is absent', () => {
       const fs = require('fs');
-      fs.existsSync.mockReturnValue(true);
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ project: { name: 'MyProject' } }));
+      const { getCoverageConfig } = require('../../src/config');
+      expect(getCoverageConfig()).toEqual({ threshold: 0, mode: 'fail', excludes: [] });
+    });
+
+    test('reads threshold, mode and excludes from coverage section', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
       fs.readFileSync.mockReturnValue(JSON.stringify({
-        host: 'test.com', user: 'u', password: 'p',
-        workflow: { mode: 'branch', defaultBranch: 'main' }
+        coverage: {
+          threshold: 80,
+          mode: 'warn',
+          excludes: ['src/zcl_legacy_*.clas.abap', 'src/zbp_*.clas.abap']
+        }
       }));
-      const { getWorkflowConfig } = require('../../src/config');
-      expect(getWorkflowConfig()).toEqual({ mode: 'branch', defaultBranch: 'main' });
+      const { getCoverageConfig } = require('../../src/config');
+      expect(getCoverageConfig()).toEqual({
+        threshold: 80,
+        mode: 'warn',
+        excludes: ['src/zcl_legacy_*.clas.abap', 'src/zbp_*.clas.abap']
+      });
+    });
+
+    test('defaults mode to fail when not specified', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ coverage: { threshold: 60 } }));
+      const { getCoverageConfig } = require('../../src/config');
+      const cfg = getCoverageConfig();
+      expect(cfg.threshold).toBe(60);
+      expect(cfg.mode).toBe('fail');
+      expect(cfg.excludes).toEqual([]);
+    });
+
+    test('defaults excludes to empty array when not specified', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ coverage: { threshold: 80, mode: 'fail' } }));
+      const { getCoverageConfig } = require('../../src/config');
+      expect(getCoverageConfig().excludes).toEqual([]);
     });
   });
+
 });
