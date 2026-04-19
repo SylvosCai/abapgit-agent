@@ -47,9 +47,10 @@ function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, pri
         { cwd: repoRoot, encoding: 'utf8' }
       );
 
-      // Parse output to determine pass/fail
+      // Parse output to determine pass/fail.
+      // "No unit tests" is a failure — it means the file was not recognised
+      // or has no FOR TESTING methods, which must be investigated.
       const passed = output.includes('All tests passed') ||
-        output.includes('No unit tests') ||
         output.includes('passed');
       const className = testClass.toUpperCase();
 

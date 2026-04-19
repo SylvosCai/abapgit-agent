@@ -262,6 +262,84 @@ CLASS ltcl_repo_local_fails IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" Repo spy — like ltcl_repo_local_fails but get_files_local succeeds
+" and returns mt_local (ty_files_item_tt).  Used to test XML-only type
+" content matching.
+"----------------------------------------------------------------------
+CLASS ltcl_repo_spy DEFINITION FOR TESTING.
+  PUBLIC SECTION.
+    INTERFACES zif_abapgit_repo.
+    DATA mo_log    TYPE REF TO ltcl_log_double.
+    DATA mt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
+    DATA mt_local  TYPE zif_abapgit_definitions=>ty_files_item_tt.
+ENDCLASS.
+
+CLASS ltcl_repo_spy IMPLEMENTATION.
+  METHOD zif_abapgit_repo~get_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~create_new_log.
+    ri_log = mo_log.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_remote.
+    rt_files = mt_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local.
+    rt_files = mt_local.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_files_local_filtered.
+    rt_files = mt_local.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize_checks.
+    rs_checks = VALUE #( ).
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~deserialize.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_key.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_name.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~is_offline.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_package.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_tadir_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~find_remote_dot_abapgit.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~checksums.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~has_remote_source.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_dot_apack.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~delete_checks.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_files_remote.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~set_local_settings.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~switch_repo_type.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_object.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~refresh_local_objects.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~get_data_config.
+  ENDMETHOD.
+  METHOD zif_abapgit_repo~bind_listener.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
@@ -298,6 +376,12 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
 
     " --- store_pull_metadata called despite local read failure ---
     METHODS test_meta_store_local_fail FOR TESTING RAISING zcx_abapgit_exception.
+
+    " --- XML-only types in build_file_entries_from_remote ---
+    METHODS test_xml_tabl_in_entries   FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_xml_dtel_in_entries   FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_abapgit_xml_excluded  FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_xml_local_content     FOR TESTING RAISING zcx_abapgit_exception.
 ENDCLASS.
 
 CLASS ltcl_agent IMPLEMENTATION.
@@ -743,6 +827,173 @@ CLASS ltcl_agent IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
       act = lo_spy->mt_stored_files[ 1 ]-obj_name exp = 'ZCL_META_TEST'
       msg = 'Stored obj_name must be ZCL_META_TEST' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " XML-only TABL file is included in build_file_entries_from_remote.
+  "
+  " Remote has one .tabl.xml file.  Expected: rt_entries contains
+  " exactly one entry with obj_type = 'TABL' and obj_name = 'ZMY_TABLE'.
+  "--------------------------------------------------------------------
+  METHOD test_xml_tabl_in_entries.
+    DATA lo_repo TYPE REF TO ltcl_repo_local_fails.
+    lo_repo = NEW ltcl_repo_local_fails( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
+    ls_remote-path     = '/src/'.
+    ls_remote-filename = 'zmy_table.tabl.xml'.
+    ls_remote-data     = cl_abap_codepage=>convert_to( source = '<tabl/>' codepage = 'UTF-8' ).
+    APPEND ls_remote TO lo_repo->mt_remote.
+
+    DATA lo_spy TYPE REF TO ltcl_det_spy.
+    lo_spy = NEW ltcl_det_spy( ).
+
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_repo
+      io_conflict_detector = lo_spy ).
+
+    lo_cut->zif_abgagt_agent~pull( iv_url = 'https://example.com/repo.git' ).
+
+    cl_abap_unit_assert=>assert_true(
+      act = lo_spy->mv_store_called
+      msg = 'store_pull_metadata must be called for TABL XML file' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lines( lo_spy->mt_stored_files ) exp = 1
+      msg = 'Exactly one entry must be stored for TABL file' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_type exp = 'TABL'
+      msg = 'obj_type must be TABL for .tabl.xml file' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_name exp = 'ZMY_TABLE'
+      msg = 'obj_name must be ZMY_TABLE for zmy_table.tabl.xml' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " XML-only DTEL file is included in build_file_entries_from_remote.
+  "--------------------------------------------------------------------
+  METHOD test_xml_dtel_in_entries.
+    DATA lo_repo TYPE REF TO ltcl_repo_local_fails.
+    lo_repo = NEW ltcl_repo_local_fails( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
+    ls_remote-path     = '/src/'.
+    ls_remote-filename = 'zmy_dtel.dtel.xml'.
+    ls_remote-data     = cl_abap_codepage=>convert_to( source = '<dtel/>' codepage = 'UTF-8' ).
+    APPEND ls_remote TO lo_repo->mt_remote.
+
+    DATA lo_spy TYPE REF TO ltcl_det_spy.
+    lo_spy = NEW ltcl_det_spy( ).
+
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_repo
+      io_conflict_detector = lo_spy ).
+
+    lo_cut->zif_abgagt_agent~pull( iv_url = 'https://example.com/repo.git' ).
+
+    cl_abap_unit_assert=>assert_true(
+      act = lo_spy->mv_store_called
+      msg = 'store_pull_metadata must be called for DTEL XML file' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_type exp = 'DTEL'
+      msg = 'obj_type must be DTEL for .dtel.xml file' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-obj_name exp = 'ZMY_DTEL'
+      msg = 'obj_name must be ZMY_DTEL for zmy_dtel.dtel.xml' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " .abapgit.xml is NOT included in file entries (parse_file_to_object
+  " returns initial for it; the IS INITIAL guard silently skips it).
+  "--------------------------------------------------------------------
+  METHOD test_abapgit_xml_excluded.
+    DATA lo_repo TYPE REF TO ltcl_repo_local_fails.
+    lo_repo = NEW ltcl_repo_local_fails( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
+    ls_remote-path     = '/'.
+    ls_remote-filename = '.abapgit.xml'.
+    ls_remote-data     = cl_abap_codepage=>convert_to( source = '<abapgit/>' codepage = 'UTF-8' ).
+    APPEND ls_remote TO lo_repo->mt_remote.
+
+    DATA lo_spy TYPE REF TO ltcl_det_spy.
+    lo_spy = NEW ltcl_det_spy( ).
+
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_repo
+      io_conflict_detector = lo_spy ).
+
+    lo_cut->zif_abgagt_agent~pull( iv_url = 'https://example.com/repo.git' ).
+
+    " store_pull_metadata should be called with an empty list (nothing parsed)
+    " OR not called at all — either way, no entry for .abapgit.xml must exist.
+    DATA lv_abapgit_entry_found TYPE abap_bool VALUE abap_false.
+    IF lo_spy->mv_store_called = abap_true.
+      LOOP AT lo_spy->mt_stored_files INTO DATA(ls_entry).
+        IF ls_entry-obj_name CS 'ABAPGIT'.
+          lv_abapgit_entry_found = abap_true.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    cl_abap_unit_assert=>assert_false(
+      act = lv_abapgit_entry_found
+      msg = '.abapgit.xml must not produce a file entry in metadata' ).
+  ENDMETHOD.
+
+  "--------------------------------------------------------------------
+  " local_content is populated for XML-only types (TABL).
+  "
+  " Remote has zmy_table.tabl.xml; local (ABAP system) also has it.
+  " Expected: the file entry has local_content matching the local body.
+  "--------------------------------------------------------------------
+  METHOD test_xml_local_content.
+    DATA lo_repo TYPE REF TO ltcl_repo_spy.
+    lo_repo = NEW ltcl_repo_spy( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    lo_repo->mo_log->mv_status = zif_abapgit_log=>c_status-ok.
+
+    " Remote file
+    DATA ls_remote TYPE zif_abapgit_git_definitions=>ty_file.
+    ls_remote-path     = '/src/'.
+    ls_remote-filename = 'zmy_table.tabl.xml'.
+    ls_remote-data     = cl_abap_codepage=>convert_to( source = '<tabl/>' codepage = 'UTF-8' ).
+    APPEND ls_remote TO lo_repo->mt_remote.
+
+    " Local file (same name, different content — simulates in-system version)
+    DATA ls_local TYPE zif_abapgit_definitions=>ty_file_item.
+    ls_local-item-obj_type      = 'TABL'.
+    ls_local-item-obj_name      = 'ZMY_TABLE'.
+    ls_local-file-filename      = 'zmy_table.tabl.xml'.
+    ls_local-file-data          = cl_abap_codepage=>convert_to( source = '<tabl local/>' codepage = 'UTF-8' ).
+    APPEND ls_local TO lo_repo->mt_local.
+
+    DATA lo_spy TYPE REF TO ltcl_det_spy.
+    lo_spy = NEW ltcl_det_spy( ).
+
+    DATA lo_cut TYPE REF TO zcl_abgagt_agent.
+    lo_cut = NEW zcl_abgagt_agent(
+      io_repo              = lo_repo
+      io_conflict_detector = lo_spy ).
+
+    lo_cut->zif_abgagt_agent~pull( iv_url = 'https://example.com/repo.git' ).
+
+    cl_abap_unit_assert=>assert_equals(
+      act = lo_spy->mt_stored_files[ 1 ]-local_content exp = '<tabl local/>'
+      msg = 'local_content must be populated from the local XML file' ).
   ENDMETHOD.
 
 ENDCLASS.

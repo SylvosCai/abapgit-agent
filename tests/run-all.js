@@ -573,7 +573,7 @@ function runCommandTests(demoMode = false, commandFilter = null) {
     if (failed.length > 0) {
       console.log('\nFailed tests:');
       for (const f of failed) {
-        printError(`  - ${f.command} ${f.name}`);
+        printError(`  - ${[f.command, f.name].filter(Boolean).join(' ')}`);
         if (f.output) {
           console.log(colors.gray + `    ${f.output.substring(0, 100)}...` + colors.reset);
         }

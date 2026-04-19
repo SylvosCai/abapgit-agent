@@ -35,18 +35,27 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     DATA lv_obj_name TYPE string.
 
     IF lv_part_count = 4.
-      " 4-part pattern: <name>.<type>.<hash>.<ext>
-      " Currently only ENHO uses this pattern.
+      " 4-part patterns:
+      "   <name>.clas.testclasses.abap  → CLAS  (class test include)
+      "   <name>.clas.locals_def.abap   → CLAS  (class local types include)
+      "   <name>.clas.locals_imp.abap   → CLAS  (class local impl include)
+      "   <name>.enho.<hash>.abap       → ENHO  (enhancement hook source)
       READ TABLE lt_parts INDEX 4 INTO DATA(lv_ext4).
       IF lv_ext4 <> 'ABAP' AND lv_ext4 <> 'ASDDLS' AND lv_ext4 <> 'XML'.
         RETURN.
       ENDIF.
       READ TABLE lt_parts INDEX 2 INTO DATA(lv_type4).
-      IF lv_type4 <> 'ENHO'.
-        RETURN.  " Unknown 4-part pattern — not yet supported
+      READ TABLE lt_parts INDEX 3 INTO DATA(lv_sub4).
+      IF lv_type4 = 'CLAS' AND
+         ( lv_sub4 = 'TESTCLASSES' OR lv_sub4 = 'LOCALS_DEF' OR lv_sub4 = 'LOCALS_IMP' ).
+        READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+        ev_obj_type = 'CLAS'.
+      ELSEIF lv_type4 = 'ENHO'.
+        READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
+        ev_obj_type = 'ENHO'.
+      ELSE.
+        RETURN.  " Unknown 4-part pattern
       ENDIF.
-      READ TABLE lt_parts INDEX 1 INTO lv_obj_name.
-      ev_obj_type = 'ENHO'.
 
     ELSEIF lv_part_count = 3.
       " 3-part pattern: <name>.<type>.<ext>

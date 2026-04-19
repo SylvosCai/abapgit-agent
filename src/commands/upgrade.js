@@ -109,7 +109,7 @@ Examples:
     if (flags.version && !flags.abapOnly) {
       const versionExists = await this.validateVersionExists(flags.version);
       if (!versionExists) {
-        console.error(`❌ Error: Version ${flags.version} not found in npm registry`);
+        console.error(`Error: Version ${flags.version} not found in npm registry`);
         console.error('   Please check available versions at: https://www.npmjs.com/package/abapgit-agent?activeTab=versions');
         process.exit(1);
       }

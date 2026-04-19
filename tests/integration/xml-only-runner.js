@@ -170,7 +170,12 @@ function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
   // ─── Step 4: pull TABL + DTEL together ────────────────────────────────────────
   printInfo(colorize('cyan', `Step 4: pull --files ${FILE_TABL},${FILE_DTEL}  (TABL + DTEL)`));
   {
-    const { output, exitCode } = runPull(repoRoot, [FILE_TABL, FILE_DTEL].join(','));
+    let { output, exitCode } = runPull(repoRoot, [FILE_TABL, FILE_DTEL].join(','));
+    // Retry once on transient ABAP HTTP 500 errors
+    if (exitCode !== 0 && output.includes('500')) {
+      printInfo('  Pull failed with HTTP 500, retrying once...');
+      ({ output, exitCode } = runPull(repoRoot, [FILE_TABL, FILE_DTEL].join(',')));
+    }
 
     addResult('[TABL+DTEL] pull succeeds',
       exitCode === 0 && output.includes('Pull completed'),

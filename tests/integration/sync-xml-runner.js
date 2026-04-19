@@ -45,6 +45,7 @@ const fs = require('fs');
 const os = require('os');
 
 const { getTestRepoUrl } = require('./test-repos');
+const { gitExec } = require('./git-helpers');
 const TEST_REPO_URL  = getTestRepoUrl('pull');
 const TEST_BRANCH    = 'feature/sync-xml-test';
 const TEST_FILE      = 'src/zif_simple_test.intf.abap';
@@ -116,9 +117,11 @@ function restoreBranch(cloneDir, printInfo, printError) {
              { cwd: cloneDir, encoding: 'utf8' });
 
     // 4. Force-push so the remote matches
-    execSync(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
+    gitExec(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir });
+    return true;
   } catch (e) {
-    printError(`  Warning: could not restore remote branch: ${e.message}`);
+    printError(`  ✗ restoreBranch failed: ${e.message.split('\n')[0]}`);
+    return false;
   }
 }
 
@@ -163,12 +166,14 @@ function restoreDtel(cloneDir, printInfo, printError) {
     fs.writeFileSync(xmlPath, xml);
 
     // Stage, commit, and force-push
-    execSync(`git add ${DTEL_XML_FILE}`, { cwd: cloneDir, encoding: 'utf8' });
+    gitExec(`git add ${DTEL_XML_FILE}`, { cwd: cloneDir });
     execSync('git commit -m "test: restore hand-crafted DTEL XML with PARAMID for sync-xml test"',
              { cwd: cloneDir, encoding: 'utf8' });
-    execSync(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
+    gitExec(`git push --force-with-lease origin ${TEST_BRANCH}`, { cwd: cloneDir });
+    return true;
   } catch (e) {
-    printError(`  Warning: could not restore DTEL: ${e.message}`);
+    printError(`  ✗ restoreDtel failed: ${e.message.split('\n')[0]}`);
+    return false;
   }
 }
 
@@ -206,7 +211,7 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
       try {
         execSync('git rev-parse --git-dir', { cwd: cloneDir, encoding: 'utf8', stdio: 'pipe' });
         // Valid git repo — fetch and reset
-        execSync(`git fetch origin ${TEST_BRANCH}`,        { cwd: cloneDir, encoding: 'utf8' });
+        gitExec(`git fetch origin ${TEST_BRANCH}`,        { cwd: cloneDir });
         execSync(`git checkout ${TEST_BRANCH}`,            { cwd: cloneDir, encoding: 'utf8' });
         execSync(`git reset --hard origin/${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8' });
         printInfo('Reset existing clone to remote state');
@@ -218,7 +223,7 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
       }
     }
     if (needsClone) {
-      execSync(`git clone --branch ${TEST_BRANCH} ${TEST_REPO_URL} ${cloneDir}`, { encoding: 'utf8' });
+      gitExec(`git clone --branch ${TEST_BRANCH} ${TEST_REPO_URL} ${cloneDir}`);
       printInfo('Cloned fresh copy');
     }
     fs.copyFileSync(credentialsSource, path.join(cloneDir, '.abapGitAgent'));
@@ -226,7 +231,10 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     restoreBranch(cloneDir, printInfo, printError);
   } catch (e) {
     printError(`✗ Failed to prepare test clone: ${e.message}`);
-    return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 0 };
+    const errMsg = `setup failed: ${e.message.split('\n')[0]}`;
+    results.push({ name: 'sync-xml test setup (clone/fetch)', passed: false });
+    printError(`✗ sync-xml test setup (clone/fetch)\n  ${errMsg}`);
+    return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 1 };
   }
 
   const addResult = (name, passed, hint = '') => {
@@ -276,6 +284,11 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     const shaBefore = execSync('git rev-parse HEAD', { cwd: cloneDir, encoding: 'utf8' }).trim();
 
     const { output, exitCode } = runPull(agentBin, cloneDir, true, ['--sync-xml']);
+
+    if (exitCode !== 0 || !output.includes('Pull completed')) {
+      // Log full output (up to 800 chars) to help diagnose failures
+      printError(`  [Step 2 debug] exitCode=${exitCode} output:\n${output.substring(0, 800)}`);
+    }
 
     addResult('[--files] --sync-xml pull succeeds',
       exitCode === 0 && output.includes('Pull completed'),
@@ -343,14 +356,24 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
   printInfo('');
 
   // Restore remote branch to hand-crafted XML before full-pull tests
-  restoreBranch(cloneDir, printInfo, printError);
+  const restoredForPartB = restoreBranch(cloneDir, printInfo, printError);
   printInfo('');
 
   // ════════════════════════════════════════════════════════════════════════════
   // PART B: full pull (no --files)
   // ════════════════════════════════════════════════════════════════════════════
 
-  // ── Step 5: pull (no --files) → warning ─────────────────────────────────────
+  if (!restoredForPartB) {
+    ['[no --files] pull succeeds', '[no --files] warning: XML file(s) differ from serializer output',
+     '[no --files] local XML still has hand-crafted CATEGORY (not yet rewritten)',
+     '[no --files] --sync-xml pull succeeds', '[no --files] "Syncing N XML file(s)" message appears',
+     '[no --files] "Synced … amended commit, re-pulled" message appears',
+     '[no --files] local XML CATEGORY field removed', '[no --files] git commit was amended (SHA changed)',
+     '[no --files] working tree is clean after sync', '[no --files] pull succeeds (step 7)',
+     '[no --files] no "differ" warning when already in sync'].forEach(name =>
+      addResult(name, false, 'restoreBranch failed (git server error)'));
+    printInfo('');
+  } else {
   printInfo(colorize('cyan', 'Step 5 [no --files]: pull without --sync-xml — expect "differ" warning'));
   {
     const { output, exitCode } = runPull(agentBin, cloneDir, false);
@@ -418,8 +441,9 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
       output.split('\n').find(l => l.includes('differ')) || '');
   }
   printInfo('');
+  } // end if (restoredForPartB)
 
-  // Final restore
+  // Final restore before Part C
   restoreBranch(cloneDir, printInfo, printError);
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -430,11 +454,19 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
   // re-injects it and bumps DDTEXT with a timestamp so abapGit always
   // deserializes the object and returns local_xml_files on every run.
 
-  restoreDtel(cloneDir, printInfo, printError);
+  const restoredForPartC = restoreDtel(cloneDir, printInfo, printError);
   printInfo('');
 
   // ── Step 8: pull DTEL --files → warning, local XML still hand-crafted ────────
-  printInfo(colorize('cyan', 'Step 8 [DTEL --files]: pull without --sync-xml — expect "differ" warning'));
+  if (!restoredForPartC) {
+    ['[DTEL] pull succeeds', '[DTEL] warning: XML file(s) differ from serializer output',
+     '[DTEL] warning lists the DTEL XML file', '[DTEL] local XML still has hand-crafted PARAMID (not yet rewritten)',
+     '[DTEL] --sync-xml pull succeeds', '[DTEL] "Syncing N XML file(s)" message appears',
+     '[DTEL] "Synced … amended commit, re-pulled" message appears', '[DTEL] PARAMID field removed',
+     '[DTEL] git commit was amended (SHA changed)', '[DTEL] working tree is clean after sync',
+     '[DTEL] pull succeeds (step 10)', '[DTEL] no "differ" warning when already in sync'].forEach(name =>
+      addResult(name, false, 'restoreDtel failed (git server error)'));
+  } else {
   {
     const { output, exitCode } = runPull(agentBin, cloneDir, false, ['--files', DTEL_XML_FILE]);
 
@@ -515,6 +547,7 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
       output.split('\n').find(l => l.includes('differ')) || '');
   }
   printInfo('');
+  } // end if (restoredForPartC)
 
   // Final restore of DTEL
   restoreDtel(cloneDir, printInfo, printError);

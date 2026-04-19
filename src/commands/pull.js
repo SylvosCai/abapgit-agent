@@ -525,11 +525,30 @@ Examples:
           // 3. Amend last commit
           execSync('git commit --amend --no-edit', { cwd: process.cwd() });
 
-          // 4. Push with force-with-lease; if no upstream, set it automatically
+          // 4. Push with force-with-lease; fetch first so tracking ref is current
+          //    (the remote may have been force-pushed by another process between our last
+          //    fetch and this push — a fetch makes --force-with-lease reliable)
           let pushed = false;
           try {
-            execSync('git push --force-with-lease', { cwd: process.cwd(), stdio: 'pipe' });
-            pushed = true;
+            try { execSync('git fetch origin', { cwd: process.cwd(), stdio: 'pipe' }); } catch (_) { /* no remote is fine */ }
+            // Retry the push up to 3 times on transient server errors (e.g. GitHub Enterprise 500)
+            let pushErr;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                execSync('git push --force-with-lease', { cwd: process.cwd(), stdio: 'pipe' });
+                pushed = true;
+                break;
+              } catch (err) {
+                pushErr = err;
+                const msg = (err.stderr || err.stdout || err.message || '').toString();
+                const transient = /internal server error|remote rejected|\b5\d\d\b|connection reset|timed? ?out/i.test(msg);
+                if (attempt < 3 && transient) {
+                  execSync('sleep 2', { stdio: 'pipe' });
+                  continue;
+                }
+                throw err;
+              }
+            }
           } catch (pushErr) {
             const msg = (pushErr.stderr || pushErr.stdout || pushErr.message || '').toString();
             if (msg.includes('no upstream branch') || msg.includes('has no upstream')) {

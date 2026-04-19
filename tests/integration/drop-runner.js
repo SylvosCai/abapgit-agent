@@ -46,6 +46,7 @@ const fs = require('fs');
 const os = require('os');
 
 const { getTestRepoUrl } = require('./test-repos');
+const { gitExec } = require('./git-helpers');
 const DROP_REPO_URL = getTestRepoUrl('drop');
 const DROP_REPO_DIR = path.join(os.tmpdir(), 'abgagt-drop-test');
 
@@ -162,6 +163,27 @@ function objectExists(agentBin, repoRoot, obj) {
 }
 
 /**
+ * Poll objectExists until it returns true or the timeout expires.
+ * Used for object types (e.g. DCLS) where TADIR write-behind latency means the
+ * object may not be visible immediately after a successful pull.
+ *
+ * @param {string} agentBin
+ * @param {string} repoRoot
+ * @param {Object} obj
+ * @param {number} [timeoutMs=20000]  give up after this many milliseconds
+ * @param {number} [intervalMs=3000]  how often to re-check
+ * @returns {boolean}
+ */
+function waitUntilExists(agentBin, repoRoot, obj, timeoutMs = 20000, intervalMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (objectExists(agentBin, repoRoot, obj)) return true;
+    execSync(`sleep ${intervalMs / 1000}`);
+  }
+  return objectExists(agentBin, repoRoot, obj);
+}
+
+/**
  * Run `abapgit-agent pull` against the drop-test repo using --url (works from any cwd).
  * Credentials come from .abapGitAgent in repoRoot (abapgit-agent itself).
  */
@@ -263,7 +285,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
       printInfo(`  Drop-test repo not found at ${DROP_REPO_DIR} — cloning...`);
     }
     try {
-      execSync(`git clone ${DROP_REPO_URL} ${DROP_REPO_DIR}`, { encoding: 'utf8', timeout: 60000 });
+      gitExec(`git clone ${DROP_REPO_URL} ${DROP_REPO_DIR}`, { timeout: 60000 });
       printInfo('  Cloned successfully.');
     } catch (e) {
       printError(`  Failed to clone drop-test repo: ${e.message}`);
@@ -322,10 +344,10 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     printInfo(colorize('cyan', `  Testing: ${obj.name}`));
 
     // Step 1: view → confirm object exists in ABAP system
-    // Ensure clean state for objects that might have been cascade-deleted by a previous test
-    if (obj.type === 'INTF' || obj.type === 'CLAS' || obj.type === 'ENHO') {
-      runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
-    }
+    // Re-pull every object before testing: a stale ZABGAGT_OBJ_META row from a prior
+    // drop can cause the reset pull to be skipped for any object type, leaving the object
+    // absent from TADIR when we try to drop it.
+    runPullFromDropRepo(agentBin, obj.file, ['--conflict-mode', 'ignore']);
     const existsBefore = objectExists(agentBin, repoRoot, obj);
     addResult(`${obj.name} — exists before drop`, existsBefore);
 
@@ -360,7 +382,12 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
       // ENHO enhances ZCL_ABGAGT_DRP_TEST; after CLAS drop/re-pull the enhancement is gone — restore it
       runPullFromDropRepo(agentBin, 'src/zabgagt_drp_enho.enho.xml', ['--conflict-mode', 'ignore']);
     }
-    const existsAfterPull = objectExists(agentBin, repoRoot, obj);
+    // After a pull, TADIR writes may not be flushed immediately.
+    // Poll for all types to avoid false negatives.
+    // MSAG gets 90s — message classes have a two-phase write (MT_MSG + TADIR) and
+    // can take >45s to appear on heavily loaded systems. All other types use 45s.
+    const pollTimeout = obj.type === 'MSAG' ? 90000 : 45000;
+    const existsAfterPull = waitUntilExists(agentBin, repoRoot, obj, pollTimeout);
     addResult(`${obj.name} — exists after re-pull`, existsAfterPull);
 
     printInfo('');

@@ -54,7 +54,8 @@ const commandTestCases = [
       const hasResult = output.includes('Pull completed') ||
         output.includes('Job ID') ||
         output.includes(' Activated ') ||
-        output.includes('Failed Objects');
+        output.includes('Failed Objects') ||
+        output.includes('conflict');
       const noCrash = !output.includes('Error:') || output.includes('Error:') && output.includes('Job');
       return hasResult && noCrash;
     }

@@ -108,6 +108,17 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RAISING
         zcx_abapgit_exception.
 
+    " Type alias for the deduplication index used in build_file_entries_from_remote
+    TYPES ty_entries_idx TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
+                          WITH UNIQUE KEY obj_type obj_name.
+
+    METHODS upsert_source_priority
+      IMPORTING
+        is_entry    TYPE zif_abgagt_conflict_detector=>ty_file_entry
+        iv_is_xml   TYPE abap_bool
+      CHANGING
+        ct_idx      TYPE ty_entries_idx.
+
     METHODS run_conflict_check
       IMPORTING
         it_files           TYPE string_table OPTIONAL
@@ -663,6 +674,21 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
+  METHOD upsert_source_priority.
+    " Insert or update ct_idx with source-file priority:
+    "   No existing entry        → INSERT (any file type)
+    "   Existing + source file   → MODIFY (source overwrites XML companion)
+    "   Existing + XML file      → skip  (keep existing source entry)
+    READ TABLE ct_idx WITH TABLE KEY obj_type = is_entry-obj_type
+                                     obj_name = is_entry-obj_name
+      TRANSPORTING NO FIELDS.
+    IF sy-subrc <> 0.
+      INSERT is_entry INTO TABLE ct_idx.
+    ELSEIF iv_is_xml = abap_false.
+      MODIFY TABLE ct_idx FROM is_entry.
+    ENDIF.
+  ENDMETHOD.
+
   METHOD run_conflict_check.
     " Run conflict detection and return results.
     " rv_aborted = abap_true  → caller must abort the pull.
@@ -671,7 +697,12 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
 
     et_file_entries = build_file_entries_from_remote( it_files ).
 
-    IF iv_conflict_mode = 'ignore' OR et_file_entries IS INITIAL.
+    " Always return file entries so the caller can store pull metadata (ZABGAGT_OBJ_META).
+    " When conflict_mode = 'ignore', skip the conflict check but still populate et_file_entries.
+    IF et_file_entries IS INITIAL.
+      RETURN.
+    ENDIF.
+    IF iv_conflict_mode = 'ignore'.
       RETURN.
     ENDIF.
 
@@ -768,6 +799,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
+    " Hashed index for deduplication: source files (.abap/.asddls) take priority over
+    " companion XML files for the same object (e.g. .intf.abap wins over .intf.xml).
+    DATA lt_entries_idx TYPE ty_entries_idx.
+
     LOOP AT mt_remote_files INTO DATA(ls_remote_file).
       DATA(lv_filename) = ls_remote_file-filename.
 
@@ -781,7 +816,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
       DATA(lv_suffix_off) = lv_ext_len - lv_last_dot - 1.
       DATA(lv_true_ext) = lv_ext+lv_suffix_off.
-      IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS'.
+      IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS' AND lv_true_ext <> '.XML'.
         CONTINUE.
       ENDIF.
 
@@ -824,8 +859,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ls_entry-obj_type = lv_obj_type.
       ls_entry-obj_name = lv_obj_name.
       ls_entry-content  = lv_content.
-      APPEND ls_entry TO rt_entries.
+      upsert_source_priority(
+        EXPORTING is_entry  = ls_entry
+                  iv_is_xml = xsdbool( lv_true_ext = '.XML' )
+        CHANGING  ct_idx    = lt_entries_idx ).
     ENDLOOP.
+
+    rt_entries = VALUE #( FOR ls IN lt_entries_idx ( ls ) ).
 
     " Read local ABAP system files to enable content-based change detection.
     " A failure here must NOT wipe rt_entries — remote file data is already
@@ -849,8 +889,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     CHECK lv_local_read_ok = abap_true.
 
     " Build lookup: obj_type + obj_name → local file content (main source only)
-    DATA lt_local_idx TYPE HASHED TABLE OF zif_abgagt_conflict_detector=>ty_file_entry
-                      WITH UNIQUE KEY obj_type obj_name.
+    DATA lt_local_idx TYPE ty_entries_idx.
 
     LOOP AT lt_local INTO DATA(ls_local_item).
       DATA(lv_local_fn) = to_upper( ls_local_item-file-filename ).
@@ -861,7 +900,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
       DATA(lv_local_off) = lv_local_len - lv_local_dot - 1.
       DATA(lv_local_ext) = lv_local_fn+lv_local_off.
-      IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS'.
+      IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS' AND lv_local_ext <> '.XML'.
         CONTINUE.
       ENDIF.
       IF lv_local_fn CS '.TESTCLASSES.' OR lv_local_fn CS '.LOCALS_DEF.' OR lv_local_fn CS '.LOCALS_IMP.'.
@@ -880,7 +919,10 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ls_local_idx-obj_type      = ls_local_item-item-obj_type.
       ls_local_idx-obj_name      = ls_local_item-item-obj_name.
       ls_local_idx-local_content = lv_local_content.
-      INSERT ls_local_idx INTO TABLE lt_local_idx.
+      upsert_source_priority(
+        EXPORTING is_entry  = ls_local_idx
+                  iv_is_xml = xsdbool( lv_local_ext = '.XML' )
+        CHANGING  ct_idx    = lt_local_idx ).
     ENDLOOP.
 
     " Populate local_content in rt_entries from lookup
