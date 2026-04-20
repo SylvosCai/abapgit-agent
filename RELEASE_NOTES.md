@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.17.8
+
+### Bug Fixes
+
+- Skip tag creation if tag already exists at HEAD
+
+---
+
+---
+
+
 ## v1.17.7
 
 ### New Features
