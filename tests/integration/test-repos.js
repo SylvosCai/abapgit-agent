@@ -11,7 +11,9 @@
  *     "pull":      "https://github.com/your-org/abgagt-pull-test.git",
  *     "drop":      "https://github.com/your-org/abgagt-drop-test.git",
  *     "customize": "https://github.com/your-org/abgagt-customize-test.git",
- *     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git"
+ *     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git",
+ *     "run":       "https://github.com/your-org/abgagt-run-test.git",
+ *     "syntax":    "https://github.com/your-org/abgagt-syntax-test.git"
  *   }
  *
  * If a key is absent the default (github.tools.sap) URL is used, so existing
@@ -28,6 +30,8 @@ const DEFAULTS = {
   drop:      'https://github.com/SylvosCai/abgagt-drop-test.git',
   customize: 'https://github.com/SylvosCai/abgagt-customize-test.git',
   lifecycle: 'https://github.com/SylvosCai/abgagt-lifecycle-test.git',
+  run:       'https://github.com/SylvosCai/abgagt-run-test.git',
+  syntax:    'https://github.com/SylvosCai/abgagt-syntax-test.git',
 };
 
 /**
@@ -60,7 +64,7 @@ const _overrides = loadTestRepos();
  * Returns the URL for the given test repo key, preferring any override
  * configured in .abapGitAgent over the built-in default.
  *
- * @param {'pull'|'drop'|'customize'|'lifecycle'} key
+ * @param {'pull'|'drop'|'customize'|'lifecycle'|'run'|'syntax'} key
  * @returns {string}
  */
 function getTestRepoUrl(key) {

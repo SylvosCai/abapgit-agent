@@ -64,7 +64,7 @@ skips all registration/activation steps — adding only a few seconds overhead.
 |---|---|---|---|
 | Unit (Jest) | `npm test` | JavaScript code, no ABAP needed | — |
 | AUnit | `npm run test:aunit` | ABAP test classes | project package |
-| Command | `npm run test:cmd` | All CLI commands end-to-end | project package |
+| Command | `npm run test:cmd` | All CLI commands end-to-end | project package (see note) |
 | Pull workflow | `npm run test:pull` | Git ref switching (tags/branches) | `$ABGAGT_PULL_TEST` |
 | Full pull | `npm run test:full-pull` | Pull without `--files` | `$ABGAGT_PULL_TEST` |
 | Conflict detection | `npm run test:conflict` | Conflict abort / ignore modes | `$ABGAGT_PULL_TEST` |
@@ -73,8 +73,12 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | Drop | `npm run test:drop` | `drop` command per object type | `$ABGAGT_DROP_TEST` |
 | Customize | `npm run test:customize` | `customize` command (C-class tables) | `$ABGAGT_CUS_TST` |
 | Lifecycle | `npm run test:lifecycle` | `init → create → import → delete` | `$ABGAGT_LIFECYCLE_TEST` |
+| Run | `npm run test:cmd -- --command=run` | `run --program` and `run --class` | `$ABGAGT_RUN_TEST` |
+| Syntax (FUGR) | `npm run test:cmd -- --command=syntax` | FUGR function group syntax checks | `$ABGAGT_SYNTAX_TEST` |
 | JUnit output | `npm run test:junit` | `--junit-output` flag | project package |
 | Debug | `npm run test:debug` | Breakpoint management (ADT) | project package |
+
+> **Note:** Most command tests use objects in the project package. Exceptions: `run` tests require `$ABGAGT_RUN_TEST`, and `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST` — both are set up automatically by the setup phase.
 
 ### Running a single command suite
 
@@ -107,6 +111,8 @@ pushes, abapGit registrations). This means:
    - `github.com/SylvosCai/abgagt-customize-test`
    - `github.com/SylvosCai/abgagt-lifecycle-test`
    - `github.com/SylvosCai/abgagt-debug-test`
+   - `github.com/SylvosCai/abgagt-run-test`
+   - `github.com/SylvosCai/abgagt-syntax-test`
 
 2. Add a `testRepos` section to `.abapGitAgent` pointing to your forks
    (this file is gitignored and never committed):
@@ -118,7 +124,9 @@ pushes, abapGit registrations). This means:
     "drop":      "https://github.com/your-org/abgagt-drop-test.git",
     "customize": "https://github.com/your-org/abgagt-customize-test.git",
     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git",
-    "debug":     "https://github.com/your-org/abgagt-debug-test.git"
+    "debug":     "https://github.com/your-org/abgagt-debug-test.git",
+    "run":       "https://github.com/your-org/abgagt-run-test.git",
+    "syntax":    "https://github.com/your-org/abgagt-syntax-test.git"
   }
 }
 ```

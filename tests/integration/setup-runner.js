@@ -22,6 +22,12 @@
  *   debug tests (breakpoint management — debug-runner.js)
  *     → clone abgagt-debug-test, inject .abapGitAgent, register, activate debug objects
  *
+ *   run tests
+ *     → clone abgagt-run-test, inject .abapGitAgent, register, activate ZABGAGT_RUN_TEST + ZCL_ABGAGT_RUN_TEST
+ *
+ *   syntax tests (FUGR)
+ *     → clone abgagt-syntax-test, inject .abapGitAgent, register, activate ZABGAGT_ST_FG + ZABGAGT_ST_ERR
+ *
  *   command tests / aunit tests / junit tests
  *     → no special setup needed (use existing project objects in ABAP)
  *
@@ -97,6 +103,28 @@ const REPOS = [
     folder:  '/src/',
     activateFiles: null,
     checkObject: null  // no ABAP check — just ensure clone exists
+  },
+  {
+    key:     'run',
+    cloneDir: path.join(os.tmpdir(), 'abgagt-run-test'),
+    package: '$ABGAGT_RUN_TEST',
+    folder:  '/src/',
+    activateFiles: [
+      'src/zabgagt_run_test.prog.abap',
+      'src/zcl_abgagt_run_test.clas.abap'
+    ],
+    checkObject: { name: 'ZCL_ABGAGT_RUN_TEST', type: 'CLAS' }
+  },
+  {
+    key:     'syntax',
+    cloneDir: path.join(os.tmpdir(), 'abgagt-syntax-test'),
+    package: '$ABGAGT_SYNTAX_TEST',
+    folder:  '/src/',
+    activateFiles: [
+      'src/zabgagt_st_fg.fugr.xml',
+      'src/zabgagt_st_err.fugr.xml'
+    ],
+    checkObject: { name: 'ZABGAGT_ST_FG', type: 'FUGR' }
   }
 ];
 
