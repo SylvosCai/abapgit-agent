@@ -4,15 +4,16 @@ This project uses [abapgit-agent](https://github.com/SylvosCai/abapgit-agent) fo
 
 ## IMPORTANT: Before Writing Any ABAP Code
 
-Read the full ABAP development guide by running:
+Read the condensed AI instructions by running:
 
 ```bash
-abapgit-agent guide
+abapgit-agent guide --ai
 ```
 
-**Never pipe `abapgit-agent guide` or `abapgit-agent ref` through `head`, `tail`, or any other truncation command. Always read the full output.**
+**Never pipe `abapgit-agent guide --ai` or `abapgit-agent ref` through `head`, `tail`, or any other truncation command. Always read the full output.**
 
-This guide covers: development workflow, ABAP syntax guidelines, object naming, unit testing, and debugging.
+This covers: all AI tool rules, the workflow decision tree, and the full guidelines index.
+For the complete human-readable guide (workflow examples, explanations): `abapgit-agent guide`
 
 > **Humans:** Full guide online at https://sylvoscai.github.io/abapgit-agent/pages/abap-coding-guidelines.html
 

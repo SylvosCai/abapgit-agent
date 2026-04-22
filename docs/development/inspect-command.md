@@ -23,11 +23,14 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 # With path
 abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
-# With Code Inspector variant
+# With Code Inspector variant (explicit)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
 
 # With no variant (uses default SAP standard checks)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
+
+# Without --variant: uses inspect.variant from .abapgit-agent.json if set, else system default
+abapgit-agent inspect --files src/zcl_my_class.clas.abap
 ```
 
 ## Prerequisite
@@ -40,7 +43,25 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--files` | Yes | Comma-separated list of files to inspect |
-| `--variant` | No | Code Inspector variant name (e.g., `ALL_CHECKS`, `EMPTY`) |
+| `--variant` | No | Code Inspector variant name. Overrides `inspect.variant` in `.abapgit-agent.json`. |
+
+## Variant Resolution
+
+The Code Inspector variant is resolved in this order:
+
+1. `--variant` CLI flag (highest priority)
+2. `inspect.variant` in `.abapgit-agent.json` (project default)
+3. System default (lowest priority)
+
+Set the project default in `.abapgit-agent.json` so all developers and CI use the same variant without specifying it each time:
+
+```json
+{
+  "inspect": {
+    "variant": "MY_VARIANT"
+  }
+}
+```
 
 ---
 

@@ -114,6 +114,30 @@ describe('Inspect Command - Logic Tests', () => {
 
       expect(variant).toBe('EMPTY');
     });
+
+    test('CLI --variant overrides project config variant', () => {
+      const variantArg = 'CLI_VARIANT';
+      const inspectConfig = { variant: 'PROJECT_VARIANT' };
+      const variant = variantArg || inspectConfig.variant || null;
+
+      expect(variant).toBe('CLI_VARIANT');
+    });
+
+    test('falls back to project config variant when no --variant flag', () => {
+      const variantArg = null;
+      const inspectConfig = { variant: 'PROJECT_VARIANT' };
+      const variant = variantArg || inspectConfig.variant || null;
+
+      expect(variant).toBe('PROJECT_VARIANT');
+    });
+
+    test('variant is null when neither CLI flag nor project config set', () => {
+      const variantArg = null;
+      const inspectConfig = { variant: null };
+      const variant = variantArg || inspectConfig.variant || null;
+
+      expect(variant).toBeNull();
+    });
   });
 
   describe('Response handling', () => {
@@ -283,6 +307,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -320,6 +345,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -373,6 +399,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -422,6 +449,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -481,6 +509,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue(mockResult)
@@ -537,6 +566,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -568,6 +598,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -595,6 +626,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -625,6 +657,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -655,6 +688,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -677,6 +711,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{

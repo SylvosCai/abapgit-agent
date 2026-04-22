@@ -362,6 +362,9 @@ Examples:
       if (success === 'X' || success === true) {
         console.log(`✅ Pull completed successfully!`);
         console.log(`   Message: ${message || 'N/A'}`);
+        if (activatedCount === 0 && files && !isRepull) {
+          console.warn(`⚠️  ACTIVATED_COUNT: 0 — no objects were activated. Check for unpushed commits: git log origin/<branch>..HEAD`);
+        }
       } else if (failedCount === 0 && failedObjects.length === 0 &&
                  activatedCount === 0 && logMessages.length === 0 &&
                  (!message || /activation cancelled|nothing to activate|already active/i.test(message))) {
@@ -522,20 +525,40 @@ Examples:
           const quotedPaths = diffFiles.map(f => `"${f.relPath}"`).join(' ');
           execSync(`git add ${quotedPaths}`, { cwd: process.cwd() });
 
-          // 3. Amend last commit
+          // 3. Capture pre-amend SHA before amending (used for --force-with-lease below)
+          const preAmendSha = execSync('git rev-parse HEAD', { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
+
+          // 3b. Check whether origin/<branch> already exists on the remote.
+          //     Use git ls-remote rather than rev-parse origin/<branch> because the local
+          //     remote-tracking ref may not exist even when the branch is on the remote
+          //     (e.g. after a push that only wrote branch config but not refs/remotes/).
+          let remoteRefExists = false;
+          try {
+            const lsOut = execSync(`git ls-remote origin "refs/heads/${branch}"`, { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
+            remoteRefExists = lsOut.length > 0;
+          } catch (_) { /* cannot reach remote — treat as new branch */ }
+
+          // 4. Amend last commit
           execSync('git commit --amend --no-edit', { cwd: process.cwd() });
 
-          // 4. Push with force-with-lease; fetch first so tracking ref is current
-          //    (the remote may have been force-pushed by another process between our last
-          //    fetch and this push — a fetch makes --force-with-lease reliable)
+          // 5. Push with force-with-lease using the pre-amend SHA as the expected remote value.
+          //    Using --force-with-lease=<refname>:<sha> tells git: "the remote must have exactly
+          //    <preAmendSha> — if it does, replace it with our amended commit".
+          //    Plain --force-with-lease (no sha) re-checks the tracking ref which was just updated
+          //    by git fetch, making it always fail after an amend.
           let pushed = false;
           try {
-            try { execSync('git fetch origin', { cwd: process.cwd(), stdio: 'pipe' }); } catch (_) { /* no remote is fine */ }
             // Retry the push up to 3 times on transient server errors (e.g. GitHub Enterprise 500)
             let pushErr;
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
-                execSync('git push --force-with-lease', { cwd: process.cwd(), stdio: 'pipe' });
+                // If origin/<branch> exists: use --force-with-lease=branch:preAmendSha so we only
+                // overwrite if the remote still has the pre-amend commit (safe concurrent guard).
+                // If origin/<branch> doesn't exist yet: plain push with --set-upstream (no lease needed).
+                const pushCmd = remoteRefExists
+                  ? `git push --set-upstream origin ${branch} --force-with-lease=${branch}:${preAmendSha}`
+                  : `git push --set-upstream origin ${branch}`;
+                execSync(pushCmd, { cwd: process.cwd(), stdio: 'pipe' });
                 pushed = true;
                 break;
               } catch (err) {
@@ -550,13 +573,7 @@ Examples:
               }
             }
           } catch (pushErr) {
-            const msg = (pushErr.stderr || pushErr.stdout || pushErr.message || '').toString();
-            if (msg.includes('no upstream branch') || msg.includes('has no upstream')) {
-              // Branch not yet pushed — set upstream and force push (amend requires force)
-              execSync(`git push --force-with-lease --set-upstream origin ${branch}`, { cwd: process.cwd(), stdio: 'pipe' });
-              pushed = true;
-            }
-            // Any other push error (no remote at all, auth failure, etc.) → skip silently
+            // Any push error (no remote, auth failure, etc.) → skip silently
           }
 
           if (pushed) {

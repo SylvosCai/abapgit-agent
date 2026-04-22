@@ -18,6 +18,10 @@ grand_parent: ABAP Development
 5. Key Classes and Methods - line 170
 6. Important Usage Notes - line 190
 
+> **"TDD a CDS view" means: write the reader class with test doubles, not tests on the view itself.**
+> CDS views have no test file — tests live in the reader class's `.clas.testclasses.abap`.
+> Development sequence: create the CDS view first (activate it), then create the reader class, then write tests using `CL_CDS_TEST_ENVIRONMENT`.
+
 ---
 
 ## 1. When to Use CDS Test Doubles
@@ -41,6 +45,14 @@ without affecting production data, and keeps tests fast and isolated.
 
 The test class lives in `<classname>.clas.testclasses.abap`. The CDS view itself has no
 `.testclasses` file — test it through a regular ABAP class that reads it.
+
+**Development sequence for a CDS view (CDS-first by necessity):**
+> ⚠️  Unlike pure ABAP TDD, the test class cannot compile until the CDS view is active in
+> the ABAP system. Activate the CDS view first, then write the reader class with test doubles.
+1. Write the CDS view DDL (`.ddls.asddls`)
+2. Write a reader class that SELECTs from the view
+3. Write test class in the reader's `.testclasses.abap` using `CL_CDS_TEST_ENVIRONMENT`
+4. Pull CDS view first, then pull reader class (DDIC must be active before class compiles)
 
 ```abap
 "-------------------------

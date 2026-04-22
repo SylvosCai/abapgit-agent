@@ -3,5 +3,8 @@
     "allowCreate": false,
     "allowRelease": false,
     "reason": "No need to transport"
+  },
+  "inspect": {
+    "variant": "ZACS_CI"
   }
 }

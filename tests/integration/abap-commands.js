@@ -26,7 +26,7 @@
  *   - unit:    2 tests  (test class, --junit-output)
  *   - run:     2 tests (run program, run class)
  *   - status:  1 test  (config check)
- *   - inspect: 2 tests  (code inspector, --junit-output)
+ *   - inspect: 3 tests  (code inspector, --junit-output, project config variant)
  *   - health:  1 test  (system health)
  *   Total:    98 tests
  *
@@ -62,7 +62,7 @@ const commandTestCases = [
   },
 
   // ===================================================================
-  // INSPECT COMMAND - 2 tests
+  // INSPECT COMMAND - 3 tests
   // Purpose: Run Code Inspector checks on activated objects
   // ===================================================================
   {
@@ -76,6 +76,16 @@ const commandTestCases = [
         output.includes('Syntax check failed');
       const hasObject = output.includes('ZCL_ABGAGT_UTIL') || output.includes('CLAS');
       return hasResult && hasObject;
+    }
+  },
+  {
+    command: 'inspect',
+    name: 'inspect uses project config variant (ZACS_CI from .abapgit-agent.json)',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Variant from project config should be logged with "(from project config)" marker
+      return output.includes('Using variant: ZACS_CI (from project config)');
     }
   },
   {

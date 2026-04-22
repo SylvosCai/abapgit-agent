@@ -46,6 +46,9 @@ committed to git).
       "src/zbp_*.clas.abap"
     ]
   },
+  "inspect": {
+    "variant": "MY_VARIANT"
+  },
   "transports": {
     "allowCreate": false,
     "allowRelease": false,
@@ -132,6 +135,24 @@ When `threshold > 0`, a class whose coverage falls below the threshold gets a
 `coverage_threshold` failure injected into its JUnit testsuite — the Jenkins test report
 shows the failure under the class it belongs to, with the actual rate in the message
 (e.g. `ZCL_MY_CLASS: coverage 20% is below threshold 80%`).
+
+---
+
+## `inspect`
+
+Code Inspector settings. The variant is a **project-level agreement** — the Code Inspector
+variant the whole team (and CI) uses for this codebase. By versioning it here, all developers
+get the same checks without having to remember a `--variant` flag.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `variant` | string | `null` (system default) | Code Inspector variant name. Overridden by `--variant` CLI flag. |
+
+```json
+"inspect": {
+  "variant": "MY_VARIANT"
+}
+```
 
 ---
 

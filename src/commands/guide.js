@@ -178,6 +178,13 @@ module.exports = {
     console.log('');
   },
 
+  _extractAiContent(content) {
+    const marker = '<!-- AI-CONDENSED-START -->';
+    const markerIndex = content.indexOf(marker);
+    if (markerIndex === -1) return content;
+    return content.slice(markerIndex + marker.length).trimStart();
+  },
+
   async execute(args) {
     if (args.includes('--migrate')) {
       return this._runMigrate(args);
@@ -196,6 +203,16 @@ module.exports = {
     }
 
     const content = fs.readFileSync(filePath, 'utf8');
+
+    if (args.includes('--ai')) {
+      const aiContent = this._extractAiContent(content);
+      if (args.includes('--json')) {
+        console.log(JSON.stringify({ path: filePath, content: aiContent }));
+        return;
+      }
+      console.log(aiContent);
+      return;
+    }
 
     if (args.includes('--json')) {
       console.log(JSON.stringify({ path: filePath, content }));

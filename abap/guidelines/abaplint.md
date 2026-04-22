@@ -207,6 +207,8 @@ on rv_result — no intermediate lv_response variable at all.
 
 Run this before pushing to catch issues early, matching what CI does.
 
+**Always use `abapgit-agent lint` — never run `npx abaplint` or `@abaplint/cli` directly.**
+
 ```bash
 abapgit-agent lint
 ```

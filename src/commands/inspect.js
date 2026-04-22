@@ -248,7 +248,7 @@ module.exports = {
   requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp } = context;
+    const { loadConfig, AbapHttp, getInspectConfig } = context;
 
     if (args.includes('--help') || args.includes('-h')) {
       console.log(`
@@ -287,9 +287,11 @@ Examples:
 
     const filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
-    // Parse optional --variant parameter
+    // Parse optional --variant parameter; fall back to project config
     const variantArgIndex = args.indexOf('--variant');
-    const variant = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
+    const variantArg = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
+    const inspectConfig = getInspectConfig();
+    const variant = variantArg || inspectConfig.variant || null;
 
     // Parse optional --junit-output parameter
     const junitArgIndex = args.indexOf('--junit-output');
@@ -298,7 +300,8 @@ Examples:
     if (!jsonOutput) {
       console.log(`\n  Inspect for ${filesSyntaxCheck.length} file(s)`);
       if (variant) {
-        console.log(`  Using variant: ${variant}`);
+        const source = variantArg ? '' : ' (from project config)';
+        console.log(`  Using variant: ${variant}${source}`);
       }
       if (junitOutput) {
         console.log(`  JUnit output: ${junitOutput}`);

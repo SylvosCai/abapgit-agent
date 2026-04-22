@@ -629,6 +629,67 @@ describe('Pull Command - CLI Output Format', () => {
 
     expect(consoleOutput.join('\n')).toContain('already active');
   });
+
+  test('warns when success=X but ACTIVATED_COUNT=0 and --files was specified', async () => {
+    jest.resetModules();
+    const pullCommand = require('../../src/commands/pull');
+
+    const consoleWarnOutput = [];
+    const originalWarn = console.warn;
+    console.warn = jest.fn((...args) => consoleWarnOutput.push(args.join(' ')));
+
+    const mockPost = jest.fn().mockResolvedValue({
+      success: 'X',
+      message: 'Pull completed successfully',
+      activated_count: 0,
+      failed_count: 0,
+      log_messages: [],
+      activated_objects: [],
+      failed_objects: []
+    });
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'main',
+      ['src/zcl_foo.clas.abap'], null,
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      false
+    );
+
+    console.warn = originalWarn;
+    expect(consoleWarnOutput.join('\n')).toMatch(/ACTIVATED_COUNT: 0/);
+    expect(consoleWarnOutput.join('\n')).toMatch(/git log origin/);
+  });
+
+  test('does not warn about ACTIVATED_COUNT=0 when no --files specified', async () => {
+    jest.resetModules();
+    const pullCommand = require('../../src/commands/pull');
+
+    const consoleWarnOutput = [];
+    const originalWarn = console.warn;
+    console.warn = jest.fn((...args) => consoleWarnOutput.push(args.join(' ')));
+
+    const mockPost = jest.fn().mockResolvedValue({
+      success: 'X',
+      message: 'Pull completed successfully',
+      activated_count: 0,
+      failed_count: 0,
+      log_messages: [],
+      activated_objects: [],
+      failed_objects: []
+    });
+
+    await pullCommand.pull(
+      'https://github.com/test/repo.git', 'main',
+      null, null,
+      jest.fn(() => ({ host: 'test', port: 443 })),
+      jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post: mockPost })),
+      false
+    );
+
+    console.warn = originalWarn;
+    expect(consoleWarnOutput.join('\n')).not.toMatch(/ACTIVATED_COUNT: 0/);
+  });
 });
 
 describe('Pull Command - Safeguard Validation', () => {
@@ -1712,6 +1773,12 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const ctx = makeXmlContext({ postMock });
 
+    // git rev-parse HEAD returns a SHA before amend; origin/main exists (branch already pushed)
+    mockExecSyncHolder.fn.mockImplementation((cmd) => {
+      if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git ls-remote origin "refs/heads/main"') return 'abc1234\trefs/heads/main\n';
+    });
+
     await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
 
     // 1. File written with serializer content
@@ -1732,9 +1799,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       expect.any(Object)
     );
 
-    // 4. git push --force-with-lease called
+    // 4. git push --set-upstream origin <branch> --force-with-lease=<branch>:<preAmendSha> called
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      'git push --force-with-lease',
+      'git push --set-upstream origin main --force-with-lease=main:abc1234',
       expect.any(Object)
     );
 
@@ -1749,7 +1816,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     expect(output).toMatch(/re-pulled/);
   });
 
-  test('--sync-xml retries with --set-upstream when branch has no upstream', async () => {
+  test('--sync-xml push always uses --set-upstream to keep remote tracking ref current', async () => {
     const statusResponse = { status: 'Found', transport_required: false };
     const postMock = jest.fn()
       .mockResolvedValueOnce(statusResponse)
@@ -1767,12 +1834,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       });
 
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
-      if (cmd === 'git push --force-with-lease') {
-        const err = new Error('no upstream branch');
-        err.stderr = 'fatal: The current branch feature/foo has no upstream branch.';
-        throw err;
-      }
-      // --set-upstream push succeeds
+      if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git ls-remote origin "refs/heads/main"') return 'abc1234\trefs/heads/main\n'; // branch already pushed
+      // primary push (with --set-upstream) succeeds
     });
 
     const pullCommand = require('../../src/commands/pull');
@@ -1783,9 +1847,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
 
-    // --force-with-lease --set-upstream push was called
+    // push always uses --set-upstream so remote tracking ref stays current
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      expect.stringMatching(/git push --force-with-lease --set-upstream origin/),
+      'git push --set-upstream origin main --force-with-lease=main:abc1234',
       expect.any(Object)
     );
 
@@ -1810,8 +1874,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       });
 
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
-      if (cmd === 'git push --force-with-lease') throw new Error('remote: not found');
-      // --set-upstream would also fail for truly no remote, but we never reach it
+      if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git ls-remote origin "refs/heads/main"') throw new Error('unable to connect to remote');
+      if (cmd === 'git push --set-upstream origin main') throw new Error('remote: repository not found');
     });
 
     const pullCommand = require('../../src/commands/pull');
@@ -1831,6 +1896,53 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     expect(output).toMatch(/Synced 1 XML file\(s\)/);
     expect(output).toMatch(/Push skipped/);
     expect(output).not.toMatch(/re-pulled/);
+  });
+
+  test('--sync-xml uses plain push (no --force-with-lease) when branch not yet on remote', async () => {
+    const statusResponse = { status: 'Found', transport_required: false };
+    const postMock = jest.fn()
+      .mockResolvedValueOnce(statusResponse)
+      .mockResolvedValueOnce({
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: [
+          { path: '/src/', filename: 'zcl_test.clas.xml', data: encode('<xml>new</xml>') }
+        ]
+      })
+      .mockResolvedValueOnce({
+        success: 'X',
+        message: 'Pull completed successfully',
+        local_xml_files: []
+      });
+
+    mockExecSyncHolder.fn.mockImplementation((cmd) => {
+      if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git ls-remote origin "refs/heads/main"') return ''; // branch not yet on remote
+      // plain push (no --force-with-lease) succeeds
+    });
+
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+
+    const ctx = makeXmlContext({ postMock });
+
+    await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
+
+    // When branch not on remote: plain push with --set-upstream only (no lease check)
+    expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+      'git push --set-upstream origin main',
+      expect.any(Object)
+    );
+    // Force-with-lease variant must NOT have been called
+    expect(mockExecSyncHolder.fn).not.toHaveBeenCalledWith(
+      expect.stringContaining('--force-with-lease'),
+      expect.any(Object)
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Synced 1 XML file\(s\)/);
+    expect(output).toMatch(/re-pulled/);
   });
 
   test('--sync-xml does nothing when no files differ', async () => {

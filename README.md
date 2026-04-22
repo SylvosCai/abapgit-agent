@@ -68,6 +68,7 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap   # Check syntax before 
 abapgit-agent inspect --files src/zcl_my_class.clas.abap  # Code Inspector after pull
 abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap  # Run AUnit tests
 abapgit-agent run --class ZCL_MY_RUNNER                   # Execute class headlessly
+abapgit-agent run --program ZMY_PROGRAM                   # Execute report/program headlessly
 ```
 
 ### Explore

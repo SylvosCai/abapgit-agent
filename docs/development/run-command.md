@@ -188,6 +188,15 @@ The class must implement `IF_OO_ADT_CLASSRUN`. The `main( out )` method is calle
 
 **Key advantage:** `out->write()` accepts any ABAP data object — scalars, structures, internal tables — and formats them automatically. No manual `WRITE` statements needed.
 
+| Call | Output |
+|------|--------|
+| `out->write( 'Hello!' )` | `Hello!` |
+| `out->write( lv_count )` | `42` |
+| `out->write( data = ls_flight name = 'Flight' )` | `Flight` header + field-name columns + one row |
+| `out->write( data = lt_flights name = 'Flights' )` | `Flights` header + field-name columns + one row per entry |
+
+The `name =` parameter adds a label before the output. Structures and internal tables are rendered as a columnar table with field names as headers.
+
 #### Minimal class template
 
 ```abap

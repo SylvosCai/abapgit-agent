@@ -23,6 +23,49 @@ User: "Now run it"
 → ✓ Run it
 ```
 
+**For ABAP programs (PROG type)** — use `--program` instead of `--class`:
+
+```bash
+abapgit-agent run --program ZR_MY_REPORT
+```
+
+`--program` works identically to `--class` for programs that implement `IF_OO_ADT_CLASSRUN`. Use it whenever the object type is PROG, not CLAS.
+
+---
+
+## Writing a Runner Class (`IF_OO_ADT_CLASSRUN`)
+
+`out->write()` accepts any ABAP data object and formats it automatically — no manual `WRITE` statements needed.
+
+```abap
+CLASS zcl_my_runner DEFINITION PUBLIC FINAL CREATE PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES if_oo_adt_classrun.
+ENDCLASS.
+
+CLASS zcl_my_runner IMPLEMENTATION.
+  METHOD if_oo_adt_classrun~main.
+    " Scalar
+    out->write( 'Hello!' ).
+
+    " Internal table — rendered as column headers + one row per entry
+    SELECT carrid, connid, price FROM sflight INTO TABLE @DATA(lt_flights).
+    out->write( data = lt_flights name = 'Flights' ).
+  ENDMETHOD.
+ENDCLASS.
+```
+
+**Output format (verified on live system):**
+
+| Call | Output |
+|------|--------|
+| `out->write( 'text' )` | `text` |
+| `out->write( lv_int )` | `42` |
+| `out->write( data = ls_struc name = 'Label' )` | `Label` + field-name headers + one data row |
+| `out->write( data = lt_itab name = 'Label' )` | `Label` + field-name headers + one row per table entry |
+
+The `name =` parameter is optional — it adds a label above the output. Structures and internal tables are rendered as a columnar table with ABAP field names as headers.
+
 ---
 
 ## Probe Classes and `scratchWorkspace`

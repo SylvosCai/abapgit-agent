@@ -315,6 +315,20 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     addResult('[--files] working tree is clean after sync',
       gitStatus === '',
       `git status: ${gitStatus}`);
+
+    // Verify remote tracking ref was updated: origin/<branch> must exist and match HEAD
+    let remoteTrackingOk = false;
+    let remoteTrackingHint = '';
+    try {
+      const originSha = execSync(`git rev-parse origin/${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8', stdio: 'pipe' }).trim();
+      remoteTrackingOk = (originSha === shaAfter);
+      remoteTrackingHint = remoteTrackingOk ? '' : `origin/${TEST_BRANCH}=${originSha.slice(0, 7)} HEAD=${shaAfter.slice(0, 7)}`;
+    } catch (e) {
+      remoteTrackingHint = `origin/${TEST_BRANCH} ref does not exist — push did not update tracking ref`;
+    }
+    addResult('[--files] remote tracking ref updated after --sync-xml push',
+      remoteTrackingOk,
+      remoteTrackingHint);
   }
   printInfo('');
 
@@ -369,7 +383,8 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
      '[no --files] --sync-xml pull succeeds', '[no --files] "Syncing N XML file(s)" message appears',
      '[no --files] "Synced … amended commit, re-pulled" message appears',
      '[no --files] local XML CATEGORY field removed', '[no --files] git commit was amended (SHA changed)',
-     '[no --files] working tree is clean after sync', '[no --files] pull succeeds (step 7)',
+     '[no --files] working tree is clean after sync', '[no --files] remote tracking ref updated after --sync-xml push',
+     '[no --files] pull succeeds (step 7)',
      '[no --files] no "differ" warning when already in sync'].forEach(name =>
       addResult(name, false, 'restoreBranch failed (git server error)'));
     printInfo('');
@@ -424,6 +439,19 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     addResult('[no --files] working tree is clean after sync',
       gitStatus === '',
       `git status: ${gitStatus}`);
+
+    let remoteTrackingOk = false;
+    let remoteTrackingHint = '';
+    try {
+      const originSha = execSync(`git rev-parse origin/${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8', stdio: 'pipe' }).trim();
+      remoteTrackingOk = (originSha === shaAfter);
+      remoteTrackingHint = remoteTrackingOk ? '' : `origin/${TEST_BRANCH}=${originSha.slice(0, 7)} HEAD=${shaAfter.slice(0, 7)}`;
+    } catch (e) {
+      remoteTrackingHint = `origin/${TEST_BRANCH} ref does not exist — push did not update tracking ref`;
+    }
+    addResult('[no --files] remote tracking ref updated after --sync-xml push',
+      remoteTrackingOk,
+      remoteTrackingHint);
   }
   printInfo('');
 
@@ -464,6 +492,7 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
      '[DTEL] --sync-xml pull succeeds', '[DTEL] "Syncing N XML file(s)" message appears',
      '[DTEL] "Synced … amended commit, re-pulled" message appears', '[DTEL] PARAMID field removed',
      '[DTEL] git commit was amended (SHA changed)', '[DTEL] working tree is clean after sync',
+     '[DTEL] remote tracking ref updated after --sync-xml push',
      '[DTEL] pull succeeds (step 10)', '[DTEL] no "differ" warning when already in sync'].forEach(name =>
       addResult(name, false, 'restoreDtel failed (git server error)'));
   } else {
@@ -530,6 +559,19 @@ function runSyncXmlTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     addResult('[DTEL] working tree is clean after sync',
       gitStatus === '',
       `git status: ${gitStatus}`);
+
+    let remoteTrackingOk = false;
+    let remoteTrackingHint = '';
+    try {
+      const originSha = execSync(`git rev-parse origin/${TEST_BRANCH}`, { cwd: cloneDir, encoding: 'utf8', stdio: 'pipe' }).trim();
+      remoteTrackingOk = (originSha === shaAfter);
+      remoteTrackingHint = remoteTrackingOk ? '' : `origin/${TEST_BRANCH}=${originSha.slice(0, 7)} HEAD=${shaAfter.slice(0, 7)}`;
+    } catch (e) {
+      remoteTrackingHint = `origin/${TEST_BRANCH} ref does not exist — push did not update tracking ref`;
+    }
+    addResult('[DTEL] remote tracking ref updated after --sync-xml push',
+      remoteTrackingOk,
+      remoteTrackingHint);
   }
   printInfo('');
 

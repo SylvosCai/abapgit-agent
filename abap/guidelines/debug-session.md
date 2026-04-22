@@ -163,7 +163,12 @@ until grep -q "Listener active" /tmp/attach.json 2>/dev/null; do sleep 0.3; done
 sleep 1   # brief extra window for the POST to reach ADT
 
 # Trigger in background — MUST stay alive for the whole session
+# Use unit if a test exists, run --class if testing a class runner.
+# Either way the trigger MUST run in background (&) — a foreground trigger
+# blocks the terminal and if interrupted will break the debug session.
 abapgit-agent unit --files src/zcl_my_class.clas.testclasses.abap > /tmp/trigger.json 2>&1 &
+# OR:
+# abapgit-agent run --class ZCL_MY_CLASS > /tmp/trigger.json 2>&1 &
 
 # Poll until breakpoint fires and session JSON appears in attach output
 SESSION=""
@@ -172,6 +177,11 @@ for i in $(seq 1 30); do
   SESSION=$(grep -o '"session":"[^"]*"' /tmp/attach.json 2>/dev/null | head -1 | cut -d'"' -f4)
   [ -n "$SESSION" ] && break
 done
+
+# ⚠️  A session ID with "position":{} (empty) means the breakpoint has NOT fired yet,
+# or the trigger already completed before hitting it.  Do NOT call vars/stack until
+# "position" contains "line" and "isActive":true.  If position stays empty after the
+# trigger finishes, the breakpoint was missed — re-delete, re-set, re-attach, re-trigger.
 
 # Inspect and step — each is an individual call, no --session needed
 abapgit-agent debug stack --json
@@ -190,7 +200,7 @@ rm -f /tmp/attach.json /tmp/trigger.json
 
 > **Four rules for scripted mode:**
 > 1. Wait for `"Listener active"` in the attach output before firing the trigger — this message is printed to stderr (captured in `attach.json`) the moment the listener POST is about to reach ADT. A blind `sleep` is not reliable under system load.
-> 2. Keep the trigger process alive in the background for the entire session — if it exits, the ABAP work process is released and the session ends
+> 2. **Always run the trigger in background (`&`)** — whether using `unit` or `run --class`. A foreground trigger blocks the terminal; if it is interrupted before the debug session completes, the ABAP work process is left frozen. The trigger must stay alive for the entire session.
 > 3. Always finish with `step --type continue` — this releases the frozen work process so the trigger can complete normally
 > 4. **Never pass `--session` to `step/vars/stack`** — it bypasses the daemon IPC and causes `noSessionAttached`. Omit it and let commands auto-load from the saved state file.
 
@@ -199,12 +209,20 @@ rm -f /tmp/attach.json /tmp/trigger.json
 ```bash
 abapgit-agent debug vars   --json                        # all variables
 abapgit-agent debug vars   --name LV_RESULT --json       # one variable
-abapgit-agent debug vars   --expand LT_DATA --json       # drill into table/structure
+abapgit-agent debug vars   --expand LT_DATA --json       # drill into table/structure — expands all rows
 abapgit-agent debug step   --type over --json            # step over
 abapgit-agent debug step   --type into --json            # step into
 abapgit-agent debug step   --type continue --json        # continue to next breakpoint / finish
 abapgit-agent debug stack  --json                        # call stack (shows which test method is active)
 ```
+
+> **`--expand` does not support table-row index notation.** `--expand "LT_DATA[1]"` returns "Variable not found". Use `--expand LT_DATA` to expand all rows, then `--name` on a specific scalar component.
+
+> **Field symbols assigned via `ASSIGNING FIELD-SYMBOL(<fs>)` do not appear in `debug vars` output.** Only named variables (`DATA`, `FINAL`) are listed. To inspect the current loop row, expand the parent table:
+> ```bash
+> abapgit-agent debug vars --expand RT_DATA --json   # table rows visible by index
+> ```
+> Alternatively, step over the assignment and use `--name` on a scalar component directly.
 
 > **`step --type continue` return values:**
 > - `{"continued":true,"finished":true}` — program ran to **completion** (ADT returned HTTP 500, session is over). Do not re-attach.

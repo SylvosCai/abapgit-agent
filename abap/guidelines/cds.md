@@ -342,6 +342,13 @@ When working with CDS view syntax (arithmetic, built-in functions, aggregations,
 
 ### Best Practice: Use CDS View Entity as Type
 
+> ⚠️ **SELECT field list order must match the CDS view field order** when selecting into a typed table. A mismatch causes a compile-time error ("data type of component X is not compatible with Y"). Safe alternatives:
+> - `SELECT * FROM zc_my_view INTO TABLE @rt_data` — always order-safe
+> - `SELECT ... INTO CORRESPONDING FIELDS OF TABLE @rt_data` — order-independent
+> - `SELECT FROM zc_my_view FIELDS field1, field2 INTO TABLE @rt_data` — modern syntax, order-safe
+
+> ⚠️ **Arithmetic/computed fields** (division, `cast`, expressions) produce `decfloat34` on the ABAP side — not `p`, `f`, or `dec`. If you use a custom struct, declare computed fields as `TYPE decfloat34`. The safest alternative is `SELECT * INTO @DATA(...)` which infers the correct type automatically.
+
 ```abap
 " ✅ RECOMMENDED - Use view entity directly
 TYPES ty_results TYPE STANDARD TABLE OF zc_my_view WITH DEFAULT KEY.

@@ -20,6 +20,10 @@ abapgit-agent dump --date TODAY --detail 1  # full detail: call stack + source
 The `--detail` output shows the exact failing line (`>>>>>` marker), call stack,
 and SAP's error analysis. Use it before asking the user to open ST22.
 
+> **`???` in error analysis fields** (table name, access method, key values) is normal when the
+> ABAP compiler inlined the table access (e.g. `itab[ 1 ]` style expressions). Focus on the
+> `>>>>>` source line and the exception class — these are always reliable.
+
 Common filters:
 ```bash
 abapgit-agent dump --user DEVELOPER --date TODAY        # specific user

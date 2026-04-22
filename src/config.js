@@ -247,6 +247,17 @@ function getCoverageConfig() {
   };
 }
 
+/**
+ * Get inspect settings from project-level config (.abapgit-agent.json)
+ * @returns {{ variant: string|null }}
+ */
+function getInspectConfig() {
+  const projectConfig = loadProjectConfig();
+  return {
+    variant: projectConfig?.inspect?.variant || null,
+  };
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -261,5 +272,6 @@ module.exports = {
   getTransportHookConfig,
   getTransportSettings,
   getScratchWorkspace,
-  getCoverageConfig
+  getCoverageConfig,
+  getInspectConfig
 };

@@ -166,8 +166,9 @@ async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http,
     // Handle uppercase keys from ABAP
     const success = result.SUCCESS || result.success;
     const testCount = result.TEST_COUNT || result.test_count || 0;
-    const passedCount = result.PASSED_COUNT || result.passed_count || 0;
     const failedCount = result.FAILED_COUNT || result.failed_count || 0;
+    // ABAP AUnit API does not return individual passing method names — derive passed count
+    const passedCount = testCount - failedCount;
     const message = result.MESSAGE || result.message || '';
     const errors = result.ERRORS || result.errors || [];
 

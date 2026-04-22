@@ -243,7 +243,7 @@ When a class needs local helper classes or test doubles, create separate include
 ```
 Adding .clas.testclasses.abap to an existing class?
   └── Update the .clas.xml → set WITH_UNIT_TESTS flag:
-        <clas:abapClassProperties ... abpUnitTestable="true" ... />
+        <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>   (inside the <VSEOCLASS> block)
       WITHOUT this flag, abapGit will not push/activate the test include.
 
 Adding .clas.locals_def.abap (local type definitions)?
@@ -424,6 +424,10 @@ abapgit-agent unit --files src/zcl_test1.clas.testclasses.abap,src/zcl_test2.cla
 
 After activating a class, stop and tell the user: `"Class is activated. Run with: abapgit-agent run --class ZCL_MY_CLASS"`
 
+For ABAP programs (PROG type), use `--program` instead: `abapgit-agent run --program ZR_MY_REPORT`
+
+For how to write a runner class (`out->write()` usage, output format): `abapgit-agent ref --topic run-probe-classes`
+
 ---
 
 ### 10. Never Run `drop` Command Without Explicit Permission
@@ -559,12 +563,21 @@ Minimal correct sequence:
 ```bash
 abapgit-agent view --objects ZCL_FOO --full --lines  # 0. get exact line number from output hint
 abapgit-agent debug set --objects ZCL_FOO:42        # 1. set breakpoint (use line from step 0)
+#    ⚠️  Avoid: LOOP AT ... ASSIGNING headers — ADT registers them but ABAP runtime skips them
+#    Set BP on the first statement INSIDE the loop body instead
 abapgit-agent debug attach --json > /tmp/a.json 2>&1 &   # 2. attach (background)
 until grep -q "Listener active" /tmp/a.json 2>/dev/null; do sleep 0.3; done
-abapgit-agent unit --files src/zcl_foo.clas.testclasses.abap > /tmp/t.json 2>&1 &  # 3. trigger
-# poll for session, then inspect
+abapgit-agent unit --files src/zcl_foo.clas.testclasses.abap > /tmp/t.json 2>&1 &  # 3. trigger (background &)
+# 4. POLL until session appears — do NOT call vars/stack before this completes
+SESSION=""
+for i in $(seq 1 30); do
+  sleep 0.5
+  SESSION=$(grep -o '"session":"[^"]*"' /tmp/a.json 2>/dev/null | head -1 | cut -d'"' -f4)
+  [ -n "$SESSION" ] && break
+done
+# 5. inspect (session is now live)
 abapgit-agent debug vars --json
-abapgit-agent debug step --type continue --json     # 4. release
+abapgit-agent debug step --type continue --json     # 6. release
 ```
 
 → `abapgit-agent ref --topic debug-session`
@@ -666,10 +679,8 @@ git checkout -b feature/my-change
 abapgit-agent syntax --files src/<name>.clas.abap
 ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 git add . && git commit -m "feat: description"
-git push origin feature/my-change
 git fetch origin main && git rebase origin/main
-git push origin feature/my-change --force-with-lease
-abapgit-agent pull --files src/<name>.clas.abap --sync-xml
+abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends + pushes internally
 ```
 
 → `abapgit-agent ref --topic branch-workflow`
@@ -685,11 +696,79 @@ git pull origin main
 abapgit-agent syntax --files src/<name>.clas.abap
 ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 git add . && git commit -m "feat: description"
-git push origin main
-abapgit-agent pull --files src/<name>.clas.abap --sync-xml
+abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends + pushes internally
 ```
 
+<!-- AI-CONDENSED-START -->
+# AI Agent Instructions
+
+## Step 1: Read project config before doing anything
+
+- Read `.abapGitAgent` → get `folder` (ABAP source folder) and `workflow.mode`
+- Read `guidelines/objects.local.md` → naming conventions for this project (if file exists)
+- Read `.abapgit-agent.json` → safeguards, conflict detection, inspect variant
+
+---
+
 ### AI Tool Guidelines
+
+**When working on an unfamiliar ABAP topic, syntax, or pattern:**
+1. ✗ Never guess or assume ABAP syntax — it is strict and errors waste time
+2. ✓ Search the Guidelines Index below and fetch the relevant `ref --topic` before writing code
+3. ✓ For unknown classes or methods: search local git repo first, then `abapgit-agent ref`, then `abapgit-agent view --objects <CLASS>` to query the ABAP system
+
+**Before modifying any existing ABAP object:**
+1. ✓ Always read the current file(s) before editing — never overwrite blindly
+2. ✓ For a class: read the `.clas.abap` file; also read `.clas.locals_def.abap`, `.clas.locals_imp.abap`, `.clas.testclasses.abap` if they exist and are relevant
+
+**When `abapgit-agent syntax` fails:**
+1. ✓ Fix the error locally and re-run syntax — do NOT commit or proceed
+2. ✗ Never commit a file that failed syntax check
+3. ✓ Only proceed to `[abaplint] → commit` once syntax passes
+
+**When creating a new ABAP object:**
+1. ✓ Customer namespace (Z*/Y* name AND Z*/Y*/$* package) → write files directly, no confirmation needed
+2. ✓ SAP namespace or SAP-delivered package → show creation summary and wait for explicit user confirmation before writing any files
+3. ✓ Summary format: object name, type, package, files to be created
+4. ✗ Never pick a package yourself by running `abapgit-agent tree` — determine from `objects.local.md` or `.abapGitAgent`, or ask the user
+5. ✓ Before naming anything: check naming length limits (`ref --topic naming-limits`) — TABL field names max 16 chars, most others 30 chars
+
+**When writing unit tests for a class that reads a CDS view:**
+1. ✓ Always use `CL_CDS_TEST_ENVIRONMENT` to provide test data — do NOT mock the database layer manually
+2. ✗ Never insert test data directly into database tables for CDS view testing
+3. ✓ For full setup pattern: `abapgit-agent ref --topic cds-testing`
+
+**When writing unit tests (mocking dependencies):**
+1. ✓ Default to ABAP Test Double Framework (`cl_abap_testdouble=>create` / `configure_call`) — covers 90%+ of cases
+2. ✓ Use a manual test double class (`ltd_mock_xxx FOR TESTING`) only when stateful behaviour is needed (call counting, varying results per call)
+3. ✗ Never write a manual mock class when the framework can do it
+4. ✓ For full API reference and class design rules: `abapgit-agent ref --topic unit-testable-code`
+
+**When adding local helper or test include files to a class:**
+1. ✓ `clas.testclasses.abap` requires `<WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>` in the `.clas.xml` `<VSEOCLASS>` block — without it abapGit will not activate the test include
+2. ✓ `clas.locals_def.abap` requires `<CLSCCINCL>X</CLSCCINCL>` in the `.clas.xml`
+3. ✓ For exact XML flag placement: `abapgit-agent ref --topic object-creation`
+4. ✓ Test method names (`FOR TESTING`) are subject to the 30-char method name limit — count before writing (e.g. `test_returns_data_sorted_by_revenue` = 35 chars → invalid)
+
+**When `abapgit-agent run` is relevant:**
+1. ✗ Never call `abapgit-agent run` unless the user explicitly asks — a `run` command present in the user's prompt counts as explicit authorization; no confirmation step needed
+2. ✓ After activating a class implementing `IF_OO_ADT_CLASSRUN`: stop and tell the user how to run it manually
+3. ✓ Before calling `run`: verify the object type — `--class` for CLAS, `--program` for PROG. Check the file extension (`.clas.abap` vs `.prog.abap`) if unsure
+4. ✓ For full guidelines: `abapgit-agent ref --topic run-probe-classes`
+
+**When `abapgit-agent drop` is relevant:**
+1. ✗ Never call `abapgit-agent drop` unless the user explicitly confirms — it physically deletes the object from ABAP, irreversible without re-pull
+2. ✓ When an object is in a broken state (stale include, activation permanently blocked): suggest `drop --pull` and wait for confirmation
+3. ✓ Supported types for drop: CLAS, INTF, PROG, TABL, TTYP only — DTEL is not supported
+
+**When using `abapgit-agent debug` commands:**
+1. ✓ Always use `--json` for ALL debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable
+2. ✗ Never run `abapgit-agent debug attach` without `--json` and background redirect (`> /tmp/a.json 2>&1 &`)
+3. ✓ Always attach BEFORE triggering — wait for `"Listener active"` in output before firing the trigger
+4. ✓ **Run the trigger in background (`&`)** — `unit` or `run --class`, never foreground
+5. ✓ **Poll attach.json for `"session":"..."` BEFORE calling `vars`/`stack`** — do NOT call vars/stack immediately after the trigger; the breakpoint has not fired yet. Loop until the session ID appears.
+6. ✓ Always finish a debug session with `abapgit-agent debug step --type continue --json` to release the frozen work process
+7. ✓ For full debug session guide (complete poll loop, stale session diagnosis): `abapgit-agent ref --topic debug-session`
 
 **Read `.abapGitAgent` to determine workflow mode:**
 
@@ -700,7 +779,8 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 4. ✓ Use `--force-with-lease` after rebase (never `--force`)
 5. ✓ Create PR with squash merge when feature complete
 6. ✗ Never commit directly to default branch
-7. ✗ Never use `git push --force` (always use `--force-with-lease`)
+7. ✗ Never use `git push --force` (always use `--force-with-lease`) — `pull --sync-xml` handles its own push internally; no manual push needed after it
+8. ✓ **Push the feature branch to remote before the first `abapgit-agent pull`** — the ABAP system reads from the remote URL; a branch that only exists locally is invisible to it. If `git push` fails with "no upstream branch", use `git push --set-upstream origin <branch>` first.
 
 **When `workflow.mode = "trunk"` or not set:**
 1. ✓ Commit directly to default branch
@@ -716,7 +796,8 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 3. ✗ Don't suggest or run a full pull without specifying files
 
 **When `safeguards.requireFilesForPull = false` or not set:**
-1. ✓ `--files` is optional — use it for speed, omit for full pull
+1. ✓ Always use `--files` to pull only the files you changed — faster and safer
+2. ✓ Full pull (without `--files`) is only acceptable when you explicitly need to activate all objects (e.g. initial repo setup)
 
 **When `safeguards.disablePull = true`:**
 1. ✗ Do not run `abapgit-agent pull` at all
@@ -746,8 +827,12 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 
 **When `conflictDetection.mode = "abort"`:**
 1. ✓ Conflict detection is active — pull aborts if ABAP system was edited since last pull
-2. ✓ If pull is aborted with conflict error, inform user and suggest `--conflict-mode ignore` to override for that run
-3. ✗ Don't silently add `--conflict-mode ignore` — always tell the user about the conflict
+2. ✓ If pull is aborted with conflict error: **stop, inform the user about the conflict, and wait for their decision** — do NOT automatically retry with `--conflict-mode ignore`
+3. ✗ Don't add `--conflict-mode ignore` unless the user explicitly asks you to override the conflict
+4. ✓ You may mention `--conflict-mode ignore` as an option the user can choose, but never run it on your own
+5. ✓ **Distinguishing real vs. activation-noise conflicts (`SYSTEM_EDIT`):**
+   - **Activation noise** (safe to inform user it can be ignored): `System changed by` is *your own user*, timestamp within seconds/minutes of your last pull — the ABAP serializer normalised the object hash after activation. Tell the user: "This is activation noise — safe to re-run with `--conflict-mode ignore`."
+   - **Real conflict**: `System changed by` is a *different user*, or the timestamp is not recent. Stop and wait for user decision.
 
 **When `transports.allowCreate = false`:**
 1. ✗ Do not run `abapgit-agent transport create`
@@ -763,14 +848,43 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 1. ✗ Do not run `abapgit-agent transport release`
 2. ✓ Inform the user that transport release is disabled for this project
 
-**After every pull that creates or modifies ABAP objects:**
-1. ✓ Always pass `--sync-xml` — rewrites any XML metadata files that differ from the ABAP serializer output, amends the commit, and re-pulls so git and the ABAP system stay in sync
-2. ✓ If pull output shows `⚠️  X XML file(s) differ from serializer output`, re-run immediately with `--sync-xml`
+**Before every `git commit` (when `.abaplint.json` exists AND changed files include `.abap` or `.xml` ABAP source files):**
+1. ✓ Run `abapgit-agent lint` before committing — no exceptions for ABAP file type or workflow mode (trunk or branch)
+2. ✓ Run lint even when syntax is skipped (dependent files, XML-only types, DCLS, ENHO)
+3. ✓ Correct pre-commit sequence: syntax (if applicable for CLAS/INTF/PROG/DDLS/FUGR) → `abapgit-agent lint` → `git commit`
+4. ✗ Never commit ABAP files without running lint first when `.abaplint.json` exists
+5. ✓ Non-ABAP changes only (docs, config, JS): skip lint and syntax — they do not apply
+6. ✓ Before applying any abaplint quickfix, run `abapgit-agent ref --topic abaplint` first — the `prefer_inline` fix has a known silent type truncation bug
+
+**Before running `abapgit-agent pull`:**
+1. ✓ Always verify that ALL changed files are committed — `abapGit reads from git, not from local disk`
+2. ✗ Never run `pull` if there are uncommitted changes (`git status` shows modified/untracked files that should be pulled)
+3. ✓ In branch workflow: verify all commits are pushed — run `git log origin/<branch>..HEAD`. If this shows any commits, push first with `git push` (or `git push --set-upstream origin <branch>` if no upstream yet).
+4. ✓ With `--sync-xml`: `git add` → `git commit` → `git push` → `abapgit-agent pull --sync-xml` — push first so the ABAP system can read your changes; `--sync-xml` will then amend and re-push automatically if XML diffs are found after activation
+5. ✓ Without `--sync-xml`: `git add` → `git commit` → `git push` → `abapgit-agent pull` — same flow, push manually
+
+**If pull returns `SUCCESS` with `ACTIVATED_COUNT: 0` and no errors:**
+- ✓ **`LOCAL_XML_FILES` only contains `package.devc.xml`:** The branch does not exist on the remote. Fix: `git push --set-upstream origin <branch>`, then re-run the pull.
+- ✓ **`LOCAL_XML_FILES` is empty:** Two possible causes:
+  - (a) Objects are already at the latest version — verify with `abapgit-agent view --objects <NAME>`. If the object exists and looks correct, no action needed.
+  - (b) Commits not pushed yet — run `git log origin/<branch>..HEAD` to check. If unpushed commits exist, run `git push` then retry pull.
+- ✓ **Message is "Activation cancelled. Check the inactive objects."**: The ABAP system rejected the object during activation but returned no detailed error. Run `abapgit-agent inspect --files <file>` to surface the compile error (the object is already on the system after the failed pull). For DDLS: also verify that the `define view entity <NAME>` name in the `.asddls` source exactly matches the `<DDLNAME>` in the `.ddls.xml` (case-sensitive — the DDL name must be UPPER CASE). Fix the error locally, run `syntax` to verify, then re-commit and re-pull.
+
+**After every pull:**
+1. ✓ If pull output shows `⚠️  X XML file(s) differ from serializer output` — re-run immediately with `--sync-xml`, even on an initial setup pull with no ABAP objects (`.abapgit.xml` can drift too)
+2. ✓ When you authored the objects: always pass `--sync-xml` — rewrites XML metadata files that differ from the ABAP serializer output, amends the commit, and re-pulls so git and the ABAP system stay in sync
 3. ✗ Never leave a pull without `--sync-xml` when you authored the objects — abapGit will show **M (modified)** permanently otherwise
+4. ✗ **Never use `--sync-xml` after a failed pull** — if the pull itself failed (errors, activation cancelled, object not created), the serializer output reflects the broken object state. Using `--sync-xml` will write an empty or partial XML back to disk and corrupt the file. Fix the error first, verify pull succeeds, then apply `--sync-xml`.
 
 ---
 
 ### Quick Decision Tree for AI
+
+**Before modifying an existing ABAP object: always read the current file(s) first.**
+
+**`<folder>` below = the `folder` value from `.abapGitAgent` (e.g. `abap/` or `src/`)**
+
+**`[abaplint]` = run `abapgit-agent lint` only if `.abaplint.json` exists in repo root. If syntax or lint fails → fix locally and re-run before proceeding to commit.**
 
 **When user asks to modify/create ABAP code:**
 
@@ -778,26 +892,37 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml
 Modified ABAP files?
 ├─ CLAS/INTF/PROG/DDLS/FUGR files?
 │  ├─ Independent files (no cross-dependencies)?
-│  │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --sync-xml
+│  │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --files <folder>/<name>.<ext> --sync-xml
+│  │         Examples:
+│  │           syntax --files src/zcl_foo.clas.abap → commit → push → pull --files src/zcl_foo.clas.abap --sync-xml
+│  │           syntax --files src/zc_my_view.ddls.asddls → commit → push → pull --files src/zc_my_view.ddls.asddls --sync-xml
+│  │         ⚠️  DDLS: pass the .asddls file (not .xml) to both syntax and pull --files
 │  └─ Dependent files (interface + class, class uses class)?
-│     └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml
+│     └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<intf>.<ext>.abap,<folder>/<class>.<ext>.abap --sync-xml
 └─ Other types (TABL, STRU, DTEL, TTYP, etc.)?
    ├─ XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
-   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/ztable.tabl.xml --sync-xml
+   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<name>.tabl.xml --sync-xml
    ├─ DCLS (CDS access control)?
-   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files abap/zc_view.dcls.xml --sync-xml
+   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<name>.dcls.xml --sync-xml
    │         ⚠️  Pass the .xml file — pull --files does NOT accept .asdcls extensions
    ├─ ENHO (Enhancement)?
-   │  └─ ✅ Use: syntax (optional) → [abaplint] → commit → push → pull --files abap/<name>.enho.xml --sync-xml
+   │  └─ ✅ Use: syntax (optional) → [abaplint] → commit → push → pull --files <folder>/<name>.enho.xml --sync-xml
    │         ⚠️  syntax checks basic errors in the hook body; semantic checks require pull
    │         ⚠️  Pass the .enho.xml file to pull — hash .abap files also work but xml is preferred
    │         → see: abapgit-agent ref --topic enho
    └─ Other complex objects?
-      └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --sync-xml → (if errors: inspect)
-
-[abaplint] = run abapgit-agent lint only if .abaplint.json exists in repo root
-             before applying any quickfix: run abapgit-agent ref --topic abaplint
+      └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<name>.<ext> --sync-xml → (if errors: inspect)
 ```
+
+**After pull succeeds:**
+- ✓ If the class has test includes: run `abapgit-agent unit --files <folder>/<name>.clas.testclasses.abap` to verify all tests pass.
+
+**First pull of a new CDS view + a class that depends on it:**
+- ✓ Pull in two steps: first `pull --files <folder>/<name>.ddls.asddls --sync-xml` (activates the CDS view), then `pull --files <folder>/<name>.clas.abap --sync-xml` (activates the class against the now-live view).
+- ⚠️  "Error updating where-used list" almost always means a **syntax error** in the class. Since the pull already attempted activation, run `abapgit-agent inspect --files <folder>/<name>.clas.abap` to surface the error. Fix it locally, run `syntax` to verify, then re-commit and re-pull. Only if syntax and inspect both pass cleanly does the dependency order matter — in that case, the CDS view was not yet active; retry after pulling the CDS view first.
+
+**First pull of an interface + implementing class together:**
+- ⚠️  "Error updating where-used list" almost always means a **syntax error** in the class. Since the pull already attempted activation, run `abapgit-agent inspect --files <folder>/<name>.clas.abap` to surface the error. Fix it locally, run `syntax` to verify, then re-commit and re-pull. Only if inspect passes cleanly is the ordering the cause — in that case, the interface was just activated and the class can now compile on a second attempt.
 
 → For creating new objects (what files to write): `abapgit-agent ref --topic object-creation`
 → For full workflow decision tree and error indicators: `abapgit-agent ref --topic workflow-detailed`
