@@ -39,6 +39,19 @@ npm run test:integration          # Integration tests (requires .abapGitAgent)
 
 See [docs/integration-tests.md](docs/integration-tests.md) for the full integration test guide.
 
+## Docs Development (Jekyll)
+
+The documentation site uses **Just the Docs** (Jekyll). Config is in `_config.yml` at the repo root — always start Jekyll from the root, not from `docs/`:
+
+```bash
+# Start local docs server
+PAGES_REPO_NWO="SylvosCai/abapgit-agent" bundle exec jekyll serve
+
+# Site is served at: http://127.0.0.1:4000/abapgit-agent/
+```
+
+`PAGES_REPO_NWO` suppresses a GitHub Metadata error caused by the remote not being on `github.com`.
+
 ## Adding a New Command
 
 When creating a new CLI command, complete **all** of the following:
