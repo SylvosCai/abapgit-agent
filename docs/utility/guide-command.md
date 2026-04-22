@@ -22,6 +22,9 @@ with the installed version, no manual copying or updating required.
 # Print the full guide to stdout
 abapgit-agent guide
 
+# Print condensed AI-only instructions (for AI agents — smaller context footprint)
+abapgit-agent guide --ai
+
 # Print only the path to the guide file
 abapgit-agent guide --path
 
@@ -42,6 +45,7 @@ abapgit-agent guide --migrate --yes
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
+| `--ai` | No | Output condensed AI-only instructions (the `<!-- AI-CONDENSED-START -->` block from `abap/CLAUDE.md`) — smaller context footprint for AI agents |
 | `--path` | No | Print only the absolute path to the bundled `abap/CLAUDE.md` file |
 | `--json` | No | Output as JSON `{ "path": "...", "content": "..." }` |
 | `--migrate` | No | Migrate repo from locally-copied guidelines to bundled fallback |
@@ -64,6 +68,23 @@ This repository uses abapgit-agent for ABAP development...
 ## Critical Rules
 ...
 ```
+
+### `--ai` (condensed AI instructions)
+
+```bash
+abapgit-agent guide --ai
+```
+
+Prints only the `<!-- AI-CONDENSED-START -->` block from `abap/CLAUDE.md` — the condensed AI tool guidelines, decision tree, and guidelines index. Significantly smaller than the full guide, making it suitable for AI agents that need to conserve context window space.
+
+```
+# AI Agent Instructions
+
+## Step 1: Read project config before doing anything
+...
+```
+
+Use `guide --ai` in slim `CLAUDE.md` stubs or AI system prompts where token budget is a concern. Use `guide` (no flag) when the full workflow prose and code examples are needed.
 
 ### `--path` (print file path only)
 
@@ -216,6 +237,9 @@ Files to remove (3 standard guideline files):
 ```bash
 # Print full guide
 abapgit-agent guide
+
+# Print condensed AI-only instructions
+abapgit-agent guide --ai
 
 # Read with pager
 abapgit-agent guide | less
