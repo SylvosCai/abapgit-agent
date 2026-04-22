@@ -140,6 +140,34 @@ describe('Unit Command - CLI Output Format', () => {
     expect(output).toMatch(/Failed: 0/);
   });
 
+  test('derives passed count from testCount - failedCount when API returns passed_count: 0', async () => {
+    // ABAP AUnit API only returns individual failed methods — passed_count is always 0.
+    // The fix derives passedCount = testCount - failedCount instead of trusting passed_count.
+    const unitCommand = require('../../src/commands/unit');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          success: 'X',
+          message: 'All tests passed',
+          test_count: 5,
+          passed_count: 0,  // API always returns 0 for passing tests
+          failed_count: 0,
+          errors: []
+        })
+      }))
+    };
+
+    await unitCommand.execute(['--files', 'zcl_my_test.clas.testclasses.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Tests: 5/);
+    expect(output).toMatch(/Passed: 5/);  // must be 5, not 0
+    expect(output).toMatch(/Failed: 0/);
+  });
+
   test('output matches spec format for failed tests', async () => {
     const unitCommand = require('../../src/commands/unit');
 
