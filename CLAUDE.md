@@ -45,9 +45,9 @@ The documentation site uses **Just the Docs** (Jekyll). Config is in `_config.ym
 
 ```bash
 # Start local docs server
-bundle exec jekyll serve
+bundle exec jekyll serve --livereload --host localhost
 
-# Site is served at: http://127.0.0.1:4000/abapgit-agent/
+# Site is served at: http://localhost:4000/abapgit-agent/
 ```
 
 ## Adding a New Command
