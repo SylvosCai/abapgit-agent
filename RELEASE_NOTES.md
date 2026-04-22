@@ -2,6 +2,32 @@
 title: Release Notes
 ---
 
+## v1.17.9
+
+### New Features
+
+- `inspect.variant` now reads from project config file
+
+### Bug Fixes
+
+- Fix `--sync-xml` branch detection using `git ls-remote`
+- Fix `unit` passedCount derived from `testCount - failedCount`
+
+### Improvements
+
+- Warn when `--files` pull activates zero objects
+- Integration test setup auto-activates run-test and syntax-test repos
+
+### Documentation
+
+- Document `inspect.variant` in project config reference
+- Add `guide --ai` flag to command reference
+
+---
+
+---
+
+
 ## v1.17.8
 
 ### Bug Fixes
