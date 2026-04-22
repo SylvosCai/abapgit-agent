@@ -45,12 +45,10 @@ The documentation site uses **Just the Docs** (Jekyll). Config is in `_config.ym
 
 ```bash
 # Start local docs server
-PAGES_REPO_NWO="SylvosCai/abapgit-agent" bundle exec jekyll serve
+bundle exec jekyll serve
 
 # Site is served at: http://127.0.0.1:4000/abapgit-agent/
 ```
-
-`PAGES_REPO_NWO` suppresses a GitHub Metadata error caused by the remote not being on `github.com`.
 
 ## Adding a New Command
 
