@@ -329,7 +329,8 @@ Examples:
       const jobId = result.JOB_ID || result.job_id;
       const message = result.MESSAGE || result.message;
       const errorDetail = result.ERROR_DETAIL || result.error_detail;
-      const activatedCount = result.ACTIVATED_COUNT || result.activated_count || 0;
+      const activatedCountRaw = result.ACTIVATED_COUNT ?? result.activated_count ?? null;
+      const activatedCount = activatedCountRaw || 0;
       const failedCount = result.FAILED_COUNT || result.failed_count || 0;
       const logMessages = result.LOG_MESSAGES || result.log_messages || [];
       const activatedObjects = result.ACTIVATED_OBJECTS || result.activated_objects || [];
@@ -362,7 +363,7 @@ Examples:
       if (success === 'X' || success === true) {
         console.log(`✅ Pull completed successfully!`);
         console.log(`   Message: ${message || 'N/A'}`);
-        if (activatedCount === 0 && files && !isRepull) {
+        if (activatedCountRaw !== null && activatedCount === 0 && activatedObjects.length === 0 && files && !isRepull) {
           console.warn(`⚠️  ACTIVATED_COUNT: 0 — no objects were activated. Check for unpushed commits: git log origin/<branch>..HEAD`);
         }
       } else if (failedCount === 0 && failedObjects.length === 0 &&

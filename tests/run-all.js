@@ -22,7 +22,7 @@
  *   npm run test:lifecycle        # Lifecycle tests only
  *   npm run test:pull             # Pull workflow tests only
  *   npm run test:drop             # Drop command tests only
- *   npm run test:debug:scenarios  # Debug scenarios only (REPL + scripted AI)
+ *   npm run test:debug:scenarios  # Debug scenarios only (REPL + scripted AI + variable inspection)
  */
 
 const { execSync, spawn } = require('child_process');
@@ -585,14 +585,15 @@ function runCommandTests(demoMode = false, commandFilter = null) {
 }
 
 /**
- * Run debug scenario tests (bash script — REPL and scripted AI/--json modes)
+ * Run REPL debug scenario tests (bash script — scenarios 1 & 2 only, require interactive TTY)
  */
-function runDebugScenarios() {
-  printSubHeader('Running Debug Scenarios (REPL + Scripted AI mode)');
+function runReplDebugScenarios() {
+  const label = 'Debug Scenarios (REPL mode — 1/2)';
+  printSubHeader(`Running ${label}`);
 
-  const scriptPath = path.join(__dirname, 'integration', 'debug-scenarios.sh');
+  const scriptPath = path.join(__dirname, 'integration', 'debug-repl-scenarios.sh');
   if (!fs.existsSync(scriptPath)) {
-    printWarning('debug-scenarios.sh not found — skipping');
+    printWarning('debug-repl-scenarios.sh not found — skipping');
     return { success: true, skipped: true, duration: '0.0', passedCount: 0, totalCount: 0 };
   }
 
@@ -602,8 +603,8 @@ function runDebugScenarios() {
   const startTime = Date.now();
 
   // Use spawnSync with stdio: 'inherit' so scenario output streams live to the
-  // terminal instead of buffering until the script finishes (~60s).
-  const result = require('child_process').spawnSync('bash', [scriptPath], {
+  // terminal instead of buffering. bash is required for REPL scenarios (FIFOs, [[ ]]).
+  const result = require('child_process').spawnSync('bash', [scriptPath, 'repl'], {
     cwd: repoRoot,
     stdio: 'inherit',
     timeout: 300000  // 5 minutes — scenarios involve real ABAP round-trips
@@ -623,17 +624,60 @@ function runDebugScenarios() {
   }
 
   if (success) {
-    printSuccess(`Debug Scenarios: ${passedCount}/${totalCount} passed (${duration}s)`);
+    printSuccess(`${label}: ${passedCount}/${totalCount} passed (${duration}s)`);
   } else {
-    printError(`Debug Scenarios: ${passedCount}/${totalCount} passed (${duration}s)`);
+    printError(`${label}: ${passedCount}/${totalCount} passed (${duration}s)`);
   }
 
   return { success, duration, passedCount, totalCount };
 }
 
 /**
- * Print final summary
+ * Run scripted debug scenario tests (bash script — scenarios 3/4/5, CI-safe)
  */
+function runScriptedDebugScenarios() {
+  const label = 'Debug Scenarios (Scripted AI mode — 3/4/5)';
+  printSubHeader(`Running ${label}`);
+
+  const scriptPath = path.join(__dirname, 'integration', 'debug-scripted-scenarios.sh');
+  if (!fs.existsSync(scriptPath)) {
+    printWarning('debug-scripted-scenarios.sh not found — skipping');
+    return { success: true, skipped: true, duration: '0.0', passedCount: 0, totalCount: 0 };
+  }
+
+  const resultsFile = `${process.env.TMPDIR || '/tmp'}/debug_scripted_result`;
+  if (fs.existsSync(resultsFile)) fs.unlinkSync(resultsFile);
+
+  const startTime = Date.now();
+
+  const result = require('child_process').spawnSync('bash', [scriptPath, 'all'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    timeout: 600000  // 10 minutes — 3 scenarios with sleeps between them
+  });
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const success = result.status === 0;
+
+  let passedCount = 0;
+  let totalCount = 0;
+  if (fs.existsSync(resultsFile)) {
+    const [p, f] = fs.readFileSync(resultsFile, 'utf8').trim().split(' ').map(Number);
+    passedCount = p || 0;
+    totalCount = (p || 0) + (f || 0);
+    fs.unlinkSync(resultsFile);
+  }
+
+  if (success) {
+    printSuccess(`${label}: ${passedCount}/${totalCount} passed (${duration}s)`);
+  } else {
+    printError(`${label}: ${passedCount}/${totalCount} passed (${duration}s)`);
+  }
+
+  return { success, duration, passedCount, totalCount };
+}
+
+
 function printSummary(results) {
   printHeader('TEST SUITE SUMMARY');
 
@@ -770,16 +814,31 @@ function printSummary(results) {
     }
   }
 
-  // Debug scenario tests (always last — interactive ADT sessions, runs after cooldown)
-  if (results.debug) {
-    if (results.debug.skipped) {
-      printWarning('Debug Scenarios: SKIPPED');
+  // Scripted debug scenarios (3/4/5) — Node.js runner, CI-safe
+  if (results.debugScripted) {
+    if (results.debugScripted.skipped) {
+      printWarning('Debug Scenarios (Scripted): SKIPPED');
     } else {
-      totalDuration += parseFloat(results.debug.duration);
-      if (results.debug.success) {
-        printSuccess(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} PASSED (${results.debug.duration}s)`);
+      totalDuration += parseFloat(results.debugScripted.duration);
+      if (results.debugScripted.success) {
+        printSuccess(`Debug Scenarios (Scripted): ${results.debugScripted.passedCount}/${results.debugScripted.totalCount} PASSED (${results.debugScripted.duration}s)`);
       } else {
-        printError(`Debug Scenarios: ${results.debug.passedCount}/${results.debug.totalCount} FAILED (${results.debug.duration}s)`);
+        printError(`Debug Scenarios (Scripted): ${results.debugScripted.passedCount}/${results.debugScripted.totalCount} FAILED (${results.debugScripted.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
+  // REPL debug scenarios (1/2) — bash script, local dev only
+  if (results.debugRepl) {
+    if (results.debugRepl.skipped) {
+      printWarning('Debug Scenarios (REPL): SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.debugRepl.duration);
+      if (results.debugRepl.success) {
+        printSuccess(`Debug Scenarios (REPL): ${results.debugRepl.passedCount}/${results.debugRepl.totalCount} PASSED (${results.debugRepl.duration}s)`);
+      } else {
+        printError(`Debug Scenarios (REPL): ${results.debugRepl.passedCount}/${results.debugRepl.totalCount} FAILED (${results.debugRepl.duration}s)`);
         allPassed = false;
       }
     }
@@ -814,7 +873,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--drop', '--customize'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -823,7 +882,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebug, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -836,7 +895,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -851,7 +911,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -866,7 +927,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -881,7 +943,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -896,7 +959,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -911,7 +975,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -926,7 +991,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -941,7 +1007,8 @@ async function main() {
     runSyncXml = true;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -956,7 +1023,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = true;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -971,7 +1039,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = true;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -986,11 +1055,12 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = true;
     runDrop = false;
     runCustomize = false;
-  } else if (args.includes('--debug-scenarios')) {
+  } else if (args.includes('--debug-scripted')) {
     runJest = false;
     runAunit = false;
     runCmd = false;
@@ -1001,7 +1071,24 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = true;
+    runDebugRepl = false;
+    runDebugScripted = true;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = false;
+  } else if (args.includes('--debug-repl')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebugRepl = true;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
@@ -1016,7 +1103,8 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = true;
     runCustomize = false;
@@ -1031,14 +1119,16 @@ async function main() {
     runSyncXml = false;
     runXmlOnly = false;
     runJunit = false;
-    runDebug = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
     runDebugBp = false;
     runDrop = false;
     runCustomize = true;
   } else {
-    // Run all tests
-    // In CI environments (Jenkins/GitHub Actions), skip debug scenarios —
-    // they require interactive ADT sessions that are not available in CI pods.
+    // Run all tests.
+    // In CI (Jenkins/GitHub Actions): skip REPL scenarios (1 & 2) — they require
+    // an interactive TTY that CI pods don't have. Scripted scenarios (3, 4, 5) use
+    // --json throughout — no TTY needed — and are stable enough to run in CI.
     const isCI = !!(process.env.BUILD_NUMBER || process.env.CI || process.env.GITHUB_ACTIONS);
     runJest = true;
     runAunit = true;
@@ -1046,16 +1136,17 @@ async function main() {
     runJunit = true;
     runDrop = true;
     runCustomize = true;
-    runLifecycle = false;   // Lifecycle tests run as part of cmd tests
-    runPull = false;        // Pull tests run as part of cmd tests
-    runFullPull = false;    // Full pull tests run as part of cmd tests
-    runConflict = false;    // Conflict tests run standalone (stateful, sequential)
-    runSyncXml = false;     // Sync-xml tests run as part of cmd tests (--command=pull)
-    runXmlOnly = false;     // XML-only tests run as part of cmd tests (--command=pull)
-    runDebug = !isCI;       // Skip debug scenarios in CI (require interactive ADT sessions)
-    runDebugBp = true;      // Always run — only needs ABAP system connection
+    runLifecycle = false;      // Lifecycle tests run as part of cmd tests
+    runPull = false;           // Pull tests run as part of cmd tests
+    runFullPull = false;       // Full pull tests run as part of cmd tests
+    runConflict = false;       // Conflict tests run standalone (stateful, sequential)
+    runSyncXml = false;        // Sync-xml tests run as part of cmd tests (--command=pull)
+    runXmlOnly = false;        // XML-only tests run as part of cmd tests (--command=pull)
+    runDebugRepl = !isCI;      // Skip REPL scenarios in CI (require interactive TTY)
+    runDebugScripted = true;   // Scripted scenarios (3/4/5) are CI-safe — no TTY needed
+    runDebugBp = true;         // Always run — only needs ABAP system connection
     if (isCI) {
-      printInfo('  ⚠️  CI environment detected — skipping debug scenarios (require interactive ADT)');
+      printInfo('  ⚠️  CI environment detected — skipping REPL scenarios 1 & 2 (require interactive TTY)');
     }
   }
 
@@ -1069,7 +1160,7 @@ async function main() {
   const skipAutoSetup = args.includes('--no-setup');
   const needsAbap = runAunit || runCmd || runDrop || runCustomize || runDebugBp ||
                     runPull || runFullPull || runConflict || runSyncXml || runXmlOnly ||
-                    runJunit || runDebug || runLifecycle;
+                    runJunit || runDebugRepl || runDebugScripted || runLifecycle;
   if (needsAbap && !skipAutoSetup) {
     const setupResult = runSetup(repoRoot, {
       printSubHeader, printInfo, printSuccess, printError, printWarning, colorize
@@ -1168,19 +1259,14 @@ async function main() {
     results.customize = runCustomizeTestsWrapper();
   }
 
-  // Cooldown between command tests and debug scenarios.
-  // Command tests make ~90 HTTP requests in rapid succession; without a pause
-  // the SAP ICM is still draining connections when scenario 3 runs, causing
-  // ADT POST calls (stack, step, stepContinue) to return HTTP 400 "Service
-  // cannot be reached" — leaving ABAP work processes frozen in SM50.
-  if (runCmd && runDebug) {
-    printInfo('  Cooling down 20s after command tests before debug scenarios...');
-    await new Promise(r => setTimeout(r, 20000));
+  // Run Debug scenario tests — always last.
+  // REPL scenarios (1 & 2) require an interactive TTY and bash — local dev only.
+  // Scripted scenarios (3/4/5) use bash but no TTY — safe to run in CI.
+  if (runDebugScripted) {
+    results.debugScripted = runScriptedDebugScenarios();
   }
-
-  // Run Debug scenario tests (REPL + scripted AI/--json) — always last
-  if (runDebug) {
-    results.debug = runDebugScenarios();
+  if (runDebugRepl) {
+    results.debugRepl = runReplDebugScenarios();
   }
 
   // Print summary and exit with appropriate code

@@ -922,17 +922,21 @@ describe('Pull Command - Transport Required Detection', () => {
   let consoleOutput = [];
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
+  let originalStderrWrite;
 
   beforeEach(() => {
     consoleOutput = [];
     console.log = jest.fn((...args) => consoleOutput.push(args.join(' ')));
     console.error = jest.fn((...args) => consoleOutput.push(args.join(' ')));
+    originalStderrWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = () => true;
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     console.log = originalConsoleLog;
     console.error = originalConsoleError;
+    process.stderr.write = originalStderrWrite;
   });
 
   const makeMockHttp = (statusResult, pullResult) => ({
@@ -1059,8 +1063,20 @@ describe('Pull Command - Transport Required Detection', () => {
 });
 
 describe('Pull Command - --verbose flag', () => {
+  let consoleMocks = [];
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleMocks = [
+      jest.spyOn(console, 'log').mockImplementation(() => {}),
+      jest.spyOn(console, 'error').mockImplementation(() => {}),
+      jest.spyOn(console, 'warn').mockImplementation(() => {})
+    ];
+  });
+
+  afterEach(() => {
+    consoleMocks.forEach(m => m.mockRestore());
+    consoleMocks = [];
   });
 
   const makeContext = (mockPost) => ({

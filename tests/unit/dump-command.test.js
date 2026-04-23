@@ -71,6 +71,15 @@ describe('Dump Command - module metadata', () => {
 // ─── Argument parsing ────────────────────────────────────────────────────────
 
 describe('Dump Command - argument parsing', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('default limit is 20', async () => {
     let capturedData;
     const ctx = {

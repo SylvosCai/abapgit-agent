@@ -298,6 +298,57 @@ class DebugSession {
     }
 
     const variables = parseVariables(varsXml);
+
+    // ── Step 3: field symbols — ADT never lists them in getChildVariables ─────
+    // getChildVariables silently omits FIELD-SYMBOLS declarations from the
+    // variable hierarchy. However, getVariables *does* resolve them when given
+    // the symbol name directly as the ID (e.g. ID=<LS>).
+    //
+    // Strategy: fetch the full source of the active stack frame, extract every
+    // FIELD-SYMBOLS <name> declaration, then request those names via getVariables
+    // and merge any non-empty results into the variable list.
+    //
+    // Uses GET-only stack fetch (no POST fallback) to avoid disturbing the POST
+    // mock sequence in unit tests. If the GET returns no frames, enrichment is skipped.
+    try {
+      const { body: stackBody } = await this.http.get(
+        '/sap/bc/adt/debugger/stack?emode=_&semanticURIs=true',
+        { accept: 'application/xml', headers: STATEFUL_HEADER }
+      );
+      const frames = parseStack(stackBody || '');
+      const frame  = frames[0];
+      if (frame && frame.adtUri) {
+        const adtPath = frame.adtUri.split('#')[0];
+        const { body: srcBody } = await this.http.get(adtPath, { accept: 'text/plain' });
+        const fsNames = extractFieldSymbolNames(srcBody || '');
+        if (fsNames.length > 0) {
+          const fsBody =
+            `<?xml version="1.0" encoding="UTF-8" ?>` +
+            `<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">` +
+            `<asx:values><DATA>` +
+            fsNames.map(n => `<STPDA_ADT_VARIABLE><ID>${escapeXml(n)}</ID></STPDA_ADT_VARIABLE>`).join('') +
+            `</DATA></asx:values></asx:abap>`;
+          const fsResp = await this.http.post(
+            '/sap/bc/adt/debugger?method=getVariables', fsBody, {
+              contentType: CT_VARS,
+              headers: { ...STATEFUL_HEADER, 'Accept': CT_VARS }
+            }
+          );
+          const fsVars = parseVariables(fsResp.body || '');
+          // Merge: add field symbols not already in the list
+          const existing = new Set(variables.map(v => v.name.toUpperCase()));
+          for (const fv of fsVars) {
+            if (fv.name && !existing.has(fv.name.toUpperCase())) {
+              variables.push(fv);
+              existing.add(fv.name.toUpperCase());
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Field symbol enrichment is best-effort — don't fail the whole call
+    }
+
     if (name) {
       return variables.filter(v => v.name.toUpperCase() === name.toUpperCase());
     }
@@ -601,7 +652,8 @@ class DebugSession {
         }
         const rowMeta = { metaType: fieldVar.metaType || '', tableLines: fieldVar.tableLines || 0 };
         const rows = await this.getVariableChildren(fieldVar.id, rowMeta);
-        const rowTarget = rows.find(r => r.name === `[${rowIndex}]`);
+        // Row names may be '[N]' (nested) or 'VARNAME[N]' (top-level table rows)
+        const rowTarget = rows.find(r => r.name === `[${rowIndex}]` || r.name.endsWith(`[${rowIndex}]`));
         if (!rowTarget) {
           throw new Error(
             `Row [${rowIndex}] not found in '${fieldName}'. Table has ${rows.length} rows.`
@@ -613,9 +665,11 @@ class DebugSession {
 
       // Pattern 2: [N] — take row N from current (a table expanded in previous step)
       // Supports: x LO_FACTORY->MT_COMMAND_MAP->[1]
+      // Row names may be '[1]' (nested) or 'VARNAME[1]' (top-level table rows).
       const rowOnlyMatch = segment.match(/^\[(\d+)\]$/);
       if (rowOnlyMatch) {
-        const rowTarget = children.find(r => r.name === `[${rowOnlyMatch[1]}]`);
+        const rowN = rowOnlyMatch[1];
+        const rowTarget = children.find(r => r.name === `[${rowN}]` || r.name.endsWith(`[${rowN}]`));
         if (!rowTarget) {
           throw new Error(
             `Row [${rowOnlyMatch[1]}] not found. Table has ${children.length} rows.`
@@ -736,6 +790,13 @@ function extractFriendlyName(rawName) {
     const derefFieldMatch = rawName.match(/->([A-Z0-9_@]+)(?:\\TYPE=|\s*$)/i);
     if (derefFieldMatch && derefFieldMatch[1] !== '*') return derefFieldMatch[1].toUpperCase();
   }
+
+  // Dash-separated struct field: VARNAME-FIELDNAME → FIELDNAME  (plain local struct)
+  // This is the simple case: no opaque OO prefix, no dereference arrow.
+  // Must be checked after the -> case above to avoid matching deref IDs that also
+  // contain a dash (e.g. LR_REQUEST->*-FIELD would have been matched already).
+  const dashFieldMatch = rawName.match(/^[A-Z0-9_@]+(?:\[\d+\])?-([A-Z0-9_@]+)$/i);
+  if (dashFieldMatch) return dashFieldMatch[1].toUpperCase();
 
   return null;
 }
@@ -964,4 +1025,37 @@ function extractChildIds(xml, parents) {
   return [...new Set(ids)];
 }
 
-module.exports = { DebugSession, parseVariables, parseStack, extractFriendlyName };
+/**
+ * Extract field symbol names from ABAP source text.
+ * Matches: FIELD-SYMBOLS <NAME> TYPE ... and FIELD-SYMBOLS: <A>, <B> ...
+ * Returns names with angle brackets, e.g. ['<LS>', '<WA>'].
+ */
+function extractFieldSymbolNames(source) {
+  const names = [];
+  // Match all <NAME> tokens that follow FIELD-SYMBOLS keyword (possibly on same or next line)
+  // e.g.  FIELD-SYMBOLS <ls> TYPE ...
+  //       FIELD-SYMBOLS: <ls> TYPE ..., <wa> TYPE ...
+  const re = /field-symbols\s*:?\s*((?:<[^>]+>\s*(?:type[^,.\n]*)?,?\s*)+)/gi;
+  let m;
+  while ((m = re.exec(source)) !== null) {
+    const segment = m[1];
+    const nameRe = /<([^>]+)>/g;
+    let nm;
+    while ((nm = nameRe.exec(segment)) !== null) {
+      names.push(`<${nm[1].toUpperCase()}>`);
+    }
+  }
+  return [...new Set(names)];
+}
+
+/**
+ * Escape a string for safe embedding in XML text content.
+ */
+function escapeXml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+module.exports = { DebugSession, parseVariables, parseStack, extractFriendlyName, extractFieldSymbolNames };

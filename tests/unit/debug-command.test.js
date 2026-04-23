@@ -911,6 +911,71 @@ describe('Debug Command - vars --expand with dataref variable', () => {
   });
 });
 
+// ─── debug vars --expand TABLE[N] ────────────────────────────────────────────
+
+describe('Debug Command - vars --expand TABLE[N] (table row indexing)', () => {
+  let cap;
+  beforeEach(() => {
+    cap = captureOutput();
+    jest.clearAllMocks();
+    debugState.loadActiveSession.mockReturnValue({ sessionId: 'sess-001', position: {} });
+  });
+  afterEach(() => { cap.restore(); });
+
+  test('--expand LT_TABLE[1] expands first row and shows its fields', async () => {
+    // expandPath(['LT_TABLE', '[1]']) call sequence:
+    // 1: getChildVariables for all scopes → hierarchy
+    // 2: getVariables for leaf IDs → LT_TABLE (metaType=table, tableLines=2)
+    // 3: getVariables([LT_TABLE[1], LT_TABLE[2]]) → row structures
+    // 4: getChildVariables(LT_TABLE[1]) → child hierarchy for row 1
+    // 5: getVariables(child IDs) → field values
+
+    const hierXml = (parentId, childId) =>
+      `<STPDA_ADT_VARIABLE_HIERARCHY><PARENT_ID>${parentId}</PARENT_ID><CHILD_ID>${childId}</CHILD_ID></STPDA_ADT_VARIABLE_HIERARCHY>`;
+
+    const varXml = (id, name, type, value, metaType, tableLines) =>
+      `<STPDA_ADT_VARIABLE><ID>${id}</ID><NAME>${name}</NAME>` +
+      `<DECLARED_TYPE_NAME>${type}</DECLARED_TYPE_NAME>` +
+      `<VALUE>${value}</VALUE><META_TYPE>${metaType}</META_TYPE>` +
+      `<TABLE_LINES>${tableLines}</TABLE_LINES></STPDA_ADT_VARIABLE>`;
+
+    // step 1: hierarchy — LT_TABLE is a local
+    const step1 = hierXml('@LOCALS', 'LT_TABLE');
+    // step 2: LT_TABLE variable
+    const step2 = varXml('LT_TABLE', 'LT_TABLE', 'TY_TAB', '', 'table', 2);
+    // step 3: rows (fetched by ID LT_TABLE[1], LT_TABLE[2])
+    const step3 =
+      varXml('LT_TABLE[1]', '[1]', 'TY_ROW', '', 'structure', 0) +
+      varXml('LT_TABLE[2]', '[2]', 'TY_ROW', '', 'structure', 0);
+    // step 4: child hierarchy for row 1
+    const step4 = hierXml('LT_TABLE[1]', 'LT_TABLE[1]-CARRID');
+    // step 5: field values for row 1
+    const step5 = varXml('LT_TABLE[1]-CARRID', 'CARRID', 'S_CARR_ID', 'AA', 'simple', 0);
+
+    let callCount = 0;
+    const AdtHttpClass = jest.fn().mockImplementation(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      get: jest.fn(),
+      delete: jest.fn(),
+      post: jest.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve({ body: step1, headers: {}, statusCode: 200 });
+        if (callCount === 2) return Promise.resolve({ body: step2, headers: {}, statusCode: 200 });
+        if (callCount === 3) return Promise.resolve({ body: step3, headers: {}, statusCode: 200 });
+        if (callCount === 4) return Promise.resolve({ body: step4, headers: {}, statusCode: 200 });
+        return Promise.resolve({ body: step5, headers: {}, statusCode: 200 });
+      })
+    }));
+
+    await debugCommand.execute(['vars', '--expand', 'LT_TABLE[1]', '--json'], makeContext(AdtHttpClass));
+    const parsed = JSON.parse(cap.output);
+    expect(parsed).toHaveProperty('children');
+    expect(parsed.children.length).toBeGreaterThan(0);
+    expect(parsed.children[0].name).toBe('CARRID');
+    expect(parsed.children[0].value).toBe('AA');
+  });
+});
+
 // ─── debug set — --files and --objects ───────────────────────────────────────
 
 describe('Debug Command - set --files', () => {
@@ -1213,6 +1278,7 @@ describe('Debug Command - attach takeover detection', () => {
     };
     return jest.fn().mockImplementation(() => ({
       fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      clearSession: jest.fn(),
       post: jest.fn().mockImplementation((url) => {
         if (url.includes('/debugger/listeners')) {
           return Promise.resolve({ body: listenerBody, headers: {}, statusCode: 200 });
@@ -1288,6 +1354,7 @@ describe('Debug Command - attach takeover detection', () => {
     let listenerCalls = 0;
     const AdtHttpClass = jest.fn().mockImplementation(() => ({
       fetchCsrfToken: jest.fn().mockResolvedValue('tok'),
+      clearSession: jest.fn(),
       post: jest.fn().mockImplementation((url) => {
         if (url.includes('/debugger/listeners')) {
           listenerCalls++;

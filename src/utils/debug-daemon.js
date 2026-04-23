@@ -25,8 +25,10 @@
  *
  *   Commands:
  *     { "cmd": "ping" }
- *     { "cmd": "step",      "type": "stepOver|stepInto|stepReturn|stepContinue" }
- *     { "cmd": "vars",      "name": null }
+ *     { "cmd": "step",        "type": "stepOver|stepInto|stepReturn|stepContinue" }
+ *     { "cmd": "vars",        "name": null }
+ *     { "cmd": "expand",      "id": "<adt-id>", "meta": { metaType, tableLines } }
+ *     { "cmd": "expandPath",  "pathParts": ["VAR", "[1]", "FIELD"] }
  *     { "cmd": "stack" }
  *     { "cmd": "terminate" }
  *
@@ -73,7 +75,12 @@ async function startDaemon(config, sessionId, socketPath, snapshot) {
   // any CSRF refresh that AdtHttp performs internally (401/403 retry → HEAD
   // request → new Set-Cookie) silently overwrites the session cookie and routes
   // subsequent IPC calls to the wrong ABAP work process → HTTP 400.
-  if (snapshot && snapshot.cookies) {
+  // Prefer the explicitly-passed pinnedSessionId (set by attach() before any
+  // cookie rotation by subsequent getPosition() calls).  Fall back to
+  // extracting SAP_SESSIONID from snapshot.cookies for backwards compatibility.
+  if (snapshot && snapshot.pinnedSessionId) {
+    session.pinnedSessionId = snapshot.pinnedSessionId;
+  } else if (snapshot && snapshot.cookies) {
     const m = snapshot.cookies.match(/SAP_SESSIONID=([^;]*)/);
     if (m) session.pinnedSessionId = m[1];
   }
@@ -170,6 +177,11 @@ async function _handleLine(socket, line, session, cleanupAndExit, resetIdle) {
       case 'expand': {
         const children = await session.getVariableChildren(req.id, req.meta || {});
         _send(socket, { ok: true, variables: children });
+        break;
+      }
+      case 'expandPath': {
+        const result = await session.expandPath(req.pathParts);
+        _send(socket, { ok: true, variable: result.variable, children: result.children });
         break;
       }
       case 'stack': {

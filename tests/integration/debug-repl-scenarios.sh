@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Integration tests for the debug command — three scenarios covering both
-# interactive REPL mode and scripted AI (--json / daemon) mode.
+# Integration tests for the debug command — REPL scenarios (bash-only).
+# Scripted/--json scenarios (3/4/5) are in debug-json-scenarios.js (Node.js).
 #
 # All scenarios run from the abgagt-debug-test repo directory so .abapGitAgent
 # points to $ABGAGT_DEBUG_TEST (not the main abapgit-agent project).
 #
-# Trigger: "run --class ZCL_ABGAGT_DBG_TRIGGER" hits ZCL_ABGAGT_DBG_TRIGGER:33
+# Trigger: "run --class ZCL_ABGAGT_DBG_TRIGGER" hits ZCL_ABGAGT_DBG_TRIGGER:42
 # Blocked:  a second "run --class" queues for a dialog work process while the first is paused
 #
 # Scenario 1 (REPL — simple):
@@ -15,26 +15,26 @@
 #   attach ×2, trigger hits breakpoint → session 1 wins → q → blocked command
 #   continues, session 2 exits
 #
-# Scenario 3 (scripted AI / --json mode — full best-practice workflow):
-#   attach --json → wait "Listener active" → trigger in bg → poll for {"session":...} →
-#   stack --json → vars --json → step over → vars --json →
-#   step continue (releases work process) → trigger completes → daemon exits
-#
 # Usage:
-#   bash tests/integration/debug-scenarios.sh 1    # REPL simple
-#   bash tests/integration/debug-scenarios.sh 2    # REPL takeover
-#   bash tests/integration/debug-scenarios.sh 3    # scripted AI mode
-#   bash tests/integration/debug-scenarios.sh      # all
+#   bash tests/integration/debug-repl-scenarios.sh 1    # REPL simple
+#   bash tests/integration/debug-repl-scenarios.sh 2    # REPL takeover
+#   bash tests/integration/debug-repl-scenarios.sh repl # 1+2 (default)
+#   bash tests/integration/debug-repl-scenarios.sh      # all (same as repl)
 
 set -euo pipefail
 
 # Resolve paths relative to the abapgit-agent repo root (where this script lives)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DEBUG_REPO="$(cd "$AGENT_ROOT/../abgagt-debug-test" 2>/dev/null && pwd)" || {
-  echo "ERROR: abgagt-debug-test repo not found at $AGENT_ROOT/../abgagt-debug-test" >&2
+# setup-runner.js clones to /tmp/abgagt-debug-test; fall back to sibling dir for local dev
+if [ -d "${TMPDIR:-/tmp}/abgagt-debug-test" ]; then
+  DEBUG_REPO="${TMPDIR:-/tmp}/abgagt-debug-test"
+elif [ -d "$AGENT_ROOT/../abgagt-debug-test" ]; then
+  DEBUG_REPO="$(cd "$AGENT_ROOT/../abgagt-debug-test" && pwd)"
+else
+  echo "ERROR: abgagt-debug-test repo not found (tried ${TMPDIR:-/tmp}/abgagt-debug-test and $AGENT_ROOT/../abgagt-debug-test)" >&2
   exit 1
-}
+fi
 
 AGENT="node $AGENT_ROOT/bin/abapgit-agent"
 TIMEOUT=60
@@ -92,13 +92,13 @@ ensure_breakpoint() {
   # Use 15s when running after a large test suite (e.g. npm run test:all) to allow
   # the system and ICM connection pool to fully drain any residual debug connections.
   sleep 15
-  log "Setting breakpoint ZCL_ABGAGT_DBG_TRIGGER:33 ..."
+  log "Setting breakpoint ZCL_ABGAGT_DBG_TRIGGER:42 ..."
   (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   # Retry debug set: under load the ADT POST may transiently fail (ICM 400).
   # Without a successful set the attach command exits immediately with
   # "No breakpoints set", leaving the scenario with no session JSON.
   for _i in 1 2 3 4 5; do
-    (cd "$DEBUG_REPO" && $AGENT debug set --object ZCL_ABGAGT_DBG_TRIGGER --line 33 >/dev/null 2>&1) && break
+    (cd "$DEBUG_REPO" && $AGENT debug set --object ZCL_ABGAGT_DBG_TRIGGER --line 42 >/dev/null 2>&1) && break
     log "debug set attempt $_i failed — retrying in 5s..."
     sleep 5
   done
@@ -336,168 +336,14 @@ scenario2() {
   exec 6>&- 2>/dev/null || true
 }
 
-# ── Scenario 3: scripted AI mode (--json / daemon IPC) ───────────────────────
-#
-# Follows the four best-practice rules from abap/CLAUDE.md exactly:
-#   Rule 1: wait for "Listener active" before firing trigger — listener must be registered first
-#   Rule 2: keep trigger process alive in background for the entire session
-#   Rule 3: always finish with step --type continue — releases the frozen work process
-#   Rule 4: never pass --session to step/vars/stack — auto-load from daemon state file
-
-scenario3() {
-  echo ""
-  echo "  Scenario 3: scripted AI mode — attach --json → daemon IPC → stack/vars/step/continue"
-  echo "  $(printf '─%.0s' {1..85})"
-
-  ensure_breakpoint
-
-  rm -f /tmp/dbg_attach.out /tmp/dbg_trigger.out
-
-  # ── Step 1: start attach listener in background (rule 1: wait for listener before trigger)
-  # attach --json emits "Listener active" to stderr (captured in the output file) once
-  # the listener POST is about to be sent to ADT.  Waiting for this marker ensures the
-  # trigger does not fire before ADT has a registered listener, eliminating the race that
-  # caused "No session JSON" under system load when a blind sleep was not long enough.
-  (cd "$DEBUG_REPO" && $AGENT debug attach --json > /tmp/dbg_attach.out 2>&1) &
-  ATTACH1_PID=$!
-  log "Attach (--json) PID=$ATTACH1_PID"
-
-  # Rule 1: wait for "Listener active" then give the POST 2s to reach ADT
-  if ! wait_text /tmp/dbg_attach.out "Listener active" 30; then
-    fail "Attach never printed 'Listener active' in 30s (breakpoints may not be set)"
-    ATTACH1_PID=""; return 1
-  fi
-  sleep 2
-
-  # ── Step 2: start trigger in background — MUST stay alive for the whole session (rule 2)
-  (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER > /tmp/dbg_trigger.out 2>&1) &
-  TRIGGER_PID=$!
-  log "Trigger (run --class) PID=$TRIGGER_PID"
-
-  # ── Step 3: poll attach output for {"session":"..."} (breakpoint fired, daemon ready)
-  log "Waiting for breakpoint hit and session JSON (up to ${TIMEOUT}s)..."
-  SESSION=""
-  for i in $(seq 1 $((TIMEOUT * 2))); do
-    sleep 0.5
-    SESSION=$(grep -o '"session":"[^"]*"' /tmp/dbg_attach.out 2>/dev/null | head -1 | cut -d'"' -f4) || true
-    [ -n "$SESSION" ] && break
-  done
-
-  if [ -n "$SESSION" ]; then
-    pass "Breakpoint hit — session JSON emitted (session=${SESSION:0:8}...)"
-  else
-    fail "No session JSON in attach output after ${TIMEOUT}s"
-    echo "  attach output: $(cat /tmp/dbg_attach.out 2>/dev/null | tail -5)"
-    kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
-  fi
-
-  # ── Step 4: stack --json — no --session flag (rule 4)
-  # Retry up to 12 times with 5s delay: ADT stateful routing can return HTTP 400
-  # transiently while the ICM connection pool recovers from previous test load.
-  # 12×5s = 60s max, which is enough for SAP to fully drain prior ICM sessions.
-  STACK_OK=0
-  for _i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    STACK_OUT=$((cd "$DEBUG_REPO" && $AGENT debug stack --json) 2>&1 || true)
-    if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
-      STACK_OK=1; break
-    fi
-    log "stack returned error (attempt $_i/12) — waiting 5s for ICM to recover..."
-    sleep 5
-  done
-  if [ "$STACK_OK" -eq 1 ]; then
-    pass "stack --json returned {\"frames\":[...]} (rule 4: no --session needed)"
-  else
-    fail "stack --json did not return expected JSON: $STACK_OUT"
-  fi
-
-  # ── Step 5: vars --json — no --session flag (rule 4)
-  VARS_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
-  if echo "$VARS_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
-    pass "vars --json returned {\"variables\":[...]} (rule 4: no --session needed)"
-  else
-    fail "vars --json did not return expected JSON: $VARS_OUT"
-  fi
-
-  # ── Step 6: step over — no --session flag (rule 4)
-  # Retry same as stack — stateful routing may be briefly blocked.
-  STEP_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
-    if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
-      STEP_OK=1; break
-    fi
-    log "step over returned error (attempt $_i/8) — waiting 3s..."
-    sleep 3
-  done
-  if [ "$STEP_OK" -eq 1 ]; then
-    pass "step --type over --json returned {\"position\":{...}}"
-  else
-    fail "step --type over --json did not return expected JSON: $STEP_OUT"
-  fi
-
-  # ── Step 7: vars --json again — verify state after step
-  VARS2_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
-  if echo "$VARS2_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
-    pass "vars --json after step returned {\"variables\":[...]}"
-  else
-    fail "vars --json after step did not return expected JSON: $VARS2_OUT"
-  fi
-
-  # ── Step 8: step continue — RULE 3: always release the frozen work process
-  # Critical: this MUST succeed to release the ABAP WP. Retry aggressively.
-  CONT_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
-    if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
-      CONT_OK=1; break
-    fi
-    log "step continue returned error (attempt $_i/8) — waiting 3s..."
-    sleep 3
-  done
-  if [ "$CONT_OK" -eq 1 ]; then
-    pass "step --type continue --json released work process (rule 3)"
-  else
-    fail "step --type continue --json did not return expected JSON: $CONT_OUT"
-    # Last-resort: terminate the session to prevent WP staying frozen
-    log "Attempting terminate as fallback to release frozen WP..."
-    for _j in 1 2 3 4 5; do
-      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break
-      sleep 3
-    done
-  fi
-
-  # ── Step 9: trigger should now complete normally (rule 2: kept alive until continue)
-  log "Waiting for trigger to complete after continue (up to ${TIMEOUT}s)..."
-  if wait_pid_exit "$TRIGGER_PID" $TIMEOUT; then
-    pass "Trigger completed normally after step continue"
-  else
-    fail "Trigger did NOT complete within ${TIMEOUT}s after continue"
-    kill "$TRIGGER_PID" 2>/dev/null || true
-  fi
-
-  # ── Step 10: attach daemon exits after session ends
-  log "Waiting for attach daemon to exit (up to 10s)..."
-  if wait_pid_exit "$ATTACH1_PID" 10; then
-    pass "Attach daemon exited cleanly after session ended"
-  else
-    # Daemon may linger up to idle-timeout — kill it, this is not a hard failure
-    kill "$ATTACH1_PID" 2>/dev/null || true
-    pass "Attach daemon killed (acceptable — daemon idle timeout may be longer)"
-  fi
-
-  wait_pid_exit "$ATTACH1_PID" 5 || kill "$ATTACH1_PID" 2>/dev/null || true
-  wait_pid_exit "$TRIGGER_PID" 15 || kill "$TRIGGER_PID" 2>/dev/null || true
-  ATTACH1_PID=""; TRIGGER_PID=""
-}
-
 # ── main ─────────────────────────────────────────────────────────────────────
 
 case "$SCENARIO" in
   1)    scenario1 ;;
   2)    scenario2 ;;
-  3)    scenario3 ;;
-  all)  scenario1; sleep 20; scenario2; sleep 20; scenario3 ;;
-  *)    echo "Usage: $0 [1|2|3|all]"; exit 1 ;;
+  repl) scenario1; sleep 20; scenario2 ;;
+  all)  scenario1; sleep 20; scenario2 ;;
+  *)    echo "Usage: $0 [1|2|repl|all]"; exit 1 ;;
 esac
 
 echo ""

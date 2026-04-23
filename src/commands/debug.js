@@ -646,6 +646,15 @@ async function cmdAttach(args, config, adt) {
     process.stderr.write('\n  Waiting for breakpoint hit... (run your ABAP program in a separate window)\n');
   }
 
+  // Force a fresh SAP session for attach.
+  // When run as part of a larger test suite (e.g. npm run test:all), the shared
+  // /tmp/abapgit-adt-session-*.json file may hold a SAP_SESSIONID from a
+  // previous command (e.g. debug breakpoint management tests).  Reusing that
+  // session causes attach() to bind the debug session to a stale or non-existent
+  // work process, so every subsequent getStack/step/vars call gets HTTP 400
+  // "Service cannot be reached" from the SAP ICM.  Clearing first ensures
+  // fetchCsrfToken() creates a brand-new session rooted at this attach flow.
+  adt.clearSession();
   await adt.fetchCsrfToken();
 
   // Re-POST local breakpoints to refresh them on the server before listening.
@@ -858,7 +867,10 @@ async function cmdAttach(args, config, adt) {
     // via the snapshot env var, so it reuses the same ABAP work process.
     const socketPath = _getDaemonSocketPath ? _getDaemonSocketPath(config) : null;
     if (socketPath) {
-      const snapshot = { csrfToken: adt.csrfToken, cookies: adt.cookies };
+      // Pass the pinnedSessionId explicitly so the daemon always pins the
+      // correct SAP_SESSIONID (from attach()), not a rotated value that may
+      // have been written to adt.cookies by subsequent getPosition() calls.
+      const snapshot = { csrfToken: adt.csrfToken, cookies: adt.cookies, pinnedSessionId: session.pinnedSessionId };
       const daemonEnv = {
         ...process.env,
         DEBUG_DAEMON_MODE:            '1',
@@ -875,13 +887,19 @@ async function cmdAttach(args, config, adt) {
       });
       child.unref();
 
-      // Wait for daemon socket to appear (up to 5 s) before returning JSON
+      // Wait for daemon socket to appear (up to 15 s) before returning JSON.
+      // In CI (Docker / lower CPU), Node.js process spawn can take >5 s.
+      // If we miss the socket, cmdStack/cmdVars fall back to direct ADT without
+      // the pinned SAP_SESSIONID cookie → HTTP 400 "Service cannot be reached".
       try {
-        await waitForSocket(socketPath, 5000);
+        await waitForSocket(socketPath, 15000);
         // Persist socket path in session state so step/vars/stack/terminate find it
         saveActiveSession(config, { sessionId, position, socketPath });
       } catch (e) {
         // Non-fatal: fall back to stateless direct-ADT mode
+        if (jsonOutput) {
+          process.stderr.write('[debug] daemon socket not ready in 15s — falling back to direct ADT\n');
+        }
       }
     }
 
@@ -1050,8 +1068,8 @@ async function cmdVars(args, config, adt) {
  *   LO_FACTORY->MT_COMMAND_MAP   (object attr → table)
  *   LS_DATA->COMPONENT            (structure field)
  *
- * When a daemon socket is active, uses daemon IPC for single-segment paths.
- * Multi-segment paths always run directly against ADT (DebugSession.expandPath).
+ * When a daemon socket is active, uses daemon IPC for both single-segment and
+ * multi-segment paths so the stateful ADT session is always reused.
  */
 async function cmdExpand(expandName, sessionId, socketPath, config, adt, jsonOutput) {
   // Split on -> to detect path notation. Also handle --> typos by stripping stray dashes.
@@ -1059,20 +1077,37 @@ async function cmdExpand(expandName, sessionId, socketPath, config, adt, jsonOut
   //   [N]-FIELD  → [N]->FIELD   (array row then struct field)
   //   *-FIELD    → *->FIELD     (dereference then struct field: lr_request->*-files)
   const normalizedName = expandName
+    .replace(/^([A-Za-z0-9_@]+)\[(\d+)\]$/, '$1->[$2]') // VAR[N]       → VAR->[N]   (exact match)
+    .replace(/([A-Za-z0-9_@]+)\[(\d+)\]->/g, '$1->[$2]->') // VAR[N]->X → VAR->[N]->X (mid-path)
     .replace(/\](-(?!>))/g,  ']->') // [N]-FIELD → [N]->FIELD
     .replace(/\*(-(?!>))/g,  '*->'); // *-FIELD   → *->FIELD
   const pathParts = normalizedName.split('->').map(s => s.replace(/^-+|-+$/g, '').trim()).filter(Boolean);
 
-  // Multi-segment path: must go direct (daemon IPC only handles one level at a time)
+  // Multi-segment path: route through daemon when available (daemon holds stateful ADT session)
   if (pathParts.length > 1) {
-    if (!adt.csrfToken) await adt.fetchCsrfToken();
-    const session = new DebugSession(adt, sessionId);
     let result;
-    try {
-      result = await session.expandPath(pathParts);
-    } catch (err) {
-      printHttpError(err, { prefix: '  Error' });
-      process.exit(1);
+    if (socketPath) {
+      let resp;
+      try {
+        resp = await sendDaemonCommand(socketPath, { cmd: 'expandPath', pathParts }, 60000);
+      } catch (err) {
+        printHttpError(err, { prefix: '  Error' });
+        process.exit(1);
+      }
+      if (!resp.ok) {
+        console.error(`\n  Error: ${resp.error}\n`);
+        process.exit(1);
+      }
+      result = { variable: resp.variable, children: resp.children };
+    } else {
+      if (!adt.csrfToken) await adt.fetchCsrfToken();
+      const session = new DebugSession(adt, sessionId);
+      try {
+        result = await session.expandPath(pathParts);
+      } catch (err) {
+        printHttpError(err, { prefix: '  Error' });
+        process.exit(1);
+      }
     }
     const { variable: target, children } = result;
     return _printExpandResult(expandName, target, children, jsonOutput);

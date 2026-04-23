@@ -22,8 +22,8 @@
  *   declarations, METHOD statements, and ENHO-injected G numbers.
  *   ADT must return stale JSON.
  *
- * Confirmed ADT-accepted lines (probed via direct POST, 2026-04-02):
- *   ZCL_ABGAGT_DBG_TRIGGER main:        line 33, LINE_NR=5  (lv_sum = iv_a + iv_b)
+ * Confirmed ADT-accepted lines (probed via direct POST, 2026-04-22):
+ *   ZCL_ABGAGT_DBG_TRIGGER main:        line 42, LINE_NR=5  (lv_sum = iv_a + iv_b)
  *   ZCL_ABGAGT_DBG_TRIGGER testclasses: line 13, LINE_NR=13 (rv_val = iv_val * lv_two)
  *   ZCL_ABGAGT_DBG_TRIGGER locals_imp:  line 6,  LINE_NR=6  (lv_label = 'debug-test')
  *   LZABGAGT_DBG_TESTU01 (FUGR):        line 13, LINE_NR=13 (lv_result = iv_a + iv_b)
@@ -35,7 +35,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 
 // NOTE: LINE_NR is include-relative, not the global assembled-source line.
-// For CLAS main methods it differs from the line we passed in (e.g. global 33 → LINE_NR 5).
+// For CLAS main methods it differs from the line we passed in (e.g. global 42 → LINE_NR 5).
 function adtLineNr(jsonOutput) {
   const m = jsonOutput.match(/"id":"[^"]*LINE_NR=(\d+)/);
   return m ? parseInt(m[1], 10) : null;
@@ -49,12 +49,12 @@ function jsonLine(jsonOutput) {
 
 // Parse a `debug set --objects NAME:N` hint from view --lines output.
 // The hint appears in lines like:
-//   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_ABGAGT_DBG_TRIGGER:33 ----
+//   * ---- Method: COMPUTE (CM001) — breakpoint: debug set --objects ZCL_ABGAGT_DBG_TRIGGER:42 ----
 //   * ---- FM: ZABGAGT_DBG_ADD (LZABGAGT_DBG_TESTU01) — breakpoint: debug set --objects LZABGAGT_DBG_TESTU01:13 ----
 //
 // For CLAS main methods the source lines use G [N] format:
-//     33 [  5]      lv_sum = iv_a + iv_b.
-// where G=33 is the global assembled-source line (sent to ADT as #start=)
+//     42 [  5]      lv_sum = iv_a + iv_b.
+// where G=42 is the global assembled-source line (sent to ADT as #start=)
 // and N=5 is the include-relative line (stored by ADT as LINE_NR).
 // For sub-includes (testclasses, locals_imp) and FUGR the lines show just N = LINE_NR.
 //
@@ -110,17 +110,17 @@ function buildTestCases() {
 
     // --- CLAS main source breakpoint ---
     {
-      name: '[A] debug set CLAS main — line 33 accepted by ADT (LINE_NR=5)',
-      // Global line 33 = CM001 include line 5 (as shown by view --lines: "33 [  5]")
-      args: ['set', '--object', 'ZCL_ABGAGT_DBG_TRIGGER', '--line', '33', '--json'],
+      name: '[A] debug set CLAS main — line 42 accepted by ADT (LINE_NR=5)',
+      // Global line 42 = CM001 include line 5 (as shown by view --lines: "42 [  5]")
+      args: ['set', '--object', 'ZCL_ABGAGT_DBG_TRIGGER', '--line', '42', '--json'],
       expectSuccess: true,
-      verify: (output) => adtLineNr(output) === 5 && jsonLine(output) === 33
+      verify: (output) => adtLineNr(output) === 5 && jsonLine(output) === 42
     },
     {
       name: '[A] debug list shows CLAS main breakpoint',
       args: ['list'],
       expectSuccess: true,
-      verify: (output) => output.includes('ZCL_ABGAGT_DBG_TRIGGER') && output.includes('33')
+      verify: (output) => output.includes('ZCL_ABGAGT_DBG_TRIGGER') && output.includes('42')
     },
     {
       name: '[A] debug delete --all (cleanup after CLAS main test)',
@@ -385,11 +385,11 @@ function buildTestCases() {
     // B5: CLAS main with active ENHO (ZABGAGT_DBG_ENHO hooks into COMPUTE at BEGIN)
     // view --full --lines must show the injected ENHO block and emit a BP hint that
     // uses base-source coordinates (countEnhoLines subtraction), not runtime G numbers.
-    // With ENHO active: METHOD compute. at G=29, ENHO injects 4 lines (G 30-33),
-    // lv_sum = iv_a + iv_b. is at G=37 in the display but the hint must say :33
+    // With ENHO active: METHOD compute. at G=38, ENHO injects 4 lines (G 39-42),
+    // lv_sum = iv_a + iv_b. is at G=46 in the display but the hint must say :42
     // (base-source line that ADT validates against). LINE_NR=5 (include-relative).
     {
-      name: '[B5] view --full --lines CLAS with ENHO: parse COMPUTE hint (expect base-source :33)',
+      name: '[B5] view --full --lines CLAS with ENHO: parse COMPUTE hint (expect base-source :42)',
       run: 'view',
       args: ['--objects', 'ZCL_ABGAGT_DBG_TRIGGER', '--full', '--lines'],
       expectSuccess: true,
@@ -399,14 +399,14 @@ function buildTestCases() {
         const hint = parseViewHint(output, 'COMPUTE');
         if (!hint) return false;
         viewParsed.clasMainEnho = hint;
-        // Hint must be base-source line 33, not runtime G=37
+        // Hint must be base-source line 42, not runtime G=46
         return hint.object === 'ZCL_ABGAGT_DBG_TRIGGER' &&
-          hint.line === 33 &&
+          hint.line === 42 &&
           hint.include === null;
       }
     },
     {
-      name: '[B5] debug set CLAS+ENHO at hint line 33 — ADT accepts (LINE_NR=5)',
+      name: '[B5] debug set CLAS+ENHO at hint line 42 — ADT accepts (LINE_NR=5)',
       get args() {
         const h = viewParsed.clasMainEnho;
         return h ? ['set', '--objects', `${h.object}:${h.line}`, '--json'] : ['--help'];
@@ -418,12 +418,12 @@ function buildTestCases() {
       }
     },
     {
-      name: '[B5] debug list confirms CLAS+ENHO BP at line 33',
+      name: '[B5] debug list confirms CLAS+ENHO BP at line 42',
       args: ['list'],
       expectSuccess: true,
       verify: (output) => {
         const h = viewParsed.clasMainEnho;
-        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes('33');
+        return output.includes('ZCL_ABGAGT_DBG_TRIGGER') && h !== null && output.includes(String(h.line));
       }
     },
     {
@@ -565,6 +565,17 @@ function runDebugTests(repoRoot, helpers) {
   printSubHeader('Running Debug Tests (breakpoint management)');
 
   const agentBin = path.join(repoRoot, 'bin', 'abapgit-agent');
+
+  // Ensure breakpoints are always deleted on exit (normal, crash, or signal).
+  // Without this, a mid-test crash leaves stale breakpoints that cause subsequent
+  // runs to fail with "Breakpoint already exists" or unexpected session hits.
+  const deleteAllOnExit = () => {
+    try { execSync(`node ${agentBin} debug delete --all`, { cwd: repoRoot, timeout: 15000 }); } catch { /* best-effort */ }
+  };
+  process.once('exit',    deleteAllOnExit);
+  process.once('SIGINT',  () => { deleteAllOnExit(); process.exit(130); });
+  process.once('SIGTERM', () => { deleteAllOnExit(); process.exit(143); });
+
   const testCases = buildTestCases();
   const startTime = Date.now();
   const results = [];

@@ -151,7 +151,7 @@ async function computeGlobalStarts(objName, sections, config) {
  * Returns 0 if no better line is found (falls back to METHOD statement).
  */
 function findFirstExecutableLine(lines) {
-  const declPattern = /^\s*(data|final|types|constants|class-data)[\s:(]/i;
+  const declPattern = /^\s*(data|final|types|constants|class-data|field-symbols)[\s:(</\[]/i;
   const methodPattern = /^\s*method\s+/i;
   const commentPattern = /^\s*[*"]/;
   // Program-level header/declaration keywords that are not executable statements

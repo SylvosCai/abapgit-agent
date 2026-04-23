@@ -216,13 +216,20 @@ abapgit-agent debug step   --type continue --json        # continue to next brea
 abapgit-agent debug stack  --json                        # call stack (shows which test method is active)
 ```
 
-> **`--expand` does not support table-row index notation.** `--expand "LT_DATA[1]"` returns "Variable not found". Use `--expand LT_DATA` to expand all rows, then `--name` on a specific scalar component.
-
-> **Field symbols assigned via `ASSIGNING FIELD-SYMBOL(<fs>)` do not appear in `debug vars` output.** Only named variables (`DATA`, `FINAL`) are listed. To inspect the current loop row, expand the parent table:
+> To inspect a specific table row, use `--expand TABLE[N]`:
 > ```bash
-> abapgit-agent debug vars --expand RT_DATA --json   # table rows visible by index
+> abapgit-agent debug vars --expand LT_DATA[1] --json          # first row — shows its fields
+> abapgit-agent debug vars --expand LT_DATA[1]->CARRID --json  # drill into one field in row 1
 > ```
-> Alternatively, step over the assignment and use `--name` on a scalar component directly.
+> Use `--expand LT_DATA` (without index) to see all rows first.
+
+> **Field symbols are supported via source-parse enrichment.** `FIELD-SYMBOLS <FS>` declarations are not returned by ADT's `getChildVariables` hierarchy, so `debug vars` fetches the current method's source, extracts all `FIELD-SYMBOLS <name>` declarations, and requests them directly via `getVariables`. Assigned field symbols appear in the variable list and can be expanded like any other variable:
+> ```bash
+> abapgit-agent debug vars --json                          # <LS> appears in the list
+> abapgit-agent debug vars --expand '<LS>' --json          # expand field symbol children
+> abapgit-agent debug vars --expand '<LS>'->NAME --json    # single field
+> ```
+> Unassigned field symbols will be returned with an empty or unset value.
 
 > **`step --type continue` return values:**
 > - `{"continued":true,"finished":true}` — program ran to **completion** (ADT returned HTTP 500, session is over). Do not re-attach.

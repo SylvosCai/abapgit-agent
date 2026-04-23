@@ -18,7 +18,7 @@
  *                          Group C: unexecutable line rejection; CLAS main/testclasses/
  *                          locals_imp, FUGR include, ENHO-active class (COMPUTE + MAIN);
  *                          set tests use --json to verify ADT-accepted line number;
- *                          full session in debug-scenarios.sh)
+ *                          full session in debug-repl-scenarios.sh / debug-json-scenarios.js)
  *   - dump:    4 tests (basic list, user filter, date filter, JSON output)
  *   - ref:     3 tests (topics, repos, search)
  *   - upgrade: 4 tests (check, dry-run, invalid version, cli-only)

@@ -39,7 +39,12 @@ Debug Session (AI / scripting mode):
   attach  --json [--timeout <s>]         Attach, wait for breakpoint, emit JSON, start daemon
   step    --type over|into|out|continue [--json]
   vars    [--name <var>] [--json]
-  vars    --expand <var> [--json]        Drill into a complex variable (table / structure)
+  vars    --expand <var> [--json]        Drill into a table / structure / field symbol
+                                           --expand LT_TABLE              all rows
+                                           --expand LT_TABLE[N]           one row (fields)
+                                           --expand LT_TABLE[N]->FIELD    one field in a row
+                                           --expand '<FS>'                field symbol (all fields)
+                                           --expand '<FS>'->FIELD         one field of a FS
   stack   [--json]
   terminate [--json]
 
@@ -58,7 +63,7 @@ When `debug attach` is called without `--json`, an interactive readline REPL sta
 | `o` | `out` | Step out |
 | `c` | `continue` | Continue execution (releases work process) |
 | `v` | `vars` | Show variables |
-| `x <var>` | `expand <var>` | Drill into a complex variable (table / structure) |
+| `x <var>` | `expand <var>` | Drill into a table, structure, or field symbol (`x LT_TABLE`, `x LT_TABLE[1]`, `x '<FS>'`) |
 | `bt` | `stack` | Show call stack |
 | `q` | `quit` | Detach debugger (program continues running) |
 | `kill` | — | Terminate the running program (hard abort) |
@@ -297,6 +302,28 @@ Accept:       application/vnd.sap.as+xml; charset=UTF-8; dataname=com.sap.adt.de
 
 The `dataname=` part of Content-Type is an ADT routing key — using the wrong value silently routes the request to the wrong handler.
 
+**Step 3 — Field symbol enrichment (source-parse)**: `FIELD-SYMBOLS <FS>` declarations are never returned by ADT's `getChildVariables` hierarchy (ADT does not enumerate them regardless of group ID). `getVariables()` fetches the current frame's ABAP source via `getStack` + the `adtcore:uri` source endpoint, extracts all `FIELD-SYMBOLS <name>` declarations with a regex, and requests them directly via `getVariables`. Assigned field symbols appear in the variable list and can be expanded like any other variable. Unassigned field symbols return an empty or unset value. This enrichment is best-effort — if the source fetch fails, normal variable results are still returned.
+
+## `--expand` — Drilling into Variables
+
+`debug vars --expand <name>` resolves a multi-segment path through the variable hierarchy. The following forms are all supported:
+
+| Form | Example | What it returns |
+|------|---------|-----------------|
+| Whole table | `--expand LT_TABLE` | All rows (`[1]`, `[2]`, …) |
+| Single row | `--expand LT_TABLE[N]` | All fields of row N |
+| Field in row | `--expand LT_TABLE[N]->FIELD` | Value of FIELD in row N |
+| Field symbol | `--expand '<FS>'` | All fields of the assigned structure |
+| Field in FS | `--expand '<FS>'->FIELD` | Value of FIELD in the assigned structure |
+| Structure field | `--expand LS_STRUC->FIELD` | Value of one field |
+
+The `[N]` row index and `->` path separator normalisation is handled in `cmdExpand()` before routing:
+- `LT_TABLE[N]` → `LT_TABLE->[N]` (routed through `expandPath`)
+- `LT_TABLE[N]->FIELD` → `LT_TABLE->[N]->FIELD` (mid-path normalisation)
+- Single-segment names without `[N]` use `getVariableChildren` directly
+
+Multi-segment paths (`pathParts.length > 1`) are dispatched to the background daemon via the `expandPath` IPC command, so the stateful ADT session is always used.
+
 ## Stack
 
 ```
@@ -330,7 +357,8 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 | `src/utils/adt-http.js` | ADT HTTP client (CSRF, stateful sessions, XML helpers) |
 | `tests/unit/debug-command.test.js` | Unit tests for debug command |
 | `tests/unit/adt-http.test.js` | Unit tests for AdtHttp |
-| `tests/integration/debug-scenarios.sh` | Integration tests: REPL simple, REPL takeover, scripted AI mode |
+| `tests/integration/debug-repl-scenarios.sh` | Integration tests: REPL simple, REPL takeover (bash, local only) |
+| `tests/integration/debug-json-scenarios.js` | Integration tests: scripted --json scenarios 3/4/5 (CI-safe) |
 
 ## Prerequisites
 
@@ -343,3 +371,4 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 - Breakpoints fire only for dialog work processes executing under the configured user
 - The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement
 - Unit test methods and local class methods require `--include testclasses` / `--include locals_imp` with **section-local** line numbers (not assembled-source global lines); `view --full --lines` emits the correct hint for these sections automatically
+- `FIELD-SYMBOLS <FS>` variables are resolved via source-parse enrichment (see Variables section). Unassigned field symbols return an empty or unset value. Field symbols from `ASSIGNING <FS>` inside a `LOOP` are visible only when the loop body is the active frame
