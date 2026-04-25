@@ -2,6 +2,25 @@
 title: Release Notes
 ---
 
+## v1.18.0
+
+### New Features
+
+- `--expand TABLE[N]` support for table row inspection in debug
+- Field symbol enrichment in debug variable output
+- Scripted CI scenarios for debug integration testing
+
+### Improvements
+
+- Migrated HTTP clients to axios with keepAlive connection pooling
+- Debug daemon now runs in-process, sharing TCP session with attach
+- Upgraded Jest 29 → 30
+
+---
+
+---
+
+
 ## v1.17.9
 
 ### New Features
