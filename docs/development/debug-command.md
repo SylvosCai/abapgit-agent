@@ -353,12 +353,12 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 | `src/utils/debug-state.js` | Persists active session ID, socket path, and breakpoint list to tmp files |
 | `src/utils/debug-repl.js` | readline-based interactive REPL for human mode |
 | `src/utils/debug-render.js` | Shared display helpers (variable list, source context) used by REPL and AI mode |
-| `src/utils/debug-daemon.js` | Background daemon — holds stateful ADT HTTP connection; accepts IPC commands via Unix socket |
-| `src/utils/adt-http.js` | ADT HTTP client (CSRF, stateful sessions, XML helpers) |
+| `src/utils/debug-daemon.js` | In-process IPC daemon — holds stateful ADT HTTP session; accepts commands via Unix socket |
+| `src/utils/adt-http.js` | ADT HTTP client (axios, keepAlive connection pool, CSRF, cookie jar, XML helpers) |
 | `tests/unit/debug-command.test.js` | Unit tests for debug command |
 | `tests/unit/adt-http.test.js` | Unit tests for AdtHttp |
 | `tests/integration/debug-repl-scenarios.sh` | Integration tests: REPL simple, REPL takeover (bash, local only) |
-| `tests/integration/debug-json-scenarios.js` | Integration tests: scripted --json scenarios 3/4/5 (CI-safe) |
+| `tests/integration/debug-scripted-scenarios.sh` | Integration tests: scripted --json scenarios 3/4/5 (local only — requires TCP session affinity) |
 
 ## Prerequisites
 
@@ -372,3 +372,4 @@ The daemon auto-exits after 30 minutes of idle time or when `terminate` is calle
 - The `#start=<line>` line number in the URI must point to an executable ABAP statement — comments, blank lines, `DATA` declarations, and `METHOD`/`ENDMETHOD` lines are rejected with "Cannot create a breakpoint at this position". Use `view --objects ZCL_MY_CLASS --full --lines` to find valid line numbers — the method header hint already skips non-executable lines and points directly to the first executable statement
 - Unit test methods and local class methods require `--include testclasses` / `--include locals_imp` with **section-local** line numbers (not assembled-source global lines); `view --full --lines` emits the correct hint for these sections automatically
 - `FIELD-SYMBOLS <FS>` variables are resolved via source-parse enrichment (see Variables section). Unassigned field symbols return an empty or unset value. Field symbols from `ASSIGNING <FS>` inside a `LOOP` are visible only when the loop body is the active frame
+- **Debug scripted scenarios require TCP session affinity** — the in-process daemon shares the same axios keepAlive connection for attach/getStack/step/vars. If a network proxy or load balancer between the client and SAP breaks TCP connection affinity, `getStack` returns HTTP 400 "Service cannot be reached". The scripted scenarios (3/4/5) are skipped in CI for this reason but run locally (`npm run test:debug:scenarios`)

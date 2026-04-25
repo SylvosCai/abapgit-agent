@@ -91,29 +91,32 @@ class DebugSession {
   }
 
   /**
-   * Restore the pinned SAP_SESSIONID into the HTTP client's cookie jar.
+   * Restore the pinned session-affinity cookies into the HTTP client's cookie jar.
    *
    * SAP ADT debug sessions are bound to a specific frozen ABAP work process
-   * via the SAP_SESSIONID cookie.  AdtHttp updates this cookie automatically
-   * from every response's Set-Cookie header and replaces it on CSRF refresh
-   * (401/403 retry).  When the cookie rotates mid-session the next request
-   * routes to a different ABAP session that has no debug state, causing
-   * HTTP 400 "Service cannot be reached".
+   * via SAP_SESSIONID_{SID}_{CLIENT} or sap-contextid (depending on the system).
+   * AdtHttp updates cookies automatically from every Set-Cookie response header.
+   * When the session cookie rotates mid-session the next request routes to a
+   * different ABAP work process that has no debug state, causing HTTP 400.
    *
-   * This method reverts any rotation that occurred since attach() by replacing
-   * the current SAP_SESSIONID value with the one captured at attach time.
+   * This method restores all pinned cookies before every ADT call.
    * It is a no-op when called before attach() (pinnedSessionId is null).
    */
   _restorePinnedSession() {
     if (!this.pinnedSessionId || !this.http.cookies) return;
 
-    // Replace whatever SAP_SESSIONID= value is currently in the cookie jar
-    // with the pinned one.  The cookie jar is a semicolon-separated string,
-    // e.g. "SAP_SESSIONID=ABC123; sap-usercontext=xyz".
-    this.http.cookies = this.http.cookies.replace(
-      /SAP_SESSIONID=[^;]*/,
-      `SAP_SESSIONID=${this.pinnedSessionId}`
-    );
+    // Replace the session-affinity cookie(s) in the jar with the pinned ones.
+    // SAP uses either SAP_SESSIONID_{SID}_{CLIENT} or sap-contextid (or both)
+    // depending on the system configuration.
+    for (const pinned of this.pinnedSessionId) {
+      const cookieName = pinned.split('=')[0];
+      const re = new RegExp(cookieName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=[^;]*');
+      if (re.test(this.http.cookies)) {
+        this.http.cookies = this.http.cookies.replace(re, pinned);
+      } else {
+        this.http.cookies = this.http.cookies + '; ' + pinned;
+      }
+    }
   }
 
   /**
@@ -131,7 +134,7 @@ class DebugSession {
       `&debuggingMode=user` +
       `&requestUser=${encodeURIComponent(requestUser)}`;
 
-    const { body } = await this.http.post(url, '', {
+    const { body, headers: respHeaders } = await this.http.post(url, '', {
       contentType: 'application/vnd.sap.as+xml',
       headers: STATEFUL_HEADER
     });
@@ -145,14 +148,18 @@ class DebugSession {
       this.sessionId = debugSessionId;
     }
 
-    // Pin the SAP_SESSIONID cookie that was active when we attached.
-    // All subsequent stateful operations must present this exact cookie so
-    // that SAP routes them to the same frozen ABAP work process.
+    // Pin the session-affinity cookie(s) captured after the attach POST.
+    // SAP uses SAP_SESSIONID_{SID}_{CLIENT} on some systems and sap-contextid
+    // on others (or both). Capture all candidates and restore before every call.
+    this.pinnedSessionId = [];
     if (this.http.cookies) {
-      const match = this.http.cookies.match(/SAP_SESSIONID=([^;]*)/);
-      if (match) this.pinnedSessionId = match[1];
+      for (const pair of this.http.cookies.split(';')) {
+        const name = pair.trim().split('=')[0].trim();
+        if (/^SAP_SESSIONID/i.test(name) || name === 'sap-contextid') {
+          this.pinnedSessionId.push(pair.trim());
+        }
+      }
     }
-
     return this.sessionId;
   }
 

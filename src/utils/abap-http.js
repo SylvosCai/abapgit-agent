@@ -1,22 +1,83 @@
+'use strict';
+
 /**
- * ABAP HTTP request wrapper with CSRF token and session management
+ * ABAP HTTP client for the custom abapgit-agent REST handler.
+ *
+ * Uses axios with connection pooling (keepAlive). Handles CSRF tokens,
+ * cookie management, session caching, and automatic auth retry.
+ *
+ * Responses are parsed as JSON (the /sap/bc/z_abapgit_agent/ handler
+ * always returns JSON). ABAP-specific newline escaping is applied
+ * before parsing.
  */
+const axios = require('axios');
 const https = require('https');
-const http = require('http');
-const { extractBodyDetail } = require('./format-error');
 const fs = require('fs');
 const path = require('path');
+const { extractBodyDetail } = require('./format-error');
 const os = require('os');
 const crypto = require('crypto');
 
-/**
- * ABAP HTTP client with CSRF token, cookie, and session caching
- */
 class AbapHttp {
   constructor(config) {
     this.config = config;
     this.csrfToken = null;
     this.cookies = null;
+
+    const isHttp = config.protocol === 'http';
+    const baseURL = `${config.protocol || 'https'}://${config.host}:${config.sapport}`;
+    this._axios = axios.create({
+      baseURL,
+      ...(isHttp
+        ? { httpAgent: new (require('http').Agent)({ keepAlive: true }) }
+        : { httpsAgent: new https.Agent({ rejectUnauthorized: false, keepAlive: true }) }),
+      maxRedirects: 0,
+      validateStatus: () => true,
+    });
+
+    // Request interceptor: inject auth, CSRF, cookies, sap-client on every request
+    this._axios.interceptors.request.use((reqConfig) => {
+      reqConfig.headers['Authorization'] =
+        `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`;
+      reqConfig.headers['sap-client'] = config.client;
+      reqConfig.headers['sap-language'] = config.language || 'EN';
+      if (this.cookies) reqConfig.headers['Cookie'] = this.cookies;
+      if (['post', 'delete'].includes(reqConfig.method) && this.csrfToken) {
+        reqConfig.headers['X-CSRF-Token'] = this.csrfToken;
+      }
+      return reqConfig;
+    });
+
+    // Response interceptor: merge Set-Cookie headers into cookie jar.
+    // Skip on error responses (>= 400) to avoid stale cookie overwrites.
+    this._axios.interceptors.response.use((resp) => {
+      if (resp.status >= 400) return resp;
+      const setCookie = resp.headers['set-cookie'];
+      if (setCookie) {
+        const incoming = Array.isArray(setCookie)
+          ? setCookie.map(c => c.split(';')[0])
+          : [setCookie.split(';')[0]];
+        const jar = new Map();
+        if (this.cookies) {
+          this.cookies.split(';').forEach(pair => {
+            const trimmed = pair.trim();
+            if (trimmed) {
+              const eq = trimmed.indexOf('=');
+              jar.set(eq === -1 ? trimmed : trimmed.slice(0, eq).trim(), trimmed);
+            }
+          });
+        }
+        incoming.forEach(pair => {
+          const trimmed = pair.trim();
+          if (trimmed) {
+            const eq = trimmed.indexOf('=');
+            jar.set(eq === -1 ? trimmed : trimmed.slice(0, eq).trim(), trimmed);
+          }
+        });
+        this.cookies = [...jar.values()].join('; ');
+      }
+      return resp;
+    });
 
     // Session cache file path
     const configHash = crypto.createHash('md5')
@@ -25,48 +86,27 @@ class AbapHttp {
       .substring(0, 8);
 
     this.sessionFile = path.join(os.tmpdir(), `abapgit-session-${configHash}.json`);
-
-    // Try to load cached session
     this.loadSession();
   }
 
-  /**
-   * Load session from cache file if valid
-   */
   loadSession() {
-    if (!fs.existsSync(this.sessionFile)) {
-      return;
-    }
-
+    if (!fs.existsSync(this.sessionFile)) return;
     try {
       const session = JSON.parse(fs.readFileSync(this.sessionFile, 'utf8'));
-
-      // Check if expired (with 2-minute safety margin)
-      const now = Date.now();
-      const safetyMargin = 2 * 60 * 1000;  // 2 minutes
-
-      if (session.expiresAt > now + safetyMargin) {
+      const safetyMargin = 2 * 60 * 1000;
+      if (session.expiresAt > Date.now() + safetyMargin) {
         this.csrfToken = session.csrfToken;
         this.cookies = session.cookies;
-        // Silent - no console output for cached session
       } else {
-        // Session expired
         this.clearSession();
       }
     } catch (e) {
-      // Corrupted cache file - clear it
       this.clearSession();
     }
   }
 
-  /**
-   * Save session to cache file
-   */
   saveSession() {
-    // Conservative expiration: 15 minutes
-    // (ABAP default session timeout is typically 20 minutes)
     const expiresAt = Date.now() + (15 * 60 * 1000);
-
     try {
       fs.writeFileSync(this.sessionFile, JSON.stringify({
         csrfToken: this.csrfToken,
@@ -75,37 +115,27 @@ class AbapHttp {
         savedAt: Date.now()
       }));
     } catch (e) {
-      // Ignore write errors - session caching is optional
+      // Ignore write errors
     }
   }
 
-  /**
-   * Clear cached session
-   */
   clearSession() {
     this.csrfToken = null;
     this.cookies = null;
-
     try {
-      if (fs.existsSync(this.sessionFile)) {
-        fs.unlinkSync(this.sessionFile);
-      }
+      if (fs.existsSync(this.sessionFile)) fs.unlinkSync(this.sessionFile);
     } catch (e) {
-      // Ignore file deletion errors
+      // Ignore deletion errors
     }
   }
 
   /**
-   * Detect if error is due to expired/invalid session
-   * @param {Error|object} error - Error object or response
-   * @returns {boolean} True if auth error
+   * Detect if error is due to expired/invalid session.
    */
   isAuthError(error) {
-    // HTTP status codes
-    if (error.statusCode === 401) return true;  // Unauthorized
-    if (error.statusCode === 403) return true;  // Forbidden
+    if (error.statusCode === 401) return true;
+    if (error.statusCode === 403) return true;
 
-    // Error message patterns
     const message = (error.message || error.error || '').toLowerCase();
     if (message.includes('csrf')) return true;
     if (message.includes('token')) return true;
@@ -114,7 +144,6 @@ class AbapHttp {
     if (message.includes('unauthorized')) return true;
     if (message.includes('forbidden')) return true;
 
-    // Response body patterns
     if (error.body) {
       const bodyStr = JSON.stringify(error.body).toLowerCase();
       if (bodyStr.includes('csrf')) return true;
@@ -126,253 +155,108 @@ class AbapHttp {
   }
 
   /**
-   * Fetch CSRF token using GET /health with X-CSRF-Token: fetch
-   * @returns {Promise<string>} CSRF token
+   * Fetch CSRF token via GET /health with X-CSRF-Token: fetch
    */
   async fetchCsrfToken() {
-    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
-
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${this.config.user}:${this.config.password}`).toString('base64')}`,
-          'sap-client': this.config.client,
-          'sap-language': this.config.language || 'EN',
-          'X-CSRF-Token': 'fetch',
-          'Content-Type': 'application/json'
-        },
-        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = (this.config.protocol === 'http' ? http : https).request(options, (res) => {
-        const csrfToken = res.headers['x-csrf-token'];
-
-        // Save cookies from response
-        const setCookie = res.headers['set-cookie'];
-        if (setCookie) {
-          this.cookies = Array.isArray(setCookie)
-            ? setCookie.map(c => c.split(';')[0]).join('; ')
-            : setCookie.split(';')[0];
-        }
-
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          this.csrfToken = csrfToken;
-
-          // Save session to cache
-          this.saveSession();
-
-          resolve(csrfToken);
-        });
-      });
-
-      req.on('error', reject);
-      req.end();
+    const resp = await this._axios.get('/sap/bc/z_abapgit_agent/health', {
+      headers: {
+        'X-CSRF-Token': 'fetch',
+        'Content-Type': 'application/json'
+      }
     });
+    this.csrfToken = resp.headers['x-csrf-token'] || this.csrfToken;
+    this.saveSession();
+    return this.csrfToken;
   }
 
   /**
-   * Make HTTP request to ABAP REST endpoint with automatic retry on auth failure
-   * @param {string} method - HTTP method (GET, POST, DELETE)
-   * @param {string} urlPath - URL path
-   * @param {object} data - Request body (for POST)
-   * @param {object} options - Additional options (headers, csrfToken, isRetry)
-   * @returns {Promise<object>} Response JSON
+   * Make HTTP request with automatic retry on auth failure.
+   * Returns parsed JSON.
    */
   async request(method, urlPath, data = null, options = {}) {
     try {
-      // Try with current session (cached or fresh)
       return await this._makeRequest(method, urlPath, data, options);
-
     } catch (error) {
-      // Check if it's an authentication/authorization failure
       if (this.isAuthError(error) && !options.isRetry) {
-        // Session expired - refresh and retry once
-        console.error('⚠️  Session expired, refreshing...');
-
-        // Clear stale session
         this.clearSession();
-
-        // Fetch fresh token/cookies
         await this.fetchCsrfToken();
-
-        // Retry ONCE with fresh session
-        return await this._makeRequest(method, urlPath, data, {
-          ...options,
-          isRetry: true  // Prevent infinite loop
-        });
+        return await this._makeRequest(method, urlPath, data, { ...options, isRetry: true });
       }
-
-      // Not an auth error or already retried - propagate
       throw error;
     }
   }
 
   /**
-   * Internal request implementation (no retry logic)
-   * @param {string} method - HTTP method
-   * @param {string} urlPath - URL path
-   * @param {object} data - Request body
-   * @param {object} options - Additional options
-   * @returns {Promise<object>} Response JSON
+   * Internal request — returns parsed JSON.
    */
   async _makeRequest(method, urlPath, data = null, options = {}) {
-    return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'sap-client': this.config.client,
-        'sap-language': this.config.language || 'EN',
-        ...options.headers
-      };
-
-      // Add authorization
-      headers['Authorization'] = `Basic ${Buffer.from(`${this.config.user}:${this.config.password}`).toString('base64')}`;
-
-      // Add CSRF token for POST
-      if (method === 'POST' && options.csrfToken) {
-        headers['X-CSRF-Token'] = options.csrfToken;
-      }
-
-      // Add cookies if available
-      if (this.cookies) {
-        headers['Cookie'] = this.cookies;
-      }
-
-      const reqOptions = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname + url.search,
-        method,
-        headers,
-        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (res) => {
-        // Check for auth errors
-        if (res.statusCode === 401 || res.statusCode === 403) {
-          reject({
-            statusCode: res.statusCode,
-            message: `Authentication failed: ${res.statusCode}`,
-            isAuthError: true
-          });
-          return;
-        }
-
-        // Check for other HTTP errors (4xx, 5xx)
-        if (res.statusCode >= 400) {
-          let body = '';
-          res.on('data', chunk => body += chunk);
-          res.on('end', () => {
-            const detail = extractBodyDetail(body);
-            const message = detail
-              ? `(HTTP ${res.statusCode}) ${detail}`
-              : `(HTTP ${res.statusCode}) ${res.statusMessage || 'Internal Server Error'}`;
-            reject({
-              statusCode: res.statusCode,
-              message,
-              body: body
-            });
-          });
-          return;
-        }
-
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          try {
-            // Handle unescaped newlines from ABAP - replace actual newlines with \n
-            const cleanedBody = body.replace(/\n/g, '\\n');
-            const parsed = JSON.parse(cleanedBody);
-
-            // Check for CSRF/session errors in response body
-            if (this.isAuthError(parsed)) {
-              reject({
-                statusCode: res.statusCode,
-                message: 'CSRF token or session error',
-                body: parsed,
-                isAuthError: true
-              });
-              return;
-            }
-
-            resolve(parsed);
-          } catch (e) {
-            // Fallback: try to extract JSON from response
-            const jsonMatch = body.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              try {
-                const parsed = JSON.parse(jsonMatch[0].replace(/\n/g, '\\n'));
-                resolve(parsed);
-              } catch (e2) {
-                // JSON parse failed - reject instead of resolve
-                reject({
-                  statusCode: res.statusCode,
-                  message: 'Failed to parse JSON response',
-                  body: body,
-                  error: e2.message
-                });
-              }
-            } else {
-              // No JSON found in body - reject instead of resolve
-              reject({
-                statusCode: res.statusCode,
-                message: 'Invalid response format (not JSON)',
-                body: body,
-                error: e.message
-              });
-            }
-          }
-        });
-      });
-
-      req.on('error', reject);
-
-      if (data) {
-        req.write(JSON.stringify(data));
-      }
-      req.end();
+    const resp = await this._axios.request({
+      method,
+      url: urlPath,
+      data: data ? JSON.stringify(data) : undefined,
+      headers,
+      responseType: 'text',
+      timeout: 120000,
     });
+
+    const statusCode = resp.status;
+
+    if (statusCode === 401 || statusCode === 403) {
+      throw { statusCode, message: `Authentication failed: ${statusCode}`, isAuthError: true };
+    }
+
+    if (statusCode >= 400) {
+      const detail = extractBodyDetail(resp.data || '');
+      const message = detail
+        ? `(HTTP ${statusCode}) ${detail}`
+        : `(HTTP ${statusCode}) ${resp.statusText || 'Internal Server Error'}`;
+      throw { statusCode, message, body: resp.data || '' };
+    }
+
+    // Parse JSON response — handle ABAP unescaped newlines
+    const body = resp.data || '';
+    try {
+      const cleanedBody = body.replace(/\n/g, '\\n');
+      const parsed = JSON.parse(cleanedBody);
+
+      // Check for CSRF/session errors in response body
+      if (this.isAuthError(parsed)) {
+        throw { statusCode, message: 'CSRF token or session error', body: parsed, isAuthError: true };
+      }
+
+      return parsed;
+    } catch (e) {
+      if (e.isAuthError) throw e;
+      // Fallback: try to extract JSON from response
+      const jsonMatch = body.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0].replace(/\n/g, '\\n'));
+          return parsed;
+        } catch (e2) {
+          throw { statusCode, message: 'Failed to parse JSON response', body, error: e2.message };
+        }
+      }
+      throw { statusCode, message: 'Invalid response format (not JSON)', body, error: e.message };
+    }
   }
 
-  /**
-   * Convenience method for GET requests
-   * @param {string} urlPath - URL path
-   * @param {object} options - Additional options
-   * @returns {Promise<object>} Response JSON
-   */
   async get(urlPath, options = {}) {
     return this.request('GET', urlPath, null, options);
   }
 
-  /**
-   * Convenience method for POST requests
-   * @param {string} urlPath - URL path
-   * @param {object} data - Request body
-   * @param {object} options - Additional options (must include csrfToken)
-   * @returns {Promise<object>} Response JSON
-   */
   async post(urlPath, data, options = {}) {
     return this.request('POST', urlPath, data, options);
   }
 
-  /**
-   * Convenience method for DELETE requests
-   * @param {string} urlPath - URL path
-   * @param {object} options - Additional options
-   * @returns {Promise<object>} Response JSON
-   */
   async delete(urlPath, options = {}) {
     return this.request('DELETE', urlPath, null, options);
   }
 }
 
-module.exports = {
-  AbapHttp
-};
+module.exports = { AbapHttp };

@@ -1,26 +1,97 @@
 'use strict';
 
 /**
- * ADT HTTP client for SAP ABAP Development Tools REST API
- * Handles XML/AtomPub content, CSRF token, cookie session caching.
+ * ADT HTTP client for SAP ABAP Development Tools REST API.
+ *
+ * Uses axios with a single instance per AdtHttp — all requests share the same
+ * connection pool, cookie jar, and CSRF token. This mirrors abap-adt-api's
+ * approach and is required for ADT debug sessions where SAP pins the debug
+ * work process to the originating HTTP session.
  */
+const axios = require('axios');
 const https = require('https');
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { extractBodyDetail } = require('./format-error');
 const os = require('os');
 const crypto = require('crypto');
 
-/**
- * ADT HTTP client with CSRF token, cookie, and session caching.
- * Mirrors AbapHttp but targets /sap/bc/adt/* with XML content-type.
- */
 class AdtHttp {
   constructor(config) {
     this.config = config;
     this.csrfToken = null;
     this.cookies = null;
+    this.stateful = '';  // Set to 'stateful' to pin all requests to one WP
+
+    const isHttp = config.protocol === 'http';
+    const baseURL = `${config.protocol || 'https'}://${config.host}:${config.sapport}`;
+    this._axios = axios.create({
+      baseURL,
+      ...(isHttp
+        ? { httpAgent: new (require('http').Agent)({ keepAlive: true }) }
+        : { httpsAgent: new https.Agent({ rejectUnauthorized: false, keepAlive: true }) }),
+      maxRedirects: 0,
+      validateStatus: () => true,
+    });
+
+    // Request interceptor: inject auth, CSRF, cookies, session type on every request
+    this._axios.interceptors.request.use((reqConfig) => {
+      reqConfig.headers['Authorization'] =
+        `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`;
+      reqConfig.headers['sap-client'] = config.client;
+      reqConfig.headers['sap-language'] = config.language || 'EN';
+      // Session type header on EVERY request (like abap-adt-api line 324).
+      // When stateful, forces SAP to create/maintain SAP_SESSIONID.
+      if (this.stateful) reqConfig.headers['X-sap-adt-sessiontype'] = this.stateful;
+      if (this.cookies) reqConfig.headers['Cookie'] = this.cookies;
+      // Send CSRF on ALL requests (like abap-adt-api). SAP validates it for session routing.
+      if (this.csrfToken) reqConfig.headers['X-CSRF-Token'] = this.csrfToken;
+      if (process.env.DEBUG_ADT === '1') {
+        const cookieNames = (this.cookies || '').split(';').map(c => c.trim().split('=')[0]).filter(Boolean).join(',');
+        const hasStateful = reqConfig.headers['X-sap-adt-sessiontype'] || '-';
+        const hasCsrf = this.csrfToken ? 'yes' : 'no';
+        process.stderr.write(`[adt] → ${(reqConfig.method || 'GET').toUpperCase()} ${reqConfig.url} stateful=${hasStateful} csrf=${hasCsrf} cookies=[${cookieNames}]\n`);
+      }
+      return reqConfig;
+    });
+
+    // Response interceptor: merge Set-Cookie headers into the cookie jar.
+    // Skip on error responses (>= 400) — they may set stale cookies that
+    // overwrite valid session state (e.g. sap-usercontext on 400).
+    this._axios.interceptors.response.use((resp) => {
+      if (process.env.DEBUG_ADT === '1') {
+        const newCookies = (resp.headers['set-cookie'] || []).map(c => c.split('=')[0]).join(',');
+        const sock = resp.request && resp.request.socket;
+        const port = sock ? sock.localPort : '?';
+        process.stderr.write(`[adt] ← ${resp.status} port=${port} set-cookie=[${newCookies}]\n`);
+      }
+      if (resp.status >= 400) return resp;
+      const setCookie = resp.headers['set-cookie'];
+      if (setCookie) {
+        const incoming = Array.isArray(setCookie)
+          ? setCookie.map(c => c.split(';')[0])
+          : [setCookie.split(';')[0]];
+        const jar = new Map();
+        if (this.cookies) {
+          this.cookies.split(';').forEach(pair => {
+            const trimmed = pair.trim();
+            if (trimmed) {
+              const eq = trimmed.indexOf('=');
+              jar.set(eq === -1 ? trimmed : trimmed.slice(0, eq).trim(), trimmed);
+            }
+          });
+        }
+        incoming.forEach(pair => {
+          const trimmed = pair.trim();
+          if (trimmed) {
+            const eq = trimmed.indexOf('=');
+            jar.set(eq === -1 ? trimmed : trimmed.slice(0, eq).trim(), trimmed);
+          }
+        });
+        this.cookies = [...jar.values()].join('; ');
+      }
+      return resp;
+    });
 
     const configHash = crypto.createHash('md5')
       .update(`${config.host}:${config.user}:${config.client}`)
@@ -75,44 +146,15 @@ class AdtHttp {
    * Fetch CSRF token via GET /sap/bc/adt/discovery with X-CSRF-Token: fetch
    */
   async fetchCsrfToken() {
-    return new Promise((resolve, reject) => {
-      const url = new URL('/sap/bc/adt/discovery', `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
-      const options = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${this.config.user}:${this.config.password}`).toString('base64')}`,
-          'sap-client': this.config.client,
-          'sap-language': this.config.language || 'EN',
-          'X-CSRF-Token': 'fetch',
-          'Accept': 'application/atomsvc+xml'
-        },
-        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = (this.config.protocol === 'http' ? http : https).request(options, (res) => {
-        const csrfToken = res.headers['x-csrf-token'];
-        const setCookie = res.headers['set-cookie'];
-        if (setCookie) {
-          this.cookies = Array.isArray(setCookie)
-            ? setCookie.map(c => c.split(';')[0]).join('; ')
-            : setCookie.split(';')[0];
-        }
-
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          this.csrfToken = csrfToken;
-          this.saveSession();
-          resolve(csrfToken);
-        });
-      });
-
-      req.on('error', reject);
-      req.end();
+    const resp = await this._axios.get('/sap/bc/adt/discovery', {
+      headers: {
+        'X-CSRF-Token': 'fetch',
+        'Accept': 'application/atomsvc+xml'
+      }
     });
+    this.csrfToken = resp.headers['x-csrf-token'] || this.csrfToken;
+    this.saveSession();
+    return this.csrfToken;
   }
 
   /**
@@ -124,7 +166,7 @@ class AdtHttp {
       return await this._makeRequest(method, urlPath, body, options);
     } catch (error) {
       if (this._isAuthError(error) && !options.isRetry) {
-        this.clearSession();
+        this.csrfToken = null;
         await this.fetchCsrfToken();
         return await this._makeRequest(method, urlPath, body, { ...options, isRetry: true });
       }
@@ -140,114 +182,42 @@ class AdtHttp {
   }
 
   async _makeRequest(method, urlPath, body = null, options = {}) {
-    return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
+    const headers = {
+      'Content-Type': options.contentType || 'application/atom+xml',
+      'Accept': options.accept || 'application/vnd.sap.as+xml, application/atom+xml, application/xml',
+      ...options.headers
+    };
 
-      const headers = {
-        'Content-Type': options.contentType || 'application/atom+xml',
-        'Accept': options.accept || 'application/vnd.sap.as+xml, application/atom+xml, application/xml',
-        'sap-client': this.config.client,
-        'sap-language': this.config.language || 'EN',
-        ...options.headers
-      };
-
-      headers['Authorization'] = `Basic ${Buffer.from(`${this.config.user}:${this.config.password}`).toString('base64')}`;
-
-      if (['POST', 'PUT', 'DELETE'].includes(method) && this.csrfToken) {
-        headers['X-CSRF-Token'] = this.csrfToken;
-      }
-
-      if (this.cookies) {
-        headers['Cookie'] = this.cookies;
-      }
-
-      const bodyStr = body || '';
-      headers['Content-Length'] = bodyStr ? Buffer.byteLength(bodyStr) : 0;
-
-      const reqOptions = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname + url.search,
-        method,
-        headers,
-        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (res) => {
-        if (res.statusCode === 401) {
-          reject({ statusCode: 401, message: 'Authentication failed: 401' });
-          return;
-        }
-        if (res.statusCode === 403) {
-          const errMsg = 'Missing debug authorization. Grant S_ADT_RES (ACTVT=16) to user.';
-          reject({ statusCode: 403, message: errMsg });
-          return;
-        }
-        if (res.statusCode === 404) {
-          let respBody = '';
-          res.on('data', chunk => respBody += chunk);
-          res.on('end', () => {
-            reject({ statusCode: 404, message: `HTTP 404: ${reqOptions.path}`, body: respBody });
-          });
-          return;
-        }
-        if (res.statusCode >= 400) {
-          let respBody = '';
-          res.on('data', chunk => respBody += chunk);
-          res.on('end', () => {
-            const detail = extractBodyDetail(respBody);
-            const message = detail
-              ? `(HTTP ${res.statusCode}) ${detail}`
-              : `(HTTP ${res.statusCode}) ${res.statusMessage || 'Internal Server Error'}`;
-            reject({ statusCode: res.statusCode, message, body: respBody });
-          });
-          return;
-        }
-
-        // Update cookies from any response that sets them.
-        // Merge by name so that updated values (e.g. SAP_SESSIONID) replace
-        // their old counterparts rather than accumulating duplicates.
-        // Duplicate SAP_SESSIONID cookies would cause the ICM to route requests
-        // to a stale work process ("Service cannot be reached").
-        if (res.headers['set-cookie']) {
-          const incoming = Array.isArray(res.headers['set-cookie'])
-            ? res.headers['set-cookie'].map(c => c.split(';')[0])
-            : [res.headers['set-cookie'].split(';')[0]];
-          // Parse existing cookies into a Map (preserves insertion order)
-          const jar = new Map();
-          if (this.cookies) {
-            this.cookies.split(';').forEach(pair => {
-              const trimmed = pair.trim();
-              if (trimmed) {
-                const eq = trimmed.indexOf('=');
-                const k = eq === -1 ? trimmed : trimmed.slice(0, eq);
-                jar.set(k.trim(), trimmed);
-              }
-            });
-          }
-          // Overwrite with incoming cookies
-          incoming.forEach(pair => {
-            const trimmed = pair.trim();
-            if (trimmed) {
-              const eq = trimmed.indexOf('=');
-              const k = eq === -1 ? trimmed : trimmed.slice(0, eq);
-              jar.set(k.trim(), trimmed);
-            }
-          });
-          this.cookies = [...jar.values()].join('; ');
-        }
-
-        let respBody = '';
-        res.on('data', chunk => respBody += chunk);
-        res.on('end', () => {
-          resolve({ body: respBody, headers: res.headers, statusCode: res.statusCode });
-        });
-      });
-
-      req.on('error', reject);
-      if (bodyStr) req.write(bodyStr);
-      req.end();
+    const resp = await this._axios.request({
+      method,
+      url: urlPath,
+      data: body || undefined,
+      headers,
+      responseType: 'text',
+      // Long timeout for listener long-polls (up to 5 min)
+      timeout: options.timeout || 300000,
     });
+
+    const statusCode = resp.status;
+
+    if (statusCode === 401) {
+      throw { statusCode: 401, message: 'Authentication failed: 401' };
+    }
+    if (statusCode === 403) {
+      throw { statusCode: 403, message: 'Missing debug authorization. Grant S_ADT_RES (ACTVT=16) to user.' };
+    }
+    if (statusCode === 404) {
+      throw { statusCode: 404, message: `HTTP 404: ${urlPath}`, body: resp.data || '' };
+    }
+    if (statusCode >= 400) {
+      const detail = extractBodyDetail(resp.data || '');
+      const message = detail
+        ? `(HTTP ${statusCode}) ${detail}`
+        : `(HTTP ${statusCode}) ${resp.statusText || 'Internal Server Error'}`;
+      throw { statusCode, message, body: resp.data || '' };
+    }
+
+    return { body: resp.data || '', headers: resp.headers, statusCode };
   }
 
   async get(urlPath, options = {}) {
@@ -259,66 +229,24 @@ class AdtHttp {
   }
 
   /**
-   * Fire-and-forget POST: resolves when the request bytes have been flushed
-   * to the TCP send buffer — does NOT wait for a response.
-   *
-   * Used by detach() (stepContinue) where:
-   *   - ADT long-polls until the next breakpoint fires → response may never come
-   *   - We only need ADT to *receive* the request, not respond to it
-   *   - Using the existing stateful session (cookies/CSRF) is mandatory
-   *
-   * The socket is deliberately left open so the OS TCP stack can finish
-   * delivering the data to ADT after we return from this method.
-   *
-   * @param {string} urlPath - URL path
-   * @param {string} body    - Request body (may be empty string)
-   * @param {object} options - Same options as post() (contentType, headers, etc.)
-   * @returns {Promise<void>} Resolves when req.end() callback fires
+   * Fire-and-forget POST: sends the request but does not wait for a full response.
+   * Used by detach() (stepContinue) where ADT may long-poll indefinitely.
    */
   async postFire(urlPath, body = null, options = {}) {
-    return new Promise((resolve, reject) => {
-      const url = new URL(urlPath, `${this.config.protocol || 'https'}://${this.config.host}:${this.config.sapport}`);
-
-      const headers = {
-        'Content-Type': options.contentType || 'application/atom+xml',
-        'Accept': options.accept || 'application/vnd.sap.as+xml, application/atom+xml, application/xml',
-        'sap-client': this.config.client,
-        'sap-language': this.config.language || 'EN',
-        ...options.headers
-      };
-
-      headers['Authorization'] = `Basic ${Buffer.from(`${this.config.user}:${this.config.password}`).toString('base64')}`;
-
-      if (this.csrfToken) {
-        headers['X-CSRF-Token'] = this.csrfToken;
-      }
-
-      if (this.cookies) {
-        headers['Cookie'] = this.cookies;
-      }
-
-      const bodyStr = body || '';
-      headers['Content-Length'] = bodyStr ? Buffer.byteLength(bodyStr) : 0;
-
-      const reqOptions = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname + url.search,
-        method: 'POST',
+    const headers = {
+      'Content-Type': options.contentType || 'application/atom+xml',
+      'Accept': options.accept || 'application/vnd.sap.as+xml, application/atom+xml, application/xml',
+      ...options.headers
+    };
+    try {
+      await this._axios.post(urlPath, body || undefined, {
         headers,
-        agent: this.config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
-      };
-
-      const req = (url.protocol === 'https:' ? https : http).request(reqOptions, (_res) => {
-        // Drain response body to prevent socket hang; we don't use the data.
-        _res.resume();
+        timeout: 5000, // short timeout — we don't need the response
+        responseType: 'text',
       });
-
-      // Resolve as soon as the request is fully written and flushed.
-      req.on('error', resolve); // ignore errors — fire-and-forget
-      if (bodyStr) req.write(bodyStr);
-      req.end(() => resolve());
-    });
+    } catch (e) {
+      // Ignore — fire-and-forget
+    }
   }
 
   async put(urlPath, body = null, options = {}) {
@@ -331,12 +259,6 @@ class AdtHttp {
 
   /**
    * Extract an attribute value from a simple XML element using regex.
-   * e.g. extractXmlAttr(xml, 'adtcore:uri', null) for text content
-   *      extractXmlAttr(xml, 'entry', 'id') for attribute
-   * @param {string} xml - XML string
-   * @param {string} tag - Tag name (may include namespace prefix)
-   * @param {string|null} attr - Attribute name, or null for text content
-   * @returns {string|null} Extracted value or null
    */
   static extractXmlAttr(xml, tag, attr) {
     if (attr) {
@@ -351,10 +273,6 @@ class AdtHttp {
 
   /**
    * Extract all occurrences of a tag's content or attribute from XML.
-   * @param {string} xml - XML string
-   * @param {string} tag - Tag name
-   * @param {string|null} attr - Attribute name, or null for text content
-   * @returns {string[]} Array of matched values
    */
   static extractXmlAll(xml, tag, attr) {
     const results = [];

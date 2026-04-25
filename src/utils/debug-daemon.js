@@ -51,68 +51,47 @@ const DAEMON_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Start the daemon server.
+ * Start the daemon server using an already-attached DebugSession.
  *
- * @param {object} config           - ABAP connection config
- * @param {string} sessionId        - debugSessionId returned by attach
- * @param {string} socketPath       - Unix socket path to listen on
- * @param {object|null} snapshot    - { csrfToken, cookies } captured from attach process
+ * Used by `debug attach --json`: after attach() succeeds the caller passes
+ * the live session directly so ALL requests share the same AdtHttp instance
+ * (and the same TCP connection). This is required because SAP pins the debug
+ * session to the originating TCP connection — a new connection returns
+ * HTTP 400 "Service cannot be reached".
+ *
+ * @param {object} session    - DebugSession already attached
+ * @param {string} socketPath - Unix socket path to listen on
  */
-async function startDaemon(config, sessionId, socketPath, snapshot) {
-  const adt = new AdtHttp(config);
-
-  // Restore the exact SAP_SESSIONID cookie + CSRF token from the attach process.
-  // This guarantees the first IPC command reuses the same ABAP work process
-  // without another round-trip for a new token.
-  if (snapshot && snapshot.csrfToken) adt.csrfToken = snapshot.csrfToken;
-  if (snapshot && snapshot.cookies)   adt.cookies   = snapshot.cookies;
-
-  const session = new DebugSession(adt, sessionId);
-
-  // Pin the SAP_SESSIONID so _restorePinnedSession() works inside the daemon.
-  // DebugSession.attach() normally sets pinnedSessionId, but the daemon skips
-  // attach() and reconstructs the session from the snapshot.  Without this,
-  // any CSRF refresh that AdtHttp performs internally (401/403 retry → HEAD
-  // request → new Set-Cookie) silently overwrites the session cookie and routes
-  // subsequent IPC calls to the wrong ABAP work process → HTTP 400.
-  // Prefer the explicitly-passed pinnedSessionId (set by attach() before any
-  // cookie rotation by subsequent getPosition() calls).  Fall back to
-  // extracting SAP_SESSIONID from snapshot.cookies for backwards compatibility.
-  if (snapshot && snapshot.pinnedSessionId) {
-    session.pinnedSessionId = snapshot.pinnedSessionId;
-  } else if (snapshot && snapshot.cookies) {
-    const m = snapshot.cookies.match(/SAP_SESSIONID=([^;]*)/);
-    if (m) session.pinnedSessionId = m[1];
-  }
+async function startDaemon(session, socketPath) {
+  process.stderr.write(`[debug-daemon] started: pid=${process.pid} sessionId=${session.sessionId}\n`);
 
   // Remove stale socket file from a previous crash
   try { fs.unlinkSync(socketPath); } catch (e) { /* ignore ENOENT */ }
 
   let idleTimer = null;
 
-  function resetIdle() {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(cleanupAndExit, DAEMON_IDLE_TIMEOUT_MS);
-    // unref so idle timer alone doesn't keep the process alive — if the
-    // server stops listening for another reason the process can exit naturally
-    if (idleTimer.unref) idleTimer.unref();
-  }
-
   function cleanupAndExit(code) {
     try { fs.unlinkSync(socketPath); } catch (e) { /* ignore */ }
     process.exit(code || 0);
   }
 
-  // On SIGTERM (e.g. pkill from ensure_breakpoint cleanup), attempt to release
-  // the frozen ABAP work process before exiting.  Without this, killing the
-  // daemon leaves the work process paused at the breakpoint until SAP's own
-  // session-timeout fires (up to several minutes).
-  process.once('SIGTERM', async () => {
-    try {
-      await session.terminate();
-    } catch (e) { /* ignore — best effort */ }
-    cleanupAndExit(0);
-  });
+  async function terminateAndExit(code) {
+    try { await session.terminate(); } catch (e) { /* best effort */ }
+    cleanupAndExit(code);
+  }
+
+  function resetIdle() {
+    if (idleTimer) clearTimeout(idleTimer);
+    // On idle timeout, release the ABAP work process before exiting so it
+    // doesn't stay frozen until SAP's own session-timeout fires.
+    idleTimer = setTimeout(() => terminateAndExit(0), DAEMON_IDLE_TIMEOUT_MS);
+    // unref so idle timer alone doesn't keep the process alive
+    if (idleTimer.unref) idleTimer.unref();
+  }
+
+  // On SIGTERM (e.g. pkill from ensure_breakpoint cleanup), release the
+  // frozen ABAP work process before exiting.
+  process.once('SIGTERM', () => terminateAndExit(0));
 
   const server = net.createServer((socket) => {
     resetIdle();
@@ -157,6 +136,7 @@ async function _handleLine(socket, line, session, cleanupAndExit, resetIdle) {
   }
 
   resetIdle();
+  process.stderr.write(`[debug-daemon] cmd=${req.cmd}\n`);
 
   try {
     switch (req.cmd) {
@@ -218,7 +198,7 @@ function _send(socket, obj) {
   }
 }
 
-// ─── Entry point when run as standalone daemon process ────────────────────────
+// ─── Entry point when run as standalone daemon process (legacy / testing) ────
 
 if (require.main === module || process.env.DEBUG_DAEMON_MODE === '1') {
   const config     = JSON.parse(process.env.DEBUG_DAEMON_CONFIG            || '{}');
@@ -233,7 +213,24 @@ if (require.main === module || process.env.DEBUG_DAEMON_MODE === '1') {
     process.exit(1);
   }
 
-  startDaemon(config, sessionId, socketPath, snapshot).catch((err) => {
+  // Build session from env vars (used only in standalone mode)
+  const adt = new AdtHttp(config);
+  if (snapshot && snapshot.csrfToken) adt.csrfToken = snapshot.csrfToken;
+  if (snapshot && snapshot.cookies)   adt.cookies   = snapshot.cookies;
+  const session = new DebugSession(adt, sessionId);
+  if (snapshot && Array.isArray(snapshot.pinnedSessionId) && snapshot.pinnedSessionId.length > 0) {
+    session.pinnedSessionId = snapshot.pinnedSessionId;
+  } else if (snapshot && snapshot.cookies) {
+    session.pinnedSessionId = [];
+    for (const pair of snapshot.cookies.split(';')) {
+      const name = pair.trim().split('=')[0].trim();
+      if (/^SAP_SESSIONID/i.test(name) || name === 'sap-contextid') {
+        session.pinnedSessionId.push(pair.trim());
+      }
+    }
+  }
+
+  startDaemon(session, socketPath).catch((err) => {
     process.stderr.write(`[debug-daemon] startup error: ${err.message}\n`);
     process.exit(1);
   });

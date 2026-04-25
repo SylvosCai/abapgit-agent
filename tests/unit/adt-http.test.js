@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Unit tests for AdtHttp
+ * Unit tests for AdtHttp (axios-based)
  */
 
 jest.mock('fs', () => ({
@@ -19,44 +19,26 @@ jest.mock('os', () => ({
   tmpdir: jest.fn(() => '/tmp')
 }));
 
-jest.mock('https', () => {
-  const Agent = jest.fn().mockImplementation(() => ({}));
-  return { Agent, request: jest.fn() };
-});
-
-jest.mock('http', () => ({
-  request: jest.fn()
-}));
-
 const fs = require('fs');
-const https = require('https');
-const http = require('http');
 const { AdtHttp } = require('../../src/utils/adt-http');
 
 function makeConfig() {
   return { host: 'test.sap.com', sapport: 443, user: 'TESTUSER', password: 'pass', client: '100', language: 'EN' };
 }
 
-function mockRequest(statusCode, headers, body) {
-  const EventEmitter = require('events');
-  const res = new EventEmitter();
-  res.statusCode = statusCode;
-  res.headers = headers;
-
-  const req = new EventEmitter();
-  req.write = jest.fn();
-  req.end = jest.fn(() => {
-    process.nextTick(() => {
-      https.request.mock.calls[https.request.mock.calls.length - 1][1](res);
-      process.nextTick(() => {
-        res.emit('data', body);
-        res.emit('end');
-      });
-    });
+/**
+ * Mock the axios instance's adapter to return a canned response.
+ * This preserves interceptors (cookie merging, auth injection).
+ */
+function mockAxios(adt, statusCode, headers, body) {
+  const mockAdapter = jest.fn().mockResolvedValue({
+    status: statusCode,
+    statusText: statusCode < 400 ? 'OK' : 'Error',
+    headers: headers || {},
+    data: body || '',
   });
-
-  https.request.mockReturnValueOnce(req);
-  return { res, req };
+  adt._axios.defaults.adapter = mockAdapter;
+  return mockAdapter;
 }
 
 // ─── extractXmlAttr ──────────────────────────────────────────────────────────
@@ -136,27 +118,27 @@ describe('AdtHttp.fetchCsrfToken', () => {
   });
 
   test('extracts CSRF token from response headers', async () => {
-    mockRequest(200, { 'x-csrf-token': 'mytoken', 'set-cookie': ['SAP_SESSIONID=xyz; Path=/'] }, '<?xml version="1.0"?>');
-
     const adt = new AdtHttp(makeConfig());
+    mockAxios(adt, 200, { 'x-csrf-token': 'mytoken', 'set-cookie': ['SAP_SESSIONID=xyz; Path=/'] }, '<?xml version="1.0"?>');
+
     const token = await adt.fetchCsrfToken();
     expect(token).toBe('mytoken');
     expect(adt.csrfToken).toBe('mytoken');
   });
 
   test('saves cookies from set-cookie header', async () => {
-    mockRequest(200, { 'x-csrf-token': 'tok', 'set-cookie': ['SAP_SESSIONID=abc; Path=/', 'sap-usercontext=xyz; Path=/'] }, '');
-
     const adt = new AdtHttp(makeConfig());
+    mockAxios(adt, 200, { 'x-csrf-token': 'tok', 'set-cookie': ['SAP_SESSIONID=abc; Path=/', 'sap-usercontext=xyz; Path=/'] }, '');
+
     await adt.fetchCsrfToken();
     expect(adt.cookies).toContain('SAP_SESSIONID=abc');
     expect(adt.cookies).toContain('sap-usercontext=xyz');
   });
 
   test('saves session to file after token fetch', async () => {
-    mockRequest(200, { 'x-csrf-token': 'tok' }, '');
-
     const adt = new AdtHttp(makeConfig());
+    mockAxios(adt, 200, { 'x-csrf-token': 'tok' }, '');
+
     await adt.fetchCsrfToken();
     expect(fs.writeFileSync).toHaveBeenCalled();
   });
@@ -171,26 +153,9 @@ describe('AdtHttp._makeRequest error handling', () => {
   });
 
   test('rejects with ADT-specific message on 404', async () => {
-    const EventEmitter = require('events');
-    const res = new EventEmitter();
-    res.statusCode = 404;
-    res.headers = {};
-    let capturedCallback;
-    const req = new EventEmitter();
-    req.write = jest.fn();
-    req.end = jest.fn(() => {
-      process.nextTick(() => {
-        capturedCallback(res);
-        // 404 handler reads body before rejecting — emit end so promise resolves
-        process.nextTick(() => res.emit('end'));
-      });
-    });
-    https.request.mockImplementationOnce((_opts, cb) => {
-      capturedCallback = cb;
-      return req;
-    });
-
     const adt = new AdtHttp(makeConfig());
+    mockAxios(adt, 404, {}, '<html>Not Found</html>');
+
     await expect(adt.get('/sap/bc/adt/debugger/breakpoints')).rejects.toMatchObject({
       statusCode: 404,
       message: expect.stringContaining('404')
@@ -198,40 +163,19 @@ describe('AdtHttp._makeRequest error handling', () => {
   });
 
   test('rejects with auth message on 403', async () => {
-    const EventEmitter = require('events');
-
-    // Helper: queue up a mock https.request that immediately delivers statusCode
-    // and optionally a response body (emitted via data+end events)
-    function queueRequest(statusCode, body) {
-      const res = new EventEmitter();
-      res.statusCode = statusCode;
-      res.headers = {};
-      let cb;
-      const req = new EventEmitter();
-      req.write = jest.fn();
-      req.end = jest.fn(() => {
-        process.nextTick(() => {
-          if (!cb) return;
-          cb(res);
-          if (body !== undefined) {
-            process.nextTick(() => {
-              res.emit('data', body);
-              res.emit('end');
-            });
-          }
-        });
-      });
-      https.request.mockImplementationOnce((_opts, c) => { cb = c; return req; });
-    }
-
-    // Call sequence: adt.get() → _makeRequest → 403
-    // → retry: fetchCsrfToken (needs a successful response) → _makeRequest again → 403
-    // → isRetry=true so propagates
-    queueRequest(403);                               // first GET attempt
-    queueRequest(200, '<xml/>');                     // fetchCsrfToken GET
-    queueRequest(403);                               // second GET (retry, isRetry=true)
-
     const adt = new AdtHttp(makeConfig());
+    // First call: 403 → triggers CSRF refresh → fetchCsrfToken (200) → retry → 403 again
+    let callCount = 0;
+    adt._axios.defaults.adapter = jest.fn().mockImplementation((config) => {
+      callCount++;
+      if (config.url === '/sap/bc/adt/discovery') {
+        // CSRF token fetch
+        return Promise.resolve({ status: 200, headers: { 'x-csrf-token': 'new' }, data: '' });
+      }
+      // Both first and retry call return 403
+      return Promise.resolve({ status: 403, statusText: 'Forbidden', headers: {}, data: '' });
+    });
+
     await expect(adt.get('/sap/bc/adt/debugger/breakpoints')).rejects.toMatchObject({
       statusCode: 403,
       message: expect.stringContaining('S_ADT_RES')
@@ -239,9 +183,9 @@ describe('AdtHttp._makeRequest error handling', () => {
   });
 
   test('successful GET returns body, headers, statusCode', async () => {
-    mockRequest(200, { 'content-type': 'application/atom+xml' }, '<feed/>');
-
     const adt = new AdtHttp(makeConfig());
+    mockAxios(adt, 200, { 'content-type': 'application/atom+xml' }, '<feed/>');
+
     const result = await adt.get('/sap/bc/adt/debugger/breakpoints');
     expect(result.statusCode).toBe(200);
     expect(result.body).toBe('<feed/>');
@@ -257,35 +201,10 @@ describe('AdtHttp HTTP protocol support', () => {
     fs.existsSync.mockReturnValue(false);
   });
 
-  test('uses http:// base URL and http.request when protocol is "http"', async () => {
-    const EventEmitter = require('events');
-    const res = new EventEmitter();
-    res.statusCode = 200;
-    res.headers = { 'content-type': 'application/atom+xml' };
-
-    const req = new EventEmitter();
-    req.write = jest.fn();
-    req.end = jest.fn(() => {
-      process.nextTick(() => {
-        http.request.mock.calls[http.request.mock.calls.length - 1][1](res);
-        process.nextTick(() => {
-          res.emit('data', '<feed/>');
-          res.emit('end');
-        });
-      });
-    });
-    http.request.mockReturnValueOnce(req);
-
+  test('uses http:// base URL when protocol is "http"', () => {
     const config = { ...makeConfig(), sapport: 8000, protocol: 'http' };
     const adt = new AdtHttp(config);
-    const result = await adt.get('/sap/bc/adt/discovery');
-
-    expect(result.statusCode).toBe(200);
-    // http.request should have been called (not https.request)
-    expect(http.request).toHaveBeenCalled();
-    expect(https.request).not.toHaveBeenCalled();
-    // Verify URL uses http://
-    const callArgs = http.request.mock.calls[0][0];
-    expect(callArgs.port).toBe('8000');
+    // The axios instance baseURL should use http://
+    expect(adt._axios.defaults.baseURL).toBe('http://test.sap.com:8000');
   });
 });

@@ -19,8 +19,10 @@
  *   - Local state persisted in tmp so stateless CLI calls share the breakpoint list.
  *
  * Session management for AI/scripting mode (--json):
- *   attach --json spawns a background daemon (debug-daemon.js) that holds the
- *   stateful ADT HTTP connection open. step/vars/stack/terminate are thin IPC
+ *   attach --json runs the IPC socket server in-process after emitting the
+ *   session JSON line. This keeps the ADT TCP connection alive in the same
+ *   process that called attach() — SAP pins the debug session to the
+ *   originating TCP connection. step/vars/stack/terminate are thin IPC
  *   clients that connect to the daemon's Unix socket and exchange one JSON command
  *   per invocation. The daemon exits when terminate is called or after 30 min idle.
  *
@@ -30,7 +32,6 @@
 
 const net  = require('net');
 const path = require('path');
-const { spawn } = require('child_process');
 const { AdtHttp }      = require('../utils/adt-http');
 const { DebugSession } = require('../utils/debug-session');
 const debugStateModule = require('../utils/debug-state');
@@ -47,7 +48,13 @@ const _loadBpState = debugStateModule.loadBreakpointState;
 // Daemon socket path — may be absent in unit-test mocks
 const _getDaemonSocketPath = debugStateModule.getDaemonSocketPath;
 
-const ADT_CLIENT_ID = 'ABAPGIT-AGENT-CLI';
+// Allow callers to override the terminalId/ideId used for listener and
+// breakpoint registration via env var. This lets CI jobs use a unique ID
+// per run to avoid stale listeners from crashed previous runs blocking
+// the listener POST (SAP ICM returns 400 if another listener with the
+// same terminalId is still registered and DELETE is not available on the
+// system).
+const ADT_CLIENT_ID = process.env.ABAPGIT_DEBUG_TERMINAL_ID || 'ABAPGIT-AGENT-CLI';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -632,8 +639,8 @@ async function cmdDelete(args, config, adt) {
 async function cmdAttach(args, config, adt) {
   const sessionIdOverride = val(args, '--session');
   const jsonOutput = hasFlag(args, '--json');
-  // Per-poll timeout in seconds sent to ADT (ADT blocks the POST for this long)
   const pollTimeout = parseInt(val(args, '--timeout') || '30', 10);
+  const maxListenSeconds = parseInt(val(args, '--max-listen') || '240', 10);
   // Shorter timeout used in takeover mode — keeps the connection alive but
   // lets ADT process stepContinue quickly and lets session 2 exit within
   // ~5 seconds of clearActiveSession being written.
@@ -646,16 +653,41 @@ async function cmdAttach(args, config, adt) {
     process.stderr.write('\n  Waiting for breakpoint hit... (run your ABAP program in a separate window)\n');
   }
 
-  // Force a fresh SAP session for attach.
-  // When run as part of a larger test suite (e.g. npm run test:all), the shared
-  // /tmp/abapgit-adt-session-*.json file may hold a SAP_SESSIONID from a
-  // previous command (e.g. debug breakpoint management tests).  Reusing that
-  // session causes attach() to bind the debug session to a stale or non-existent
-  // work process, so every subsequent getStack/step/vars call gets HTTP 400
-  // "Service cannot be reached" from the SAP ICM.  Clearing first ensures
-  // fetchCsrfToken() creates a brand-new session rooted at this attach flow.
+  // Fresh session for attach flow. Don't set stateful here — CSRF fetch
+  // without stateful avoids tying up a dialog WP. Stateful is added per-call
+  // by debug-session.js STATEFUL_HEADER on attach/getStack/step/vars.
   adt.clearSession();
+  if (adt._axios) {
+    const agent = adt._axios.defaults.httpsAgent || adt._axios.defaults.httpAgent;
+    if (agent) agent.destroy();
+    if (adt._axios.defaults.httpsAgent) {
+      adt._axios.defaults.httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false, keepAlive: true });
+    } else if (adt._axios.defaults.httpAgent) {
+      adt._axios.defaults.httpAgent = new (require('http').Agent)({ keepAlive: true });
+    }
+  }
   await adt.fetchCsrfToken();
+
+  // Delete any stale listener registered under our terminalId from a previous
+  // (possibly crashed) run.  A frozen ABAP work process holding a listener for
+  // the same terminalId causes SAP ICM to return HTTP 400 "Service cannot be
+  // reached" for every new listener POST.  Deleting first clears that state.
+  // Ignore errors — there may be no stale listener to delete.
+  if (!sessionIdOverride) {
+    try {
+      const delUrl = `/sap/bc/adt/debugger/listeners` +
+        `?debuggingMode=user` +
+        `&requestUser=${encodeURIComponent((config.user || '').toUpperCase())}` +
+        `&terminalId=${encodeURIComponent(ADT_CLIENT_ID)}` +
+        `&ideId=${encodeURIComponent(ADT_CLIENT_ID)}` +
+        `&checkConflict=false` +
+        `&notifyConflict=true`;
+      await adt.delete(delUrl);
+      if (jsonOutput) process.stderr.write(`[debug-attach] deleted stale listener\n`);
+    } catch (e) {
+      if (jsonOutput) process.stderr.write(`[debug-attach] delete listener (cleanup): ${e.statusCode || e.message}\n`);
+    }
+  }
 
   // Re-POST local breakpoints to refresh them on the server before listening.
   // Breakpoints expire when the SAP session or work process is restarted.
@@ -681,6 +713,7 @@ async function cmdAttach(args, config, adt) {
   }
   let sessionId = sessionIdOverride;
   let positionResult = null;
+  let session = null;
 
   if (!sessionId) {
     // ADT listeners: POST long-polls until a breakpoint is hit (or timeout).
@@ -692,9 +725,9 @@ async function cmdAttach(args, config, adt) {
       `&terminalId=${encodeURIComponent(listenTerminalId)}` +
       `&ideId=${encodeURIComponent(listenTerminalId)}`;
 
-    const MAX_POLLS = Math.ceil(240 / pollTimeout); // up to 4 minutes total
+    const MAX_POLLS = Math.ceil(maxListenSeconds / pollTimeout);
     // In takeover mode we switch to takeoverPollTimeout — recalculate the limit then.
-    const MAX_TAKEOVER_POLLS = Math.ceil(240 / takeoverPollTimeout);
+    const MAX_TAKEOVER_POLLS = Math.ceil(maxListenSeconds / takeoverPollTimeout);
     let dots = 0;
     const attachStartedAt = Date.now(); // used to detect if another session takes over
     let takenOver = false;
@@ -732,6 +765,12 @@ async function cmdAttach(args, config, adt) {
           await new Promise(r => setTimeout(r, 2000));
           continue;
         }
+        if (err && err.statusCode === 400 &&
+            err.body && err.body.includes('Service cannot be reached')) {
+          if (jsonOutput) process.stderr.write(`[debug-attach] listener POST returned 400 (Service cannot be reached), retrying in 5s...\n`);
+          await new Promise(r => setTimeout(r, 5000));
+          continue;
+        }
         if (err && err.statusCode === 404) {
           console.error(
             '\n  Debug session commands require ADT Debugger service (listeners).' +
@@ -751,6 +790,7 @@ async function cmdAttach(args, config, adt) {
         const debuggeeIdMatch = resp.body.match(/<DEBUGGEE_ID>([^<]+)<\/DEBUGGEE_ID>/i) ||
                                 resp.body.match(/DEBUGGEE_ID="([^"]+)"/i);
         sessionId = debuggeeIdMatch ? debuggeeIdMatch[1].trim() : null;
+        if (jsonOutput && sessionId) process.stderr.write(`[debug-attach] listener returned debuggeeId=${sessionId}\n`);
 
         if (!sessionId) {
           // Fallback: some ADT versions put session info in different attributes
@@ -782,6 +822,34 @@ async function cmdAttach(args, config, adt) {
           }
           continue;
         }
+
+        // Attach to the WP and verify it's alive before committing.
+        // In --json mode: if the WP is a stale session from a previous run,
+        // attach() may succeed but getPosition() returns 400. When that happens,
+        // reset the SAP session fully and continue listening for a fresh BP hit.
+        {
+          if (!jsonOutput) process.stderr.write('\n  Attaching to debug session...\n');
+          const candidateSession = new DebugSession(adt, sessionId);
+          try {
+            await candidateSession.attach(sessionId, (config.user || '').toUpperCase());
+          } catch (e) {
+            if (jsonOutput) {
+              process.stderr.write(`[debug-attach] attach() failed: ${e.message || e} — resetting session\n`);
+              adt.clearSession();
+              await adt.fetchCsrfToken();
+              sessionId = null;
+              continue;
+            }
+            printHttpError(e, { prefix: '  Error during attach' });
+            if (e.body) console.error('  Response body:', e.body.substring(0, 400));
+            process.exit(1);
+          }
+          // attach() succeeded — skip getPosition() validation.
+          // With keepAlive, the connection is shared and getStack via the
+          // in-process daemon will use the same AdtHttp + same TCP socket.
+          positionResult = { position: {}, source: [] };
+          session = candidateSession;
+        }
         break;
       }
 
@@ -808,102 +876,53 @@ async function cmdAttach(args, config, adt) {
         if (!jsonOutput) process.stderr.write('  Listener timed out waiting for other session to finish.\n\n');
         process.exit(0);
       }
-      console.error('\n  Timeout: No breakpoint was hit within 4 minutes.\n');
+      console.error(`\n  Timeout: No breakpoint was hit within ${maxListenSeconds}s.\n`);
       process.exit(1);
     }
   }
 
-  const session = new DebugSession(adt, sessionId);
-
-  // If we got here via the listener (not --session override), we have a
-  // DEBUGGEE_ID and need to call ?method=attach to register as the active
-  // debugger for that work process. Without this step, all subsequent calls
-  // (getStack, getVariables, step) return "noSessionAttached" (T100-530).
-  if (!sessionIdOverride) {
-    if (!jsonOutput) {
-      process.stderr.write('\n  Attaching to debug session...\n');
-    }
+  // When using --session override (no listener), do attach+getPosition here.
+  if (sessionIdOverride) {
+    session = new DebugSession(adt, sessionId);
+    // getPosition is best-effort for --session override (e.g. human REPL recovery)
     try {
-      await session.attach(sessionId, (config.user || '').toUpperCase());
+      positionResult = await session.getPosition();
     } catch (e) {
-      printHttpError(e, { prefix: '  Error during attach' });
-      if (e.body) console.error('  Response body:', e.body.substring(0, 400));
-      process.exit(1);
+      positionResult = { position: {}, source: [] };
     }
   }
 
-  // Fetch position + variables now that we have a live session
-  try {
-    positionResult = await session.getPosition();
-  } catch (e) {
-    // Position fetch is best-effort; proceed with empty state
-    positionResult = { position: {}, source: [] };
+  // session and positionResult are now set (either via listener loop or --session override)
+  if (!session) {
+    // Should not reach here — listener loop either sets session or exits
+    console.error('\n  Internal error: session not initialized after attach.\n');
+    process.exit(1);
   }
-
-  // Dummy loop body retained for structural compatibility (never executes)
-  if (false) {
-    const MAX_POLLS = 0;
-    const POLL_INTERVAL = 0;
-    for (let i = 0; i < MAX_POLLS; i++) {
-      try {
-        const frames = await session.getStack();
-        if (frames && frames.length > 0 && frames[0].line > 0) {
-          positionResult = await session.getPosition();
-          break;
-        }
-      } catch (e) {
-        // Stack not ready yet — keep polling
-      }
-      await new Promise(r => setTimeout(r, POLL_INTERVAL));
-    }
-  }
+  if (!positionResult) positionResult = { position: {}, source: [] };
 
   const { position, source } = positionResult;
   saveActiveSession(config, { sessionId, position });
 
   if (jsonOutput) {
-    // Spawn the background daemon to hold the stateful ADT HTTP connection.
-    // The daemon process inherits the exact SAP_SESSIONID cookie + CSRF token
-    // via the snapshot env var, so it reuses the same ABAP work process.
+    // Run the socket server in-process so all ADT requests reuse the same TCP
+    // connection that called attach(). SAP pins the debug session to the
+    // originating TCP connection — a new connection returns HTTP 400.
     const socketPath = _getDaemonSocketPath ? _getDaemonSocketPath(config) : null;
     if (socketPath) {
-      // Pass the pinnedSessionId explicitly so the daemon always pins the
-      // correct SAP_SESSIONID (from attach()), not a rotated value that may
-      // have been written to adt.cookies by subsequent getPosition() calls.
-      const snapshot = { csrfToken: adt.csrfToken, cookies: adt.cookies, pinnedSessionId: session.pinnedSessionId };
-      const daemonEnv = {
-        ...process.env,
-        DEBUG_DAEMON_MODE:            '1',
-        DEBUG_DAEMON_CONFIG:          JSON.stringify(config),
-        DEBUG_DAEMON_SESSION_ID:      sessionId,
-        DEBUG_DAEMON_SOCK_PATH:       socketPath,
-        DEBUG_DAEMON_SESSION_SNAPSHOT: JSON.stringify(snapshot)
-      };
-      const daemonScript = path.resolve(__dirname, '../utils/debug-daemon.js');
-      const child = spawn(process.execPath, [daemonScript], {
-        detached: true,
-        stdio: ['ignore', 'ignore', 'ignore'],
-        env: daemonEnv
-      });
-      child.unref();
-
-      // Wait for daemon socket to appear (up to 15 s) before returning JSON.
-      // In CI (Docker / lower CPU), Node.js process spawn can take >5 s.
-      // If we miss the socket, cmdStack/cmdVars fall back to direct ADT without
-      // the pinned SAP_SESSIONID cookie → HTTP 400 "Service cannot be reached".
-      try {
-        await waitForSocket(socketPath, 15000);
-        // Persist socket path in session state so step/vars/stack/terminate find it
-        saveActiveSession(config, { sessionId, position, socketPath });
-      } catch (e) {
-        // Non-fatal: fall back to stateless direct-ADT mode
-        if (jsonOutput) {
-          process.stderr.write('[debug] daemon socket not ready in 15s — falling back to direct ADT\n');
-        }
-      }
+      // Save cookies so terminate can release the frozen WP even if the daemon is gone
+      saveActiveSession(config, { sessionId, position, socketPath, cookies: adt.cookies });
     }
 
+    // Emit session JSON now so the caller (script / AI) knows the BP was hit.
     console.log(JSON.stringify({ session: sessionId, position, source }));
+
+    if (socketPath) {
+      const { startDaemon } = require('../utils/debug-daemon');
+      // Blocks until terminate is called or idle timeout — intentional.
+      // The process stays alive as the IPC socket server, holding the ADT
+      // TCP connection open. The caller runs this command in the background (&).
+      await startDaemon(session, socketPath);
+    }
     return;
   }
 
@@ -1278,20 +1297,29 @@ async function cmdTerminate(args, config, adt) {
 
   // Prefer daemon IPC — daemon calls session.terminate() then exits itself
   if (socketPath) {
-    let resp;
+    let ipcSucceeded = false;
     try {
-      resp = await sendDaemonCommand(socketPath, { cmd: 'terminate' }, 30000);
+      const resp = await sendDaemonCommand(socketPath, { cmd: 'terminate' }, 30000);
+      if (resp && resp.ok) ipcSucceeded = true;
     } catch (err) {
-      // Socket may be gone already (daemon crashed or timed out) — treat as terminated
-      resp = { ok: true, terminated: true };
+      // Socket is gone (daemon crashed or was killed) — fall through to direct ADT call
     }
-    clearActiveSession(config);
-    if (jsonOutput) {
-      console.log(JSON.stringify({ terminated: resp.ok ? true : resp.error }));
+    if (ipcSucceeded) {
+      clearActiveSession(config);
+      if (jsonOutput) {
+        console.log(JSON.stringify({ terminated: true }));
+        return;
+      }
+      console.log('\n  Debug session terminated.\n');
       return;
     }
-    console.log('\n  Debug session terminated.\n');
-    return;
+    // IPC failed — daemon is gone but ABAP WP may still be frozen.
+    // Use stored session cookies to release the WP via direct ADT call.
+    const savedState = loadActiveSession(config);
+    if (savedState && savedState.cookies && sessionId) {
+      adt.cookies = savedState.cookies;
+    }
+    // Fall through to direct ADT terminate below
   }
 
   // Fallback: direct ADT call
@@ -1323,32 +1351,6 @@ async function cmdTerminate(args, config, adt) {
 }
 
 // ─── Daemon IPC helpers ───────────────────────────────────────────────────────
-
-/**
- * Wait for the daemon's Unix socket to appear (after spawn).
- * @param {string} socketPath
- * @param {number} timeoutMs
- */
-function waitForSocket(socketPath, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const deadline = Date.now() + timeoutMs;
-    function check() {
-      const client = net.createConnection(socketPath);
-      client.on('connect', () => {
-        client.destroy();
-        resolve();
-      });
-      client.on('error', () => {
-        if (Date.now() >= deadline) {
-          reject(new Error('Timeout waiting for debug daemon to start'));
-        } else {
-          setTimeout(check, 100);
-        }
-      });
-    }
-    check();
-  });
-}
 
 /**
  * Send one JSON command to the daemon and return the parsed JSON response.

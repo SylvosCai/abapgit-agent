@@ -54,6 +54,9 @@ ATTACH1_PID=""
 TRIGGER_PID=""
 RESULTS_FILE="${TMPDIR:-/tmp}/debug_scripted_result"
 
+# Enable ADT HTTP debug logging (set DEBUG_ADT=1 to trace requests/cookies)
+export DEBUG_ADT=${DEBUG_ADT:-1}
+
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 pass() { echo "  ✅ $*"; PASS=$((PASS+1)); }
@@ -94,6 +97,12 @@ cleanup() {
   [[ -n "$ATTACH1_PID" ]] && kill "$ATTACH1_PID" 2>/dev/null || true
   [[ -n "$TRIGGER_PID" ]] && kill "$TRIGGER_PID" 2>/dev/null || true
   pkill -f debug-daemon.js 2>/dev/null || true
+  # Dump attach debug log on failure before cleanup
+  if [ "$FAIL" -gt 0 ] && [ -f /tmp/dbg_attach.out ]; then
+    echo "      --- attach process log (last 50 lines) ---"
+    tail -50 /tmp/dbg_attach.out 2>/dev/null | while IFS= read -r line; do echo "      $line"; done
+    echo "      --- end attach log ---"
+  fi
   rm -f /tmp/dbg_*.out
   (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
   echo "$PASS $FAIL" > "$RESULTS_FILE"
@@ -127,10 +136,22 @@ scenario3() {
 
   log "Waiting for breakpoint hit and session JSON (up to ${TIMEOUT}s)..."
   SESSION=""
+  REFIRED=0
   for i in $(seq 1 $((TIMEOUT * 2))); do
     sleep 0.5
     SESSION=$(grep -o '"session":"[^"]*"' /tmp/dbg_attach.out 2>/dev/null | head -1 | cut -d'"' -f4) || true
     [ -n "$SESSION" ] && break
+    # Attach may discard a stale session and re-listen. Detect the marker and
+    # re-fire the trigger (which is blocked on the frozen stale WP).
+    if [ "$REFIRED" -eq 0 ] && grep -q "re-entering listener loop" /tmp/dbg_attach.out 2>/dev/null; then
+      log "Stale session discarded — killing blocked trigger and re-firing..."
+      kill "$TRIGGER_PID" 2>/dev/null || true
+      wait "$TRIGGER_PID" 2>/dev/null || true
+      sleep 2
+      (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER >> /tmp/dbg_trigger.out 2>&1) &
+      TRIGGER_PID=$!
+      REFIRED=1
+    fi
   done
 
   if [ -n "$SESSION" ]; then
@@ -141,20 +162,16 @@ scenario3() {
     kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
   fi
 
-  # stack --json (retry 12×5s)
-  STACK_OK=0
-  for _i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    STACK_OUT=$((cd "$DEBUG_REPO" && $AGENT debug stack --json) 2>&1 || true)
-    if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then STACK_OK=1; break; fi
-    log "stack returned error (attempt $_i/12) — waiting 5s..."; sleep 5
-  done
-  if [ "$STACK_OK" -eq 1 ]; then
+  STACK_OUT=$((cd "$DEBUG_REPO" && $AGENT debug stack --json) 2>&1 || true)
+  if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
     pass 'stack --json returned {"frames":[...]} (rule 4: no --session needed)'
   else
     fail "stack --json did not return expected JSON: $STACK_OUT"
+    log "--- attach process debug log ---"
+    cat /tmp/dbg_attach.out 2>/dev/null | grep "^\[" | while IFS= read -r line; do log "  $line"; done
+    log "--- end ---"
   fi
 
-  # vars --json
   VARS_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
   if echo "$VARS_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     pass 'vars --json returned {"variables":[...]} (rule 4: no --session needed)'
@@ -162,14 +179,8 @@ scenario3() {
     fail "vars --json did not return expected JSON: $VARS_OUT"
   fi
 
-  # step over (retry 8×3s)
-  STEP_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
-    if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then STEP_OK=1; break; fi
-    log "step over returned error (attempt $_i/8) — waiting 3s..."; sleep 3
-  done
-  if [ "$STEP_OK" -eq 1 ]; then
+  STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
+  if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
     pass 'step --type over --json returned {"position":{...}}'
   else
     fail "step --type over --json did not return expected JSON: $STEP_OUT"
@@ -183,20 +194,12 @@ scenario3() {
     fail "vars --json after step did not return expected JSON: $VARS2_OUT"
   fi
 
-  # step continue (RULE 3, retry 8×3s)
-  CONT_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
-    if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then CONT_OK=1; break; fi
-    log "step continue returned error (attempt $_i/8) — waiting 3s..."; sleep 3
-  done
-  if [ "$CONT_OK" -eq 1 ]; then
+  CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
+  if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
     pass 'step --type continue --json released work process (rule 3)'
   else
     fail "step --type continue --json did not return expected JSON: $CONT_OUT"
-    for _j in 1 2 3 4 5; do
-      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break; sleep 3
-    done
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
   fi
 
   log "Waiting for trigger to complete after continue (up to ${TIMEOUT}s)..."
@@ -247,10 +250,20 @@ scenario4() {
 
   log "Waiting for breakpoint hit (up to ${TIMEOUT}s)..."
   SESSION=""
+  REFIRED=0
   for i in $(seq 1 $((TIMEOUT * 2))); do
     sleep 0.5
     SESSION=$(grep -o '"session":"[^"]*"' /tmp/dbg_attach.out 2>/dev/null | head -1 | cut -d'"' -f4) || true
     [ -n "$SESSION" ] && break
+    if [ "$REFIRED" -eq 0 ] && grep -q "re-entering listener loop" /tmp/dbg_attach.out 2>/dev/null; then
+      log "Stale session discarded — killing blocked trigger and re-firing..."
+      kill "$TRIGGER_PID" 2>/dev/null || true
+      wait "$TRIGGER_PID" 2>/dev/null || true
+      sleep 2
+      (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER >> /tmp/dbg_trigger.out 2>&1) &
+      TRIGGER_PID=$!
+      REFIRED=1
+    fi
   done
 
   if [ -n "$SESSION" ]; then
@@ -260,14 +273,8 @@ scenario4() {
     kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
   fi
 
-  # vars --json list (retry 6×5s)
-  VARS_OK=0
-  for _i in 1 2 3 4 5 6; do
-    VARS_ALL=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
-    if echo "$VARS_ALL" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then VARS_OK=1; break; fi
-    log "vars --json returned error (attempt $_i/6) — waiting 5s..."; sleep 5
-  done
-  if [ "$VARS_OK" -eq 1 ]; then
+  VARS_ALL=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
+  if echo "$VARS_ALL" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     MISSING=""
     echo "$VARS_ALL" | grep -q '"LV_SUM"' || MISSING="$MISSING LV_SUM"
     echo "$VARS_ALL" | grep -q '"IV_A"'   || MISSING="$MISSING IV_A"
@@ -297,14 +304,8 @@ scenario4() {
     fail "vars --name IV_B did not return value 1 — output: ${VARS_IVB:0:300}"
   fi
 
-  # step over (retry 6×3s)
-  STEP_OK=0
-  for _i in 1 2 3 4 5 6; do
-    STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
-    if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then STEP_OK=1; break; fi
-    log "step over returned error (attempt $_i/6) — waiting 3s..."; sleep 3
-  done
-  if [ "$STEP_OK" -eq 1 ]; then
+  STEP_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type over --json) 2>&1 || true)
+  if echo "$STEP_OUT" | grep -q '"position"' 2>/dev/null; then
     pass "step --type over executed lv_sum = iv_a + iv_b"
   else
     fail "step --type over did not return expected JSON: ${STEP_OUT:0:300}"
@@ -326,20 +327,12 @@ scenario4() {
     fail "vars --expand LV_SUM did not return empty children — output: ${EXPAND_OUT:0:300}"
   fi
 
-  # step continue (RULE 3, retry 8×3s)
-  CONT_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
-    if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then CONT_OK=1; break; fi
-    log "step continue returned error (attempt $_i/8) — waiting 3s..."; sleep 3
-  done
-  if [ "$CONT_OK" -eq 1 ]; then
+  CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
+  if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
     pass "step --type continue released work process (rule 3)"
   else
     fail "step --type continue did not return expected JSON: ${CONT_OUT:0:300}"
-    for _j in 1 2 3 4 5; do
-      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break; sleep 3
-    done
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
   fi
 
   log "Waiting for trigger to complete (up to ${TIMEOUT}s)..."
@@ -410,10 +403,20 @@ scenario5() {
 
   log "Waiting for breakpoint hit at INSPECT_VARS (up to ${TIMEOUT}s)..."
   SESSION=""
+  REFIRED=0
   for i in $(seq 1 $((TIMEOUT * 2))); do
     sleep 0.5
     SESSION=$(grep -o '"session":"[^"]*"' /tmp/dbg_attach.out 2>/dev/null | head -1 | cut -d'"' -f4) || true
     [ -n "$SESSION" ] && break
+    if [ "$REFIRED" -eq 0 ] && grep -q "re-entering listener loop" /tmp/dbg_attach.out 2>/dev/null; then
+      log "Stale session discarded — killing blocked trigger and re-firing..."
+      kill "$TRIGGER_PID" 2>/dev/null || true
+      wait "$TRIGGER_PID" 2>/dev/null || true
+      sleep 2
+      (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER >> /tmp/dbg_trigger.out 2>&1) &
+      TRIGGER_PID=$!
+      REFIRED=1
+    fi
   done
 
   if [ -n "$SESSION" ]; then
@@ -423,14 +426,8 @@ scenario5() {
     kill "$TRIGGER_PID" 2>/dev/null; ATTACH1_PID=""; TRIGGER_PID=""; return 1
   fi
 
-  # vars --json — all four locals (retry 6×5s)
-  VARS_OK=0
-  for _i in 1 2 3 4 5 6; do
-    VARS_ALL=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
-    if echo "$VARS_ALL" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then VARS_OK=1; break; fi
-    log "vars --json returned error (attempt $_i/6) — waiting 5s..."; sleep 5
-  done
-  if [ "$VARS_OK" -eq 1 ]; then
+  VARS_ALL=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
+  if echo "$VARS_ALL" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
     MISSING=""
     echo "$VARS_ALL" | grep -qi '"LS_PERSON"'  || MISSING="$MISSING LS_PERSON"
     echo "$VARS_ALL" | grep -qi '"LT_PERSONS"' || MISSING="$MISSING LT_PERSONS"
@@ -495,13 +492,7 @@ scenario5() {
     fail "vars --expand LT_PERSONS did not return 2 rows — output: ${EXP_TABLE:0:400}"
   fi
 
-  # expand LT_PERSONS[1] → row 1 fields (retry 3×3s)
-  EXP_ROW1=""
-  for _i in 1 2 3; do
-    EXP_ROW1=$((cd "$DEBUG_REPO" && $AGENT debug vars --expand "LT_PERSONS[1]" --json) 2>&1 || true)
-    echo "$EXP_ROW1" | grep -q '"children"' 2>/dev/null && break
-    log "expand LT_PERSONS[1] attempt $_i returned no children — retrying in 3s..."; sleep 3
-  done
+  EXP_ROW1=$((cd "$DEBUG_REPO" && $AGENT debug vars --expand "LT_PERSONS[1]" --json) 2>&1 || true)
   ROW1_OK=0
   if echo "$EXP_ROW1" | grep -q '"children"' 2>/dev/null; then
     echo "$EXP_ROW1" | grep -qi '"name":"NAME"'  && ROW1_OK=1
@@ -515,13 +506,7 @@ scenario5() {
     fail "vars --expand LT_PERSONS[1] did not return row 1 fields — output: ${EXP_ROW1:0:400}"
   fi
 
-  # expand LT_PERSONS[1]->NAME (retry 3×3s)
-  EXP_DRILL=""
-  for _i in 1 2 3; do
-    EXP_DRILL=$((cd "$DEBUG_REPO" && $AGENT debug vars --expand "LT_PERSONS[1]->NAME" --json) 2>&1 || true)
-    echo "$EXP_DRILL" | grep -q '"variable"' 2>/dev/null && break
-    log "expand LT_PERSONS[1]->NAME attempt $_i — retrying in 3s..."; sleep 3
-  done
+  EXP_DRILL=$((cd "$DEBUG_REPO" && $AGENT debug vars --expand "LT_PERSONS[1]->NAME" --json) 2>&1 || true)
   if echo "$EXP_DRILL" | grep -q '"value":"Alice"' 2>/dev/null || \
      (echo "$EXP_DRILL" | grep -q '"children"' 2>/dev/null && echo "$EXP_DRILL" | grep -q '"variable"' 2>/dev/null); then
     pass "vars --expand LT_PERSONS[1]->NAME → drills to NAME field (Alice)"
@@ -543,20 +528,12 @@ scenario5() {
     fail "vars --expand LR_PERSON did not return dereferenced structure — output: ${EXP_REF:0:400}"
   fi
 
-  # step continue (RULE 3, retry 8×3s)
-  CONT_OK=0
-  for _i in 1 2 3 4 5 6 7 8; do
-    CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
-    if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then CONT_OK=1; break; fi
-    log "step continue returned error (attempt $_i/8) — waiting 3s..."; sleep 3
-  done
-  if [ "$CONT_OK" -eq 1 ]; then
+  CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
+  if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
     pass "step --type continue released work process (rule 3)"
   else
     fail "step --type continue did not return expected JSON: ${CONT_OUT:0:300}"
-    for _j in 1 2 3 4 5; do
-      (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) && break; sleep 3
-    done
+    (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
   fi
 
   log "Waiting for trigger to complete (up to ${TIMEOUT}s)..."

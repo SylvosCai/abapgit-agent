@@ -1143,10 +1143,10 @@ async function main() {
     runSyncXml = false;        // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;        // XML-only tests run as part of cmd tests (--command=pull)
     runDebugRepl = !isCI;      // Skip REPL scenarios in CI (require interactive TTY)
-    runDebugScripted = true;   // Scripted scenarios (3/4/5) are CI-safe — no TTY needed
+    runDebugScripted = !isCI;  // Skip scripted scenarios in CI (require TCP session affinity that CI network breaks)
     runDebugBp = true;         // Always run — only needs ABAP system connection
     if (isCI) {
-      printInfo('  ⚠️  CI environment detected — skipping REPL scenarios 1 & 2 (require interactive TTY)');
+      printInfo('  ⚠️  CI environment detected — skipping debug scenarios 1-5 (REPL needs TTY, scripted needs TCP affinity)');
     }
   }
 
