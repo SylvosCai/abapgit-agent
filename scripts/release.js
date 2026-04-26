@@ -375,7 +375,7 @@ rl.question('Do you want to release? [Y/n] ', (answer) => {
   console.log(`Creating git tag v${newVersion}...`);
   try {
     const existingTagSha = (() => {
-      try { return execSync(`git rev-list -n1 v${newVersion}`, { cwd: repoRoot, encoding: 'utf8' }).trim(); }
+      try { return execSync(`git rev-list -n1 v${newVersion}`, { cwd: repoRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim(); }
       catch { return null; }
     })();
     const headSha = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim();
