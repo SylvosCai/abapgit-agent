@@ -307,7 +307,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -345,7 +345,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -399,7 +399,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -449,7 +449,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -509,7 +509,7 @@ describe('Inspect Command - CLI Output Format', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue(mockResult)
@@ -566,7 +566,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -598,7 +598,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([
@@ -626,7 +626,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -657,7 +657,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -688,7 +688,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -711,7 +711,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const mockContext = {
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getInspectConfig: jest.fn(() => ({ variant: null })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
       AbapHttp: jest.fn().mockImplementation(() => ({
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue([{
@@ -730,6 +730,132 @@ describe('Inspect Command - JUnit Output', () => {
     expect(output).toContain('ZCL_FOO');
     expect(output).toContain('Syntax check passed');
     expect(output).toContain('JUnit report written to');
+  });
+
+  test('excludes files matching inspect.exclude patterns', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockPost = jest.fn().mockResolvedValue([{
+      OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_KEPT',
+      SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: []
+    }]);
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: ['zcl_skip_*', 'zcl_exact'] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: mockPost
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--files', 'zcl_kept.clas.abap,zcl_skip_this.clas.abap,zcl_exact.clas.abap'],
+      mockContext
+    );
+
+    // Only zcl_kept should reach the API
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    const postedFiles = mockPost.mock.calls[0][1].files;
+    expect(postedFiles).toEqual(['ZCL_KEPT.CLAS.ABAP']);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Skipped 2 file(s) excluded');
+  });
+
+  test('outputs empty JSON when all files are excluded', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockPost = jest.fn();
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: ['zcl_*'], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: mockPost
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--files', 'zcl_foo.clas.abap', '--json'],
+      mockContext
+    );
+
+    // Should not call the API
+    expect(mockPost).not.toHaveBeenCalled();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('[]');
+  });
+
+  test('suppress downgrades matching errors to infos', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({
+        variant: null, exclude: [],
+        suppress: [{ object: 'zcl_foo', message: '*pragma*' }]
+      })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_FOO',
+          SUCCESS: false, ERROR_COUNT: 2,
+          ERRORS: [
+            { LINE: '10', TEXT: 'Missing pragma ##NO_TEXT' },
+            { LINE: '20', TEXT: 'Variable not used' }
+          ],
+          WARNINGS: [], INFOS: []
+        }])
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--files', 'zcl_foo.clas.abap', '--json'],
+      mockContext
+    );
+
+    const output = JSON.parse(consoleOutput.join(''));
+    const result = output[0];
+    // Pragma error should be downgraded: removed from ERRORS, added to INFOS
+    expect(result.ERROR_COUNT).toBe(1);
+    expect(result.ERRORS).toHaveLength(1);
+    expect(result.ERRORS[0].TEXT).toBe('Variable not used');
+    expect(result.INFOS).toHaveLength(1);
+    expect(result.INFOS[0].MESSAGE).toContain('[suppressed]');
+    expect(result.INFOS[0].MESSAGE).toContain('pragma');
+  });
+
+  test('suppress does not affect non-matching objects', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({
+        variant: null, exclude: [],
+        suppress: [{ object: 'zcl_other', message: '*' }]
+      })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_FOO',
+          SUCCESS: false, ERROR_COUNT: 1,
+          ERRORS: [{ LINE: '10', TEXT: 'Some error' }],
+          WARNINGS: [], INFOS: []
+        }])
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--files', 'zcl_foo.clas.abap', '--json'],
+      mockContext
+    );
+
+    const output = JSON.parse(consoleOutput.join(''));
+    // Rule targets zcl_other, not zcl_foo — errors should remain
+    expect(output[0].ERROR_COUNT).toBe(1);
+    expect(output[0].ERRORS).toHaveLength(1);
   });
 
 });

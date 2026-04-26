@@ -255,6 +255,8 @@ function getInspectConfig() {
   const projectConfig = loadProjectConfig();
   return {
     variant: projectConfig?.inspect?.variant || null,
+    exclude: projectConfig?.inspect?.exclude || [],
+    suppress: projectConfig?.inspect?.suppress || [],
   };
 }
 

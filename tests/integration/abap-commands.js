@@ -112,6 +112,115 @@ const commandTestCases = [
       try { fs.unlinkSync('/tmp/abapgit-agent-test-inspect.xml'); } catch (_) {}
     }
   },
+  {
+    command: 'inspect',
+    name: 'inspect skips files matching inspect.exclude pattern',
+    args: ['--files', 'abap/zcl_abgagt_util.clas.abap,abap/zcl_abgagt_agent.clas.abap'],
+    expectSuccess: true,
+    setup: () => {
+      // Add exclude pattern to project config
+      const fs = require('fs');
+      const cfg = JSON.parse(fs.readFileSync('.abapgit-agent.json', 'utf8'));
+      fs.writeFileSync('.abapgit-agent.json.bak', JSON.stringify(cfg, null, 2));
+      cfg.inspect.exclude = ['zcl_abgagt_util'];
+      fs.writeFileSync('.abapgit-agent.json', JSON.stringify(cfg, null, 2));
+    },
+    verify: (output) => {
+      // Should skip the excluded file and only check the remaining one
+      return output.includes('Skipped 1 file(s) excluded') &&
+             output.includes('ZCL_ABGAGT_AGENT') &&
+             !output.includes('ZCL_ABGAGT_UTIL');
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      try {
+        const backup = fs.readFileSync('.abapgit-agent.json.bak', 'utf8');
+        fs.writeFileSync('.abapgit-agent.json', backup);
+        fs.unlinkSync('.abapgit-agent.json.bak');
+      } catch (_) {}
+    }
+  },
+
+  // ===================================================================
+  // INSPECT COMMAND — debug-test repo (warnings/suppress)
+  // Requires abgagt-debug-test with ZCL_ABGAGT_INSPECT_TEST activated
+  // ===================================================================
+  {
+    command: 'inspect',
+    name: 'inspect detects warnings from ZCL_ABGAGT_INSPECT_TEST',
+    get cwd() {
+      const path = require('path');
+      const fs = require('fs');
+      const d = path.join(require('os').tmpdir(), 'abgagt-debug-test');
+      if (!fs.existsSync(path.join(d, '.abapGitAgent'))) return undefined;
+      // Ensure .abapgit-agent.json with variant exists (tmpdir clone may be stale)
+      const cfgPath = path.join(d, '.abapgit-agent.json');
+      if (!fs.existsSync(cfgPath)) {
+        fs.writeFileSync(cfgPath, JSON.stringify({ inspect: { variant: 'ZACS_CI' } }, null, 2));
+      }
+      return d;
+    },
+    args: ['--files', 'src/zcl_abgagt_inspect_test.clas.abap', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const results = JSON.parse(output);
+        const r = results[0];
+        return r && r.OBJECT_NAME === 'ZCL_ABGAGT_INSPECT_TEST' &&
+               Array.isArray(r.WARNINGS) && r.WARNINGS.length > 0 &&
+               r.WARNINGS.some(w => (w.MESSAGE || '').includes('Select-Statement'));
+      } catch (_) { return false; }
+    }
+  },
+  {
+    command: 'inspect',
+    name: 'inspect.suppress downgrades matching warning to info',
+    get cwd() {
+      const path = require('path');
+      const fs = require('fs');
+      const d = path.join(require('os').tmpdir(), 'abgagt-debug-test');
+      return fs.existsSync(path.join(d, '.abapGitAgent')) ? d : undefined;
+    },
+    args: ['--files', 'src/zcl_abgagt_inspect_test.clas.abap', '--json'],
+    expectSuccess: true,
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const cfgPath = path.join(require('os').tmpdir(), 'abgagt-debug-test', '.abapgit-agent.json');
+      // Back up current config (or create fresh)
+      if (fs.existsSync(cfgPath)) {
+        fs.writeFileSync(cfgPath + '.bak', fs.readFileSync(cfgPath, 'utf8'));
+      }
+      fs.writeFileSync(cfgPath, JSON.stringify({
+        inspect: {
+          variant: 'ZACS_CI',
+          suppress: [{ object: 'zcl_abgagt_inspect_test', message: '*Select-Statement*' }]
+        }
+      }, null, 2));
+    },
+    verify: (output) => {
+      try {
+        const results = JSON.parse(output);
+        const r = results[0];
+        const suppressed = (r.INFOS || []).some(i => (i.MESSAGE || i.message || '').includes('[suppressed]') && (i.MESSAGE || i.message || '').includes('Select-Statement'));
+        const stillInWarnings = (r.WARNINGS || []).some(w => (w.MESSAGE || '').includes('Select-Statement'));
+        return suppressed && !stillInWarnings;
+      } catch (_) { return false; }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const cfgPath = path.join(require('os').tmpdir(), 'abgagt-debug-test', '.abapgit-agent.json');
+      const bakPath = cfgPath + '.bak';
+      if (fs.existsSync(bakPath)) {
+        fs.writeFileSync(cfgPath, fs.readFileSync(bakPath, 'utf8'));
+        fs.unlinkSync(bakPath);
+      } else {
+        // Restore default
+        fs.writeFileSync(cfgPath, JSON.stringify({ inspect: { variant: 'ZACS_CI' } }, null, 2));
+      }
+    }
+  },
 
   // ===================================================================
   // UNIT COMMAND - 2 tests

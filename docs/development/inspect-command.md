@@ -63,6 +63,42 @@ Set the project default in `.abapgit-agent.json` so all developers and CI use th
 }
 ```
 
+### Excluding Objects
+
+Add `inspect.exclude` to skip specific objects from inspection. Patterns match the object name (case-insensitive) and support `*` as a wildcard:
+
+```json
+{
+  "inspect": {
+    "variant": "MY_VARIANT",
+    "exclude": ["zcl_generated_*", "zcl_legacy_helper"]
+  }
+}
+```
+
+Excluded files are filtered **before** sending to the ABAP system — they are not checked at all.
+
+### Suppressing Specific Findings
+
+To keep checking an object but downgrade specific errors/warnings to info (visible in output but won't fail CI), use `inspect.suppress`:
+
+```json
+{
+  "inspect": {
+    "variant": "MY_VARIANT",
+    "suppress": [
+      { "object": "zcl_my_class", "message": "*pragma*" },
+      { "object": "zcl_*_legacy", "message": "*obsolete statement*" }
+    ]
+  }
+}
+```
+
+- `object` — object name pattern (`*` wildcard, case-insensitive)
+- `message` — error/warning text pattern (`*` wildcard, case-insensitive)
+
+Suppressed findings are moved to the info section with a `[suppressed]` prefix — they remain visible for tracking but don't cause a non-zero exit code.
+
 ---
 
 ## Tasks

@@ -47,7 +47,11 @@ committed to git).
     ]
   },
   "inspect": {
-    "variant": "MY_VARIANT"
+    "variant": "MY_VARIANT",
+    "exclude": ["zcl_generated_*"],
+    "suppress": [
+      { "object": "zcl_my_class", "message": "*pragma*" }
+    ]
   },
   "transports": {
     "allowCreate": false,
@@ -147,12 +151,25 @@ get the same checks without having to remember a `--variant` flag.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `variant` | string | `null` (system default) | Code Inspector variant name. Overridden by `--variant` CLI flag. |
+| `exclude` | string[] | `[]` | Object name patterns to skip entirely. Supports `*` wildcard. Case-insensitive. |
+| `suppress` | object[] | `[]` | Downgrade matching errors/warnings to info (visible but won't fail CI). |
 
 ```json
 "inspect": {
-  "variant": "MY_VARIANT"
+  "variant": "MY_VARIANT",
+  "exclude": ["zcl_generated_*"],
+  "suppress": [
+    { "object": "zcl_my_class", "message": "*pragma*" },
+    { "object": "zcl_*_legacy", "message": "*obsolete statement*" }
+  ]
 }
 ```
+
+`suppress` entries have two fields:
+- `object` — object name pattern (`*` wildcard, case-insensitive)
+- `message` — error/warning text pattern (`*` wildcard, case-insensitive)
+
+Suppressed findings are moved from errors/warnings to infos with a `[suppressed]` prefix — they still appear in the output for tracking but don't count as failures.
 
 ---
 

@@ -285,13 +285,38 @@ Examples:
       process.exit(1);
     }
 
-    const filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
+    let filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
     // Parse optional --variant parameter; fall back to project config
     const variantArgIndex = args.indexOf('--variant');
     const variantArg = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;
     const inspectConfig = getInspectConfig();
     const variant = variantArg || inspectConfig.variant || null;
+
+    // Filter out files matching inspect.exclude patterns from project config
+    const excludePatterns = inspectConfig.exclude || [];
+    if (excludePatterns.length > 0) {
+      const before = filesSyntaxCheck.length;
+      filesSyntaxCheck = filesSyntaxCheck.filter(f => {
+        const objName = pathModule.basename(f).split('.')[0].toUpperCase();
+        return !excludePatterns.some(pattern => {
+          const re = new RegExp('^' + pattern.toUpperCase().replace(/\*/g, '.*') + '$');
+          return re.test(objName);
+        });
+      });
+      const skipped = before - filesSyntaxCheck.length;
+      if (skipped > 0 && !args.includes('--json')) {
+        console.log(`  Skipped ${skipped} file(s) excluded by inspect config`);
+      }
+      if (filesSyntaxCheck.length === 0) {
+        if (args.includes('--json')) {
+          console.log(JSON.stringify([]));
+        } else {
+          console.log('\n  All files excluded by inspect config — nothing to check.\n');
+        }
+        return;
+      }
+    }
 
     // Parse optional --junit-output parameter
     const junitArgIndex = args.indexOf('--junit-output');
@@ -315,6 +340,51 @@ Examples:
 
     // Send all files in one request
     const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http, verbose);
+
+    // Apply inspect.suppress rules — downgrade matching errors/warnings to infos
+    const suppressRules = inspectConfig.suppress || [];
+    if (suppressRules.length > 0) {
+      for (const result of results) {
+        const objName = (result.OBJECT_NAME || result.object_name || '').toUpperCase();
+        for (const rule of suppressRules) {
+          const objPattern = new RegExp('^' + (rule.object || '*').toUpperCase().replace(/\*/g, '.*') + '$');
+          if (!objPattern.test(objName)) continue;
+          const msgPattern = new RegExp((rule.message || '*').replace(/\*/g, '.*'), 'i');
+
+          // Downgrade matching errors → infos
+          const errors = result.ERRORS || result.errors || [];
+          const kept = [];
+          for (const err of errors) {
+            const text = err.TEXT || err.text || '';
+            if (msgPattern.test(text)) {
+              const infos = result.INFOS || result.infos || [];
+              infos.push({ ...err, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
+              if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
+              const ec = result.ERROR_COUNT !== undefined ? 'ERROR_COUNT' : 'error_count';
+              result[ec] = Math.max(0, (result[ec] || 0) - 1);
+            } else {
+              kept.push(err);
+            }
+          }
+          if (result.ERRORS !== undefined) result.ERRORS = kept; else result.errors = kept;
+
+          // Downgrade matching warnings → infos
+          const warnings = result.WARNINGS || result.warnings || [];
+          const keptW = [];
+          for (const warn of warnings) {
+            const text = warn.MESSAGE || warn.message || '';
+            if (msgPattern.test(text)) {
+              const infos = result.INFOS || result.infos || [];
+              infos.push({ ...warn, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
+              if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
+            } else {
+              keptW.push(warn);
+            }
+          }
+          if (result.WARNINGS !== undefined) result.WARNINGS = keptW; else result.warnings = keptW;
+        }
+      }
+    }
 
     // JUnit output mode — write XML file, then continue to normal output
     if (junitOutput) {
