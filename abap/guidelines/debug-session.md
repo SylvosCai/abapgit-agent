@@ -148,7 +148,7 @@ abapgit-agent debug list    # confirm it was registered
 
 Best practice: individual sequential calls. Once the daemon is running and
 the session is saved to the state file, each `vars/stack/step` command is a
-plain standalone call — no `--session` flag needed.
+plain standalone call — the session is loaded automatically.
 
 ```bash
 # Start attach listener in background (spawns a daemon, saves session to state file)
@@ -183,7 +183,7 @@ done
 # "position" contains "line" and "isActive":true.  If position stays empty after the
 # trigger finishes, the breakpoint was missed — re-delete, re-set, re-attach, re-trigger.
 
-# Inspect and step — each is an individual call, no --session needed
+# Inspect and step — each is an individual call, session loaded automatically
 abapgit-agent debug stack --json
 abapgit-agent debug vars  --json
 abapgit-agent debug vars  --expand LS_OBJECT --json
@@ -202,7 +202,6 @@ rm -f /tmp/attach.json /tmp/trigger.json
 > 1. Wait for `"Listener active"` in the attach output before firing the trigger — this message is printed to stderr (captured in `attach.json`) the moment the listener POST is about to reach ADT. A blind `sleep` is not reliable under system load.
 > 2. **Always run the trigger in background (`&`)** — whether using `unit` or `run --class`. A foreground trigger blocks the terminal; if it is interrupted before the debug session completes, the ABAP work process is left frozen. The trigger must stay alive for the entire session.
 > 3. Always finish with `step --type continue` — this releases the frozen work process so the trigger can complete normally
-> 4. **Never pass `--session` to `step/vars/stack`** — it bypasses the daemon IPC and causes `noSessionAttached`. Omit it and let commands auto-load from the saved state file.
 
 **Step 3 — step through and inspect**
 

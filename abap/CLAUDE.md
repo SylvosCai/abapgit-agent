@@ -511,8 +511,7 @@ Never assume — wait for the user's answer before proceeding.
 1. **Always use `--json`** for ALL debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable. This is non-negotiable.
 2. **Attach BEFORE trigger** — start `debug attach --json` in background first, wait for `"Listener active"`, THEN fire the trigger (`unit`/`pull`/`run`)
 3. **Never pull to trigger** if a simpler trigger works — use `unit` when a test exists, `run` for a class runner; use `pull` only when the bug is specifically in the pull flow
-4. **Never pass `--session`** to `step/vars/stack` — it bypasses the daemon and causes errors
-5. **Always finish with `step --type continue --json`** — releases the frozen ABAP work process
+4. **Always finish with `step --type continue --json`** — releases the frozen ABAP work process
 
 **Finding the right line number for a breakpoint:**
 

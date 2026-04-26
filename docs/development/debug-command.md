@@ -48,8 +48,8 @@ Debug Session (AI / scripting mode):
   stack   [--json]
   terminate [--json]
 
-Note: step/vars/stack/terminate do NOT accept --session. The active session is
-loaded automatically from the daemon state file written by `attach --json`.
+Note: The active session is loaded automatically from the daemon state
+file written by `attach --json`. No session ID needs to be passed.
 ```
 
 ## REPL Commands (Human Mode)
@@ -78,7 +78,6 @@ When `attach --json` is called, a **background daemon** (`debug-daemon.js`) is s
 1. **Wait for `"Listener active"` in the attach output** before firing the trigger — `attach --json` prints this marker to stderr the moment the long-poll POST is about to reach ADT. A blind `sleep` is not reliable under system load
 2. **Keep the trigger process alive in the background** for the entire debug session
 3. **Always finish with `step --type continue`** — releases the frozen ABAP work process
-4. **Never pass `--session`** to `step`/`vars`/`stack`/`terminate` — the active session and socket path are loaded automatically from the state file
 
 Example workflow:
 ```bash
@@ -98,7 +97,7 @@ for i in $(seq 1 30); do
   [ -n "$SESSION" ] && break
 done
 
-# Step 4 — use debug commands (no --session needed — rule 4)
+# Step 4 — use debug commands (session loaded automatically)
 abapgit-agent debug stack --json
 abapgit-agent debug vars --json
 abapgit-agent debug step --type over --json
@@ -338,7 +337,7 @@ Response contains `<stackEntry>` elements with `stackPosition`, `programName`, `
 
 ## Session Persistence (AI Mode)
 
-When `attach --json` succeeds, both the `sessionId` and the daemon's Unix `socketPath` are saved to `/tmp/abapgit-debug-session-<hash>.json`. All AI-mode commands (`step`, `vars`, `stack`, `terminate`) load the socket path automatically and communicate with the daemon via IPC — they do **not** accept a `--session` flag.
+When `attach --json` succeeds, both the `sessionId` and the daemon's Unix `socketPath` are saved to `/tmp/abapgit-debug-session-<hash>.json`. All AI-mode commands (`step`, `vars`, `stack`, `terminate`) load the socket path automatically and communicate with the daemon via IPC.
 
 The daemon auto-exits after 30 minutes of idle time or when `terminate` is called.
 
