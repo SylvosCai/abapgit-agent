@@ -637,7 +637,6 @@ async function cmdDelete(args, config, adt) {
 // ─── Sub-command: attach ──────────────────────────────────────────────────────
 
 async function cmdAttach(args, config, adt) {
-  const sessionIdOverride = val(args, '--session');
   const jsonOutput = hasFlag(args, '--json');
   const pollTimeout = parseInt(val(args, '--timeout') || '30', 10);
   const maxListenSeconds = parseInt(val(args, '--max-listen') || '240', 10);
@@ -669,30 +668,25 @@ async function cmdAttach(args, config, adt) {
   await adt.fetchCsrfToken();
 
   // Delete any stale listener registered under our terminalId from a previous
-  // (possibly crashed) run.  A frozen ABAP work process holding a listener for
-  // the same terminalId causes SAP ICM to return HTTP 400 "Service cannot be
-  // reached" for every new listener POST.  Deleting first clears that state.
-  // Ignore errors — there may be no stale listener to delete.
-  if (!sessionIdOverride) {
-    try {
-      const delUrl = `/sap/bc/adt/debugger/listeners` +
-        `?debuggingMode=user` +
-        `&requestUser=${encodeURIComponent((config.user || '').toUpperCase())}` +
-        `&terminalId=${encodeURIComponent(ADT_CLIENT_ID)}` +
-        `&ideId=${encodeURIComponent(ADT_CLIENT_ID)}` +
-        `&checkConflict=false` +
-        `&notifyConflict=true`;
-      await adt.delete(delUrl);
-      if (jsonOutput) process.stderr.write(`[debug-attach] deleted stale listener\n`);
-    } catch (e) {
-      if (jsonOutput) process.stderr.write(`[debug-attach] delete listener (cleanup): ${e.statusCode || e.message}\n`);
-    }
+  // (possibly crashed) run.
+  try {
+    const delUrl = `/sap/bc/adt/debugger/listeners` +
+      `?debuggingMode=user` +
+      `&requestUser=${encodeURIComponent((config.user || '').toUpperCase())}` +
+      `&terminalId=${encodeURIComponent(ADT_CLIENT_ID)}` +
+      `&ideId=${encodeURIComponent(ADT_CLIENT_ID)}` +
+      `&checkConflict=false` +
+      `&notifyConflict=true`;
+    await adt.delete(delUrl);
+    if (jsonOutput) process.stderr.write(`[debug-attach] deleted stale listener\n`);
+  } catch (e) {
+    if (jsonOutput) process.stderr.write(`[debug-attach] delete listener (cleanup): ${e.statusCode || e.message}\n`);
   }
 
   // Re-POST local breakpoints to refresh them on the server before listening.
   // Breakpoints expire when the SAP session or work process is restarted.
   // This ensures they are active regardless of when they were originally set.
-  if (!sessionIdOverride) {
+  {
     const localBps = _loadBpState ? _loadBpState(config) : [];
     if (localBps.length === 0) {
       console.error('\n  No breakpoints set. Use "debug set --object <name> --line <n>" first.\n');
@@ -711,11 +705,11 @@ async function cmdAttach(args, config, adt) {
       process.exit(1);
     }
   }
-  let sessionId = sessionIdOverride;
+  let sessionId = null;
   let positionResult = null;
   let session = null;
 
-  if (!sessionId) {
+  {
     // ADT listeners: POST long-polls until a breakpoint is hit (or timeout).
     // On breakpoint hit the response body contains <DEBUGGEE_ID>; on timeout
     // (no breakpoint) returns 200 with empty body — poll again.
@@ -881,20 +875,7 @@ async function cmdAttach(args, config, adt) {
     }
   }
 
-  // When using --session override (no listener), do attach+getPosition here.
-  if (sessionIdOverride) {
-    session = new DebugSession(adt, sessionId);
-    // getPosition is best-effort for --session override (e.g. human REPL recovery)
-    try {
-      positionResult = await session.getPosition();
-    } catch (e) {
-      positionResult = { position: {}, source: [] };
-    }
-  }
-
-  // session and positionResult are now set (either via listener loop or --session override)
   if (!session) {
-    // Should not reach here — listener loop either sets session or exits
     console.error('\n  Internal error: session not initialized after attach.\n');
     process.exit(1);
   }

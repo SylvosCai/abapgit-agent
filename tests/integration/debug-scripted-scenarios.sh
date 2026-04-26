@@ -164,7 +164,7 @@ scenario3() {
 
   STACK_OUT=$((cd "$DEBUG_REPO" && $AGENT debug stack --json) 2>&1 || true)
   if echo "$STACK_OUT" | grep -q '"frames"' 2>/dev/null; then
-    pass 'stack --json returned {"frames":[...]} (rule 4: no --session needed)'
+    pass 'stack --json returned {"frames":[...]}'
   else
     fail "stack --json did not return expected JSON: $STACK_OUT"
     log "--- attach process debug log ---"
@@ -174,7 +174,7 @@ scenario3() {
 
   VARS_OUT=$((cd "$DEBUG_REPO" && $AGENT debug vars --json) 2>&1 || true)
   if echo "$VARS_OUT" | grep -qE '"variables":\s*\[.+\]' 2>/dev/null; then
-    pass 'vars --json returned {"variables":[...]} (rule 4: no --session needed)'
+    pass 'vars --json returned {"variables":[...]}'
   else
     fail "vars --json did not return expected JSON: $VARS_OUT"
   fi
@@ -196,7 +196,7 @@ scenario3() {
 
   CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
   if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
-    pass 'step --type continue --json released work process (rule 3)'
+    pass 'step --type continue --json released work process'
   else
     fail "step --type continue --json did not return expected JSON: $CONT_OUT"
     (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
@@ -329,7 +329,7 @@ scenario4() {
 
   CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
   if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
-    pass "step --type continue released work process (rule 3)"
+    pass "step --type continue released work process"
   else
     fail "step --type continue did not return expected JSON: ${CONT_OUT:0:300}"
     (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
@@ -530,7 +530,7 @@ scenario5() {
 
   CONT_OUT=$((cd "$DEBUG_REPO" && $AGENT debug step --type continue --json) 2>&1 || true)
   if echo "$CONT_OUT" | grep -qE '"position"|"finished"' 2>/dev/null; then
-    pass "step --type continue released work process (rule 3)"
+    pass "step --type continue released work process"
   else
     fail "step --type continue did not return expected JSON: ${CONT_OUT:0:300}"
     (cd "$DEBUG_REPO" && $AGENT debug terminate >/dev/null 2>&1) || true
