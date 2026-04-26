@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+## v1.18.1
+
+### New Features
+
+- `inspect.exclude`: skip objects from Code Inspector entirely
+- `inspect.suppress`: downgrade findings to info without failing CI
+- Both options support `*` wildcard, case-insensitive matching
+
+### Documentation
+
+- Updated `inspect` command docs with exclude/suppress examples
+- Updated `project-config.md` with new `inspect` config fields
+
+---
+
+---
+
+
 ## v1.18.0
 
 ### New Features
