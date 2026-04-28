@@ -699,7 +699,7 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 ```
 
 <!-- AI-CONDENSED-START -->
-# AI Agent Instructions
+# AI Agent Quick Reference
 
 ## Step 1: Read project config before doing anything
 
