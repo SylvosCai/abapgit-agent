@@ -1,25 +1,31 @@
 @Library('abapgit-agent-jenkins-lib') _
 
+// All connection parameters are configured in Jenkins job settings
+// (Build with Parameters), not hardcoded here:
+//   ABAP_HOST, ABAP_PORT, ABAP_CLIENT, ABAP_LANGUAGE
+//   ABAP_CREDENTIALS_PARAM, GIT_CREDENTIALS_PARAM
+//
+// agentRepoUrl is auto-detected from the SCM configuration.
+
+// Derive agentRepoUrl from SCM config so we don't hardcode the internal URL.
+// This tells the pipeline to npm-link from the workspace instead of installing from npm.
+def agentUrl = scm?.userRemoteConfigs?.getAt(0)?.url ?: ''
+
 abapPipeline(
-    credentialsId   : 'gze-100-abap-credentials',   // Jenkins credentials ID for ABAP system
-    gitCredentialsId: 'PAT_grcaud-serviceuser',      // Jenkins credentials ID for git remote
-    abapHost        : 'ldcigze.devsys.net.sap',      // SAP hostname
-    abapPort        : '44300',                        // HTTPS port
-    abapClient      : '100',                          // SAP client
-    abapLanguage    : 'EN',                           // Logon language
-    abaplintConfig  : '.abaplint.json',               // abaplint config file
-    lintScope       : 'changed',                      // only report issues in changed files (full scan for cross-ref correctness)
-    timeout         : 30,                             // pipeline timeout in minutes
-    agentRepoUrl    : 'https://github.tools.sap/I045696/abapgit-agent.git', // signals: install from workspace (npm link)
+    abaplintConfig  : '.abaplint.json',
+    lintScope       : 'changed',
+    timeout         : 30,
+    agentRepoUrl    : agentUrl,
     afterTests      : {
         withCredentials([usernamePassword(
-            credentialsId: 'i045696-personal-org-github-token',
+            credentialsId: env.TEST_GIT_CREDENTIALS ?: 'test-git-credentials',
             usernameVariable: 'TEST_GIT_USR',
             passwordVariable: 'TEST_GIT_PSW'
         )]) {
             sh """
-                # Write ~/.netrc so test runners can clone/push to github.tools.sap/I045696/* repos.
-                printf 'machine github.tools.sap login %s password %s\\n' "\$TEST_GIT_USR" "\$TEST_GIT_PSW" > "\$HOME/.netrc"
+                # Write ~/.netrc so test runners can clone/push to test repos.
+                # GIT_HOST must be set as a Jenkins environment variable.
+                printf 'machine %s login %s password %s\\n' "\$GIT_HOST" "\$TEST_GIT_USR" "\$TEST_GIT_PSW" > "\$HOME/.netrc"
                 chmod 600 "\$HOME/.netrc"
 
                 # Install project dependencies for Jest tests
@@ -29,18 +35,14 @@ abapPipeline(
                 ABAP_REF_DIR="\$HOME/abap-reference"
                 mkdir -p "\$ABAP_REF_DIR"
 
-                # Patch .abapGitAgent: add referenceFolder + testRepos (SAP GitHub URLs)
+                # Patch .abapGitAgent: add referenceFolder + testRepos from env
                 node -e "
                   var fs = require('fs');
                   var cfg = JSON.parse(fs.readFileSync('.abapGitAgent', 'utf8'));
                   cfg.referenceFolder = process.env.HOME + '/abap-reference';
-                  cfg.testRepos = {
-                    pull:      'https://github.tools.sap/I045696/abgagt-pull-test.git',
-                    drop:      'https://github.tools.sap/I045696/abgagt-drop-test.git',
-                    customize: 'https://github.tools.sap/I045696/abgagt-customize-test.git',
-                    lifecycle: 'https://github.tools.sap/I045696/abgagt-lifecycle-test.git',
-                    debug:     'https://github.tools.sap/I045696/abgagt-debug-test.git'
-                  };
+                  if (process.env.TEST_REPOS_JSON) {
+                    cfg.testRepos = JSON.parse(process.env.TEST_REPOS_JSON);
+                  }
                   fs.writeFileSync('.abapGitAgent', JSON.stringify(cfg, null, 2));
                 "
 
