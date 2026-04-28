@@ -13,7 +13,8 @@ node {
     }
 }
 
-def cfg = new groovy.json.JsonSlurper().parseText(cfgText)
+// Parse as regular HashMap (LazyMap from JsonSlurper is not serializable in Jenkins CPS)
+def cfg = new HashMap(new groovy.json.JsonSlurper().parseText(cfgText))
 
 abapPipeline(
     credentialsId   : cfg.credentialsId,
