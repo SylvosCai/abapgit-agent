@@ -4,43 +4,56 @@
 // See: Jenkins → abapgit-agent → Config Files → abapgit-agent-config
 
 def agentUrl = scm?.userRemoteConfigs?.getAt(0)?.url ?: ''
-def cfgText = ''
 
-// Load config from Jenkins Managed Files — requires a node context
+// Load config — extract only primitive strings to avoid CPS LazyMap serialization issues
+def cfgCredentialsId = ''
+def cfgGitCredentialsId = ''
+def cfgAbapHost = ''
+def cfgAbapPort = '443'
+def cfgAbapClient = '100'
+def cfgAbapLanguage = 'EN'
+def cfgTestGitCredentials = ''
+def cfgGitHost = ''
+def cfgFileId = 'd136001f-8e70-44a5-b0a3-b9c9711ad4c4'
+
 node {
-    configFileProvider([configFile(fileId: 'd136001f-8e70-44a5-b0a3-b9c9711ad4c4', variable: 'CONFIG_FILE')]) {
-        cfgText = readFile(CONFIG_FILE)
+    configFileProvider([configFile(fileId: cfgFileId, variable: 'CONFIG_FILE')]) {
+        def cfg = readJSON file: CONFIG_FILE
+        cfgCredentialsId = cfg.credentialsId ?: ''
+        cfgGitCredentialsId = cfg.gitCredentialsId ?: ''
+        cfgAbapHost = cfg.abapHost ?: ''
+        cfgAbapPort = cfg.abapPort ?: '443'
+        cfgAbapClient = cfg.abapClient ?: '100'
+        cfgAbapLanguage = cfg.abapLanguage ?: 'EN'
+        cfgTestGitCredentials = cfg.testGitCredentials ?: ''
+        cfgGitHost = cfg.gitHost ?: ''
     }
 }
 
-// Parse as regular HashMap (LazyMap from JsonSlurper is not serializable in Jenkins CPS)
-def cfg = new HashMap(new groovy.json.JsonSlurper().parseText(cfgText))
-
 abapPipeline(
-    credentialsId   : cfg.credentialsId,
-    gitCredentialsId: cfg.gitCredentialsId,
-    abapHost        : cfg.abapHost,
-    abapPort        : cfg.abapPort ?: '443',
-    abapClient      : cfg.abapClient ?: '100',
-    abapLanguage    : cfg.abapLanguage ?: 'EN',
+    credentialsId   : cfgCredentialsId,
+    gitCredentialsId: cfgGitCredentialsId,
+    abapHost        : cfgAbapHost,
+    abapPort        : cfgAbapPort,
+    abapClient      : cfgAbapClient,
+    abapLanguage    : cfgAbapLanguage,
     abaplintConfig  : '.abaplint.json',
     lintScope       : 'changed',
     timeout         : 30,
     agentRepoUrl    : agentUrl,
     afterTests      : {
-        configFileProvider([configFile(fileId: 'd136001f-8e70-44a5-b0a3-b9c9711ad4c4', variable: 'CONFIG_FILE')]) {
+        configFileProvider([configFile(fileId: cfgFileId, variable: 'CONFIG_FILE')]) {
             def testCfg = readJSON file: CONFIG_FILE
 
-            // Write testRepos JSON to a temp file to avoid shell escaping issues
             writeFile file: '.test-repos.json', text: groovy.json.JsonOutput.toJson(testCfg.testRepos ?: [:])
 
             withCredentials([usernamePassword(
-                credentialsId: testCfg.testGitCredentials,
+                credentialsId: cfgTestGitCredentials,
                 usernameVariable: 'TEST_GIT_USR',
                 passwordVariable: 'TEST_GIT_PSW'
             )]) {
                 sh """
-                    printf 'machine %s login %s password %s\\n' '${testCfg.gitHost}' "\$TEST_GIT_USR" "\$TEST_GIT_PSW" > "\$HOME/.netrc"
+                    printf 'machine %s login %s password %s\\n' '${cfgGitHost}' "\$TEST_GIT_USR" "\$TEST_GIT_PSW" > "\$HOME/.netrc"
                     chmod 600 "\$HOME/.netrc"
 
                     npm install
