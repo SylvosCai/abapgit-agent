@@ -652,9 +652,8 @@ async function cmdAttach(args, config, adt) {
     process.stderr.write('\n  Waiting for breakpoint hit... (run your ABAP program in a separate window)\n');
   }
 
-  // Fresh session for attach flow. Don't set stateful here — CSRF fetch
-  // without stateful avoids tying up a dialog WP. Stateful is added per-call
-  // by debug-session.js STATEFUL_HEADER on attach/getStack/step/vars.
+  // Refresh session for the attach flow. Destroy the keepAlive agent to get
+  // a fresh TCP connection (old connections may carry stale server-side state).
   adt.clearSession();
   if (adt._axios) {
     const agent = adt._axios.defaults.httpsAgent || adt._axios.defaults.httpAgent;
@@ -842,8 +841,8 @@ async function cmdAttach(args, config, adt) {
             process.exit(1);
           }
           // attach() succeeded — skip getPosition() validation.
-          // With keepAlive, the connection is shared and getStack via the
-          // in-process daemon will use the same AdtHttp + same TCP socket.
+          // The in-process daemon shares the same AdtHttp instance, so
+          // getStack/vars/step via IPC use the identical TCP connection.
           positionResult = { position: {}, source: [] };
           session = candidateSession;
         }

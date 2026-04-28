@@ -166,7 +166,8 @@ class AdtHttp {
       return await this._makeRequest(method, urlPath, body, options);
     } catch (error) {
       if (this._isAuthError(error) && !options.isRetry) {
-        this.csrfToken = null;
+        // Clear stale session state and refresh
+        this.clearSession();
         await this.fetchCsrfToken();
         return await this._makeRequest(method, urlPath, body, { ...options, isRetry: true });
       }
@@ -178,7 +179,9 @@ class AdtHttp {
     if (error.statusCode === 401) return true;
     if (error.statusCode === 403) return true;
     const msg = (error.message || '').toLowerCase();
-    return msg.includes('csrf') || msg.includes('unauthorized') || msg.includes('forbidden');
+    if (msg.includes('csrf') || msg.includes('unauthorized') || msg.includes('forbidden')) return true;
+    if (msg.includes('session timed out') || msg.includes('session not found')) return true;
+    return false;
   }
 
   async _makeRequest(method, urlPath, body = null, options = {}) {
