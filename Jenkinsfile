@@ -4,14 +4,16 @@
 // See: Jenkins → abapgit-agent → Config Files → abapgit-agent-config
 
 def agentUrl = scm?.userRemoteConfigs?.getAt(0)?.url ?: ''
-def cfg = [:]
+def cfgText = ''
 
 // Load config from Jenkins Managed Files — requires a node context
 node {
     configFileProvider([configFile(fileId: 'd136001f-8e70-44a5-b0a3-b9c9711ad4c4', variable: 'CONFIG_FILE')]) {
-        cfg = readJSON file: CONFIG_FILE
+        cfgText = readFile(CONFIG_FILE)
     }
 }
+
+def cfg = new groovy.json.JsonSlurper().parseText(cfgText)
 
 abapPipeline(
     credentialsId   : cfg.credentialsId,
@@ -27,6 +29,7 @@ abapPipeline(
     afterTests      : {
         configFileProvider([configFile(fileId: 'd136001f-8e70-44a5-b0a3-b9c9711ad4c4', variable: 'CONFIG_FILE')]) {
             def testCfg = readJSON file: CONFIG_FILE
+
             // Write testRepos JSON to a temp file to avoid shell escaping issues
             writeFile file: '.test-repos.json', text: groovy.json.JsonOutput.toJson(testCfg.testRepos ?: [:])
 
