@@ -694,6 +694,9 @@ async function cmdAttach(args, config, adt) {
     }
     const { valid, stale } = await refreshBreakpoints(config, adt, localBps);
     if (_saveBpState) _saveBpState(config, valid);
+    if (jsonOutput && valid.length > 0) {
+      process.stderr.write(`[debug-attach] refreshed ${valid.length} breakpoint(s)\n`);
+    }
     if (stale.length > 0 && !jsonOutput) {
       process.stderr.write(`  Warning: ${stale.length} breakpoint(s) could not be registered (invalid position):\n`);
       stale.forEach(({ object, line, error }) => {
