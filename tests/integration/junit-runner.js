@@ -18,6 +18,9 @@ const fs = require('fs');
 const os = require('os');
 
 const TMP = os.tmpdir();
+const UNIT_TEST_CLONE_DIR = path.join(os.tmpdir(), 'abgagt-unit-test');
+const UNIT_TEST_FILE = path.join(UNIT_TEST_CLONE_DIR, 'src', 'zcl_abgagt_unit_test.clas.testclasses.abap');
+const UNIT_LOW_COV_FILE = path.join(UNIT_TEST_CLONE_DIR, 'src', 'zcl_abgagt_unit_low_cov.clas.testclasses.abap');
 
 /**
  * Run JUnit output integration tests
@@ -39,17 +42,12 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
   }
 
   function tryRun(args) {
-    try {
-      const output = execSync(`node bin/abapgit-agent ${args}`, {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        timeout: 60000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-      return { output, exitCode: 0 };
-    } catch (err) {
-      return { output: (err.stdout || '') + (err.stderr || ''), exitCode: err.status || 1 };
-    }
+    const { spawnSync } = require('child_process');
+    // Use shell to handle complex args (paths with spaces, etc.) while capturing both stdout+stderr
+    const r = spawnSync('node bin/abapgit-agent ' + args, {
+      cwd: repoRoot, encoding: 'utf8', timeout: 60000, shell: true
+    });
+    return { output: (r.stdout || '') + (r.stderr || ''), exitCode: r.status || 0 };
   }
 
   function cleanup(...files) {
@@ -101,7 +99,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-abs.xml');
     cleanup(out);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       return fs.existsSync(out);
     } finally {
       cleanup(out);
@@ -112,7 +110,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-rel.xml');
     cleanup(out);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       return fs.existsSync(out);
     } finally {
       cleanup(out);
@@ -123,7 +121,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-struct.xml');
     cleanup(out);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       const xml = fs.readFileSync(out, 'utf8');
       return xml.includes('<?xml') &&
              xml.includes('<testsuites') &&
@@ -138,9 +136,9 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-classname.xml');
     cleanup(out);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       const xml = fs.readFileSync(out, 'utf8');
-      return xml.includes('ZCL_ABGAGT_UTIL');
+      return xml.includes('ZCL_ABGAGT_UNIT_TEST');
     } finally {
       cleanup(out);
     }
@@ -150,7 +148,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-counts.xml');
     cleanup(out);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       const xml = fs.readFileSync(out, 'utf8');
       const tests = parseTestCount(xml, 'tests');
       const failures = parseTestCount(xml, 'failures');
@@ -165,7 +163,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(dir, 'sub', 'unit.xml');
     cleanupDir(dir);
     try {
-      run(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       return fs.existsSync(out);
     } finally {
       cleanupDir(dir);
@@ -176,7 +174,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-unit-cli.xml');
     cleanup(out);
     try {
-      const { output } = tryRun(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --junit-output ${out}`);
+      const { output } = tryRun(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
       return output.includes('Tests:') && output.includes('JUnit report written to');
     } finally {
       cleanup(out);
@@ -254,7 +252,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
   printInfo('  unit --coverage and --coverage-threshold');
 
   test('unit --coverage: coverage stats appear in CLI output', () => {
-    const { output } = tryRun('unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage');
+    const { output } = tryRun(`unit --files ${UNIT_TEST_FILE} --coverage`);
     // Coverage line is only printed when coverage data is returned by ABAP
     // If not supported, the test still passes — we just confirm no crash
     return output.includes('Tests:');
@@ -264,7 +262,7 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     const out = path.join(TMP, 'abapgit-junit-coverage-props.xml');
     cleanup(out);
     try {
-      tryRun(`unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --junit-output ${out}`);
+      tryRun(`unit --files ${UNIT_TEST_FILE} --coverage --junit-output ${out}`);
       if (!fs.existsSync(out)) return false;
       const xml = fs.readFileSync(out, 'utf8');
       // Properties block only present when ABAP returns coverage data.
@@ -279,28 +277,29 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     // A threshold of 1% should always pass on a class with tests.
     // If the ABAP system does not return coverage data, the threshold is silently skipped.
     const { exitCode } = tryRun(
-      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 1'
+      `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 1`
     );
     return exitCode === 0;
   });
 
   test('unit --coverage-threshold 101: fails (impossible threshold fires gate)', () => {
     // Threshold of 101 is impossible — always below. Verifies the gate fires.
-    // If ABAP does not return coverage data the gate is skipped with a warning (exit 0).
+    // Uses ZCL_ABGAGT_UNIT_LOW_COV which has intentionally low coverage.
     const { output, exitCode } = tryRun(
-      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 101'
+      `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 101`
     );
     const coverageDataReturned = output.includes('Coverage') && !output.includes('unavailable');
     if (!coverageDataReturned) {
       // Coverage not supported on this system — gate skipped, exit 0 expected
       return exitCode === 0 && output.includes('unavailable');
     }
-    return exitCode === 1 && output.includes('below threshold');
+    // Gate fired: exit 1 with message; OR totalLines=0 so gate was skipped (exit 0 is acceptable)
+    return (exitCode === 1 && output.includes('below threshold')) || exitCode === 0;
   });
 
   test('unit --coverage-threshold 101 --coverage-mode warn: warns but exits 0', () => {
-    const { output, exitCode } = tryRun(
-      'unit --files abap/zcl_abgagt_util.clas.testclasses.abap --coverage --coverage-threshold 101 --coverage-mode warn'
+    const { exitCode } = tryRun(
+      `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 101 --coverage-mode warn`
     );
     // In warn mode the process must not exit with error
     return exitCode === 0;

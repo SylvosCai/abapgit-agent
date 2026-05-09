@@ -103,7 +103,13 @@ Coverage statistics are also emitted as `<properties>` on each testsuite:
     <property name="coverage.lines.total"   value="10"/>
     <property name="coverage.lines.covered" value="2"/>
   </properties>
-  <testcase name="(5 passing test(s))" classname="ZCL_MY_TEST"/>
+  <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST"/>
+  <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST"/>
+  <testcase name="TEST_METHOD_3" classname="ZCL_MY_TEST"/>
+  <testcase name="TEST_METHOD_4" classname="ZCL_MY_TEST"/>
+  <testcase name="TEST_METHOD_FAIL" classname="ZCL_MY_TEST">
+    <failure type="failedAssertion" message="Assertion failed">Assertion failed&#10;Expected X but got Y</failure>
+  </testcase>
   <testcase name="coverage_threshold" classname="ZCL_MY_TEST">
     <failure type="FAILURE" message="ZCL_MY_TEST: coverage 20% is below threshold 80%">...</failure>
   </testcase>
@@ -129,15 +135,36 @@ GET /health (with X-CSRF-Token: fetch)
 
 ### 4. Make Unit Request
 
-**Endpoint:** `POST /unit`
+**Endpoint:** `POST /sap/bc/adt/abapunit/testruns` (standard SAP ADT endpoint)
 
-**Request Body:**
-```json
-{
-  "files": ["ZCL_MY_TEST.CLASS.TESTCLASSES.ABAP"],
-  "coverage": true
-}
+**Content-Type:** `application/*`
+**Accept:** `application/*`
+
+**Request Body (XML):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
+  <external>
+    <coverage active="false"/>
+  </external>
+  <options>
+    <uriType value="semantic"/>
+    <testDeterminationStrategy sameProgram="true" assignedTests="false"/>
+    <testRiskLevels harmless="true" dangerous="false" critical="false"/>
+    <testDurations short="true" medium="false" long="false"/>
+    <withNavigationUri enabled="true"/>
+  </options>
+  <adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
+    <objectSet kind="inclusive">
+      <adtcore:objectReferences>
+        <adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test"/>
+      </adtcore:objectReferences>
+    </objectSet>
+  </adtcore:objectSets>
+</aunit:runConfiguration>
 ```
+
+ADT URI is derived from the file name: `zcl_my_test.clas.testclasses.abap` → `/sap/bc/adt/oo/classes/zcl_my_test`.
 
 ### 5. Display Results
 
@@ -191,23 +218,21 @@ Failed Tests:
 
 ```json
 {
-  "success": "X",
-  "message": "2 of 10 tests failed",
-  "test_count": 10,
-  "passed_count": 8,
-  "failed_count": 2,
-  "errors": [
+  "className": "ZCL_MY_TEST",
+  "methods": [
+    { "name": "TEST_METHOD_1", "passed": true },
     {
-      "class_name": "ZCL_MY_TEST",
-      "method_name": "TEST_METHOD_1",
-      "error_kind": "ERROR",
-      "error_text": "Expected X but got Y"
+      "name": "TEST_METHOD_FAIL",
+      "passed": false,
+      "kind": "failedAssertion",
+      "title": "Assertion failed",
+      "detail": "Expected X but got Y"
     }
   ],
-  "coverage_stats": {
-    "total_lines": 41,
-    "covered_lines": 27,
-    "coverage_rate": 65.9
+  "coverageStats": {
+    "totalLines": 41,
+    "coveredLines": 27,
+    "coverageRate": 65.9
   }
 }
 ```
@@ -270,12 +295,9 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
 
 ## Implementation
 
-Uses `CL_SUT_AUNIT_RUNNER` to execute tests:
-- `S_CREATE` - Create test runner
-- `run()` - Execute tests
-- `str_results` - Get test statistics
-- `tab_objects` - Get detailed results
-- `get_coverage_result_stats` - Get coverage statistics (when coverage enabled)
-- `p_cov = 'X'` - Enable coverage
-- `p_cvrau` - Set coverage scope to specified_range
-- `so_cvprg` - Program range for coverage measurement
+Calls the standard SAP ADT endpoint directly — no custom ABAP backend required:
+- `POST /sap/bc/adt/abapunit/testruns` with `application/*` content-type
+- One request per test class file
+- ADT URI derived from file name: `zcl_my_test.clas.testclasses.abap` → `/sap/bc/adt/oo/classes/zcl_my_test`
+- Response is XML (`<aunit:runResult>`); each `<testMethod>` element is present for both passing and failing tests
+- Coverage stats (`lines_total`, `lines_covered`, `coverage_rate`) are embedded in the same response when `<coverage active="true"/>`

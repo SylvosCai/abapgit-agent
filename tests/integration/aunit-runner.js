@@ -2,13 +2,18 @@
  * AUnit Test Runner
  * Discovers and runs ABAP unit test classes
  */
-const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { execSync } = require('child_process');
 
-// Auto-discover all ABAP test class files
-function discoverTestClasses(repoRoot) {
-  return fs.readdirSync(path.join(repoRoot, 'abap'))
+const UNIT_TEST_CLONE_DIR = path.join(os.tmpdir(), 'abgagt-unit-test');
+
+// Auto-discover all ABAP test class files from the unit test repo clone
+function discoverTestClasses() {
+  const srcDir = path.join(UNIT_TEST_CLONE_DIR, 'src');
+  if (!fs.existsSync(srcDir)) return [];
+  return fs.readdirSync(srcDir)
     .filter(f => f.endsWith('.clas.testclasses.abap'))
     .map(f => f.replace('.clas.testclasses.abap', ''))
     .sort();
@@ -28,11 +33,16 @@ function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, pri
 
   const startTime = Date.now();
   const results = [];
-  const testClasses = discoverTestClasses(repoRoot);
+  const testClasses = discoverTestClasses();
+
+  if (testClasses.length === 0) {
+    printWarning(`Unit test repo not cloned yet: ${UNIT_TEST_CLONE_DIR} — skipping AUnit tests`);
+    return { success: true, results, duration: '0.0', passedCount: 0, totalCount: 0 };
+  }
 
   for (const testClass of testClasses) {
     const fileName = `${testClass}.clas.testclasses.abap`;
-    const filePath = path.join(repoRoot, 'abap', fileName);
+    const filePath = path.join(UNIT_TEST_CLONE_DIR, 'src', fileName);
 
     if (!fs.existsSync(filePath)) {
       printWarning(`Test class not found: ${fileName}`);
@@ -40,18 +50,12 @@ function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, pri
     }
 
     try {
-      // Run AUnit test using the CLI (need to include abap/ prefix)
-      const cliPath = `abap/${fileName}`;
       const output = execSync(
-        `node bin/abapgit-agent unit --files ${cliPath}`,
+        `node bin/abapgit-agent unit --files ${filePath}`,
         { cwd: repoRoot, encoding: 'utf8' }
       );
 
-      // Parse output to determine pass/fail.
-      // "No unit tests" is a failure — it means the file was not recognised
-      // or has no FOR TESTING methods, which must be investigated.
-      const passed = output.includes('All tests passed') ||
-        output.includes('passed');
+      const passed = output.includes('All tests passed') || output.includes('passed');
       const className = testClass.toUpperCase();
 
       if (passed) {

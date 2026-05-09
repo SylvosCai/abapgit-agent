@@ -24,7 +24,6 @@ CLASS zcl_abgagt_cmd_factory IMPLEMENTATION.
     mt_command_map = VALUE #(
       ( command = zif_abgagt_command=>gc_pull    class_name = 'ZCL_ABGAGT_COMMAND_PULL' )
       ( command = zif_abgagt_command=>gc_inspect class_name = 'ZCL_ABGAGT_COMMAND_INSPECT' )
-      ( command = zif_abgagt_command=>gc_unit   class_name = 'ZCL_ABGAGT_COMMAND_UNIT' )
       ( command = zif_abgagt_command=>gc_create class_name = 'ZCL_ABGAGT_COMMAND_CREATE' )
       ( command = zif_abgagt_command=>gc_delete class_name = 'ZCL_ABGAGT_COMMAND_DELETE' )
       ( command = zif_abgagt_command=>gc_status class_name = 'ZCL_ABGAGT_COMMAND_STATUS' )

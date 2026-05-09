@@ -1,14 +1,12 @@
 /**
- * Unit command - Run AUnit tests for ABAP test class files
+ * Unit command - Run AUnit tests via ADT /sap/bc/adt/abapunit/testruns
  */
 
 const pathModule = require('path');
 const fs = require('fs');
+const { AdtHttp } = require('../utils/adt-http');
 const { formatHttpError } = require('../utils/format-error');
 
-/**
- * Escape a string for safe embedding in XML text/attribute content
- */
 function escapeXml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -19,77 +17,151 @@ function escapeXml(str) {
 }
 
 /**
- * Build JUnit XML from unit test results array.
+ * Build the ADT AUnit run configuration XML for one class URI.
+ */
+function buildRunConfigXml(adtUri, coverage) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
+  <external>
+    <coverage active="${coverage ? 'true' : 'false'}"/>
+  </external>
+  <options>
+    <uriType value="semantic"/>
+    <testDeterminationStrategy sameProgram="true" assignedTests="false"/>
+    <testRiskLevels harmless="true" dangerous="false" critical="false"/>
+    <testDurations short="true" medium="false" long="false"/>
+    <withNavigationUri enabled="true"/>
+  </options>
+  <adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
+    <objectSet kind="inclusive">
+      <adtcore:objectReferences>
+        <adtcore:objectReference adtcore:uri="${adtUri}"/>
+      </adtcore:objectReferences>
+    </objectSet>
+  </adtcore:objectSets>
+</aunit:runConfiguration>`;
+}
+
+/**
+ * Parse the ADT AUnit run result XML into a structured result object.
  *
- * Maps to JUnit schema:
- *   <testsuites>
- *     <testsuite name="ZCL_MY_TEST" tests="10" failures="2" errors="0">
- *       <properties>
- *         <property name="coverage.rate" value="67"/>
- *         <property name="coverage.lines.total" value="120"/>
- *         <property name="coverage.lines.covered" value="80"/>
- *       </properties>
- *       <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST"/>
- *       <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST">
- *         <failure type="FAILURE" message="...">detail</failure>
- *       </testcase>
- *     </testsuite>
- *   </testsuites>
+ * Returns:
+ *   {
+ *     className,
+ *     methods: [{ name, passed, kind?, title?, detail? }],
+ *     coverageStats: { totalLines, coveredLines, coverageRate } | null
+ *   }
+ */
+function parseRunResult(xml, className) {
+  const methods = [];
+
+  // Split on <testMethod — each block is one method
+  const methodBlocks = xml.split(/<testMethod\s/);
+  for (let i = 1; i < methodBlocks.length; i++) {
+    const block = methodBlocks[i];
+
+    const nameMatch = block.match(/adtcore:name="([^"]*)"/);
+    if (!nameMatch) continue;
+    const name = nameMatch[1];
+
+    // Find the <alerts> section — content between <alerts> and </alerts>
+    const alertsMatch = block.match(/<alerts>([\s\S]*?)<\/alerts>/);
+    const alertsContent = alertsMatch ? alertsMatch[1].trim() : '';
+
+    if (!alertsContent || alertsContent === '<alerts/>') {
+      methods.push({ name, passed: true });
+      continue;
+    }
+
+    // Extract alert kind
+    const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
+    const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
+
+    // Extract title
+    const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
+    const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
+
+    // Extract first detail text
+    const detailMatch = block.match(/<detail\s[^>]*text="([^"]*)"/);
+    const detail = detailMatch ? detailMatch[1].trim() : '';
+
+    methods.push({ name, passed: false, kind, title, detail });
+  }
+
+  // Parse coverage stats if present
+  // <coverage ... adtcore:lines_total="N" adtcore:lines_covered="M" adtcore:coverage_rate="R"/>
+  let coverageStats = null;
+  const covMatch = xml.match(/<coverage\b[^>]*>/);
+  if (covMatch) {
+    const covEl = covMatch[0];
+    const totalMatch = covEl.match(/adtcore:lines_total="([^"]*)"/);
+    const coveredMatch = covEl.match(/adtcore:lines_covered="([^"]*)"/);
+    const rateMatch = covEl.match(/adtcore:coverage_rate="([^"]*)"/);
+    if (totalMatch || coveredMatch || rateMatch) {
+      const totalLines = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+      const coveredLines = coveredMatch ? parseInt(coveredMatch[1], 10) : 0;
+      const coverageRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+      coverageStats = { totalLines, coveredLines, coverageRate };
+    }
+  }
+
+  return { className, methods, coverageStats };
+}
+
+/**
+ * Build JUnit XML from parsed ADT AUnit results.
  *
- * One testsuite per test class file. Each failed test method becomes a <failure>.
- * Passing methods are listed as empty <testcase> elements (Jenkins counts them).
+ * Each test method gets its own <testcase> element (pass or fail).
  * Coverage stats (if present) are emitted as <properties> on the testsuite.
+ * A synthetic coverage_threshold <failure> is injected when threshold is breached.
  */
 function buildUnitJUnit(results) {
   const suites = results.map(res => {
-    const testCount    = res.TEST_COUNT    || res.test_count    || 0;
-    const passedCount  = res.PASSED_COUNT  || res.passed_count  || 0;
-    const failedCount  = res.FAILED_COUNT  || res.failed_count  || 0;
-    const errors       = res.ERRORS        || res.errors        || [];
-    const className    = res._className    || 'UNKNOWN';  // injected by caller
-    const coverageStats = res.COVERAGE_STATS || res.coverage_stats;
+    const { className, methods, coverageStats, thresholdFailure } = res;
+    const testCount = methods.length;
+    const failedMethods = methods.filter(m => !m.passed);
+    const syntheticFailures = thresholdFailure ? 1 : 0;
+    const totalFailures = failedMethods.length + syntheticFailures;
 
     const lines = [];
 
-    // Coverage <properties> block — only emitted when coverage data is present
     if (coverageStats) {
-      const rate    = coverageStats.COVERAGE_RATE  || coverageStats.coverage_rate  || 0;
-      const total   = coverageStats.TOTAL_LINES    || coverageStats.total_lines    || 0;
-      const covered = coverageStats.COVERED_LINES  || coverageStats.covered_lines  || 0;
       lines.push('    <properties>');
-      lines.push(`      <property name="coverage.rate"          value="${rate}"/>`);
-      lines.push(`      <property name="coverage.lines.total"   value="${total}"/>`);
-      lines.push(`      <property name="coverage.lines.covered" value="${covered}"/>`);
+      lines.push(`      <property name="coverage.rate"          value="${coverageStats.coverageRate}"/>`);
+      lines.push(`      <property name="coverage.lines.total"   value="${coverageStats.totalLines}"/>`);
+      lines.push(`      <property name="coverage.lines.covered" value="${coverageStats.coveredLines}"/>`);
       lines.push('    </properties>');
-    }
-
-    // One <testcase> per failed test
-    for (const err of errors) {
-      const errClassName  = err.CLASS_NAME  || err.class_name  || className;
-      const methodName    = err.METHOD_NAME || err.method_name || '?';
-      const errorKind     = err.ERROR_KIND  || err.error_kind  || 'FAILURE';
-      const errorText     = err.ERROR_TEXT  || err.error_text  || 'Test failed';
-      lines.push(
-        `    <testcase name="${escapeXml(methodName)}" classname="${escapeXml(errClassName)}">\n` +
-        `      <failure type="${escapeXml(errorKind)}" message="${escapeXml(errorText)}">${escapeXml(errorText)}</failure>\n` +
-        `    </testcase>`
-      );
-    }
-
-    // Aggregate passing testcase (ABAP doesn't return individual passing method names)
-    if (passedCount > 0) {
-      lines.push(
-        `    <testcase name="(${passedCount} passing test(s))" classname="${escapeXml(className)}"/>`
-      );
     }
 
     if (testCount === 0) {
       lines.push(`    <testcase name="(no tests)" classname="${escapeXml(className)}"/>`);
+    } else {
+      for (const m of methods) {
+        if (m.passed) {
+          lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(className)}"/>`);
+        } else {
+          const msg = escapeXml(m.title || 'Test failed');
+          const body = m.detail ? escapeXml(`${m.title}\n${m.detail}`) : msg;
+          lines.push(
+            `    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(className)}">\n` +
+            `      <failure type="${escapeXml(m.kind || 'failedAssertion')}" message="${msg}">${body}</failure>\n` +
+            `    </testcase>`
+          );
+        }
+      }
+    }
+
+    if (thresholdFailure) {
+      lines.push(
+        `    <testcase name="coverage_threshold" classname="${escapeXml(className)}">\n` +
+        `      <failure type="FAILURE" message="${escapeXml(thresholdFailure)}">${escapeXml(thresholdFailure)}</failure>\n` +
+        `    </testcase>`
+      );
     }
 
     return (
       `  <testsuite name="${escapeXml(className)}" ` +
-      `tests="${Math.max(testCount, 1)}" failures="${failedCount}" errors="0">\n` +
+      `tests="${Math.max(testCount + syntheticFailures, 1)}" failures="${totalFailures}" errors="0">\n` +
       lines.join('\n') + '\n' +
       `  </testsuite>`
     );
@@ -104,133 +176,86 @@ function buildUnitJUnit(results) {
 }
 
 /**
- * Run unit test for a single file
+ * Run AUnit tests for a single .testclasses.abap file via ADT.
  */
-async function runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput = false, verbose = false) {
+async function runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose) {
   if (!jsonOutput) {
     console.log(`  Running unit test for: ${sourceFile}`);
   }
 
+  const absolutePath = pathModule.isAbsolute(sourceFile)
+    ? sourceFile
+    : pathModule.join(process.cwd(), sourceFile);
+
+  if (!fs.existsSync(absolutePath)) {
+    if (!jsonOutput) console.error(`  ❌ File not found: ${absolutePath}`);
+    return { error: 'File not found', statusCode: 404, file: sourceFile };
+  }
+
+  const fileName = pathModule.basename(sourceFile);
+  if (!fileName.toLowerCase().includes('.testclasses.abap')) {
+    if (!jsonOutput) console.error(`  ❌ Invalid file format: ${sourceFile}`);
+    return { error: 'Invalid file format: must be .testclasses.abap', statusCode: 400, file: sourceFile };
+  }
+
+  const className = fileName.split('.')[0].toUpperCase();
+  const adtUri = `/sap/bc/adt/oo/classes/${className.toLowerCase()}`;
+  const xmlBody = buildRunConfigXml(adtUri, coverage);
+
   try {
-    // Read file content
-    const absolutePath = pathModule.isAbsolute(sourceFile)
-      ? sourceFile
-      : pathModule.join(process.cwd(), sourceFile);
+    const resp = await adt.post('/sap/bc/adt/abapunit/testruns', xmlBody, {
+      contentType: 'application/*',
+      accept: 'application/*',
+    });
 
-    if (!fs.existsSync(absolutePath)) {
-      const error = {
-        file: sourceFile,
-        error: 'File not found',
-        statusCode: 404
-      };
-      if (!jsonOutput) {
-        console.error(`  ❌ File not found: ${absolutePath}`);
-      }
-      return error;
-    }
+    const result = parseRunResult(resp.body || '', className);
 
-    // Extract object type and name from file path
-    // e.g., "zcl_my_test.clas.abap" -> CLAS, ZCL_MY_TEST
-    const fileName = pathModule.basename(sourceFile).toUpperCase();
-    const parts = fileName.split('.');
-    if (parts.length < 3) {
-      const error = {
-        file: sourceFile,
-        error: 'Invalid file format',
-        statusCode: 400
-      };
-      if (!jsonOutput) {
-        console.error(`  ❌ Invalid file format: ${sourceFile}`);
-      }
-      return error;
-    }
-
-    // obj_name is first part (may contain path), obj_type is second part
-    const objType = parts[1] === 'CLASS' ? 'CLAS' : parts[1];
-    let objName = parts[0];
-
-    // Handle subdirectory paths
-    const lastSlash = objName.lastIndexOf('/');
-    if (lastSlash >= 0) {
-      objName = objName.substring(lastSlash + 1);
-    }
-
-    // Send files array to unit endpoint (ABAP expects string_table of file names)
-    const data = {
-      files: [sourceFile],
-      coverage: coverage
-    };
-
-    const result = await http.post('/sap/bc/z_abapgit_agent/unit', data, { csrfToken });
-
-    // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
-    const testCount = result.TEST_COUNT || result.test_count || 0;
-    const failedCount = result.FAILED_COUNT || result.failed_count || 0;
-    // ABAP AUnit API does not return individual passing method names — derive passed count
+    const testCount = result.methods.length;
+    const failedCount = result.methods.filter(m => !m.passed).length;
     const passedCount = testCount - failedCount;
-    const message = result.MESSAGE || result.message || '';
-    const errors = result.ERRORS || result.errors || [];
-
-    // Handle coverage data
-    const coverageStats = result.COVERAGE_STATS || result.coverage_stats;
 
     if (!jsonOutput) {
       if (testCount === 0) {
-        console.log(`  ➖ ${objName} - No unit tests`);
-      } else if (success === 'X' || success === true) {
-        console.log(`  ✅ ${objName} - All tests passed`);
+        console.log(`  ➖ ${className} - No unit tests`);
+      } else if (failedCount === 0) {
+        console.log(`  ✅ ${className} - All tests passed`);
       } else {
-        console.log(`  ❌ ${objName} - Tests failed`);
+        console.log(`  ❌ ${className} - Tests failed`);
       }
-
       console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
 
-      // Display coverage if available
-      if (coverage && coverageStats) {
-        const totalLines = coverageStats.TOTAL_LINES || coverageStats.total_lines || 0;
-        const coveredLines = coverageStats.COVERED_LINES || coverageStats.covered_lines || 0;
-        const coverageRate = coverageStats.COVERAGE_RATE || coverageStats.coverage_rate || 0;
-
+      if (coverage && result.coverageStats) {
+        const { totalLines, coveredLines, coverageRate } = result.coverageStats;
         console.log(`     📊 Coverage: ${coverageRate}%`);
         console.log(`        Total Lines: ${totalLines}`);
         console.log(`        Covered Lines: ${coveredLines}`);
       }
 
-      if (failedCount > 0 && errors.length > 0) {
-        for (const err of errors) {
-          const className = err.CLASS_NAME || err.class_name || '?';
-          const methodName = err.METHOD_NAME || err.method_name || '?';
-          const errorText = err.ERROR_TEXT || err.error_text || 'Unknown error';
-          console.log(`     ✗ ${className}=>${methodName}: ${errorText}`);
+      if (failedCount > 0) {
+        for (const m of result.methods.filter(m => !m.passed)) {
+          console.log(`     ✗ ${className}=>${m.name}: ${m.title || 'Test failed'}`);
         }
       }
     }
 
     return result;
   } catch (error) {
-    // Build error response object
     const errorResponse = {
-      file: sourceFile,
       error: error.message || 'Unknown error',
-      statusCode: error.statusCode || 500
+      statusCode: error.statusCode || 500,
+      file: sourceFile,
+      className,
+      methods: [],
+      coverageStats: null,
     };
-
-    // Add additional error details if available
-    if (error.body) {
-      errorResponse.body = error.body;
-    }
-
     if (!jsonOutput) {
       console.error(`\n  ❌ Error: ${formatHttpError(error)}`);
       if (verbose && error.body) {
         console.error('\n--- Raw response body ---');
-        const raw = typeof error.body === 'object' ? JSON.stringify(error.body, null, 2) : String(error.body);
-        console.error(raw);
+        console.error(typeof error.body === 'object' ? JSON.stringify(error.body, null, 2) : String(error.body));
         console.error('--- End of response body ---');
       }
     }
-
     return errorResponse;
   }
 }
@@ -239,10 +264,9 @@ module.exports = {
   name: 'unit',
   description: 'Run AUnit tests for ABAP test class files',
   requiresAbapConfig: true,
-  requiresVersionCheck: true,
 
   async execute(args, context) {
-    const { loadConfig, AbapHttp } = context;
+    const { loadConfig } = context;
 
     if (args.includes('--help') || args.includes('-h')) {
       console.log(`
@@ -252,6 +276,7 @@ Usage:
 Description:
   Run AUnit tests for ABAP test class files (.testclasses.abap).
   Objects must be already active in the ABAP system (run pull first).
+  Calls the standard ADT endpoint /sap/bc/adt/abapunit/testruns directly.
 
 Parameters:
   --files <file1,...>          Comma-separated .testclasses.abap files (required).
@@ -271,6 +296,7 @@ Examples:
 
     const jsonOutput = args.includes('--json');
     const verbose = args.includes('--verbose');
+
     const filesArgIndex = args.indexOf('--files');
     if (filesArgIndex === -1 || filesArgIndex + 1 >= args.length) {
       console.error('Error: --files parameter required');
@@ -279,8 +305,6 @@ Examples:
     }
 
     const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
-
-    // Coverage options
     const coverage = args.includes('--coverage');
 
     const coverageThresholdIdx = args.indexOf('--coverage-threshold');
@@ -289,58 +313,43 @@ Examples:
     const coverageModeIdx = args.indexOf('--coverage-mode');
     const coverageMode = coverageModeIdx !== -1 ? args[coverageModeIdx + 1] : 'fail';
 
-    // Parse optional --junit-output parameter
     const junitArgIndex = args.indexOf('--junit-output');
     const junitOutput = junitArgIndex !== -1 ? args[junitArgIndex + 1] : null;
 
     if (!jsonOutput) {
       console.log(`\n  Running unit tests for ${files.length} file(s)${coverage ? ' (with coverage)' : ''}`);
-      if (junitOutput) {
-        console.log(`  JUnit output: ${junitOutput}`);
-      }
+      if (junitOutput) console.log(`  JUnit output: ${junitOutput}`);
       console.log('');
     }
 
     const config = loadConfig();
-    const http = new AbapHttp(config);
-    const csrfToken = await http.fetchCsrfToken();
+    const adt = new AdtHttp(config);
+    await adt.fetchCsrfToken();
 
-    // Collect results for JSON / JUnit output
     const results = [];
     let hasErrors = false;
 
     for (const sourceFile of files) {
-      const result = await runUnitTestForFile(sourceFile, csrfToken, config, coverage, http, jsonOutput, verbose);
-      if (result) {
-        // Inject class name derived from file path for JUnit builder
-        const fileName = pathModule.basename(sourceFile).toUpperCase();
-        result._className = fileName.split('.')[0];
-        results.push(result);
+      const result = await runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose);
+      results.push(result);
 
-        if (result.error || result.statusCode >= 400) {
-          hasErrors = true;
-        }
-        // Also treat failed tests as an error for exit code
-        const failedCount = result.FAILED_COUNT || result.failed_count || 0;
-        if (failedCount > 0) {
-          hasErrors = true;
-        }
+      if (result.error || result.statusCode >= 400) {
+        hasErrors = true;
       }
+      const methods = result.methods || [];
+      if (methods.some(m => !m.passed)) hasErrors = true;
     }
 
-    // Coverage threshold enforcement — per file, runs BEFORE JUnit output
-    // so the injected failure testcase lands in the correct class's testsuite.
+    // Coverage threshold enforcement — per file
     if (coverage && coverageThreshold > 0) {
       let anyData = false;
       for (const result of results) {
-        const stats = result.COVERAGE_STATS || result.coverage_stats;
-        if (!stats) continue;
+        if (!result.coverageStats) continue;
         anyData = true;
-        const totalLines   = stats.TOTAL_LINES   || stats.total_lines   || 0;
-        const coveredLines = stats.COVERED_LINES  || stats.covered_lines  || 0;
+        const { totalLines, coveredLines, coverageRate } = result.coverageStats;
         if (totalLines === 0) continue;
-        const rate = Math.round((coveredLines / totalLines) * 100);
-        const className = result._className || 'UNKNOWN';
+        const className = result.className || 'UNKNOWN';
+        const rate = Math.round(coveredLines / totalLines * 100);
         if (rate < coverageThreshold) {
           const msg = `${className}: coverage ${rate}% is below threshold ${coverageThreshold}%`;
           if (coverageMode === 'warn') {
@@ -348,54 +357,42 @@ Examples:
           } else {
             if (!jsonOutput) console.error(`❌ ${msg}`);
             hasErrors = true;
-            // Inject failure into this class's own testsuite so Jenkins shows
-            // which class failed the gate and what its actual coverage was.
-            const errors = result.ERRORS || result.errors || [];
-            errors.push({
-              CLASS_NAME:  className,
-              METHOD_NAME: 'coverage_threshold',
-              ERROR_KIND:  'FAILURE',
-              ERROR_TEXT:  msg
-            });
-            result.ERRORS = errors;
-            result.FAILED_COUNT = (result.FAILED_COUNT || result.failed_count || 0) + 1;
+            result.thresholdFailure = msg;
           }
         } else {
           if (!jsonOutput) console.log(`✅ ${className}: coverage ${rate}% meets threshold ${coverageThreshold}%`);
         }
       }
-      if (!anyData) {
-        if (!jsonOutput) console.warn('⚠️  Coverage data unavailable — threshold not enforced');
+      if (!anyData && !jsonOutput) {
+        console.warn('⚠️  Coverage data unavailable — threshold not enforced');
       }
     }
 
-    // JUnit output mode — write XML after threshold check so synthetic failure is included
+    // JUnit output
     if (junitOutput) {
       const xml = buildUnitJUnit(results);
       const outputPath = pathModule.isAbsolute(junitOutput)
         ? junitOutput
         : pathModule.join(process.cwd(), junitOutput);
       const dir = pathModule.dirname(outputPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(outputPath, xml, 'utf8');
-      if (!jsonOutput) {
-        console.log(`  JUnit report written to: ${outputPath}`);
-      }
+      if (!jsonOutput) console.log(`  JUnit report written to: ${outputPath}`);
     }
 
-    // JSON output mode
+    // JSON output
     if (jsonOutput) {
       console.log(JSON.stringify(results, null, 2));
     }
 
-    // Exit with error code if any tests failed or had errors
     if (hasErrors) {
-      if (!jsonOutput) {
-        console.error('\n❌ Unit tests completed with errors');
-      }
+      if (!jsonOutput) console.error('\n❌ Unit tests completed with errors');
       process.exit(1);
     }
-  }
+  },
+
+  // Exported for testing
+  _buildRunConfigXml: buildRunConfigXml,
+  _parseRunResult: parseRunResult,
+  _buildUnitJUnit: buildUnitJUnit,
 };

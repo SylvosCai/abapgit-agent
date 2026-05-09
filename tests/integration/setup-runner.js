@@ -28,7 +28,9 @@
  *   syntax tests (FUGR)
  *     → clone abgagt-syntax-test, inject .abapGitAgent, register, activate ZABGAGT_ST_FG + ZABGAGT_ST_ERR
  *
- *   command tests / aunit tests / junit tests
+ *   command tests / junit tests
+ *     → clone abgagt-unit-test, register in ABAP, activate ZCL_ABGAGT_UNIT_TEST + ZCL_ABGAGT_UNIT_LOW_COV
+ *
  *     → no special setup needed (use existing project objects in ABAP)
  *
  * Usage:
@@ -114,6 +116,14 @@ const REPOS = [
       'src/zcl_abgagt_run_test.clas.abap'
     ],
     checkObject: { name: 'ZCL_ABGAGT_RUN_TEST', type: 'CLAS' }
+  },
+  {
+    key:     'unit',
+    cloneDir: path.join(os.tmpdir(), 'abgagt-unit-test'),
+    package: '$ABGAGT_UNIT_TEST',
+    folder:  '/src/',
+    activateFiles: null,  // activate all — testclasses.abap includes must be included
+    checkObject: { name: 'ZCL_ABGAGT_UNIT_TEST', type: 'CLAS' }
   },
   {
     key:     'syntax',

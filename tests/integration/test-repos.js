@@ -32,6 +32,7 @@ const DEFAULTS = {
   lifecycle: 'https://github.com/SylvosCai/abgagt-lifecycle-test.git',
   run:       'https://github.com/SylvosCai/abgagt-run-test.git',
   syntax:    'https://github.com/SylvosCai/abgagt-syntax-test.git',
+  unit:      'https://github.com/SylvosCai/abgagt-unit-test.git',
 };
 
 /**
