@@ -21,6 +21,7 @@ const TMP = os.tmpdir();
 const UNIT_TEST_CLONE_DIR = path.join(os.tmpdir(), 'abgagt-unit-test');
 const UNIT_TEST_FILE = path.join(UNIT_TEST_CLONE_DIR, 'src', 'zcl_abgagt_unit_test.clas.testclasses.abap');
 const UNIT_LOW_COV_FILE = path.join(UNIT_TEST_CLONE_DIR, 'src', 'zcl_abgagt_unit_low_cov.clas.testclasses.abap');
+const UNIT_FAIL_FILE = path.join(UNIT_TEST_CLONE_DIR, 'src', 'zcl_abgagt_unit_fail.clas.testclasses.abap');
 
 /**
  * Run JUnit output integration tests
@@ -179,6 +180,86 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     } finally {
       cleanup(out);
     }
+  });
+
+  // ── failing tests (ZCL_ABGAGT_UNIT_FAIL) ─────────────────────────────────
+
+  printInfo('  unit (failing class — ZCL_ABGAGT_UNIT_FAIL)');
+
+  test('unit: failing tests exit non-zero', () => {
+    const { exitCode } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    return exitCode !== 0;
+  });
+
+  test('unit: failing output shows LTCL test class name prefix', () => {
+    const { output } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    return output.includes('LTCL_FAIL_TEST=>');
+  });
+
+  test('unit: failing output shows assertion detail lines', () => {
+    const { output } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    // ADT returns "Expected [7] Actual [13]" as a detail line
+    return output.includes('Expected') && output.includes('Actual');
+  });
+
+  test('unit: failing output shows exception type', () => {
+    const { output } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    // divide-by-zero raises CX_SY_ZERODIVIDE — detail line includes "Division by zero"
+    return output.includes('Division by zero') || output.includes('ZERODIVIDE') || output.includes('zero');
+  });
+
+  test('unit: failing output shows stack entry with line number', () => {
+    const { output } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    return output.includes('at ZCL_ABGAGT_UNIT_FAIL (line');
+  });
+
+  test('unit: failing output shows Failed Tests summary section', () => {
+    const { output } = tryRun(`unit --files ${UNIT_FAIL_FILE}`);
+    return output.includes('Failed Tests:');
+  });
+
+  test('unit: JUnit XML for failing class uses ZCL.LTCL classname hierarchy', () => {
+    const out = path.join(TMP, 'abapgit-junit-unit-fail.xml');
+    cleanup(out);
+    try {
+      tryRun(`unit --files ${UNIT_FAIL_FILE} --junit-output ${out}`);
+      if (!fs.existsSync(out)) return false;
+      const xml = fs.readFileSync(out, 'utf8');
+      return xml.includes('classname="ZCL_ABGAGT_UNIT_FAIL.LTCL_FAIL_TEST"');
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('unit: JUnit XML for failing class contains failure element with detail', () => {
+    const out = path.join(TMP, 'abapgit-junit-unit-fail-detail.xml');
+    cleanup(out);
+    try {
+      tryRun(`unit --files ${UNIT_FAIL_FILE} --junit-output ${out}`);
+      if (!fs.existsSync(out)) return false;
+      const xml = fs.readFileSync(out, 'utf8');
+      return xml.includes('<failure') && (xml.includes('Expected') || xml.includes('zero') || xml.includes('ZERODIVIDE'));
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('unit: JUnit XML testcase elements include time attribute', () => {
+    const out = path.join(TMP, 'abapgit-junit-unit-time.xml');
+    cleanup(out);
+    try {
+      tryRun(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
+      if (!fs.existsSync(out)) return false;
+      const xml = fs.readFileSync(out, 'utf8');
+      return xml.includes('time="');
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('unit: --verbose shows per-method time table', () => {
+    const { output } = tryRun(`unit --files ${UNIT_TEST_FILE} --verbose`);
+    return output.includes('Method times:');
   });
 
   // ── inspect command tests ─────────────────────────────────────────────────

@@ -48,48 +48,84 @@ function buildRunConfigXml(adtUri, coverage) {
  * Returns:
  *   {
  *     className,
- *     methods: [{ name, passed, kind?, title?, detail? }],
+ *     methods: [{
+ *       name, testClassName, passed, executionTime,
+ *       kind?, title?, details?: string[], stack?: [{name, uri}]
+ *     }],
  *     coverageStats: { totalLines, coveredLines, coverageRate } | null
  *   }
  */
 function parseRunResult(xml, className) {
   const methods = [];
 
-  // Split on <testMethod — each block is one method
-  const methodBlocks = xml.split(/<testMethod\s/);
-  for (let i = 1; i < methodBlocks.length; i++) {
-    const block = methodBlocks[i];
+  // Split on <testClass blocks to capture test class name per method
+  const testClassBlocks = xml.split(/<testClass\s/);
+  for (let ci = 1; ci < testClassBlocks.length; ci++) {
+    const classBlock = testClassBlocks[ci];
 
-    const nameMatch = block.match(/adtcore:name="([^"]*)"/);
-    if (!nameMatch) continue;
-    const name = nameMatch[1];
+    const classNameMatch = classBlock.match(/adtcore:name="([^"]*)"/);
+    const testClassName = classNameMatch ? classNameMatch[1] : className;
 
-    // Find the <alerts> section — content between <alerts> and </alerts>
-    const alertsMatch = block.match(/<alerts>([\s\S]*?)<\/alerts>/);
-    const alertsContent = alertsMatch ? alertsMatch[1].trim() : '';
+    // Split methods within this test class block
+    const methodBlocks = classBlock.split(/<testMethod\s/);
+    for (let i = 1; i < methodBlocks.length; i++) {
+      const block = methodBlocks[i];
 
-    if (!alertsContent || alertsContent === '<alerts/>') {
-      methods.push({ name, passed: true });
-      continue;
+      const nameMatch = block.match(/adtcore:name="([^"]*)"/);
+      if (!nameMatch) continue;
+      const name = nameMatch[1];
+
+      const execTimeMatch = block.match(/executionTime="([^"]*)"/);
+      const executionTime = execTimeMatch ? parseFloat(execTimeMatch[1]) : 0;
+
+      // Find the <alerts> section
+      const alertsMatch = block.match(/<alerts>([\s\S]*?)<\/alerts>/);
+      const alertsContent = alertsMatch ? alertsMatch[1].trim() : '';
+
+      if (!alertsContent || alertsContent === '<alerts/>') {
+        methods.push({ name, testClassName, passed: true, executionTime });
+        continue;
+      }
+
+      // Extract alert kind
+      const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
+      const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
+
+      // Extract title
+      const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
+      const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
+
+      // Extract all detail texts (may be multiple)
+      const details = [];
+      const detailRe = /<detail\s[^>]*text="([^"]*)"/g;
+      let dm;
+      while ((dm = detailRe.exec(block)) !== null) {
+        const t = dm[1].trim();
+        if (t) details.push(t);
+      }
+
+      // Extract stack entries: adtcore:name + adtcore:uri (contains #start=N for line)
+      const stack = [];
+      const stackRe = /<stackEntry\s([^>]*\/?>)/g;
+      let sm;
+      while ((sm = stackRe.exec(block)) !== null) {
+        const entry = sm[1];
+        const snMatch = entry.match(/adtcore:name="([^"]*)"/);
+        const suMatch = entry.match(/adtcore:uri="([^"]*)"/);
+        if (snMatch) {
+          const lineMatch = suMatch && suMatch[1].match(/#start=(\d+)/);
+          stack.push({
+            name: snMatch[1],
+            line: lineMatch ? parseInt(lineMatch[1], 10) : null,
+          });
+        }
+      }
+
+      methods.push({ name, testClassName, passed: false, executionTime, kind, title, details, stack });
     }
-
-    // Extract alert kind
-    const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
-    const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
-
-    // Extract title
-    const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
-    const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
-
-    // Extract first detail text
-    const detailMatch = block.match(/<detail\s[^>]*text="([^"]*)"/);
-    const detail = detailMatch ? detailMatch[1].trim() : '';
-
-    methods.push({ name, passed: false, kind, title, detail });
   }
 
   // Parse coverage stats if present
-  // <coverage ... adtcore:lines_total="N" adtcore:lines_covered="M" adtcore:coverage_rate="R"/>
   let coverageStats = null;
   const covMatch = xml.match(/<coverage\b[^>]*>/);
   if (covMatch) {
@@ -137,13 +173,19 @@ function buildUnitJUnit(results) {
       lines.push(`    <testcase name="(no tests)" classname="${escapeXml(className)}"/>`);
     } else {
       for (const m of methods) {
+        const timeAttr = m.executionTime != null ? ` time="${m.executionTime}"` : '';
+        // Use "ZCL_MY_TEST.LTCL_UNIT_TEST" so Jenkins groups by ABAP class first,
+        // then local test class — giving a clear package hierarchy in the test report.
+        const testClass = m.testClassName ? `${className}.${m.testClassName}` : className;
         if (m.passed) {
-          lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(className)}"/>`);
+          lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}/>`);
         } else {
           const msg = escapeXml(m.title || 'Test failed');
-          const body = m.detail ? escapeXml(`${m.title}\n${m.detail}`) : msg;
+          const bodyParts = [m.title || 'Test failed'];
+          if (m.details && m.details.length) bodyParts.push(...m.details);
+          const body = escapeXml(bodyParts.join('\n'));
           lines.push(
-            `    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(className)}">\n` +
+            `    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}>\n` +
             `      <failure type="${escapeXml(m.kind || 'failedAssertion')}" message="${msg}">${body}</failure>\n` +
             `    </testcase>`
           );
@@ -231,10 +273,42 @@ async function runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose
         console.log(`        Covered Lines: ${coveredLines}`);
       }
 
+      // Slow test summary: show methods with executionTime > 0.1s
+      const slowThreshold = 0.1;
+      const slowMethods = result.methods
+        .filter(m => m.executionTime > slowThreshold)
+        .sort((a, b) => b.executionTime - a.executionTime);
+      if (slowMethods.length > 0) {
+        const slowList = slowMethods.map(m => `${m.name} (${m.executionTime.toFixed(3)}s)`).join(', ');
+        console.log(`     ⏱  Slowest: ${slowList}`);
+      }
+
       if (failedCount > 0) {
         for (const m of result.methods.filter(m => !m.passed)) {
-          console.log(`     ✗ ${className}=>${m.name}: ${m.title || 'Test failed'}`);
+          const prefix = m.testClassName || className;
+          console.log(`\n     ✗ ${prefix}=>${m.name}`);
+          console.log(`       ${m.title || 'Test failed'}`);
+          if (m.details && m.details.length) {
+            for (const d of m.details) console.log(`       ${d}`);
+          }
+          if (m.stack && m.stack.length) {
+            for (const s of m.stack) {
+              const loc = s.line != null ? ` (line ${s.line})` : '';
+              console.log(`         at ${s.name}${loc}`);
+            }
+          }
         }
+        console.log('');
+      }
+
+      // --verbose: per-method time table
+      if (verbose && testCount > 0) {
+        console.log(`     Method times:`);
+        for (const m of result.methods) {
+          const mark = m.passed ? '✓' : '✗';
+          console.log(`       ${mark} ${m.name.padEnd(40)} ${(m.executionTime || 0).toFixed(3)}s`);
+        }
+        console.log('');
       }
     }
 
@@ -285,6 +359,7 @@ Parameters:
   --coverage-mode <warn|fail>  Action when below threshold: warn = UNSTABLE, fail = error. Default: fail.
   --junit-output <file>        Write results as JUnit XML to this file.
   --json                       Output as JSON.
+  --verbose                    Show per-method execution times; also print raw HTTP error responses.
 
 Examples:
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
@@ -365,6 +440,24 @@ Examples:
       }
       if (!anyData && !jsonOutput) {
         console.warn('⚠️  Coverage data unavailable — threshold not enforced');
+      }
+    }
+
+    // Failed tests summary
+    if (!jsonOutput) {
+      const allFailed = results.flatMap(r => (r.methods || []).filter(m => !m.passed).map(m => ({ ...m, className: r.className })));
+      if (allFailed.length > 0) {
+        console.log('\nFailed Tests:');
+        console.log('─'.repeat(80));
+        for (const m of allFailed) {
+          const prefix = m.testClassName || m.className;
+          console.log(`   ✗ ${prefix}=>${m.name}`);
+          console.log(`     ${m.title || 'Test failed'}`);
+          if (m.details && m.details.length) {
+            for (const d of m.details) console.log(`     ${d}`);
+          }
+          console.log('');
+        }
       }
     }
 

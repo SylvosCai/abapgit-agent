@@ -29,6 +29,7 @@ const DEFAULTS = {
   pull:      'https://github.com/SylvosCai/abgagt-pull-test.git',
   drop:      'https://github.com/SylvosCai/abgagt-drop-test.git',
   customize: 'https://github.com/SylvosCai/abgagt-customize-test.git',
+  debug:     'https://github.com/SylvosCai/abgagt-debug-test.git',
   lifecycle: 'https://github.com/SylvosCai/abgagt-lifecycle-test.git',
   run:       'https://github.com/SylvosCai/abgagt-run-test.git',
   syntax:    'https://github.com/SylvosCai/abgagt-syntax-test.git',

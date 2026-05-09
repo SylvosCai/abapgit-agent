@@ -84,7 +84,7 @@ const FAIL_XML = `<?xml version="1.0" encoding="UTF-8"?>
                  xmlns:adtcore="http://www.sap.com/adt/core">
   <program adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test" adtcore:name="ZCL_MY_TEST">
     <testClasses>
-      <testClass adtcore:name="ZCL_MY_TEST">
+      <testClass adtcore:name="LTCL_UNIT_TEST">
         <testMethods>
           <testMethod adtcore:name="TEST_PASSES" executionTime="0.001">
             <alerts/>
@@ -95,9 +95,32 @@ const FAIL_XML = `<?xml version="1.0" encoding="UTF-8"?>
                 <title>Assertion failed</title>
                 <details>
                   <detail text="Expected 1 but was 2"/>
+                  <detail text="at ZCL_MY_TEST line 42"/>
                 </details>
+                <stack>
+                  <stackEntry adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test/source/main#start=42" adtcore:name="ZCL_MY_TEST" adtcore:type="CLAS/OC" adtcore:description=""/>
+                </stack>
               </alert>
             </alerts>
+          </testMethod>
+        </testMethods>
+      </testClass>
+    </testClasses>
+  </program>
+</aunit:runResult>`;
+
+const SLOW_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit"
+                 xmlns:adtcore="http://www.sap.com/adt/core">
+  <program adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test" adtcore:name="ZCL_MY_TEST">
+    <testClasses>
+      <testClass adtcore:name="LTCL_UNIT_TEST">
+        <testMethods>
+          <testMethod adtcore:name="TEST_FAST" executionTime="0.001">
+            <alerts/>
+          </testMethod>
+          <testMethod adtcore:name="TEST_SLOW" executionTime="1.234">
+            <alerts/>
           </testMethod>
         </testMethods>
       </testClass>
@@ -150,7 +173,30 @@ describe('parseRunResult', () => {
     expect(fail.passed).toBe(false);
     expect(fail.kind).toBe('failedAssertion');
     expect(fail.title).toBe('Assertion failed');
-    expect(fail.detail).toBe('Expected 1 but was 2');
+    expect(fail.details).toContain('Expected 1 but was 2');
+    expect(fail.details).toContain('at ZCL_MY_TEST line 42');
+  });
+
+  test('parses testClassName from testClass element', () => {
+    const r = _parseRunResult(FAIL_XML, 'ZCL_MY_TEST');
+    expect(r.methods[0].testClassName).toBe('LTCL_UNIT_TEST');
+    expect(r.methods[1].testClassName).toBe('LTCL_UNIT_TEST');
+  });
+
+  test('parses executionTime for each method', () => {
+    const r = _parseRunResult(FAIL_XML, 'ZCL_MY_TEST');
+    const pass = r.methods.find(m => m.name === 'TEST_PASSES');
+    const fail = r.methods.find(m => m.name === 'TEST_FAILS');
+    expect(pass.executionTime).toBe(0.001);
+    expect(fail.executionTime).toBe(0.003);
+  });
+
+  test('parses stack entry with line number', () => {
+    const r = _parseRunResult(FAIL_XML, 'ZCL_MY_TEST');
+    const fail = r.methods.find(m => m.name === 'TEST_FAILS');
+    expect(fail.stack).toHaveLength(1);
+    expect(fail.stack[0].name).toBe('ZCL_MY_TEST');
+    expect(fail.stack[0].line).toBe(42);
   });
 
   test('passing method alongside failing method remains passed', () => {
@@ -191,13 +237,26 @@ describe('buildUnitJUnit', () => {
   test('emits failure element for failed method', () => {
     const results = [{
       className: 'ZCL_MY_TEST',
-      methods: [{ name: 'TEST_FAILS', passed: false, kind: 'failedAssertion', title: 'Assertion failed', detail: 'Expected 1 but was 2' }],
+      methods: [{ name: 'TEST_FAILS', passed: false, kind: 'failedAssertion', title: 'Assertion failed', details: ['Expected 1 but was 2'] }],
       coverageStats: null,
     }];
     const xml = _buildUnitJUnit(results);
-    expect(xml).toContain('<testcase name="TEST_FAILS" classname="ZCL_MY_TEST">');
+    expect(xml).toContain('<testcase name="TEST_FAILS" classname="ZCL_MY_TEST"');
     expect(xml).toContain('<failure type="failedAssertion"');
     expect(xml).toContain('Assertion failed');
+    expect(xml).toContain('Expected 1 but was 2');
+  });
+
+  test('emits time attribute from executionTime', () => {
+    const results = [{ className: 'ZCL_MY_TEST', methods: [{ name: 'TEST_PASSES', passed: true, executionTime: 0.123 }], coverageStats: null }];
+    const xml = _buildUnitJUnit(results);
+    expect(xml).toContain('time="0.123"');
+  });
+
+  test('uses ZCL.LTCL hierarchy for classname attribute when testClassName present', () => {
+    const results = [{ className: 'ZCL_MY_TEST', methods: [{ name: 'TEST_PASSES', passed: true, testClassName: 'LTCL_UNIT_TEST', executionTime: 0 }], coverageStats: null }];
+    const xml = _buildUnitJUnit(results);
+    expect(xml).toContain('classname="ZCL_MY_TEST.LTCL_UNIT_TEST"');
   });
 
   test('emits (no tests) when methods array is empty', () => {
@@ -367,6 +426,32 @@ describe('Unit Command - execute', () => {
     const parsed = JSON.parse(jsonCall[0]);
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed[0].className).toBe('ZCL_MY_TEST');
+  });
+
+  test('shows failed method testClassName=>name and detail lines', async () => {
+    mockAdt.post.mockResolvedValue({ body: FAIL_XML });
+    await expect(
+      unitCmd.execute(['--files', 'src/zcl_my_test.clas.testclasses.abap'], makeContext())
+    ).rejects.toThrow('process.exit(1)');
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('LTCL_UNIT_TEST=>TEST_FAILS');
+    expect(output).toContain('Assertion failed');
+    expect(output).toContain('Expected 1 but was 2');
+  });
+
+  test('shows slow test summary when method exceeds 0.1s', async () => {
+    mockAdt.post.mockResolvedValue({ body: SLOW_XML });
+    await unitCmd.execute(['--files', 'src/zcl_my_test.clas.testclasses.abap'], makeContext());
+    expect(consoleOutput.some(l => l.includes('⏱') && l.includes('TEST_SLOW') && l.includes('1.234s'))).toBe(true);
+    expect(consoleOutput.some(l => l.includes('TEST_FAST') && l.includes('⏱'))).toBe(false);
+  });
+
+  test('--verbose shows per-method time table', async () => {
+    mockAdt.post.mockResolvedValue({ body: PASS_XML });
+    await unitCmd.execute(['--files', 'src/zcl_my_test.clas.testclasses.abap', '--verbose'], makeContext());
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Method times:');
+    expect(output).toContain('TEST_PASSES');
   });
 
   test('coverage threshold fail mode exits 1 and injects failure', async () => {

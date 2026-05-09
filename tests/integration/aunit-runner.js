@@ -9,6 +9,10 @@ const { execSync } = require('child_process');
 
 const UNIT_TEST_CLONE_DIR = path.join(os.tmpdir(), 'abgagt-unit-test');
 
+// Classes that intentionally fail — excluded from the "all must pass" aunit runner
+// (they are covered by dedicated failure-scenario tests in junit-runner.js)
+const EXPECTED_FAILING_CLASSES = new Set(['zcl_abgagt_unit_fail']);
+
 // Auto-discover all ABAP test class files from the unit test repo clone
 function discoverTestClasses() {
   const srcDir = path.join(UNIT_TEST_CLONE_DIR, 'src');
@@ -16,6 +20,7 @@ function discoverTestClasses() {
   return fs.readdirSync(srcDir)
     .filter(f => f.endsWith('.clas.testclasses.abap'))
     .map(f => f.replace('.clas.testclasses.abap', ''))
+    .filter(name => !EXPECTED_FAILING_CLASSES.has(name))
     .sort();
 }
 

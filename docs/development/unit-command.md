@@ -39,7 +39,7 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 | `--coverage-mode <warn\|fail>` | No | Action when a class is below threshold: `fail` = exit 1 (default), `warn` = print warning only |
 | `--junit-output <file>` | No | Write results as JUnit XML to this file |
 | `--json` | No | Output results as JSON |
-| `--verbose` | No | Print raw response body on HTTP errors |
+| `--verbose` | No | Show per-method execution times; also print raw HTTP error responses |
 
 > **When using the CI pipeline**, coverage policy (`threshold`, `mode`, `excludes`) is read
 > from `.abapgit-agent.json` instead of being passed as CLI flags — see
@@ -103,11 +103,9 @@ Coverage statistics are also emitted as `<properties>` on each testsuite:
     <property name="coverage.lines.total"   value="10"/>
     <property name="coverage.lines.covered" value="2"/>
   </properties>
-  <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST"/>
-  <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST"/>
-  <testcase name="TEST_METHOD_3" classname="ZCL_MY_TEST"/>
-  <testcase name="TEST_METHOD_4" classname="ZCL_MY_TEST"/>
-  <testcase name="TEST_METHOD_FAIL" classname="ZCL_MY_TEST">
+  <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.001"/>
+  <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.002"/>
+  <testcase name="TEST_METHOD_FAIL" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.003">
     <failure type="failedAssertion" message="Assertion failed">Assertion failed&#10;Expected X but got Y</failure>
   </testcase>
   <testcase name="coverage_threshold" classname="ZCL_MY_TEST">
@@ -186,18 +184,57 @@ ADT URI is derived from the file name: `zcl_my_test.clas.testclasses.abap` → `
 
 ### With Failures
 
+Failed methods show the test class name (local class, e.g. `LTCL_...`), the assertion title, all detail lines, and a stack entry with line number when available. A "Failed Tests" summary is printed at the end.
+
 ```
   Running unit tests for 1 file(s)
 
   ❌ ZCL_MY_TEST - Tests failed
      Tests: 10 | Passed: 8 | Failed: 2
-     ✗ ZCL_MY_TEST=>TEST_METHOD_1: Error description
-     ✗ ZCL_MY_TEST=>TEST_METHOD_2: Another error
+
+     ✗ LTCL_UNIT_TEST=>TEST_ADD_NEGATIVE
+       Assertion failed
+       Expected [-3] but got [-4]
+         at ZCL_MY_TEST (line 28)
+
+     ✗ LTCL_UNIT_TEST=>TEST_GREET_EMPTY_NAME
+       Unexpected exception: CX_SY_ZERO_DIVIDE
+       Divide by zero in method GREET
+         at ZCL_MY_TEST (line 55)
 
 Failed Tests:
 ────────────────────────────────────────────────────────────────────────────────
-   ✗ ZCL_MY_TEST=>TEST_METHOD_1
-     Error: Expected X but got Y
+   ✗ LTCL_UNIT_TEST=>TEST_ADD_NEGATIVE
+     Assertion failed
+     Expected [-3] but got [-4]
+
+   ✗ LTCL_UNIT_TEST=>TEST_GREET_EMPTY_NAME
+     Unexpected exception: CX_SY_ZERO_DIVIDE
+     Divide by zero in method GREET
+```
+
+### With Slow Tests
+
+When any method takes longer than 0.1 seconds, a slowest-test line is shown automatically:
+
+```
+  ✅ ZCL_MY_TEST - All tests passed
+     Tests: 5 | Passed: 5 | Failed: 0
+     ⏱  Slowest: TEST_HEAVY_QUERY (1.230s), TEST_DB_READ (0.450s)
+```
+
+### With `--verbose`
+
+Per-method execution time table is shown for each class:
+
+```
+  ✅ ZCL_MY_TEST - All tests passed
+     Tests: 4 | Passed: 4 | Failed: 0
+     Method times:
+       ✓ TEST_ADD                                0.001s
+       ✓ TEST_IS_EVEN                            0.000s
+       ✓ TEST_GREET                              0.000s
+       ✓ TEST_HEAVY_QUERY                        1.230s
 ```
 
 ### With Coverage
@@ -220,13 +257,16 @@ Failed Tests:
 {
   "className": "ZCL_MY_TEST",
   "methods": [
-    { "name": "TEST_METHOD_1", "passed": true },
+    { "name": "TEST_METHOD_1", "testClassName": "LTCL_UNIT_TEST", "passed": true, "executionTime": 0.001 },
     {
       "name": "TEST_METHOD_FAIL",
+      "testClassName": "LTCL_UNIT_TEST",
       "passed": false,
+      "executionTime": 0.003,
       "kind": "failedAssertion",
       "title": "Assertion failed",
-      "detail": "Expected X but got Y"
+      "details": ["Expected X but got Y", "at ZCL_MY_TEST line 42"],
+      "stack": [{ "name": "ZCL_MY_TEST", "line": 42 }]
     }
   ],
   "coverageStats": {
@@ -264,10 +304,10 @@ Test class files must end with `.testclasses.abap`:
 ## Error Details
 
 When a test fails, output includes:
-- **Class**: The test class name
-- **Method**: Failed test method name (with `=>` notation)
-- **Error Kind**: Type of error (ERROR, FAILURE, etc.)
-- **Error Text**: Detailed error message from AUnit
+- **Test class**: Local test class name (e.g. `LTCL_UNIT_TEST`) shown as `LTCL_...=>METHOD_NAME`
+- **Title**: Assertion or exception title from ADT
+- **Details**: All detail lines (may be multiple — e.g. expected vs actual, stack context)
+- **Stack**: Class name and line number from the `<stackEntry>` element (when available)
 
 ---
 
@@ -300,4 +340,7 @@ Calls the standard SAP ADT endpoint directly — no custom ABAP backend required
 - One request per test class file
 - ADT URI derived from file name: `zcl_my_test.clas.testclasses.abap` → `/sap/bc/adt/oo/classes/zcl_my_test`
 - Response is XML (`<aunit:runResult>`); each `<testMethod>` element is present for both passing and failing tests
+- Test class name (`LTCL_...`) comes from the parent `<testClass adtcore:name>` element
+- Execution time (`executionTime` attribute in seconds) is parsed per method; slow tests (> 0.1s) are surfaced automatically
+- Failure detail includes all `<detail text="...">` elements and `<stackEntry>` line numbers
 - Coverage stats (`lines_total`, `lines_covered`, `coverage_rate`) are embedded in the same response when `<coverage active="true"/>`
