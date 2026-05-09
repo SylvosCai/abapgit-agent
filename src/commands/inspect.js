@@ -107,8 +107,10 @@ function buildInspectJUnit(results) {
 }
 
 /**
- * Inspect all files in one request
+ * Inspect a single batch of files in one request (max CHUNK_SIZE files)
  */
+const CHUNK_SIZE = 10;
+
 async function inspectAllFiles(files, csrfToken, config, variant, http, verbose = false) {
   // Convert files to uppercase names
   const fileNames = files.map(f => {
@@ -150,6 +152,66 @@ async function inspectAllFiles(files, csrfToken, config, variant, http, verbose 
     printHttpError(error, { verbose });
     process.exit(1);
   }
+}
+
+/**
+ * Apply inspect.suppress rules to a single result — downgrade matching errors/warnings to infos.
+ */
+function applySuppressRules(result, suppressRules) {
+  if (!suppressRules || suppressRules.length === 0) return;
+  const objName = (result.OBJECT_NAME || result.object_name || '').toUpperCase();
+  for (const rule of suppressRules) {
+    const objPattern = new RegExp('^' + (rule.object || '*').toUpperCase().replace(/\*/g, '.*') + '$');
+    if (!objPattern.test(objName)) continue;
+    const msgPattern = new RegExp((rule.message || '*').replace(/\*/g, '.*'), 'i');
+
+    const errors = result.ERRORS || result.errors || [];
+    const kept = [];
+    for (const err of errors) {
+      const text = err.TEXT || err.text || '';
+      if (msgPattern.test(text)) {
+        const infos = result.INFOS || result.infos || [];
+        infos.push({ ...err, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
+        if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
+        const ec = result.ERROR_COUNT !== undefined ? 'ERROR_COUNT' : 'error_count';
+        result[ec] = Math.max(0, (result[ec] || 0) - 1);
+      } else {
+        kept.push(err);
+      }
+    }
+    if (result.ERRORS !== undefined) result.ERRORS = kept; else result.errors = kept;
+
+    const warnings = result.WARNINGS || result.warnings || [];
+    const keptW = [];
+    for (const warn of warnings) {
+      const text = warn.MESSAGE || warn.message || '';
+      if (msgPattern.test(text)) {
+        const infos = result.INFOS || result.infos || [];
+        infos.push({ ...warn, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
+        if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
+      } else {
+        keptW.push(warn);
+      }
+    }
+    if (result.WARNINGS !== undefined) result.WARNINGS = keptW; else result.warnings = keptW;
+  }
+}
+
+/**
+ * Split files into chunks and inspect each sequentially, combining results.
+ * Calls onChunkResult(result) for each object result as chunks complete.
+ */
+async function inspectInChunks(files, csrfToken, config, variant, http, verbose = false, onChunkResult = null) {
+  const results = [];
+  for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+    const chunk = files.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await inspectAllFiles(chunk, csrfToken, config, variant, http, verbose);
+    for (const result of chunkResults) {
+      results.push(result);
+      if (onChunkResult) onChunkResult(result);
+    }
+  }
+  return results;
 }
 
 /**
@@ -338,51 +400,23 @@ Examples:
     const http = new AbapHttp(config);
     const csrfToken = await http.fetchCsrfToken();
 
-    // Send all files in one request
-    const results = await inspectAllFiles(filesSyntaxCheck, csrfToken, config, variant, http, verbose);
-
-    // Apply inspect.suppress rules — downgrade matching errors/warnings to infos
     const suppressRules = inspectConfig.suppress || [];
-    if (suppressRules.length > 0) {
+    let hasErrors = false;
+
+    // Stream results: apply suppress and print each object as its chunk completes
+    const onChunkResult = jsonOutput ? null : async (result) => {
+      applySuppressRules(result, suppressRules);
+      await processInspectResult(result);
+      const errorCount = result.ERROR_COUNT !== undefined ? result.ERROR_COUNT : (result.error_count || 0);
+      if (errorCount > 0) hasErrors = true;
+    };
+
+    const results = await inspectInChunks(filesSyntaxCheck, csrfToken, config, variant, http, verbose, onChunkResult);
+
+    // For JSON mode, apply suppress rules now (they were skipped during streaming)
+    if (jsonOutput) {
       for (const result of results) {
-        const objName = (result.OBJECT_NAME || result.object_name || '').toUpperCase();
-        for (const rule of suppressRules) {
-          const objPattern = new RegExp('^' + (rule.object || '*').toUpperCase().replace(/\*/g, '.*') + '$');
-          if (!objPattern.test(objName)) continue;
-          const msgPattern = new RegExp((rule.message || '*').replace(/\*/g, '.*'), 'i');
-
-          // Downgrade matching errors → infos
-          const errors = result.ERRORS || result.errors || [];
-          const kept = [];
-          for (const err of errors) {
-            const text = err.TEXT || err.text || '';
-            if (msgPattern.test(text)) {
-              const infos = result.INFOS || result.infos || [];
-              infos.push({ ...err, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
-              if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
-              const ec = result.ERROR_COUNT !== undefined ? 'ERROR_COUNT' : 'error_count';
-              result[ec] = Math.max(0, (result[ec] || 0) - 1);
-            } else {
-              kept.push(err);
-            }
-          }
-          if (result.ERRORS !== undefined) result.ERRORS = kept; else result.errors = kept;
-
-          // Downgrade matching warnings → infos
-          const warnings = result.WARNINGS || result.warnings || [];
-          const keptW = [];
-          for (const warn of warnings) {
-            const text = warn.MESSAGE || warn.message || '';
-            if (msgPattern.test(text)) {
-              const infos = result.INFOS || result.infos || [];
-              infos.push({ ...warn, MESSAGE: `[suppressed] ${text}`, message: `[suppressed] ${text}` });
-              if (result.INFOS !== undefined) result.INFOS = infos; else result.infos = infos;
-            } else {
-              keptW.push(warn);
-            }
-          }
-          if (result.WARNINGS !== undefined) result.WARNINGS = keptW; else result.warnings = keptW;
-        }
+        applySuppressRules(result, suppressRules);
       }
     }
 
@@ -406,14 +440,6 @@ Examples:
     if (jsonOutput) {
       console.log(JSON.stringify(results, null, 2));
       return;
-    }
-
-    // Process results
-    let hasErrors = false;
-    for (const result of results) {
-      await processInspectResult(result);
-      const errorCount = result.ERROR_COUNT !== undefined ? result.ERROR_COUNT : (result.error_count || 0);
-      if (errorCount > 0) hasErrors = true;
     }
 
     if (hasErrors) {

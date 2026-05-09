@@ -1,59 +1,37 @@
 /**
  * AUnit Test Runner
- * Discovers and runs ABAP unit test classes
+ * Discovers and runs ABAP unit test classes from the abapgit-agent abap/ directory
  */
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const { execSync } = require('child_process');
 
-const UNIT_TEST_CLONE_DIR = path.join(os.tmpdir(), 'abgagt-unit-test');
-
-// Classes that intentionally fail — excluded from the "all must pass" aunit runner
-// (they are covered by dedicated failure-scenario tests in junit-runner.js)
-const EXPECTED_FAILING_CLASSES = new Set(['zcl_abgagt_unit_fail']);
-
-// Auto-discover all ABAP test class files from the unit test repo clone
-function discoverTestClasses() {
-  const srcDir = path.join(UNIT_TEST_CLONE_DIR, 'src');
-  if (!fs.existsSync(srcDir)) return [];
-  return fs.readdirSync(srcDir)
+// Auto-discover all ABAP test class files from the project's abap/ directory
+function discoverTestClasses(repoRoot) {
+  const abapDir = path.join(repoRoot, 'abap');
+  if (!fs.existsSync(abapDir)) return [];
+  return fs.readdirSync(abapDir)
     .filter(f => f.endsWith('.clas.testclasses.abap'))
-    .map(f => f.replace('.clas.testclasses.abap', ''))
-    .filter(name => !EXPECTED_FAILING_CLASSES.has(name))
-    .sort();
+    .map(f => ({ name: f.replace('.clas.testclasses.abap', ''), filePath: path.join(abapDir, f) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
  * Run AUnit tests for ABAP test classes
- * @param {string} repoRoot - Repository root path
- * @param {Function} printSubHeader - Print subheader function
- * @param {Function} printSuccess - Print success function
- * @param {Function} printError - Print error function
- * @param {Function} printWarning - Print warning function
- * @returns {Object} Test results with success, results, duration, passedCount, totalCount
  */
 function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, printWarning }) {
   printSubHeader('Running AUnit Tests');
 
   const startTime = Date.now();
   const results = [];
-  const testClasses = discoverTestClasses();
+  const testClasses = discoverTestClasses(repoRoot);
 
   if (testClasses.length === 0) {
-    printWarning(`Unit test repo not cloned yet: ${UNIT_TEST_CLONE_DIR} — skipping AUnit tests`);
+    printWarning(`No test classes found in abap/ — skipping AUnit tests`);
     return { success: true, results, duration: '0.0', passedCount: 0, totalCount: 0 };
   }
 
-  for (const testClass of testClasses) {
-    const fileName = `${testClass}.clas.testclasses.abap`;
-    const filePath = path.join(UNIT_TEST_CLONE_DIR, 'src', fileName);
-
-    if (!fs.existsSync(filePath)) {
-      printWarning(`Test class not found: ${fileName}`);
-      continue;
-    }
-
+  for (const { name, filePath } of testClasses) {
     try {
       const output = execSync(
         `node bin/abapgit-agent unit --files ${filePath}`,
@@ -61,7 +39,7 @@ function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, pri
       );
 
       const passed = output.includes('All tests passed') || output.includes('passed');
-      const className = testClass.toUpperCase();
+      const className = name.toUpperCase();
 
       if (passed) {
         printSuccess(`${className}: All tests passed`);
@@ -71,7 +49,7 @@ function runAUnitTests(repoRoot, { printSubHeader, printSuccess, printError, pri
         results.push({ className, passed: false, error: 'Tests failed' });
       }
     } catch (error) {
-      const className = testClass.toUpperCase();
+      const className = name.toUpperCase();
       printError(`${className}: ${error.message}`);
       results.push({ className, passed: false, error: error.message });
     }

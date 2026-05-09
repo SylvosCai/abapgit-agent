@@ -859,3 +859,61 @@ describe('Inspect Command - JUnit Output', () => {
   });
 
 });
+
+describe('Chunking', () => {
+  let consoleOutput;
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    jest.resetModules();
+    consoleOutput = [];
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('splits 25 files into 3 chunks of at most 10, making 3 POST requests', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const files = Array.from({ length: 25 }, (_, i) => `zcl_class_${i + 1}.clas.abap`);
+
+    const mockPost = jest.fn().mockImplementation((url, data) =>
+      Promise.resolve(
+        data.files.map(name => ({
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: name.replace('.CLAS.ABAP', ''),
+          SUCCESS: true,
+          ERROR_COUNT: 0,
+          ERRORS: [],
+          WARNINGS: []
+        }))
+      )
+    );
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: mockPost
+      }))
+    };
+
+    await inspectCommand.execute(['--files', files.join(','), '--json'], mockContext);
+
+    // 25 files / 10 per chunk = 3 POST calls
+    expect(mockPost).toHaveBeenCalledTimes(3);
+    expect(mockPost.mock.calls[0][1].files).toHaveLength(10);
+    expect(mockPost.mock.calls[1][1].files).toHaveLength(10);
+    expect(mockPost.mock.calls[2][1].files).toHaveLength(5);
+
+    // Combined result has all 25 objects
+    const result = JSON.parse(consoleOutput.join(''));
+    expect(result).toHaveLength(25);
+  });
+});
