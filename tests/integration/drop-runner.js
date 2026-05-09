@@ -291,6 +291,12 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
       printError(`  Failed to clone drop-test repo: ${e.message}`);
       return { success: false, results: [], duration: '0.0', passedCount: 0, totalCount: 0, skipped: true };
     }
+  } else {
+    try {
+      gitExec('git pull --ff-only', { cwd: DROP_REPO_DIR, timeout: 30000 });
+    } catch (e) {
+      printInfo(`  Warning: git pull failed (${e.message.split('\n')[0]}) — continuing with existing clone`);
+    }
   }
 
   // Copy .abapGitAgent credentials from the main project into the drop-test repo
@@ -320,19 +326,18 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
     'src/zabgagt_drp_dtel.dtel.xml',
     ...TEST_OBJECTS.map(o => o.file)
   ].join(',');
-  let { output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);
+  let { output: resetOutput, exitCode: resetExitCode } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);
   // "Activation cancelled" means the EZABAPGIT lock was held (e.g. by a prior cmd test run).
   // Retry once after a short wait to ensure all objects land in TADIR.
-  if (resetOutput.includes('Activation cancelled') && !resetOutput.includes('Pull completed successfully')) {
+  if (resetOutput.includes('Activation cancelled') && resetExitCode !== 0) {
     printInfo('  Reset got "Activation cancelled" — retrying after 5s...');
     execSync('sleep 5');
-    ({ output: resetOutput } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']));
+    ({ output: resetOutput, exitCode: resetExitCode } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']));
   }
-  const resetOk = resetOutput.includes('Pull completed successfully') ||
-                  resetOutput.includes('already active') ||
-                  resetOutput.includes('nothing to activate');
-  if (!resetOk) {
-    printError(`  Reset pull failed: ${resetOutput.substring(0, 200)}`);
+  if (resetExitCode !== 0) {
+    printError(`  Reset pull failed — cannot continue`);
+    printError(`  Output: ${resetOutput.substring(0, 300)}`);
+    return { success: false, results, duration: '0.0', passedCount: 0, totalCount: TEST_OBJECTS.length * 4 };
   }
   // Brief cooldown after reset to let TADIR writes settle before per-object view checks.
   execSync('sleep 3');
@@ -402,9 +407,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   const dropPullResult = runDrop(agentBin, intfObj.file, ['--pull']);
   const dropPullDropOk = dropPullResult.output.includes('Object deleted successfully') ||
                          dropPullResult.output.includes('deleted successfully');
-  const dropPullPullOk = dropPullResult.output.includes('Pull completed successfully') ||
-                         dropPullResult.output.includes('already active') ||
-                         dropPullResult.output.includes('Activation cancelled');
+  const dropPullPullOk = dropPullResult.exitCode === 0;
   addResult('drop --pull — drop succeeded', dropPullDropOk, dropPullResult.output);
   addResult('drop --pull — pull succeeded', dropPullPullOk, dropPullResult.output);
   const existsAfterDropPull = objectExists(agentBin, repoRoot, intfObj);

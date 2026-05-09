@@ -40,6 +40,7 @@ const { runFullPullTests } = require('./integration/pull-full-runner');
 const { runConflictTests } = require('./integration/conflict-runner');
 const { runSyncXmlTests } = require('./integration/sync-xml-runner');
 const { runXmlOnlyTests } = require('./integration/xml-only-runner');
+const { runAsyncPullTests } = require('./integration/async-pull-runner');
 const { runJUnitTests } = require('./integration/junit-runner');
 const { runDebugTests } = require('./integration/debug-runner');
 const { runDropTests } = require('./integration/drop-runner');
@@ -194,6 +195,16 @@ function runSyncXmlTestsWrapper() {
 
 function runXmlOnlyTestsWrapper() {
   return runXmlOnlyTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize
+  });
+}
+
+function runAsyncPullTestsWrapper() {
+  return runAsyncPullTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -560,6 +571,15 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       totalCount += xmlOnlyResults.totalCount || 0;
       printInfo(`  (Including ${xmlOnlyResults.passedCount || 0}/${xmlOnlyResults.totalCount || 0} xml-only tests)`);
     }
+
+    // Run async pull tests (>10 files → background job path)
+    const asyncPullResults = runAsyncPullTestsWrapper();
+    if (asyncPullResults && !asyncPullResults.skipped && asyncPullResults.results) {
+      results.push(...asyncPullResults.results);
+      passedCount += asyncPullResults.passedCount || 0;
+      totalCount += asyncPullResults.totalCount || 0;
+      printInfo(`  (Including ${asyncPullResults.passedCount || 0}/${asyncPullResults.totalCount || 0} async-pull tests)`);
+    }
   }
 
   if (passedCount === totalCount) {
@@ -882,7 +902,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -900,6 +920,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--aunit')) {
     runJest = false;
     runAunit = true;
@@ -916,6 +937,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--cmd')) {
     runJest = false;
     runAunit = false;
@@ -932,6 +954,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--lifecycle')) {
     runJest = false;
     runAunit = false;
@@ -948,6 +971,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--pull')) {
     runJest = false;
     runAunit = false;
@@ -964,6 +988,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--full-pull')) {
     runJest = false;
     runAunit = false;
@@ -980,6 +1005,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--conflict')) {
     runJest = false;
     runAunit = false;
@@ -996,6 +1022,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--sync-xml')) {
     runJest = false;
     runAunit = false;
@@ -1012,6 +1039,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--xml-only')) {
     runJest = false;
     runAunit = false;
@@ -1028,6 +1056,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--junit')) {
     runJest = false;
     runAunit = false;
@@ -1044,6 +1073,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--debug')) {
     runJest = false;
     runAunit = false;
@@ -1060,6 +1090,7 @@ async function main() {
     runDebugBp = true;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--debug-scripted')) {
     runJest = false;
     runAunit = false;
@@ -1076,6 +1107,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--debug-repl')) {
     runJest = false;
     runAunit = false;
@@ -1092,6 +1124,7 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--drop')) {
     runJest = false;
     runAunit = false;
@@ -1108,6 +1141,7 @@ async function main() {
     runDebugBp = false;
     runDrop = true;
     runCustomize = false;
+    runAsyncPull = false;
   } else if (args.includes('--customize')) {
     runJest = false;
     runAunit = false;
@@ -1124,6 +1158,25 @@ async function main() {
     runDebugBp = false;
     runDrop = false;
     runCustomize = true;
+    runAsyncPull = false;
+  } else if (args.includes('--async-pull')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = false;
+    runAsyncPull = false;
+    runAsyncPull = true;
   } else {
     // Run all tests.
     // In CI (Jenkins/GitHub Actions): skip REPL scenarios (1 & 2) — they require
@@ -1136,12 +1189,13 @@ async function main() {
     runJunit = true;
     runDrop = true;
     runCustomize = true;
-    runLifecycle = false;      // Lifecycle tests run as part of cmd tests
-    runPull = false;           // Pull tests run as part of cmd tests
-    runFullPull = false;       // Full pull tests run as part of cmd tests
-    runConflict = false;       // Conflict tests run standalone (stateful, sequential)
-    runSyncXml = false;        // Sync-xml tests run as part of cmd tests (--command=pull)
-    runXmlOnly = false;        // XML-only tests run as part of cmd tests (--command=pull)
+    runAsyncPull = false;        // Async pull tests run as part of cmd tests
+    runLifecycle = false;        // Lifecycle tests run as part of cmd tests
+    runPull = false;             // Pull tests run as part of cmd tests
+    runFullPull = false;         // Full pull tests run as part of cmd tests
+    runConflict = false;         // Conflict tests run standalone (stateful, sequential)
+    runSyncXml = false;          // Sync-xml tests run as part of cmd tests (--command=pull)
+    runXmlOnly = false;          // XML-only tests run as part of cmd tests (--command=pull)
     runDebugRepl = !isCI;      // Skip REPL scenarios in CI (require interactive TTY)
     runDebugScripted = !isCI;  // Skip scripted scenarios in CI: k8s SAP system (GZE/100) never
                                // issues SAP_SESSIONID. After attach(), only routing is sap-contextid
@@ -1162,7 +1216,7 @@ async function main() {
   // Skipped when running Jest-only (no ABAP connection needed).
   // --no-setup flag disables auto-setup for developers who manage prerequisites manually.
   const skipAutoSetup = args.includes('--no-setup');
-  const needsAbap = runAunit || runCmd || runDrop || runCustomize || runDebugBp ||
+  const needsAbap = runAunit || runCmd || runDrop || runCustomize || runAsyncPull || runDebugBp ||
                     runPull || runFullPull || runConflict || runSyncXml || runXmlOnly ||
                     runJunit || runDebugRepl || runDebugScripted || runLifecycle;
   if (needsAbap && !skipAutoSetup) {
@@ -1261,6 +1315,11 @@ async function main() {
   // Run Customize command tests
   if (runCustomize) {
     results.customize = runCustomizeTestsWrapper();
+  }
+
+  // Run Async Pull tests (>10 files → background job)
+  if (runAsyncPull) {
+    results.asyncPull = runAsyncPullTestsWrapper();
   }
 
   // Run Debug scenario tests — always last.

@@ -19,7 +19,7 @@ Long-running ABAP operations (e.g., import command processing 3,700+ files) are 
 - ✅ **No Timeouts**: HTTP requests return immediately with job ID
 - ✅ **Progress Tracking**: Real-time progress updates via polling
 - ✅ **Resource Efficient**: HTTP work processes released immediately
-- ✅ **Automatic Detection**: Commands implementing `zif_abgagt_progressable` run in background automatically
+- ✅ **Automatic Detection**: Commands implementing `zif_abgagt_progressable` run in background automatically (unless the command also has a Priority 5 heuristic, e.g. pull)
 - ✅ **Generic Infrastructure**: Single executor for all async commands
 - ✅ **Backward Compatible**: Non-progressable commands run synchronously
 
@@ -45,6 +45,7 @@ Long-running ABAP operations (e.g., import command processing 3,700+ files) are 
     │ Priority 1: force_background config              │
     │ Priority 2: force_sync config                    │
     │ Priority 3: Implements progressable? ← IMPORT    │
+    │             (skipped for commands with P5 rule)  │
     │ Priority 4: Request parameter                    │
     │ Priority 5: Heuristics                           │
     │ Default: Synchronous                             │
@@ -110,7 +111,7 @@ Determines whether a command should run synchronously or asynchronously using 5-
 **Priority Order:**
 1. **force_background** - Resource config forces background (highest priority)
 2. **force_sync** - Resource config forces synchronous
-3. **Progressable Interface** - Command implements `zif_abgagt_progressable` ← Import uses this
+3. **Progressable Interface** - Command implements `zif_abgagt_progressable` ← Import uses this. Skipped for commands that have their own Priority 5 heuristic (e.g. pull), so they can be selectively async instead of always-async.
 4. **Request Parameter** - Explicit `background=X` in request
 5. **Heuristics** - Smart detection (file count, package size)
 6. **Default** - Synchronous execution (lowest priority)
@@ -405,11 +406,16 @@ ENDMETHOD.
 ### Step 3: That's It!
 
 The command will automatically:
-- ✅ Be detected as progressable (Priority 3)
+- ✅ Be detected as progressable (Priority 3) — unless the command also has a Priority 5 heuristic
 - ✅ Run as background job when executed
 - ✅ Report progress via events
 - ✅ Return HTTP 202 Accepted
 - ✅ Support status polling via GET
+
+> **Note:** The pull command implements `zif_abgagt_progressable` for progress events but
+> is **excluded from Priority 3** so it stays selective (async only for >10 files via Priority 5).
+> If your new command should be *always* async (like import), don't add a Priority 5 heuristic
+> and Priority 3 will handle it automatically.
 
 ## CLI Integration
 
@@ -444,7 +450,7 @@ if (finalResult.status === 'completed') {
 | Code | Meaning | When |
 |------|---------|------|
 | 200 OK | Success (synchronous) | Non-progressable commands complete immediately |
-| 202 Accepted | Job scheduled | Progressable commands scheduled for background |
+| 202 Accepted | Job scheduled | Command routed to background (progressable via P3, or P5 heuristic matched) |
 | 400 Bad Request | Validation failed | Invalid request parameters |
 | 404 Not Found | Job not found | GET with invalid/expired jobNumber |
 | 500 Internal Server Error | Execution failed | Exception during processing |

@@ -34,6 +34,7 @@ const DEFAULTS = {
   run:       'https://github.com/SylvosCai/abgagt-run-test.git',
   syntax:    'https://github.com/SylvosCai/abgagt-syntax-test.git',
   unit:      'https://github.com/SylvosCai/abgagt-unit-test.git',
+  pullType:  'https://github.com/SylvosCai/abgagt-pull-type-test.git',
 };
 
 /**

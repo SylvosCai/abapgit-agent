@@ -54,6 +54,7 @@
     "test:pull": "node tests/run-all.js --pull",
     "test:full-pull": "node tests/run-all.js --full-pull",
     "test:conflict": "node tests/run-all.js --conflict",
+    "test:async-pull": "node tests/run-all.js --async-pull",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"

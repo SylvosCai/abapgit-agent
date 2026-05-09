@@ -171,6 +171,12 @@ function runCustomizeTests(repoRoot, { printSubHeader, printInfo, printSuccess, 
       printError(`  Failed to clone customize-test repo: ${e.message}`);
       return { success: false, results: [], duration: '0.0', passedCount: 0, totalCount: 0, skipped: true };
     }
+  } else {
+    try {
+      execSync('git pull --ff-only', { cwd: CUSTOMIZE_REPO_DIR, encoding: 'utf8', timeout: 30000 });
+    } catch (e) {
+      printInfo(`  Warning: git pull failed (${e.message.split('\n')[0]}) — continuing with existing clone`);
+    }
   }
 
   // ─── Inject .abapGitAgent into the clone (credentials + package) ───────────
@@ -192,11 +198,8 @@ function runCustomizeTests(repoRoot, { printSubHeader, printInfo, printSuccess, 
 
   // ─── Setup: activate ZABGAGT_CUS_TST in ABAP system ────────────────────────
   printInfo(colorize('cyan', '  Setup: activating ZABGAGT_CUS_TST (--conflict-mode ignore)'));
-  const { output: setupOutput } = runPull(agentBin, repoRoot, TEST_TABLE_FILE, ['--conflict-mode', 'ignore']);
-  const setupOk = setupOutput.includes('Pull completed successfully') ||
-                  setupOutput.includes('already active') ||
-                  setupOutput.includes('nothing to activate');
-  if (!setupOk) {
+  const { output: setupOutput, exitCode: setupExitCode } = runPull(agentBin, repoRoot, TEST_TABLE_FILE, ['--conflict-mode', 'ignore']);
+  if (setupExitCode !== 0) {
     printError(`  Setup pull failed — cannot run customize tests: ${setupOutput.substring(0, 200)}`);
     return { success: false, results: [], duration: '0.0', passedCount: 0, totalCount: 0, skipped: true };
   }

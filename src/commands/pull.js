@@ -3,6 +3,7 @@
  */
 
 const { printHttpError } = require('../utils/format-error');
+const { pollForCompletion, displayProgress } = require('../utils/backgroundJobPoller');
 const fs = require('fs');
 const pathModule = require('path');
 const { execSync } = require('child_process');
@@ -295,7 +296,49 @@ Examples:
         data.transport_request = transportRequest;
       }
 
-      const result = await http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
+      const rawResult = await http.post('/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
+
+      // --- Async pull: ABAP returned 202 (job scheduled for >10 files) ---
+      const jobStatus = rawResult.STATUS || rawResult.status;
+      const jobNumber = rawResult.JOB_NUMBER || rawResult.jobNumber;
+      let result = rawResult;
+
+      if ((jobStatus === 'scheduled' || jobStatus === 'accepted') && jobNumber) {
+        const fileCount = (data.files || []).length;
+        if (!jsonOutput) {
+          console.log(`  Activating ${fileCount} file(s) as background job...`);
+          console.log('');
+        }
+
+        const endpoint = '/sap/bc/z_abapgit_agent/pull';
+        let finalJobResult;
+        try {
+          finalJobResult = await pollForCompletion(http, endpoint, jobNumber, {
+            pollInterval: 2000,
+            maxAttempts: 300,
+            onProgress: jsonOutput ? () => {} : (progress, message) => {
+              displayProgress(progress, message);
+            }
+          });
+        } finally {
+          if (!jsonOutput) process.stdout.write('\n');
+        }
+
+        if (!finalJobResult || finalJobResult.status === 'error') {
+          const errMsg = (finalJobResult && (finalJobResult.result || finalJobResult.message)) || 'Pull background job failed';
+          const err = new Error(errMsg);
+          err._isPullError = true;
+          throw err;
+        }
+
+        // Parse the result JSON string from the completed job
+        const resultStr = finalJobResult.result || finalJobResult.RESULT;
+        try {
+          result = typeof resultStr === 'string' ? JSON.parse(resultStr) : resultStr;
+        } catch (e) {
+          result = { success: '', message: 'Failed to parse pull job result' };
+        }
+      }
 
       // Detect missing .abapgit.xml — without it abapGit's stored starting_folder
       // may not match the actual source folder, causing pull to silently return ACTIVATED_COUNT=0

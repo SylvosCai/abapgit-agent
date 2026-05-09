@@ -29,16 +29,18 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
 
     " ========================================
     " Priority 3: Command implements progressable interface?
+    " Skip commands with their own heuristics in Priority 5 (e.g. PULL).
     " ========================================
-    TRY.
-        lo_progressable ?= io_command.
-        " Success = command implements progressable interface
-        rv_result = abap_true.
-        RETURN.
-      CATCH cx_sy_move_cast_error.
-        " Command does NOT implement progressable interface
-        " Continue to next priority
-    ENDTRY.
+    DATA(lv_cmd_name_p3) = io_command->get_name( ).
+    IF lv_cmd_name_p3 <> 'PULL'.
+      TRY.
+          lo_progressable ?= io_command.
+          " Success = command implements progressable interface
+          rv_result = abap_true.
+          RETURN.
+        CATCH cx_sy_move_cast_error ##NO_HANDLER.
+      ENDTRY.
+    ENDIF.
 
     " ========================================
     " Priority 4: Explicit request parameter
@@ -50,7 +52,7 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
           rv_result = abap_true.
           RETURN.
         ENDIF.
-      CATCH cx_root.
+      CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 
     " ========================================
@@ -67,8 +69,8 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
               rv_result = abap_true.
               RETURN.
             ENDIF.
-          CATCH cx_root.
-        ENDTRY.
+          CATCH cx_root ##NO_HANDLER.
+          ENDTRY.
 
       WHEN 'INSPECT'.
         " Package-wide inspection
@@ -79,8 +81,8 @@ CLASS zcl_abgagt_bg_decision IMPLEMENTATION.
               rv_result = abap_true.
               RETURN.
             ENDIF.
-          CATCH cx_root.
-        ENDTRY.
+          CATCH cx_root ##NO_HANDLER.
+          ENDTRY.
     ENDCASE.
 
     " ========================================
