@@ -246,7 +246,7 @@ Description:
 Parameters:
   --objects <obj1,...>  Comma-separated object names (required).
   --type <type>         Object type: CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DOMA,
-                        DDLS, DCLS, MSAG, FUGR (auto-detected from TADIR if omitted).
+                        DDLS, DCLS, MSAG, FUGR, SUSO (auto-detected from TADIR if omitted).
   --full                Show full source including all method implementations.
   --lines               Show dual line numbers (G = global for debug set, [N] = include-local).
   --fm <name>           With --full: show only the specified function module (FUGR only).
@@ -591,6 +591,51 @@ Examples:
               const desc = comp.DESCRIPTION || comp.description || '';
               if (desc) {
                 console.log(`   ${desc}`);
+              }
+            }
+          } else if (objType === 'SUSO' || objType === 'Authorization Object') {
+            // SUSO: property box for object class + fields, then activities list
+            const classComp = components.filter(c => String(c.FIELD || c.field || '').startsWith('OCLSS'));
+            const fieldComps = components.filter(c => String(c.FIELD || c.field || '').startsWith('FIELD_'));
+            const actvtComps = components.filter(c => String(c.FIELD || c.field || '').startsWith('ACTVT_'));
+
+            const propWidth = 16;
+            const valueWidth = 42;
+            const sep = '┌' + '─'.repeat(propWidth + 2) + '┬' + '─'.repeat(valueWidth + 2) + '┐';
+            const mid = '├' + '─'.repeat(propWidth + 2) + '┼' + '─'.repeat(valueWidth + 2) + '┤';
+            const end = '└' + '─'.repeat(propWidth + 2) + '┴' + '─'.repeat(valueWidth + 2) + '┘';
+            const buildPropRow = (property, value) =>
+              '│ ' + String(property || '').padEnd(propWidth) + ' │ ' +
+              String(value || '').substring(0, valueWidth).padEnd(valueWidth) + ' │';
+
+            console.log(`  AUTH OBJECT ${objName}:`);
+            console.log(sep);
+            console.log(buildPropRow('Property', 'Value'));
+            console.log(mid);
+
+            for (const comp of classComp) {
+              const desc = comp.DESCRIPTION || comp.description || '';
+              const colonIdx = desc.indexOf(': ');
+              const value = colonIdx !== -1 ? desc.substring(colonIdx + 2) : desc;
+              console.log(buildPropRow('Object class', value));
+            }
+
+            for (const comp of fieldComps) {
+              const desc = comp.DESCRIPTION || comp.description || '';
+              const colonIdx = desc.indexOf(': ');
+              const value = colonIdx !== -1 ? desc.substring(colonIdx + 2) : desc;
+              const idx = String(comp.FIELD || comp.field || '').replace('FIELD_', '');
+              console.log(buildPropRow(`Field ${idx}`, value));
+            }
+
+            console.log(end);
+
+            if (actvtComps.length > 0) {
+              console.log('');
+              console.log(`  Allowed activities (${actvtComps.length}):`);
+              for (const comp of actvtComps) {
+                const desc = comp.DESCRIPTION || comp.description || '';
+                console.log(`    ${desc}`);
               }
             }
           } else {

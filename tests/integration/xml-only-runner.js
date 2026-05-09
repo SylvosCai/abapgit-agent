@@ -1,6 +1,6 @@
 /**
  * XML-Only Object Pull Integration Test Runner
- * Tests that TABL, DTEL, and TTYP objects can be selectively pulled via --files
+ * Tests that TABL, DTEL, TTYP, and SUSO objects can be selectively pulled via --files
  * using their .xml file paths (no .abap source file exists for these types).
  *
  * Test Repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
@@ -8,29 +8,35 @@
  *     - src/zabgagt_xo_dtel.dtel.xml  (DTEL — 15 chars, within DDIC limit)
  *     - src/zabgagt_xo_tabl.tabl.xml  (TABL — 15 chars, within DDIC limit)
  *     - src/zabgagt_xo_ttyp.ttyp.xml  (TTYP — 15 chars, within DDIC limit)
+ *     - src/zabgagt_xo.suso.xml       (SUSO — 10 chars, XUOBJECT field limit)
+ *
+ * Note: SUSO (authorization object) names are limited to 10 chars (XUOBJECT type).
  *
  * Test sequence:
  *
- *   Reset:   pull all 3 objects with --conflict-mode ignore  → idempotent baseline
+ *   Reset:   pull all 3 DDIC objects with --conflict-mode ignore  → idempotent baseline
  *
- *   Step 1:  pull --files src/zabgagt_xmlonly_tabl.tabl.xml
- *            verify: TABL ZABGAGT_XMLONLY_TABL activated, DTEL + TTYP absent
+ *   Step 1:  pull --files src/zabgagt_xo_tabl.tabl.xml
+ *            verify: TABL ZABGAGT_XO_TABL activated, DTEL + TTYP absent
  *
- *   Step 2:  pull --files src/zabgagt_xmlonly_dtel.dtel.xml
- *            verify: DTEL ZABGAGT_XMLONLY_DTEL activated, TABL + TTYP absent
+ *   Step 2:  pull --files src/zabgagt_xo_dtel.dtel.xml
+ *            verify: DTEL ZABGAGT_XO_DTEL activated, TABL + TTYP absent
  *
- *   Step 3:  pull --files src/zabgagt_xmlonly_ttyp.ttyp.xml
- *            verify: TTYP ZABGAGT_XMLONLY_TTYP activated, TABL + DTEL absent
+ *   Step 3:  pull --files src/zabgagt_xo_ttyp.ttyp.xml
+ *            verify: TTYP ZABGAGT_XO_TTYP activated, TABL + DTEL absent
  *
- *   Step 4:  pull --files src/zabgagt_xmlonly_tabl.tabl.xml,src/zabgagt_xmlonly_dtel.dtel.xml
+ *   Step 4:  pull --files src/zabgagt_xo_tabl.tabl.xml,src/zabgagt_xo_dtel.dtel.xml
  *            verify: both TABL + DTEL activated, TTYP absent
  *
- *   Step 5:  pull --files src/zabgagt_xmlonly_tabl.tabl.xml (repeated) → still succeeds
+ *   Step 5:  pull --files src/zabgagt_xo_tabl.tabl.xml (repeated) → still succeeds
  *            verify: idempotency — re-pulling an already-active object does not fail
  *
  *   Step 6:  CLI rejection — pass a 2-part XML file (.abapgit.xml)
  *            verify: process exits non-zero, error mentions "not recognised"
  *            (no ABAP call made — pure client-side validation)
+ *
+ *   Step 7:  pull --files src/zabgagt_xo.suso.xml  (SUSO — authorization object)
+ *            verify: SUSO ZABGAGT_XO activated
  */
 
 const { execSync } = require('child_process');
@@ -43,10 +49,12 @@ const TEST_BRANCH   = 'feature/xml-only-test';
 const FILE_TABL = 'src/zabgagt_xo_tabl.tabl.xml';
 const FILE_DTEL = 'src/zabgagt_xo_dtel.dtel.xml';
 const FILE_TTYP = 'src/zabgagt_xo_ttyp.ttyp.xml';
+const FILE_SUSO = 'src/zabgagt_xo.suso.xml';
 
 const OBJ_TABL = 'ZABGAGT_XO_TABL';
 const OBJ_DTEL = 'ZABGAGT_XO_DTEL';
 const OBJ_TTYP = 'ZABGAGT_XO_TTYP';
+const OBJ_SUSO = 'ZABGAGT_XO';
 
 /**
  * Run a pull command against the test repo using --url.
@@ -77,14 +85,14 @@ function runPull(repoRoot, files, extraArgs = []) {
  * @param {Object} printFunctions
  */
 function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, printError, colorize }) {
-  printSubHeader('Running XML-Only Object Pull Tests (TABL, DTEL, TTYP)');
+  printSubHeader('Running XML-Only Object Pull Tests (TABL, DTEL, TTYP, SUSO)');
 
   const startTime = Date.now();
   const results   = [];
 
   printInfo(`Test repo:   ${TEST_REPO_URL}`);
   printInfo(`Branch:      ${TEST_BRANCH}`);
-  printInfo(`Objects:     ${OBJ_TABL} (TABL), ${OBJ_DTEL} (DTEL), ${OBJ_TTYP} (TTYP)`);
+  printInfo(`Objects:     ${OBJ_TABL} (TABL), ${OBJ_DTEL} (DTEL), ${OBJ_TTYP} (TTYP), ${OBJ_SUSO} (SUSO)`);
   printInfo('');
 
   const addResult = (name, passed, hint = '') => {
@@ -105,7 +113,7 @@ function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     } else {
       printError('✗ baseline reset failed — cannot continue');
       printError(`  ${output.split('\n').find(l => l.includes('Error') || l.includes('failed')) || output.split('\n')[0]}`);
-      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 8 };
+      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 10 };
     }
   }
   printInfo('');
@@ -216,6 +224,21 @@ function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     addResult('[CLI rejection] error message mentions "not recognised"',
       output.includes('not recognised') || output.includes('not recognized'),
       `output: ${output.split('\n').find(l => l.includes('Error') || l.includes('❌')) || output.split('\n')[0]}`);
+  }
+  printInfo('');
+
+  // ─── Step 7: pull SUSO (authorization object) ────────────────────────────────
+  printInfo(colorize('cyan', `Step 7: pull --files ${FILE_SUSO}  (SUSO — authorization object)`));
+  {
+    const { output, exitCode } = runPull(repoRoot, FILE_SUSO, ['--conflict-mode', 'ignore']);
+
+    addResult('[SUSO] pull succeeds',
+      exitCode === 0 && output.includes('Pull completed'),
+      `exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+
+    addResult('[SUSO] ZABGAGT_XO processed by abapGit',
+      output.includes(`SUSO ${OBJ_SUSO}`) || output.includes('object already active'),
+      `"SUSO ${OBJ_SUSO}" not in pull log and no "already active" message`);
   }
   printInfo('');
 

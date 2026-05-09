@@ -43,6 +43,7 @@ abapgit-agent view --objects ZMY_DOMAIN --type DOMA
 abapgit-agent view --objects ZMY_MSG_CLASS --type MSAG
 abapgit-agent view --objects ZMY_FUNC_GROUP --type FUGR
 abapgit-agent view --objects ZMY_ACCESS_CTRL --type DCLS
+abapgit-agent view --objects ZMY_SUSO --type SUSO
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
@@ -94,7 +95,7 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS, ENHO). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS, ENHO, SUSO). Auto-detected from TADIR if not specified |
 | `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections plus any active ENHO hook lines injected into CM sections. For INTF/PROG/DDLS: shows full source |
 | `--lines` | No | Add dual line numbers to `--full` output: `G [N]  code` where G is assembled-source global line and [N] is include-relative. Also adds breakpoint hints to method headers. Only meaningful with `--full` |
 | `--json` | No | Output raw JSON only (for scripting) |
@@ -439,6 +440,29 @@ define role SEPM_E_SalesOrder {
 
 The DCL source is shown inline (same as `--full` for other types). On systems without `CL_ACM_DCL_HANDLER_FACTORY` (pre-7.40), only the TADIR metadata (package) is returned and `SOURCE` is empty.
 
+### Authorization Object Definition (SUSO)
+
+```
+📖 AUD_SCOPEM (Authorization Object)
+   SAP Audit Management Scope
+  AUTH OBJECT AUD_SCOPEM:
+┌──────────────────┬────────────────────────────────────────────┐
+│ Property         │ Value                                      │
+├──────────────────┼────────────────────────────────────────────┤
+│ Object class     │ AUD                                        │
+│ Field 1          │ ACTVT                                      │
+│ Field 2          │ BO_SERVICE                                 │
+│ Field 3          │ AUD_GROUP                                  │
+└──────────────────┴────────────────────────────────────────────┘
+
+  Allowed activities (3):
+    Activity 02 - Change
+    Activity 03 - Display
+    Activity 16 - Execute
+```
+
+Properties shown: object class and authorization fields (FIEL1–FIEL0, non-empty only), followed by the allowed activities from TACTZ with text descriptions from TACT.
+
 ### CDS View Definition (DDLS)
 
 ```
@@ -580,7 +604,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
   "OBJECTS": [
     {
       "NAME": "string",
-      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG|DOMA|MSAG|FUGR|DCLS|ENHO",
+      "TYPE": "CLAS|INTF|TABL|STRU|DTEL|TTYP|DDLS|STOB|PROG|DOMA|MSAG|FUGR|DCLS|ENHO|SUSO",
       "TYPE_TEXT": "string",
       "DESCRIPTION": "string",
       "DOMAIN": "string",           // For DTEL: domain name
@@ -598,7 +622,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
         }
       ],
       "NOT_FOUND": boolean,         // true if object does not exist
-      "COMPONENTS": [              // For TABL/STRU: field list; for DTEL/DOMA/TTYP/MSAG/FUGR: property rows
+      "COMPONENTS": [              // For TABL/STRU: field list; for DTEL/DOMA/TTYP/MSAG/FUGR/SUSO: property rows
         {
           "FIELD": "string",
           "KEY": boolean,
@@ -666,6 +690,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
 | `FUGR` | Function Group | Function group with function module list |
 | `DCLS` | Access Control | CDS access control (DCL source) |
 | `ENHO` | Enhancement | Enhancement object hook sections |
+| `SUSO` | Authorization Object | Authorization object (SU21) — fields, object class, and allowed activities |
 
 ---
 
@@ -704,6 +729,9 @@ abapgit-agent view --objects SUSR --type FUGR
 
 # View access control (DCL source)
 abapgit-agent view --objects SEPM_E_SALESORDER --type DCLS
+
+# View authorization object (SUSO)
+abapgit-agent view --objects AUD_SCOPEM --type SUSO
 
 # View source include (from where command output)
 abapgit-agent view --objects ZCL_ABGAGT_COMMAND_UNIT=======CM007
@@ -751,6 +779,10 @@ abapgit-agent view --objects sflight --type tabl
 | **TFDIR** | Function module directory (FUGR) |
 | **TFTIT** | Function module short texts (FUGR) |
 | **ACM_S_DCLSRC** | Access control source — via `CL_ACM_DCL_HANDLER_FACTORY` (DCLS) |
+| **TOBJ** | Authorization object records with fields FIEL1–FIEL0 (SUSO) |
+| **TOBJT** | Authorization object texts (SUSO) |
+| **TACTZ** | Allowed activity values per authorization object (SUSO) |
+| **TACTT** | Activity text descriptions (SUSO) |
 
 ### Class Source Retrieval (CLAS)
 
@@ -1004,6 +1036,27 @@ IF sy-subrc = 0.
   CONCATENATE LINES OF lt_source INTO rs_info-source
     SEPARATED BY cl_abap_char_utilities=>newline.
 ENDIF.
+```
+
+### Authorization Object Retrieval (SUSO)
+
+```abap
+" Get auth object record from TOBJ
+SELECT SINGLE * FROM tobj
+  INTO @ls_tobj
+  WHERE objct = @iv_name.
+
+" Get description from TOBJT
+SELECT SINGLE ttext FROM tobjt
+  INTO @lv_ttext
+  WHERE object = @iv_name
+    AND langu  = 'E'.
+
+" Get allowed activities from TACTZ with text from TACT
+SELECT brobj, actvt FROM tactz
+  INTO TABLE @DATA(lt_tactz)
+  WHERE brobj = @iv_name
+  ORDER BY actvt.
 ```
 
 ### Include Name Patterns

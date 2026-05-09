@@ -6,8 +6,8 @@
  *
  * Test Distribution:
  *   - syntax: 32 tests (validation, auto-detection, DDLS, FIXPT, FUGR, INCLUDE)
- *   - view:    9 tests (class, interface, table, class --full, class --full --lines,
- *                       domain, message class, function group, access control)
+ *   - view:   10 tests (class, interface, table, class --full, class --full --lines,
+ *                       domain, message class, function group, access control, auth object)
  *   - tree:    3 tests (package, depth, types)
  *   - preview: 3 tests (table, limit, columns)
  *   - list:    3 tests (package, type filter, name filter)
@@ -507,6 +507,18 @@ const commandTestCases = [
       // SEPM_E_SALESORDER is the EPM sales order access control — SAP_BASIS / S_EPM_CDS_REF
       const hasDcls = output.includes('SEPM_E_SALESORDER') || output.includes('Access Control');
       return hasDcls;
+    }
+  },
+  {
+    command: 'view',
+    name: 'view authorization object (SUSO) shows fields and activities',
+    args: ['--objects', 'ZABGAGT_XO', '--type', 'SUSO'],
+    expectSuccess: true,
+    verify: (output) => {
+      // ZABGAGT_XO is the test SUSO object from the xml-only-test branch (10-char XUOBJECT limit)
+      const hasName = output.includes('ZABGAGT_XO');
+      const hasField = output.includes('Field') || output.includes('ACTVT') || output.includes('Object class');
+      return hasName && hasField;
     }
   },
 

@@ -6,9 +6,9 @@ parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
 
-# abapGit XML Metadata — XML-Only Objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)
+# abapGit XML Metadata — XML-Only Objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG, SUSO)
 
-XML templates for ABAP Dictionary objects that have no `.abap` source file — TABL, STRU, DTEL, TTYP, DOMA, and message classes (MSAG).
+XML templates for ABAP Dictionary objects that have no `.abap` source file — TABL, STRU, DTEL, TTYP, DOMA, message classes (MSAG), and authorization objects (SUSO).
 
 > **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
 > Without the BOM, abapGit shows the object as **"M" (modified)** after every pull.
@@ -19,7 +19,7 @@ XML templates for ABAP Dictionary objects that have no `.abap` source file — T
 > **For CLAS, INTF, PROG, DDLS, DCLS, FUGR** (have source files): see `abapgit-agent ref --topic abapgit`
 > **For DDLS, DCLS** (CDS — have source files): also see `abapgit-agent ref --topic abapgit`
 
-**Searchable keywords**: table xml, structure xml, data element xml, table type xml, domain xml, message class xml, tabl, stru, dtel, ttyp, doma, msag, dictionary
+**Searchable keywords**: table xml, structure xml, data element xml, table type xml, domain xml, message class xml, tabl, stru, dtel, ttyp, doma, msag, suso, authorization object, dictionary
 
 ---
 
@@ -451,3 +451,63 @@ abapGit uses the view `DD01V` as the root element (not `DD01L`). The serializer 
 - `T100/TEXT`: Message text — use `&1`–`&4` for placeholders (serialized as `&amp;1`–`&amp;4` in XML)
 
 **Note**: The `<T100>` wrapper contains repeated `<T100>` child elements — one per message.
+
+---
+
+### Authorization Object (SUSO)
+
+**Filename**: `src/zmy_suso.suso.xml`
+
+> Pull with: `pull --files src/zmy_suso.suso.xml`
+>
+> View with: `view --objects ZMY_SUSO --type SUSO`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_SUSO" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <TOBJ>
+    <OBJCT>ZMY_SUSO</OBJCT>
+    <FIEL1>ACTVT</FIEL1>
+    <FIEL2>ZMY_FIELD</FIEL2>
+    <OCLSS>ZMY</OCLSS>
+   </TOBJ>
+   <TOBJT>
+    <LANGU>E</LANGU>
+    <OBJECT>ZMY_SUSO</OBJECT>
+    <TTEXT>My authorization object description</TTEXT>
+   </TOBJT>
+   <TOBJVORFLG>
+    <OBJCT>ZMY_SUSO</OBJCT>
+   </TOBJVORFLG>
+   <TACTZ>
+    <TACTZ>
+     <BROBJ>ZMY_SUSO</BROBJ>
+     <ACTVT>01</ACTVT>
+    </TACTZ>
+    <TACTZ>
+     <BROBJ>ZMY_SUSO</BROBJ>
+     <ACTVT>02</ACTVT>
+    </TACTZ>
+    <TACTZ>
+     <BROBJ>ZMY_SUSO</BROBJ>
+     <ACTVT>03</ACTVT>
+    </TACTZ>
+   </TACTZ>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key Fields**:
+- `TOBJ/OBJCT`: Authorization object name — same as the filename stem
+- `TOBJ/FIEL1`–`FIEL0`: Up to 10 authorization fields (from SU20) that make up this object
+- `TOBJ/OCLSS`: Object class (4 chars) — groups related authorization objects (e.g. `AAAB`, `BC_A`)
+- `TOBJT/TTEXT`: Description text
+- `TOBJVORFLG`: Flags record — include with just `OBJCT` when no flags are set
+- `TACTZ`: Allowed activity values — one `<TACTZ>` entry per permitted `ACTVT` value
+
+**Note**: Authorization objects (SUSO) are the SU21 objects that group authorization fields (AUTH/SU20)
+together. An object like `AUD_SCOPEM` uses fields `ACTVT`, `BO_SERVICE`, and `AUD_GROUP`.
+
