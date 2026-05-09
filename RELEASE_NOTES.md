@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.18.2
+
+### New Features
+
+- `unit` command now uses standard ADT API (no SAP home object required)
+- JUnit output includes individual passing test method names
+
+### Bug Fixes
+
+- Auto-recover from expired SAP sessions (HTTP 400)
+
+### Improvements
+
+- Removed ABAP backend dependency from `unit` command
+
+---
+
+---
+
+
 ## v1.18.1
 
 ### New Features
