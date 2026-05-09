@@ -97,11 +97,18 @@ cleanup() {
   [[ -n "$ATTACH1_PID" ]] && kill "$ATTACH1_PID" 2>/dev/null || true
   [[ -n "$TRIGGER_PID" ]] && kill "$TRIGGER_PID" 2>/dev/null || true
   pkill -f debug-daemon.js 2>/dev/null || true
-  # Dump attach debug log on failure before cleanup
-  if [ "$FAIL" -gt 0 ] && [ -f /tmp/dbg_attach.out ]; then
-    echo "      --- attach process log (last 50 lines) ---"
-    tail -50 /tmp/dbg_attach.out 2>/dev/null | while IFS= read -r line; do echo "      $line"; done
-    echo "      --- end attach log ---"
+  # Dump attach and trigger debug logs on failure before cleanup
+  if [ "$FAIL" -gt 0 ]; then
+    if [ -f /tmp/dbg_attach.out ]; then
+      echo "      --- attach process log (last 50 lines) ---"
+      tail -50 /tmp/dbg_attach.out 2>/dev/null | while IFS= read -r line; do echo "      $line"; done
+      echo "      --- end attach log ---"
+    fi
+    if [ -f /tmp/dbg_trigger.out ]; then
+      echo "      --- trigger process log (last 30 lines) ---"
+      tail -30 /tmp/dbg_trigger.out 2>/dev/null | while IFS= read -r line; do echo "      $line"; done
+      echo "      --- end trigger log ---"
+    fi
   fi
   rm -f /tmp/dbg_*.out
   (cd "$DEBUG_REPO" && $AGENT debug delete --all >/dev/null 2>&1) || true
@@ -132,15 +139,23 @@ scenario3() {
 
   (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER > /tmp/dbg_trigger.out 2>&1) &
   TRIGGER_PID=$!
+  TRIGGER_START=$SECONDS
   log "Trigger (run --class) PID=$TRIGGER_PID"
 
   log "Waiting for breakpoint hit and session JSON (up to ${TIMEOUT}s)..."
   SESSION=""
   REFIRED=0
+  TRIGGER_EXITED_EARLY=0
   for i in $(seq 1 $((TIMEOUT * 2))); do
     sleep 0.5
     SESSION=$(grep -o '"session":"[^"]*"' /tmp/dbg_attach.out 2>/dev/null | head -1 | cut -d'"' -f4) || true
     [ -n "$SESSION" ] && break
+    # Detect if trigger exited quickly (BP didn't fire — trigger completed normally)
+    if [ "$TRIGGER_EXITED_EARLY" -eq 0 ] && ! kill -0 "$TRIGGER_PID" 2>/dev/null; then
+      TRIGGER_ELAPSED=$(( SECONDS - TRIGGER_START ))
+      log "Trigger exited after ${TRIGGER_ELAPSED}s (BP did not freeze it — check BP registration)"
+      TRIGGER_EXITED_EARLY=1
+    fi
     # Attach may discard a stale session and re-listen. Detect the marker and
     # re-fire the trigger (which is blocked on the frozen stale WP).
     if [ "$REFIRED" -eq 0 ] && grep -q "re-entering listener loop" /tmp/dbg_attach.out 2>/dev/null; then
@@ -150,6 +165,8 @@ scenario3() {
       sleep 2
       (cd "$DEBUG_REPO" && $AGENT run --class ZCL_ABGAGT_DBG_TRIGGER >> /tmp/dbg_trigger.out 2>&1) &
       TRIGGER_PID=$!
+      TRIGGER_START=$SECONDS
+      TRIGGER_EXITED_EARLY=0
       REFIRED=1
     fi
   done

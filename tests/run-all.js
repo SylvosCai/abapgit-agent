@@ -1143,10 +1143,14 @@ async function main() {
     runSyncXml = false;        // Sync-xml tests run as part of cmd tests (--command=pull)
     runXmlOnly = false;        // XML-only tests run as part of cmd tests (--command=pull)
     runDebugRepl = !isCI;      // Skip REPL scenarios in CI (require interactive TTY)
-    runDebugScripted = !isCI;  // Skip scripted scenarios in CI (require TCP session affinity that CI network breaks)
+    runDebugScripted = !isCI;  // Skip scripted scenarios in CI: k8s SAP system (GZE/100) never
+                               // issues SAP_SESSIONID. After attach(), only routing is sap-contextid
+                               // (frozen debuggee WP) which the k8s proxy blocks (→ 400). Without
+                               // contextid, dialog WPs have no debug session state (→ 404). No
+                               // HTTP-level workaround exists; requires infrastructure-level fix.
     runDebugBp = true;         // Always run — only needs ABAP system connection
     if (isCI) {
-      printInfo('  ⚠️  CI environment detected — skipping debug scenarios 1-5 (REPL needs TTY, scripted needs TCP affinity)');
+      printInfo('  ⚠️  CI environment detected — skipping debug scenarios 1-5 (REPL needs TTY, scripted: k8s GZE/100 has no SAP_SESSIONID routing)');
     }
   }
 
@@ -1261,7 +1265,7 @@ async function main() {
 
   // Run Debug scenario tests — always last.
   // REPL scenarios (1 & 2) require an interactive TTY and bash — local dev only.
-  // Scripted scenarios (3/4/5) use bash but no TTY — safe to run in CI.
+  // Scripted scenarios (3/4/5) are disabled in CI — see runDebugScripted comment above.
   if (runDebugScripted) {
     results.debugScripted = runScriptedDebugScenarios();
   }
