@@ -94,14 +94,14 @@ function buildInspectJUnit(results) {
       const caseName = checkId ? `Inspect / ${checkId}` : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
       testcases.push(
         `    <testcase name="${escapeXml(caseName)}" classname="${inspectClass}">\n` +
-        `      <failure type="Warning" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
+        `      <skipped message="${escapeXml(text)}">${escapeXml(detail)}</skipped>\n` +
         `    </testcase>`
       );
     }
 
     return (
       `  <testsuite name="${escapeXml(objectType + ' ' + objectName)}" ` +
-      `tests="${testCount}" failures="${errorCount + warnCount}" errors="0">\n` +
+      `tests="${testCount}" failures="${errorCount}" skipped="${warnCount}" errors="0">\n` +
       testcases.join('\n') + '\n' +
       `  </testsuite>`
     );
