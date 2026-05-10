@@ -19,6 +19,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              word TYPE string,
              sobjname TYPE string,
              method_name TYPE string,
+             check_class TYPE string,
+             check_code TYPE string,
            END OF ty_error.
 
     " Structure for TMDIR lookup
@@ -41,6 +43,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              object_name TYPE string,
              sobjname TYPE string,
              method_name TYPE string,
+             check_class TYPE string,
+             check_code TYPE string,
            END OF ty_warning.
 
     TYPES ty_warnings TYPE STANDARD TABLE OF ty_warning WITH NON-UNIQUE DEFAULT KEY.
@@ -56,6 +60,8 @@ CLASS zcl_abgagt_command_inspect DEFINITION PUBLIC FINAL CREATE PUBLIC.
              object_name TYPE string,
              sobjname TYPE string,
              method_name TYPE string,
+             check_class TYPE string,
+             check_code TYPE string,
            END OF ty_info.
 
     TYPES ty_infos TYPE STANDARD TABLE OF ty_info WITH NON-UNIQUE DEFAULT KEY.
@@ -256,8 +262,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
       TRY.
           DATA(lt_ddls_results) = validate_ddls( lt_ddls_names ).
           INSERT LINES OF lt_ddls_results INTO TABLE lt_results.
-        CATCH cx_dd_ddl_check.
-          " Ignore - validation handled in method
+        CATCH cx_dd_ddl_check ##no_handler.
       ENDTRY.
     ENDIF.
 
@@ -299,8 +304,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
               iv_ddls_name = lv_ddls_name
             IMPORTING
               es_ddlsrcv   = ls_ddlsrcv ).
-        CATCH cx_dd_ddl_check.
-          " Will report not found below
+        CATCH cx_dd_ddl_check ##no_handler.
       ENDTRY.
 
       " If not found, report error
@@ -344,8 +348,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           rv_found = abap_true.
           RETURN.
         ENDIF.
-      CATCH cx_dd_ddl_check.
-        " Ignore - will try active version
+      CATCH cx_dd_ddl_check ##no_handler.
     ENDTRY.
 
     " If no inactive version, try active version
@@ -361,8 +364,7 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
           es_ddlsrcv = ls_ddlsrcv.
           rv_found = abap_true.
         ENDIF.
-      CATCH cx_dd_ddl_check.
-        " Not found in either version
+      CATCH cx_dd_ddl_check ##no_handler.
     ENDTRY.
   ENDMETHOD.
 
@@ -710,6 +712,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         es_error-word = is_list-code.
         es_error-sobjname = is_list-sobjname.
         es_error-method_name = iv_method_name.
+        es_error-check_class = is_list-test.
+        es_error-check_code = is_list-code.
 
       WHEN 'W'.
         " Warning
@@ -721,6 +725,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         es_warning-object_name = iv_object_name.
         es_warning-sobjname = is_list-sobjname.
         es_warning-method_name = iv_method_name.
+        es_warning-check_class = is_list-test.
+        es_warning-check_code = is_list-code.
 
       WHEN 'I'.
         " Info
@@ -732,6 +738,8 @@ CLASS zcl_abgagt_command_inspect IMPLEMENTATION.
         es_info-object_name = iv_object_name.
         es_info-sobjname = is_list-sobjname.
         es_info-method_name = iv_method_name.
+        es_info-check_class = is_list-test.
+        es_info-check_code = is_list-code.
     ENDCASE.
   ENDMETHOD.
 

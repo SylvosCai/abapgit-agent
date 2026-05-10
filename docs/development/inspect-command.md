@@ -20,9 +20,6 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap
 # Inspect multiple files
 abapgit-agent inspect --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
-# With path
-abapgit-agent inspect --files src/zcl_my_class.clas.abap
-
 # With Code Inspector variant (explicit)
 abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
 
@@ -31,6 +28,9 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant EMPTY
 
 # Without --variant: uses inspect.variant from .abapgit-agent.json if set, else system default
 abapgit-agent inspect --files src/zcl_my_class.clas.abap
+
+# Fetch documentation for a specific check finding
+abapgit-agent inspect --doc CL_CI_TEST_EXCEPTION/UNHANDLED_01
 ```
 
 ## Prerequisite
@@ -42,8 +42,9 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--files` | Yes | Comma-separated list of files to inspect |
+| `--files` | Yes (unless `--doc`) | Comma-separated list of files to inspect |
 | `--variant` | No | Code Inspector variant name. Overrides `inspect.variant` in `.abapgit-agent.json`. |
+| `--doc <class>/<code>` | No | Fetch SAP documentation for a specific check finding. Skips file inspection. |
 
 ## Variant Resolution
 
@@ -157,6 +158,27 @@ GET /health (with X-CSRF-Token: fetch)
     Line 000049:
       Include: ZCL_MY_CLASS========CM002
       The exception CX_DD_DDL_READ is not caught or declared in the RAISING clause of"MY_METHOD".
+    [CL_CI_TEST_EXCEPTION/UNHANDLED_01]
+    → abapgit-agent inspect --doc CL_CI_TEST_EXCEPTION/UNHANDLED_01
+```
+
+### Documentation Lookup (`--doc`)
+
+```bash
+abapgit-agent inspect --doc CL_CI_TEST_EXCEPTION/UNHANDLED_01
+```
+
+Output:
+
+```
+CL_CI_TEST_EXCEPTION/UNHANDLED_01
+──────────────────────────────────
+
+Unhandled exception
+
+The exception ... is not caught or declared in the RAISING clause.
+
+Correct this by handling the exception or adding it to the RAISING clause.
 ```
 
 ### With Errors
@@ -222,6 +244,8 @@ GET /health (with X-CSRF-Token: fetch)
 3. **Method name extraction** - For classes, extracts method name from TMDIR based on include number (CM00X)
 4. **Separate warnings and info** - Warnings ('W') and Information ('I') are displayed in separate sections
 5. **Sorted results** - Errors, warnings, and info are sorted by method name and line number ascending
+6. **Check ID and hint per finding** - When `check_code` is available, each finding shows `[check_class/check_code]` and a `→ abapgit-agent inspect --doc` hint
+7. **`--doc` mode** - Fetches plain-text SAP documentation for a check finding from the ABAP backend (`/sap/bc/z_abapgit_agent/insp_doc`). The backend resolves the DOKIL key in priority order: (1) `CA` per-message key (`MCODE_<code>` for numeric codes, direct for alphabetic), (2) `CA` alternate-form key, (3) `CA` class-level `0000` fallback, (4) `HY`/`CHAPBC_SLIN<code>` for `CL_CI_TEST_EXTENDED_CHECK` numeric codes. All candidates are fetched in one `FOR ALL ENTRIES` query. Documentation is read via `DOCU_GET_FOR_F1HELP` and ITF includes are resolved and inlined before returning plain text.
 
 ---
 
@@ -257,6 +281,9 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap,src/zcl_other.clas.abap
 
 # With Code Inspector variant
 abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
+
+# Look up docs for a finding shown in inspect output
+abapgit-agent inspect --doc CL_CI_TEST_EXCEPTION/UNHANDLED_01
 ```
 
 ## Use Case

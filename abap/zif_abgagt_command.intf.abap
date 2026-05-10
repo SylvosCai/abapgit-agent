@@ -4,6 +4,7 @@ INTERFACE zif_abgagt_command PUBLIC.
   CONSTANTS:
     gc_pull TYPE string VALUE 'PULL',
     gc_inspect TYPE string VALUE 'INSPECT',
+    gc_inspect_doc TYPE string VALUE 'INSP_DOC',
     gc_create TYPE string VALUE 'CREATE',
     gc_delete TYPE string VALUE 'DELETE',
     gc_status TYPE string VALUE 'STATUS',

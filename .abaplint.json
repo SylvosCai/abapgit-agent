@@ -29,6 +29,7 @@
       "abap/zcl_abgagt_bg_scheduler.clas.testclasses.abap",
       "abap/zcl_abgagt_command_customize.clas.abap",
       "abap/zcl_abgagt_command_import.clas.abap",
+      "abap/zcl_abgagt_command_inspect_doc.clas.abap",
       "abap/zcl_abgagt_command_where.clas.abap",
       "abap/zcl_abgagt_util.clas.abap"
     ] },

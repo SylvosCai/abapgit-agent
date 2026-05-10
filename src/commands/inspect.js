@@ -24,15 +24,17 @@ function escapeXml(str) {
  * Maps to JUnit schema:
  *   <testsuites>
  *     <testsuite name="CLAS ZCL_MY_CLASS" tests="N" failures="F" errors="0">
- *       <testcase name="Syntax check" classname="ZCL_MY_CLASS">
- *         <failure type="SyntaxError" message="...">line/col/method detail</failure>
+ *       <testcase name="Inspect / Syntax check" classname="ZCL_MY_CLASS"/>   ← clean
+ *       <testcase name="Inspect / CL_CI_TEST_EXCEPTION/UNHANDLED_01"         ← finding
+ *                classname="ZCL_MY_CLASS">
+ *         <failure type="SyntaxError" message="...">method/line/detail</failure>
  *       </testcase>
  *     </testsuite>
  *   </testsuites>
  *
- * One testsuite per object. Each error becomes a <failure>. Warnings become
- * a single <failure type="Warning"> so they are visible but don't fail the build
- * unless there are also hard errors (Jenkins distinguishes failure vs unstable).
+ * One testsuite per object. Each error/warning becomes its own testcase named
+ * after the SCI check rule (check_class/check_code) so Jenkins shows exactly
+ * which rule fired. Clean objects get a single passing testcase.
  */
 function buildInspectJUnit(results) {
   const suites = results.map(res => {
@@ -42,28 +44,30 @@ function buildInspectJUnit(results) {
     const warnings   = res.WARNINGS !== undefined ? res.WARNINGS : (res.warnings || []);
     const errorCount = errors.length;
     const warnCount  = warnings.length;
-    // One testcase per error/warning; at least one testcase for a clean object
     const testCount  = Math.max(1, errorCount + warnCount);
 
     const testcases = [];
 
     if (errorCount === 0 && warnCount === 0) {
-      testcases.push(`    <testcase name="Syntax check" classname="${escapeXml(objectName)}"/>`);
+      testcases.push(`    <testcase name="Inspect / Syntax check" classname="${escapeXml(objectName)}"/>`);
     }
 
     for (const err of errors) {
-      const line       = err.LINE       || err.line       || '?';
-      const column     = err.COLUMN     || err.column     || '?';
-      const text       = err.TEXT       || err.text       || 'Unknown error';
+      const line       = err.LINE        || err.line        || '?';
+      const column     = err.COLUMN      || err.column      || '?';
+      const text       = err.TEXT        || err.text        || 'Unknown error';
       const methodName = err.METHOD_NAME || err.method_name;
-      const sobjname   = err.SOBJNAME   || err.sobjname   || '';
+      const sobjname   = err.SOBJNAME    || err.sobjname    || '';
+      const checkClass = err.CHECK_CLASS || err.check_class || '';
+      const checkCode  = err.CHECK_CODE  || err.check_code  || '';
       const detail     = [
         methodName ? `Method: ${methodName}` : null,
         `Line ${line}, Column ${column}`,
         sobjname ? `Include: ${sobjname}` : null,
         text
       ].filter(Boolean).join('\n');
-      const caseName = methodName ? `${methodName} line ${line}` : `Line ${line}`;
+      const checkId  = checkClass && checkCode ? `${checkClass}/${checkCode}` : null;
+      const caseName = checkId ? `Inspect / ${checkId}` : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
       testcases.push(
         `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(objectName)}">\n` +
         `      <failure type="SyntaxError" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
@@ -72,17 +76,20 @@ function buildInspectJUnit(results) {
     }
 
     for (const warn of warnings) {
-      const line       = warn.LINE       || warn.line       || '?';
-      const text       = warn.MESSAGE    || warn.message    || warn.TEXT || warn.text || 'Warning';
+      const line       = warn.LINE        || warn.line        || '?';
+      const text       = warn.MESSAGE     || warn.message     || warn.TEXT || warn.text || 'Warning';
       const methodName = warn.METHOD_NAME || warn.method_name;
-      const sobjname   = warn.SOBJNAME   || warn.sobjname   || '';
+      const sobjname   = warn.SOBJNAME    || warn.sobjname    || '';
+      const checkClass = warn.CHECK_CLASS || warn.check_class || '';
+      const checkCode  = warn.CHECK_CODE  || warn.check_code  || '';
       const detail     = [
         methodName ? `Method: ${methodName}` : null,
         `Line ${line}`,
         sobjname ? `Include: ${sobjname}` : null,
         text
       ].filter(Boolean).join('\n');
-      const caseName = methodName ? `${methodName} line ${line} (warning)` : `Line ${line} (warning)`;
+      const checkId  = checkClass && checkCode ? `${checkClass}/${checkCode}` : null;
+      const caseName = checkId ? `Inspect / ${checkId}` : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
       testcases.push(
         `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(objectName)}">\n` +
         `      <failure type="Warning" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
@@ -243,6 +250,8 @@ async function processInspectResult(res) {
       const text = err.TEXT || err.text || 'Unknown error';
       const methodName = err.METHOD_NAME || err.method_name;
       const sobjname = err.SOBJNAME || err.sobjname;
+      const checkClass = err.CHECK_CLASS || err.check_class || '';
+      const checkCode  = err.CHECK_CODE  || err.check_code  || '';
 
       if (methodName) {
         console.log(`  Method: ${methodName}`);
@@ -252,6 +261,10 @@ async function processInspectResult(res) {
         console.log(`    Include: ${sobjname}`);
       }
       console.log(`    ${text}`);
+      if (checkCode) {
+        console.log(`    [${checkClass}/${checkCode}]`);
+        console.log(`    → abapgit-agent inspect --doc ${checkClass}/${checkCode}`);
+      }
       console.log('');
     }
 
@@ -264,6 +277,8 @@ async function processInspectResult(res) {
         const text = warn.MESSAGE || warn.message || 'Unknown warning';
         const methodName = warn.METHOD_NAME || warn.method_name;
         const sobjname = warn.SOBJNAME || warn.sobjname;
+        const checkClass = warn.CHECK_CLASS || warn.check_class || '';
+        const checkCode  = warn.CHECK_CODE  || warn.check_code  || '';
 
         if (methodName) {
           console.log(`  Method: ${methodName}`);
@@ -273,6 +288,10 @@ async function processInspectResult(res) {
           console.log(`    Include: ${sobjname}`);
         }
         console.log(`    ${text}`);
+        if (checkCode) {
+          console.log(`    [${checkClass}/${checkCode}]`);
+          console.log(`    → abapgit-agent inspect --doc ${checkClass}/${checkCode}`);
+        }
       }
     }
 
@@ -285,6 +304,8 @@ async function processInspectResult(res) {
         const text = info.MESSAGE || info.message || 'Unknown info';
         const methodName = info.METHOD_NAME || info.method_name;
         const sobjname = info.SOBJNAME || info.sobjname;
+        const checkClass = info.CHECK_CLASS || info.check_class || '';
+        const checkCode  = info.CHECK_CODE  || info.check_code  || '';
 
         if (methodName) {
           console.log(`  Method: ${methodName}`);
@@ -294,6 +315,10 @@ async function processInspectResult(res) {
           console.log(`    Include: ${sobjname}`);
         }
         console.log(`    ${text}`);
+        if (checkCode) {
+          console.log(`    [${checkClass}/${checkCode}]`);
+          console.log(`    → abapgit-agent inspect --doc ${checkClass}/${checkCode}`);
+        }
       }
     }
   } else if (success === true || success === 'X') {
@@ -316,22 +341,75 @@ module.exports = {
       console.log(`
 Usage:
   abapgit-agent inspect --files <file1>,<file2>,... [--variant <check-variant>] [--junit-output <file>] [--json]
+  abapgit-agent inspect --doc <check_class>/<check_code>
 
 Description:
   Run SAP Code Inspector checks on activated ABAP objects. Requires the objects
   to be already active in the ABAP system (run pull first).
 
+  Use --doc to fetch the SAP documentation for a specific check finding.
+  The check class and code are shown in brackets after each finding, e.g.:
+    [CL_CI_TEST_OMIT_BRACKETS/OMIT_01]
+
 Parameters:
-  --files <file1,...>       Comma-separated ABAP source files (required).
+  --files <file1,...>       Comma-separated ABAP source files (required for inspection).
   --variant <variant>       Code Inspector variant (default: system default).
   --junit-output <file>     Write results as JUnit XML to this file.
   --json                    Output as JSON.
+  --doc <class>/<code>      Fetch documentation for a check finding.
 
 Examples:
   abapgit-agent inspect --files src/zcl_my_class.clas.abap
   abapgit-agent inspect --files src/zcl_my_class.clas.abap --variant ALL_CHECKS
   abapgit-agent inspect --files src/zcl_my_class.clas.abap --junit-output reports/inspect.xml
+  abapgit-agent inspect --doc CL_CI_TEST_OMIT_BRACKETS/OMIT_01
 `);
+      return;
+    }
+
+    // --doc mode: fetch documentation for a check finding
+    const docArgIndex = args.indexOf('--doc');
+    if (docArgIndex !== -1) {
+      const docArg = args[docArgIndex + 1];
+      if (!docArg || !docArg.includes('/')) {
+        console.error('Error: --doc requires <check_class>/<check_code>');
+        console.error('Example: abapgit-agent inspect --doc CL_CI_TEST_OMIT_BRACKETS/OMIT_01');
+        process.exit(1);
+      }
+      const slashIdx = docArg.indexOf('/');
+      const checkClass = docArg.slice(0, slashIdx);
+      const checkCode  = docArg.slice(slashIdx + 1);
+
+      const config = loadConfig();
+      const http = new AbapHttp(config);
+      const csrfToken = await http.fetchCsrfToken();
+
+      try {
+        const result = await http.post('/sap/bc/z_abapgit_agent/insp_doc', {
+          check_class: checkClass,
+          check_code:  checkCode
+        }, { csrfToken });
+
+        const title = result.TITLE || result.title || '';
+        let   text  = result.TEXT  || result.text  || '';
+
+        // Strip ITF inline tags (<AB>, <EX>, </>, <DS:...>, etc.), HTML tags, and ITF placeholders (&...&)
+        text = text
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&[A-Z_]+&/g, '')
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+          .replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+
+        if (title) console.log(`\n${title}\n${'─'.repeat(Math.min(title.length, 60))}`);
+        console.log(`\n${text || 'No documentation available.'}\n`);
+      } catch (error) {
+        const { printHttpError } = require('../utils/format-error');
+        printHttpError(error, { verbose: args.includes('--verbose') });
+        process.exit(1);
+      }
       return;
     }
 
@@ -347,7 +425,7 @@ Examples:
       process.exit(1);
     }
 
-    let filesSyntaxCheck = args[filesArgIndex + 1].split(',').map(f => f.trim());
+    let filesSyntaxCheck = [...new Set(args[filesArgIndex + 1].split(',').map(f => f.trim()))];
 
     // Parse optional --variant parameter; fall back to project config
     const variantArgIndex = args.indexOf('--variant');

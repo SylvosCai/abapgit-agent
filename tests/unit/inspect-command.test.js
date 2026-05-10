@@ -651,6 +651,66 @@ describe('Inspect Command - JUnit Output', () => {
     expect(writtenXml).toContain('LV_VAR');
   });
 
+  test('JUnit XML testcase name uses check_class/check_code for findings', async () => {
+    const fs = require('fs');
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_MY_CLASS',
+          SUCCESS: false,
+          ERROR_COUNT: 1,
+          ERRORS: [{
+            LINE: '49', COLUMN: '0', TEXT: 'Exception not caught',
+            METHOD_NAME: 'MY_METHOD', CHECK_CLASS: 'CL_CI_TEST_EXCEPTION', CHECK_CODE: 'UNHANDLED_01'
+          }],
+          WARNINGS: [{
+            LINE: '26', TEXT: 'Buffer bypass',
+            METHOD_NAME: 'MY_METHOD', CHECK_CLASS: 'CL_CI_TEST_SELECT_TAW_BYBUF', CHECK_CODE: '0051'
+          }]
+        }])
+      }))
+    };
+
+    await expect(
+      inspectCommand.execute(['--files', 'zcl_my_class.clas.abap', '--junit-output', 'out.xml'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('name="Inspect / CL_CI_TEST_EXCEPTION/UNHANDLED_01"');
+    expect(writtenXml).toContain('name="Inspect / CL_CI_TEST_SELECT_TAW_BYBUF/0051"');
+  });
+
+  test('JUnit XML clean object uses "Inspect / Syntax check" testcase name', async () => {
+    const fs = require('fs');
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_CLEAN',
+          SUCCESS: true, ERROR_COUNT: 0, ERRORS: [], WARNINGS: []
+        }])
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--files', 'zcl_clean.clas.abap', '--junit-output', 'out.xml'],
+      mockContext
+    );
+
+    const writtenXml = fs.writeFileSync.mock.calls[0][1];
+    expect(writtenXml).toContain('name="Inspect / Syntax check"');
+  });
+
   test('JUnit XML escapes special XML characters', async () => {
     const fs = require('fs');
     const inspectCommand = require('../../src/commands/inspect');
@@ -915,5 +975,266 @@ describe('Chunking', () => {
     // Combined result has all 25 objects
     const result = JSON.parse(consoleOutput.join(''));
     expect(result).toHaveLength(25);
+  });
+});
+
+describe('Inspect Command - check ID hint display', () => {
+  let consoleOutput;
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    jest.resetModules();
+    consoleOutput = [];
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('shows [check_class/check_code] and --doc hint for warning with check_code', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_MY_CLASS',
+          SUCCESS: true,
+          ERROR_COUNT: 0,
+          WARNING_COUNT: 1,
+          ERRORS: [],
+          WARNINGS: [{
+            LINE: '10',
+            TEXT: 'Unhandled exception',
+            METHOD_NAME: 'MY_METHOD',
+            CHECK_CLASS: 'CL_CI_TEST_EXCEPTION',
+            CHECK_CODE: 'UNHANDLED_01'
+          }],
+          INFOS: []
+        }])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('[CL_CI_TEST_EXCEPTION/UNHANDLED_01]');
+    expect(output).toContain('→ abapgit-agent inspect --doc CL_CI_TEST_EXCEPTION/UNHANDLED_01');
+  });
+
+  test('does not show --doc hint for warning without check_code', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_MY_CLASS',
+          SUCCESS: true,
+          ERROR_COUNT: 0,
+          WARNING_COUNT: 1,
+          ERRORS: [],
+          WARNINGS: [{
+            LINE: '10',
+            TEXT: 'Some warning',
+            METHOD_NAME: 'MY_METHOD'
+          }],
+          INFOS: []
+        }])
+      }))
+    };
+
+    await inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext);
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toContain('--doc');
+    expect(output).not.toContain('[/');
+  });
+
+  test('shows [check_class/check_code] hint for errors too', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue([{
+          OBJECT_TYPE: 'CLAS',
+          OBJECT_NAME: 'ZCL_MY_CLASS',
+          SUCCESS: false,
+          ERROR_COUNT: 1,
+          ERRORS: [{
+            LINE: '5',
+            COLUMN: '1',
+            TEXT: 'Syntax error',
+            METHOD_NAME: 'MY_METHOD',
+            CHECK_CLASS: 'CL_CI_TEST_SYNTAX',
+            CHECK_CODE: 'SYNTAX_01'
+          }],
+          WARNINGS: [],
+          INFOS: []
+        }])
+      }))
+    };
+
+    await expect(
+      inspectCommand.execute(['--files', 'zcl_my_class.clas.abap'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('[CL_CI_TEST_SYNTAX/SYNTAX_01]');
+    expect(output).toContain('→ abapgit-agent inspect --doc CL_CI_TEST_SYNTAX/SYNTAX_01');
+  });
+});
+
+describe('Inspect Command - --doc mode', () => {
+  let consoleOutput;
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    jest.resetModules();
+    consoleOutput = [];
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    console.error = (...args) => consoleOutput.push(args.join(' '));
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  });
+
+  test('--doc calls /sap/bc/z_abapgit_agent/insp_doc with check_class and check_code', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockPost = jest.fn().mockResolvedValue({
+      TITLE: 'Unhandled exception',
+      TEXT: 'The exception is not caught.'
+    });
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: mockPost
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--doc', 'CL_CI_TEST_EXCEPTION/UNHANDLED_01'],
+      mockContext
+    );
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/sap/bc/z_abapgit_agent/insp_doc',
+      { check_class: 'CL_CI_TEST_EXCEPTION', check_code: 'UNHANDLED_01' },
+      expect.objectContaining({ csrfToken: 'token123' })
+    );
+  });
+
+  test('--doc prints title and plain text', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          TITLE: 'Unhandled exception',
+          TEXT: 'The exception is not caught.'
+        })
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--doc', 'CL_CI_TEST_EXCEPTION/UNHANDLED_01'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Unhandled exception');
+    expect(output).toContain('The exception is not caught.');
+  });
+
+  test('--doc strips HTML tags and ITF placeholders from text', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({
+          TITLE: 'Check doc',
+          TEXT: '<AB>Bold text</AB> &WHAT_FOR& normal &lt;text&gt;'
+        })
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--doc', 'CL_CI_TEST_FOO/FOO_01'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).not.toContain('<AB>');
+    expect(output).not.toContain('&WHAT_FOR&');
+    expect(output).not.toContain('&lt;');
+    expect(output).toContain('Bold text');
+    expect(output).toContain('<text>');
+  });
+
+  test('--doc shows "No documentation available." when text is empty', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn().mockResolvedValue({ TITLE: '', TEXT: '' })
+      }))
+    };
+
+    await inspectCommand.execute(
+      ['--doc', 'CL_CI_TEST_FOO/FOO_01'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('No documentation available.');
+  });
+
+  test('--doc exits with error when argument is missing /', async () => {
+    const inspectCommand = require('../../src/commands/inspect');
+
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getInspectConfig: jest.fn(() => ({ variant: null, exclude: [], suppress: [] })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+        post: jest.fn()
+      }))
+    };
+
+    await expect(
+      inspectCommand.execute(['--doc', 'INVALID_NO_SLASH'], mockContext)
+    ).rejects.toThrow('process.exit(1)');
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('--doc requires');
   });
 });

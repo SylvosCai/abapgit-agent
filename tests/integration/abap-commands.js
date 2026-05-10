@@ -26,7 +26,7 @@
  *   - unit:    2 tests  (test class, --junit-output)
  *   - run:     2 tests (run program, run class)
  *   - status:  1 test  (config check)
- *   - inspect: 3 tests  (code inspector, --junit-output, project config variant)
+ *   - inspect: 4 tests  (code inspector, --junit-output, project config variant, --doc)
  *   - health:  1 test  (system health)
  *   Total:    98 tests
  *
@@ -219,6 +219,24 @@ const commandTestCases = [
         // Restore default
         fs.writeFileSync(cfgPath, JSON.stringify({ inspect: { variant: 'ZACS_CI' } }, null, 2));
       }
+    }
+  },
+
+  // ===================================================================
+  // INSPECT --doc - 1 test
+  // Purpose: Fetch SAP check documentation via INSP_DOC backend
+  // ===================================================================
+  {
+    command: 'inspect',
+    name: 'inspect --doc fetches documentation for a check finding',
+    args: ['--doc', 'CL_CI_TEST_SELECT_TAW_BYBUF/0051'],
+    expectSuccess: true,
+    verify: (output) => {
+      // Should print a non-empty text body (title or body text)
+      const hasContent = output.trim().length > 0 &&
+        !output.includes('Error:') &&
+        !output.includes('No documentation available');
+      return hasContent;
     }
   },
 

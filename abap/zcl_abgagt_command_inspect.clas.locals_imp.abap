@@ -13,8 +13,8 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
             get_state  = iv_get_state
           IMPORTING
             ddddlsrcv_wa = ls_ddlsrcv_wa ).
-      CATCH cx_dd_ddl_check cx_dd_ddl_read.
-        " Return empty on error
+      CATCH cx_dd_ddl_check
+            cx_dd_ddl_read ##no_handler.
     ENDTRY.
 
     es_ddlsrcv = VALUE #( ddlname = ls_ddlsrcv_wa-ddlname
@@ -39,8 +39,8 @@ CLASS lcl_ddl_handler_default IMPLEMENTATION.
             warnings = lt_warnings
           CHANGING
             ddlsrcv_wa = ls_ddlsrcv_wa ).
-      CATCH cx_dd_ddl_check cx_dd_ddl_read.
-        " Continue with empty warnings on error
+      CATCH cx_dd_ddl_check
+            cx_dd_ddl_read ##no_handler.
     ENDTRY.
 
     " Convert warnings to interface type

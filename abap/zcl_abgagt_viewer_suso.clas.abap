@@ -22,7 +22,8 @@ CLASS zcl_abgagt_viewer_suso IMPLEMENTATION.
     " Check TADIR for existence
     SELECT SINGLE devclass FROM tadir
       INTO @lv_devclass
-      WHERE obj_name = @iv_name
+      WHERE pgmid    = 'R3TR'
+        AND obj_name = @iv_name
         AND object   = 'SUSO'.
     IF sy-subrc <> 0.
       rs_info-not_found = abap_true.
