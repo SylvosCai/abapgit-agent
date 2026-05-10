@@ -158,6 +158,9 @@ function buildUnitJUnit(results) {
     const failedMethods = methods.filter(m => !m.passed);
     const syntheticFailures = thresholdFailure ? 1 : 0;
     const totalFailures = failedMethods.length + syntheticFailures;
+    // "Unit Tests / ZCL_MY_TEST" prefix keeps unit test results visually separate
+    // from "Inspect / ZCL_MY_TEST" entries in Jenkins test report.
+    const suiteLabel = `Unit Tests / ${className}`;
 
     const lines = [];
 
@@ -170,13 +173,12 @@ function buildUnitJUnit(results) {
     }
 
     if (testCount === 0) {
-      lines.push(`    <testcase name="(no tests)" classname="${escapeXml(className)}"/>`);
+      lines.push(`    <testcase name="(no tests)" classname="${escapeXml(suiteLabel)}"/>`);
     } else {
       for (const m of methods) {
         const timeAttr = m.executionTime != null ? ` time="${m.executionTime}"` : '';
-        // Use "ZCL_MY_TEST.LTCL_UNIT_TEST" so Jenkins groups by ABAP class first,
-        // then local test class — giving a clear package hierarchy in the test report.
-        const testClass = m.testClassName ? `${className}.${m.testClassName}` : className;
+        // "Unit Tests / ZCL_MY_TEST.LTCL_UNIT_TEST" groups by namespace → class → local test class.
+        const testClass = m.testClassName ? `${suiteLabel}.${m.testClassName}` : suiteLabel;
         if (m.passed) {
           lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}/>`);
         } else {
@@ -195,14 +197,14 @@ function buildUnitJUnit(results) {
 
     if (thresholdFailure) {
       lines.push(
-        `    <testcase name="coverage_threshold" classname="${escapeXml(className)}">\n` +
+        `    <testcase name="coverage_threshold" classname="${escapeXml(suiteLabel)}">\n` +
         `      <failure type="FAILURE" message="${escapeXml(thresholdFailure)}">${escapeXml(thresholdFailure)}</failure>\n` +
         `    </testcase>`
       );
     }
 
     return (
-      `  <testsuite name="${escapeXml(className)}" ` +
+      `  <testsuite name="${escapeXml(suiteLabel)}" ` +
       `tests="${Math.max(testCount + syntheticFailures, 1)}" failures="${totalFailures}" errors="0">\n` +
       lines.join('\n') + '\n' +
       `  </testsuite>`
