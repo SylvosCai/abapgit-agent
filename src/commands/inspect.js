@@ -48,8 +48,10 @@ function buildInspectJUnit(results) {
 
     const testcases = [];
 
+    const inspectClass = `Inspect / ${escapeXml(objectName)}`;
+
     if (errorCount === 0 && warnCount === 0) {
-      testcases.push(`    <testcase name="Inspect / Syntax check" classname="${escapeXml(objectName)}"/>`);
+      testcases.push(`    <testcase name="Inspect / Syntax check" classname="${inspectClass}"/>`);
     }
 
     for (const err of errors) {
@@ -69,7 +71,7 @@ function buildInspectJUnit(results) {
       const checkId  = checkClass && checkCode ? `${checkClass}/${checkCode}` : null;
       const caseName = checkId ? `Inspect / ${checkId}` : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
       testcases.push(
-        `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(objectName)}">\n` +
+        `    <testcase name="${escapeXml(caseName)}" classname="${inspectClass}">\n` +
         `      <failure type="SyntaxError" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
         `    </testcase>`
       );
@@ -91,7 +93,7 @@ function buildInspectJUnit(results) {
       const checkId  = checkClass && checkCode ? `${checkClass}/${checkCode}` : null;
       const caseName = checkId ? `Inspect / ${checkId}` : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
       testcases.push(
-        `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(objectName)}">\n` +
+        `    <testcase name="${escapeXml(caseName)}" classname="${inspectClass}">\n` +
         `      <failure type="Warning" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
         `    </testcase>`
       );
