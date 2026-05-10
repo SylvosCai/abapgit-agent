@@ -682,8 +682,8 @@ describe('Inspect Command - JUnit Output', () => {
     ).rejects.toThrow('process.exit(1)');
 
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
-    expect(writtenXml).toContain('name="Inspect / CL_CI_TEST_EXCEPTION/UNHANDLED_01"');
-    expect(writtenXml).toContain('name="Inspect / CL_CI_TEST_SELECT_TAW_BYBUF/0051"');
+    expect(writtenXml).toContain('name="CL_CI_TEST_EXCEPTION/UNHANDLED_01"');
+    expect(writtenXml).toContain('name="CL_CI_TEST_SELECT_TAW_BYBUF/0051"');
   });
 
   test('JUnit XML clean object uses "Inspect / Syntax check" testcase name', async () => {
@@ -708,7 +708,7 @@ describe('Inspect Command - JUnit Output', () => {
     );
 
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
-    expect(writtenXml).toContain('name="Inspect / Syntax check"');
+    expect(writtenXml).toContain('name="Syntax check"');
   });
 
   test('JUnit XML escapes special XML characters', async () => {
