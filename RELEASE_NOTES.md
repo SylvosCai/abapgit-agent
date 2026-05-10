@@ -2,6 +2,29 @@
 title: Release Notes
 ---
 
+## v1.19.0
+
+### New Features
+
+- `inspect --doc <CHECK_CLASS>/<CHECK_CODE>`: fetch SCI check documentation
+- View and pull SUSO (authorization object) support via `--type SUSO`
+- Inspect results hint at `--doc` command when issues are found
+
+### Bug Fixes
+
+- Inspect: chunk large file sets (10/batch) to avoid 120s timeout
+
+### Improvements
+
+- Pull: auto-switches to background job for >10 files with progress polling
+- Unit: show test class name, per-method execution time, and full failure stack traces
+- Inspect: stream results per chunk for real-time output
+
+---
+
+---
+
+
 ## v1.18.2
 
 ### New Features
