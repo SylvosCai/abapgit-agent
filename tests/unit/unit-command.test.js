@@ -230,7 +230,7 @@ describe('buildUnitJUnit', () => {
   test('emits individual testcase per passing method', () => {
     const results = [{ className: 'ZCL_MY_TEST', methods: [{ name: 'TEST_PASSES', passed: true }], coverageStats: null }];
     const xml = _buildUnitJUnit(results);
-    expect(xml).toContain('<testcase name="TEST_PASSES" classname="Unit Tests / ZCL_MY_TEST"/>');
+    expect(xml).toContain('<testcase name="TEST_PASSES" classname="ZCL_MY_TEST"/>');
     expect(xml).not.toContain('passing test(s)');
   });
 
@@ -241,7 +241,7 @@ describe('buildUnitJUnit', () => {
       coverageStats: null,
     }];
     const xml = _buildUnitJUnit(results);
-    expect(xml).toContain('<testcase name="TEST_FAILS" classname="Unit Tests / ZCL_MY_TEST"');
+    expect(xml).toContain('<testcase name="TEST_FAILS" classname="ZCL_MY_TEST"');
     expect(xml).toContain('<failure type="failedAssertion"');
     expect(xml).toContain('Assertion failed');
     expect(xml).toContain('Expected 1 but was 2');
@@ -256,7 +256,7 @@ describe('buildUnitJUnit', () => {
   test('uses ZCL.LTCL hierarchy for classname attribute when testClassName present', () => {
     const results = [{ className: 'ZCL_MY_TEST', methods: [{ name: 'TEST_PASSES', passed: true, testClassName: 'LTCL_UNIT_TEST', executionTime: 0 }], coverageStats: null }];
     const xml = _buildUnitJUnit(results);
-    expect(xml).toContain('classname="Unit Tests / ZCL_MY_TEST.LTCL_UNIT_TEST"');
+    expect(xml).toContain('classname="ZCL_MY_TEST.LTCL_UNIT_TEST"');
   });
 
   test('emits (no tests) when methods array is empty', () => {

@@ -686,7 +686,7 @@ describe('Inspect Command - JUnit Output', () => {
     expect(writtenXml).toContain('name="CL_CI_TEST_SELECT_TAW_BYBUF/0051"');
   });
 
-  test('JUnit XML clean object uses "Inspect / Syntax check" testcase name', async () => {
+  test('JUnit XML clean object uses "Syntax check" testcase name with class-first classname', async () => {
     const fs = require('fs');
     const inspectCommand = require('../../src/commands/inspect');
 
@@ -709,6 +709,7 @@ describe('Inspect Command - JUnit Output', () => {
 
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
     expect(writtenXml).toContain('name="Syntax check"');
+    expect(writtenXml).toContain('classname="ZCL_CLEAN.Inspect"');
   });
 
   test('JUnit XML escapes special XML characters', async () => {

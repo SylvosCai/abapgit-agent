@@ -158,9 +158,9 @@ function buildUnitJUnit(results) {
     const failedMethods = methods.filter(m => !m.passed);
     const syntheticFailures = thresholdFailure ? 1 : 0;
     const totalFailures = failedMethods.length + syntheticFailures;
-    // "Unit Tests / ZCL_MY_TEST" prefix keeps unit test results visually separate
-    // from "Inspect / ZCL_MY_TEST" entries in Jenkins test report.
-    const suiteLabel = `Unit Tests / ${className}`;
+    // classname "ZCL_MY_TEST.LTCL_UNIT_TEST" groups under the same ABAP class node
+    // as "ZCL_MY_TEST.Inspect" from the inspect report — one node per ABAP class.
+    const suiteLabel = className;
 
     const lines = [];
 

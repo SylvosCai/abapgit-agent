@@ -48,7 +48,7 @@ function buildInspectJUnit(results) {
 
     const testcases = [];
 
-    const inspectClass = `Inspect / ${escapeXml(objectName)}`;
+    const inspectClass = `${escapeXml(objectName)}.Inspect`;
 
     if (errorCount === 0 && warnCount === 0) {
       testcases.push(`    <testcase name="Syntax check" classname="${inspectClass}"/>`);
