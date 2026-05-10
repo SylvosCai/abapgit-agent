@@ -115,6 +115,29 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
               OTHERS = 0.
         ENDIF.
 
+        IF lt_lines IS INITIAL AND condense( CONV string( ls_params-check_code ) ) <> '0000'.
+          " No per-message doc — fall back to class-level overview (0000)
+          find_docu_key(
+            EXPORTING iv_class  = ls_params-check_class
+                      iv_code   = '0000'
+            IMPORTING ev_id     = lv_docu_id
+                      ev_object = lv_docu_object
+                      ev_langu  = lv_langu ).
+          IF lv_docu_object IS NOT INITIAL.
+            CALL FUNCTION 'DOCU_GET_FOR_F1HELP'
+              EXPORTING
+                id     = lv_docu_id
+                langu  = lv_langu
+                object = lv_docu_object
+              IMPORTING
+                head   = lv_header
+              TABLES
+                line   = lt_lines
+              EXCEPTIONS
+                OTHERS = 0.
+          ENDIF.
+        ENDIF.
+
         IF lt_lines IS NOT INITIAL.
           ls_result-title = lv_header-tdtitle.
           IF ls_result-title IS INITIAL.
