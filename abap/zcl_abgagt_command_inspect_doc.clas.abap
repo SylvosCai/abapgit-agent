@@ -66,9 +66,13 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
 
     TRY.
         " Try KTD documentation first (newer SAP systems)
+        DATA lv_ktd_class TYPE sci_chk.
+        DATA lv_ktd_code  TYPE satc_ci_message_code.
+        lv_ktd_class = ls_params-check_class.
+        lv_ktd_code  = ls_params-check_code.
         DATA(lv_html) = cl_satc_ac_ui_ktd_docu=>get_ktd_docu_for_gui_if_exist(
-          check_class_name = CONV #( ls_params-check_class )
-          message_code     = CONV #( ls_params-check_code ) ).
+          check_class_name = lv_ktd_class
+          message_code     = lv_ktd_code ).
 
         IF lv_html IS NOT INITIAL.
           ls_result-title = ls_params-check_class && '/' && ls_params-check_code.
