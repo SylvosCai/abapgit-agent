@@ -145,6 +145,18 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
     }
   });
 
+  test('unit: JUnit classname uses CLASS.LTCL hierarchy', () => {
+    const out = path.join(TMP, 'abapgit-junit-unit-hierarchy.xml');
+    cleanup(out);
+    try {
+      run(`unit --files ${UNIT_TEST_FILE} --junit-output ${out}`);
+      const xml = fs.readFileSync(out, 'utf8');
+      return /classname="ZCL_ABGAGT_UNIT_TEST\.[^"]+/.test(xml);
+    } finally {
+      cleanup(out);
+    }
+  });
+
   test('unit: test counts in XML are non-negative integers', () => {
     const out = path.join(TMP, 'abapgit-junit-unit-counts.xml');
     cleanup(out);
@@ -299,6 +311,18 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
       run(`inspect --files abap/zcl_abgagt_util.clas.abap --junit-output ${out}`);
       const xml = fs.readFileSync(out, 'utf8');
       return xml.includes('ZCL_ABGAGT_UTIL');
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('inspect: JUnit classname uses CLASS.Inspect hierarchy', () => {
+    const out = path.join(TMP, 'abapgit-junit-inspect-hierarchy.xml');
+    cleanup(out);
+    try {
+      run(`inspect --files abap/zcl_abgagt_util.clas.abap --junit-output ${out}`);
+      const xml = fs.readFileSync(out, 'utf8');
+      return xml.includes('classname="ZCL_ABGAGT_UTIL.Inspect"');
     } finally {
       cleanup(out);
     }
