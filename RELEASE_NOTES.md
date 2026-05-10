@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+## v1.19.1
+
+### Bug Fixes
+
+- Fall back to class-level doc when per-message doc missing
+
+### Improvements
+
+- JUnit classnames reorganized: `CLASSNAME.Inspect` and `CLASSNAME.LTCL_*` hierarchy
+- Jenkins now groups Inspect and unit test results under one class node
+
+---
+
+---
+
+
 ## v1.19.0
 
 ### New Features
