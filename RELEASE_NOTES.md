@@ -2,6 +2,23 @@
 title: Release Notes
 ---
 
+## v1.19.2
+
+### New Features
+
+- `view`: PINF (Package Interface) support with member list renderer
+- `drop`: add PINF (Package Interface) support
+- `pull`: add PINF (Package Interface) support
+
+### Documentation
+
+- Add PINF headless pull support page
+
+---
+
+---
+
+
 ## v1.19.1
 
 ### Bug Fixes
