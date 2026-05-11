@@ -6,9 +6,9 @@ parent: ABAP Coding Guidelines
 grand_parent: ABAP Development
 ---
 
-# abapGit XML Metadata — XML-Only Objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG, SUSO)
+# abapGit XML Metadata — XML-Only Objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG, SUSO, PINF)
 
-XML templates for ABAP Dictionary objects that have no `.abap` source file — TABL, STRU, DTEL, TTYP, DOMA, message classes (MSAG), and authorization objects (SUSO).
+XML templates for ABAP Dictionary objects that have no `.abap` source file — TABL, STRU, DTEL, TTYP, DOMA, message classes (MSAG), authorization objects (SUSO), and package interfaces (PINF).
 
 > **CRITICAL: Always write XML files with a UTF-8 BOM (`\ufeff`) as the very first character**, before `<?xml ...`.
 > Without the BOM, abapGit shows the object as **"M" (modified)** after every pull.
@@ -19,7 +19,7 @@ XML templates for ABAP Dictionary objects that have no `.abap` source file — T
 > **For CLAS, INTF, PROG, DDLS, DCLS, FUGR** (have source files): see `abapgit-agent ref --topic abapgit`
 > **For DDLS, DCLS** (CDS — have source files): also see `abapgit-agent ref --topic abapgit`
 
-**Searchable keywords**: table xml, structure xml, data element xml, table type xml, domain xml, message class xml, tabl, stru, dtel, ttyp, doma, msag, suso, authorization object, dictionary
+**Searchable keywords**: table xml, structure xml, data element xml, table type xml, domain xml, message class xml, tabl, stru, dtel, ttyp, doma, msag, suso, authorization object, dictionary, pinf, package interface
 
 ---
 
@@ -511,3 +511,52 @@ abapGit uses the view `DD01V` as the root element (not `DD01L`). The serializer 
 **Note**: Authorization objects (SUSO) are the SU21 objects that group authorization fields (AUTH/SU20)
 together. An object like `AUD_SCOPEM` uses fields `ACTVT`, `BO_SERVICE`, and `AUD_GROUP`.
 
+---
+
+### Package Interface (PINF)
+
+**Filename**: `src/zmy_pinf.pinf.xml`
+
+> Pull with: `pull --files src/zmy_pinf.pinf.xml`
+>
+> View with: `view --objects ZMY_PINF --type PINF`
+
+A package interface declares which objects a package makes visible to other packages — it is the "API" of an ABAP package. Packages that use these objects must depend on the package that owns the interface.
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_PINF" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <PINF>
+    <ATTRIBUTES>
+     <INTF_NAME>ZMY_PINF</INTF_NAME>
+     <DESCRIPT>Package interface for ZMY</DESCRIPT>
+    </ATTRIBUTES>
+    <ELEMENTS>
+     <SCOMELDTLN>
+      <INTF_NAME>ZMY_PINF</INTF_NAME>
+      <ELEM_TYPE>CLAS</ELEM_TYPE>
+      <ELEM_KEY>ZCL_MY_CLASS</ELEM_KEY>
+     </SCOMELDTLN>
+     <SCOMELDTLN>
+      <INTF_NAME>ZMY_PINF</INTF_NAME>
+      <ELEM_TYPE>INTF</ELEM_TYPE>
+      <ELEM_KEY>ZIF_MY_INTERFACE</ELEM_KEY>
+     </SCOMELDTLN>
+    </ELEMENTS>
+   </PINF>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+```
+
+**Key Fields**:
+- `ATTRIBUTES/INTF_NAME`: Package interface name (max 30 chars, stored in `SCOMPARAMET.INTF_NAME`)
+- `ATTRIBUTES/DESCRIPT`: Description text
+- `ELEMENTS/SCOMELDTLN`: One entry per exported object; each has:
+  - `INTF_NAME`: Same as the interface name (repeated on every row)
+  - `ELEM_TYPE`: Object type — `CLAS`, `INTF`, `DTEL`, `TABL`, `STRU`, `TTYP`, `DOMA`, `SUSO`, `ENQU`, `STOB`, `VIEW`
+  - `ELEM_KEY`: Object name
+
+**Note**: No UTF-8 BOM — unlike TABL/DTEL/MSAG, the PINF serializer (`LCL_OBJECT_PINF`) does not write a BOM. Do not add `\ufeff` before `<?xml ...>`.

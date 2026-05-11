@@ -42,6 +42,8 @@ grand_parent: ABAP Development
 | Local variable name | **30** |
 | Local type/class name | **30** |
 | Test class name (local) | **30** |
+| Package Interface name (PINF) | **30** |
+| **Authorization Object name (SUSO)** | **10** |
 
 ---
 
@@ -150,6 +152,8 @@ These limits come from the ABAP Dictionary (DDIC) and ABAP kernel:
 | 40 chars (CDS names) | CDS objects stored in `DD02L.TABNAME CHAR(40)` — intentionally larger for CDS |
 | 20 chars (MSAG) | Message class name stored in `T100A.ARBGB CHAR(20)` |
 | 26 chars (FUGR) | Function group internally prefixed with `SAPL` (4 chars) for the main include |
+| **10 chars (SUSO)** | Authorization object name stored in `TOBJ.OBJCT CHAR(10)` — notably shorter than other types |
+| 30 chars (PINF) | Package interface name stored in `SCOMPARAMET.INTF_NAME CHAR(30)` |
 
 ---
 

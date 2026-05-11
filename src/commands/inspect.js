@@ -429,6 +429,20 @@ Examples:
 
     let filesSyntaxCheck = [...new Set(args[filesArgIndex + 1].split(',').map(f => f.trim()))];
 
+    // Skip XML-only object types that have no ABAP source to inspect
+    const XML_ONLY_EXTENSIONS = [
+      '.pinf.xml', '.suso.xml', '.msag.xml', '.doma.xml',
+      '.dtel.xml', '.ttyp.xml', '.tabl.xml',
+    ];
+    const beforeXmlOnly = filesSyntaxCheck.length;
+    filesSyntaxCheck = filesSyntaxCheck.filter(f => {
+      const lower = pathModule.basename(f).toLowerCase();
+      return !XML_ONLY_EXTENSIONS.some(ext => lower.endsWith(ext));
+    });
+    if (beforeXmlOnly > filesSyntaxCheck.length && !args.includes('--json')) {
+      console.log(`  Skipped ${beforeXmlOnly - filesSyntaxCheck.length} XML-only file(s) (no source to inspect)`);
+    }
+
     // Parse optional --variant parameter; fall back to project config
     const variantArgIndex = args.indexOf('--variant');
     const variantArg = variantArgIndex !== -1 ? args[variantArgIndex + 1] : null;

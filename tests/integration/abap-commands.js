@@ -539,6 +539,20 @@ const commandTestCases = [
       return hasName && hasField;
     }
   },
+  {
+    command: 'view',
+    name: 'view package interface (PINF) shows name, description, and members',
+    // AUD_AUDIT_IIF is a real system PINF in a transportable package.
+    args: ['--objects', 'AUD_AUDIT_IIF', '--type', 'PINF'],
+    expectSuccess: true,
+    verify: (output) => {
+      const hasHeader  = output.includes('PACKAGE INTERFACE AUD_AUDIT_IIF:');
+      const hasDesc    = output.includes('Internal interface for AUD_AUDIT');
+      const hasPackage = output.includes('Package: AUD_AUDIT');
+      const hasMembers = output.includes('Members (') && /\b(CLAS|INTF|STRU|TABL|TTYP|DTEL|SUSO|VIEW)\b/.test(output);
+      return hasHeader && hasDesc && hasPackage && hasMembers;
+    }
+  },
 
   // ===================================================================
   // WHERE COMMAND - 3 tests

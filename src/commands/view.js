@@ -593,6 +593,50 @@ Examples:
                 console.log(`   ${desc}`);
               }
             }
+          } else if (objType === 'PINF' || objType === 'Package Interface') {
+            // PINF: description box, then members grouped by type
+            const description = obj.DESCRIPTION || obj.description || '';
+            const devclass    = obj.DEVCLASS    || obj.devclass    || '';
+            const boxWidth = 50;
+            const boxTop = '  ┌' + '─'.repeat(boxWidth) + '┐';
+            const boxBot = '  └' + '─'.repeat(boxWidth) + '┘';
+            const boxRow = (text) => '  │ ' + String(text || '').substring(0, boxWidth - 2).padEnd(boxWidth - 2) + ' │';
+
+            console.log(`  PACKAGE INTERFACE ${objName}:`);
+            console.log(boxTop);
+            if (description) console.log(boxRow(description));
+            if (devclass)    console.log(boxRow(`Package: ${devclass}`));
+            console.log(boxBot);
+
+            // Parse components: DESCRIPTION = "ELEM_TYPE: ELEM_KEY"
+            const members = components.map(c => {
+              const desc = String(c.DESCRIPTION || c.description || '');
+              const colonIdx = desc.indexOf(': ');
+              return colonIdx !== -1
+                ? { type: desc.substring(0, colonIdx), key: desc.substring(colonIdx + 2) }
+                : { type: '?', key: desc };
+            });
+
+            if (members.length > 0) {
+              // Group by type, preserving order of first occurrence
+              const groups = [];
+              const seen = new Map();
+              for (const m of members) {
+                if (!seen.has(m.type)) { seen.set(m.type, []); groups.push(m.type); }
+                seen.get(m.type).push(m.key);
+              }
+              console.log('');
+              console.log(`  Members (${members.length}):`);
+              for (const type of groups) {
+                for (const key of seen.get(type)) {
+                  console.log(`    ${type.padEnd(6)}  ${key}`);
+                }
+              }
+            } else {
+              console.log('');
+              console.log('  (no members)');
+            }
+
           } else if (objType === 'SUSO' || objType === 'Authorization Object') {
             // SUSO: property box for object class + fields, then activities list
             const classComp = components.filter(c => String(c.FIELD || c.field || '').startsWith('OCLSS'));

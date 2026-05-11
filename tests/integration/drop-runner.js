@@ -19,6 +19,7 @@
  *     - src/zc_abgagt_drp.ddls.xml            DDLS ZC_ABGAGT_DRP
  *     - src/zc_abgagt_drp.dcls.xml            DCLS ZC_ABGAGT_DRP
  *     - src/zabgagt_drp_msag.msag.xml         MSAG ZABGAGT_DRP_MSAG
+ *     - src/zabgagt_ds.suso.xml               SUSO ZABGAGT_DS
  *     - src/zabgagt_drp_enho.enho.xml         ENHO ZABGAGT_DRP_ENHO
  *
  * Test sequence per object type:
@@ -34,7 +35,7 @@
  * DTEL is not tested with drop (unsupported — CBDA cannot re-activate after deletion).
  * DDLS depends on TABL, DCLS depends on DDLS — ordering is critical.
  * ENHO enhances ZCL_ABGAGT_DRP_TEST — tested after CLAS so the target class is always active.
- * Order: DOMA → TABL → TTYP → STRU → PROG → FUGR → MSAG → DDLS → DCLS → INTF → CLAS → ENHO
+ * Order: DOMA → TABL → TTYP → STRU → PROG → FUGR → MSAG → SUSO → DDLS → DCLS → INTF → CLAS → ENHO
  *
  * Run:
  *   node tests/run-all.js --drop
@@ -103,6 +104,13 @@ const TEST_OBJECTS = [
     file:   'src/zabgagt_drp_msag.msag.xml',
     type:   'MSAG',
     object: 'ZABGAGT_DRP_MSAG'
+  },
+  // SUSO — no dependencies (auth object names max 10 chars)
+  {
+    name:   'SUSO ZABGAGT_DS',
+    file:   'src/zabgagt_ds.suso.xml',
+    type:   'SUSO',
+    object: 'ZABGAGT_DS'
   },
   // DDLS depends on TABL (selects from ZABGAGT_DRP_TABL)
   {

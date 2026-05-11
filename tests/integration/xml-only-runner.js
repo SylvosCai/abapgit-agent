@@ -1,6 +1,6 @@
 /**
  * XML-Only Object Pull Integration Test Runner
- * Tests that TABL, DTEL, TTYP, and SUSO objects can be selectively pulled via --files
+ * Tests that TABL, DTEL, TTYP, SUSO, and PINF objects can be selectively pulled via --files
  * using their .xml file paths (no .abap source file exists for these types).
  *
  * Test Repository: abgagt-pull-test (URL configured via testRepos.pull in .abapGitAgent)
@@ -9,6 +9,7 @@
  *     - src/zabgagt_xo_tabl.tabl.xml  (TABL — 15 chars, within DDIC limit)
  *     - src/zabgagt_xo_ttyp.ttyp.xml  (TTYP — 15 chars, within DDIC limit)
  *     - src/zabgagt_xo.suso.xml       (SUSO — 10 chars, XUOBJECT field limit)
+ *     - src/zabgagt_xo_pinf.pinf.xml  (PINF — 15 chars, package interface)
  *
  * Note: SUSO (authorization object) names are limited to 10 chars (XUOBJECT type).
  *
@@ -37,6 +38,9 @@
  *
  *   Step 7:  pull --files src/zabgagt_xo.suso.xml  (SUSO — authorization object)
  *            verify: SUSO ZABGAGT_XO activated
+ *
+ *   Step 8:  pull --files src/zabgagt_xo_pinf.pinf.xml  (PINF — package interface)
+ *            verify: PINF ZABGAGT_XO_PINF activated
  */
 
 const { execSync } = require('child_process');
@@ -50,11 +54,13 @@ const FILE_TABL = 'src/zabgagt_xo_tabl.tabl.xml';
 const FILE_DTEL = 'src/zabgagt_xo_dtel.dtel.xml';
 const FILE_TTYP = 'src/zabgagt_xo_ttyp.ttyp.xml';
 const FILE_SUSO = 'src/zabgagt_xo.suso.xml';
+const FILE_PINF = 'src/zabgagt_xo_pinf.pinf.xml';
 
 const OBJ_TABL = 'ZABGAGT_XO_TABL';
 const OBJ_DTEL = 'ZABGAGT_XO_DTEL';
 const OBJ_TTYP = 'ZABGAGT_XO_TTYP';
 const OBJ_SUSO = 'ZABGAGT_XO';
+const OBJ_PINF = 'ZABGAGT_XO_PINF';
 
 /**
  * Run a pull command against the test repo using --url.
@@ -85,14 +91,14 @@ function runPull(repoRoot, files, extraArgs = []) {
  * @param {Object} printFunctions
  */
 function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, printError, colorize }) {
-  printSubHeader('Running XML-Only Object Pull Tests (TABL, DTEL, TTYP, SUSO)');
+  printSubHeader('Running XML-Only Object Pull Tests (TABL, DTEL, TTYP, SUSO, PINF)');
 
   const startTime = Date.now();
   const results   = [];
 
   printInfo(`Test repo:   ${TEST_REPO_URL}`);
   printInfo(`Branch:      ${TEST_BRANCH}`);
-  printInfo(`Objects:     ${OBJ_TABL} (TABL), ${OBJ_DTEL} (DTEL), ${OBJ_TTYP} (TTYP), ${OBJ_SUSO} (SUSO)`);
+  printInfo(`Objects:     ${OBJ_TABL} (TABL), ${OBJ_DTEL} (DTEL), ${OBJ_TTYP} (TTYP), ${OBJ_SUSO} (SUSO), ${OBJ_PINF} (PINF)`);
   printInfo('');
 
   const addResult = (name, passed, hint = '') => {
@@ -113,7 +119,7 @@ function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     } else {
       printError('✗ baseline reset failed — cannot continue');
       printError(`  ${output.split('\n').find(l => l.includes('Error') || l.includes('failed')) || output.split('\n')[0]}`);
-      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 10 };
+      return { success: false, results, duration: '0.0', passedCount: 0, totalCount: 19 };
     }
   }
   printInfo('');
@@ -239,6 +245,21 @@ function runXmlOnlyTests(repoRoot, { printSubHeader, printInfo, printSuccess, pr
     addResult('[SUSO] ZABGAGT_XO processed by abapGit',
       output.includes(`SUSO ${OBJ_SUSO}`) || output.includes('object already active'),
       `"SUSO ${OBJ_SUSO}" not in pull log and no "already active" message`);
+  }
+  printInfo('');
+
+  // ─── Step 8: pull PINF (package interface) ───────────────────────────────────
+  printInfo(colorize('cyan', `Step 8: pull --files ${FILE_PINF}  (PINF — package interface)`));
+  {
+    const { output, exitCode } = runPull(repoRoot, FILE_PINF, ['--conflict-mode', 'ignore']);
+
+    addResult('[PINF] pull succeeds',
+      exitCode === 0 && output.includes('Pull completed'),
+      `exitCode=${exitCode}\n  ${output.split('\n').find(l => l.includes('Error')) || ''}`);
+
+    addResult('[PINF] ZABGAGT_XO_PINF activated',
+      output.includes(`PINF ${OBJ_PINF}`) || output.includes('object already active'),
+      `"PINF ${OBJ_PINF}" not in pull log and no "already active" message`);
   }
   printInfo('');
 
