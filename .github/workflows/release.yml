@@ -55,8 +55,11 @@ jobs:
       - name: Publish to npm
         if: steps.check_version.outputs.VERSION_EXISTS != 'true'
         run: |
-          # Remove the _authToken line setup-node wrote so npm uses OIDC instead
-          sed -i '/^\/\/registry.npmjs.org\/:_authToken/d' "${NPM_CONFIG_USERCONFIG}"
+          echo "=== .npmrc contents before fix ==="
+          cat "${NPM_CONFIG_USERCONFIG}"
+          sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG}"
+          echo "=== .npmrc contents after fix ==="
+          cat "${NPM_CONFIG_USERCONFIG}"
           echo "Publishing to npm..."
           npm publish --provenance
 
