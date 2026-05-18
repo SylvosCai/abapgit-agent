@@ -2,6 +2,28 @@
 title: Release Notes
 ---
 
+## v1.19.3
+
+### New Features
+
+- `inspect --doc` now shows full long text with suppression pseudo-comments
+
+### Bug Fixes
+
+- Fix language selection in ITF includes (prefer sy-langu → English → any)
+- Fix `unit` command missing SETUP/TEARDOWN failure reports
+- Fix spurious BRANCH_SWITCH conflicts caused by DEVC (package) files
+
+### Improvements
+
+- `inspect --doc` uses DOKIL over KTD when both sources have content
+- Better error capture for unexpected ABAP runtime abortions during pull
+
+---
+
+---
+
+
 ## v1.19.2
 
 ### New Features
