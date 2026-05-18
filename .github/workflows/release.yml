@@ -54,11 +54,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.check_version.outputs.VERSION_EXISTS != 'true'
-        run: |
-          sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG}"
-          unset NODE_AUTH_TOKEN
-          echo "Publishing to npm..."
-          npm publish --provenance
+        run: npm publish
 
       - name: Prepare release notes
         id: release_notes
