@@ -22,6 +22,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
       - name: Install dependencies
@@ -55,7 +56,9 @@ jobs:
         if: steps.check_version.outputs.VERSION_EXISTS != 'true'
         run: |
           echo "Publishing to npm..."
-          npm publish --provenance --registry https://registry.npmjs.org
+          npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ""
 
       - name: Prepare release notes
         id: release_notes
