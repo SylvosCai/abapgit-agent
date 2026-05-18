@@ -22,7 +22,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
       - name: Install dependencies
@@ -42,7 +41,7 @@ jobs:
           VERSION_NO_V="${{ steps.get_tag.outputs.VERSION }}"
           VERSION_NO_V="${VERSION_NO_V#v}"
           echo "Checking if version $VERSION_NO_V exists in npm..."
-          NPM_VERSION=$(npm view . version 2>/dev/null || echo "")
+          NPM_VERSION=$(npm view . version --registry https://registry.npmjs.org 2>/dev/null || echo "")
           echo "Latest npm version: $NPM_VERSION"
           if echo "$NPM_VERSION" | grep -q "^$VERSION_NO_V$"; then
             echo "VERSION_EXISTS=true" >> $GITHUB_OUTPUT
@@ -54,7 +53,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.check_version.outputs.VERSION_EXISTS != 'true'
-        run: npm publish
+        run: npm publish --registry https://registry.npmjs.org
 
       - name: Prepare release notes
         id: release_notes
