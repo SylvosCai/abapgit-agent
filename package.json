@@ -13,6 +13,10 @@
     ".abapGitAgent.example",
     ".abapgit-agent.example.json"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SylvosCai/abapgit-agent.git"
+  },
   "bin": {
     "abapgit-agent": "bin/abapgit-agent",
     "abgagt": "bin/abgagt"
