@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -54,9 +55,7 @@ jobs:
         if: steps.check_version.outputs.VERSION_EXISTS != 'true'
         run: |
           echo "Publishing to npm..."
-          npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --provenance
 
       - name: Prepare release notes
         id: release_notes
