@@ -181,6 +181,21 @@ The exception ... is not caught or declared in the RAISING clause.
 Correct this by handling the exception or adding it to the RAISING clause.
 ```
 
+For checks with a suppression pseudo-comment, the full long text is shown:
+
+```bash
+abapgit-agent inspect --doc CL_CI_TEST_ITAB_PERFORMANCE/MESSAGEGM1
+```
+
+```
+CL_CI_TEST_ITAB_PERFORMANCE/MESSAGEGM1
+───────────────────────────────────────
+
+Sequential Searches in Internal Tables
+...
+Message can be suppressed with pseudo comment "#EC CI_SORTSEQ
+```
+
 ### With Errors
 
 ```
@@ -245,7 +260,7 @@ Correct this by handling the exception or adding it to the RAISING clause.
 4. **Separate warnings and info** - Warnings ('W') and Information ('I') are displayed in separate sections
 5. **Sorted results** - Errors, warnings, and info are sorted by method name and line number ascending
 6. **Check ID and hint per finding** - When `check_code` is available, each finding shows `[check_class/check_code]` and a `→ abapgit-agent inspect --doc` hint
-7. **`--doc` mode** - Fetches plain-text SAP documentation for a check finding from the ABAP backend (`/sap/bc/z_abapgit_agent/insp_doc`). The backend resolves the DOKIL key in priority order: (1) `CA` per-message key (`MCODE_<code>` for numeric codes, direct for alphabetic), (2) `CA` alternate-form key, (3) `CA` class-level `0000` fallback, (4) `HY`/`CHAPBC_SLIN<code>` for `CL_CI_TEST_EXTENDED_CHECK` numeric codes. All candidates are fetched in one `FOR ALL ENTRIES` query. Documentation is read via `DOCU_GET_FOR_F1HELP` and ITF includes are resolved and inlined before returning plain text.
+7. **`--doc` mode** - Fetches plain-text SAP documentation for a check finding from the ABAP backend (`/sap/bc/z_abapgit_agent/insp_doc`). Two sources are consulted: (1) **KTD** (`cl_satc_ac_ui_ktd_docu`) for the short message text, (2) **DOKIL/DOCU_GET_FOR_F1HELP** for the full long text including suppression pseudo-comments (e.g. `"#EC CI_SORTSEQ`). DOKIL wins when it has content — it carries the complete documentation. The backend resolves the DOKIL key in priority order: `CA` per-message key (`MCODE_<code>` for numeric codes, direct for alphabetic), `CA` alternate-form key, `CA` class-level `0000` fallback, `HY`/`CHAPBC_SLIN<code>` for `CL_CI_TEST_EXTENDED_CHECK` numeric codes. All candidates are fetched in one `FOR ALL ENTRIES` query. ITF includes are resolved and inlined before returning plain text.
 
 ---
 

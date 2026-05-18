@@ -34,7 +34,14 @@ abapgit-agent guide
 ```bash
 npm test                          # Unit tests (Jest, no ABAP needed)
 abapgit-agent <command>           # Manual test
-npm run test:integration          # Integration tests (requires .abapGitAgent)
+
+# Integration tests (require .abapGitAgent)
+npm run test:setup                # One-time: clone test repos + activate ABAP objects
+npm run test:all                  # Full suite
+npm run test:cmd                  # CLI command tests only
+npm run test:drop                 # drop command tests only
+npm run test:customize            # customize command tests only
+npm run test:aunit                # ABAP unit tests only
 ```
 
 See [docs/integration-tests.md](docs/integration-tests.md) for the full integration test guide.

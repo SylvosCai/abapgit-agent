@@ -7,8 +7,10 @@
     <LANGU>E</LANGU>
     <DESCRIPT>Inspect Doc Command - fetch SCI check documentation</DESCRIPT>
     <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

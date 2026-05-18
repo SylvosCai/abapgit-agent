@@ -240,9 +240,11 @@ function runFullLifecycleTests(repoRoot, { printSubHeader, printInfo, printSucce
     }
 
     // Step 14: Run abapgit-agent pull
+    // Use --conflict-mode ignore: the import step already activated objects, so the
+    // ABAP serializer may have updated XML checksums (SYSTEM_EDIT activation noise).
     printInfo('Running pull to activate objects...');
     try {
-      output = runCli('pull');
+      output = runCli('pull', ['--conflict-mode', 'ignore']);
       const pullPassed = output.includes('Pull completed') || output.includes('Activated');
       addResult('pull activates objects', pullPassed, output);
     } catch (e) {

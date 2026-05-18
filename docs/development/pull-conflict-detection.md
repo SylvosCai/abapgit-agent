@@ -87,6 +87,8 @@ After every successful pull, a baseline is written to this transparent table:
 | `obj_type` (key) | `tadir-object` | Object type (CLAS, INTF, …) |
 | `obj_name` (key) | `tadir-obj_name` | Object name |
 | `devclass` | `devclass` | Package (refreshed from TADIR on every pull — handles package moves) |
+
+> **DEVC objects excluded** — `package.devc.xml` always parses to `obj_type=DEVC, obj_name=PACKAGE` regardless of which repository it belongs to. Storing it would cause spurious BRANCH_SWITCH conflicts when different users pull different repositories on a shared system. Package description text has no code worth protecting, so DEVC is skipped entirely.
 | `last_git_sha` | `string(40)` | SHA of the pulled file content |
 | `last_branch` | `string(255)` | Branch that was pulled |
 | `last_pulled_at` | `timestampl` | When the pull happened |
@@ -236,3 +238,4 @@ CLI --conflict-mode flag  >  .abapgit-agent.json conflictDetection.mode  >  "abo
 6. **DEVCLASS auto-refreshed** — `devclass` is read from TADIR on every pull; package moves are handled automatically
 7. **Idempotent pulls are safe** — if the system already has the incoming content (`local_sha = current_sha`), all conflict checks are skipped. This handles "edit in ADT → export to git → commit → pull" without false positives.
 8. **BRANCH_SWITCH is user-aware** — only fires when a *different* user last pulled from another branch (unexpected shared-system state). Same user switching branches intentionally always passes through.
+9. **DEVC objects are never tracked** — `package.devc.xml` is skipped in both conflict detection and metadata storage to prevent cross-repo false positives on shared systems.

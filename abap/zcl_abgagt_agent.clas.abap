@@ -247,13 +247,14 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
             ELSE.
               RAISE EXCEPTION lx_deser.
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_root INTO DATA(lx_cx_root).
             " CX_SY_NO_HANDLER (wrapping CX_SY_RANGE_OUT_OF_BOUNDS) can escape
             " abapGit's deserialize_step when an individual object's deserialize()
             " raises a non-zcx_abapgit_exception inside a RAISING zcx_abapgit_exception
             " method boundary. Proceed to build_pull_result so the pull returns
             " "Pull completed" rather than failing with an unhandled exception.
             " (Objects processed before the crash are activated; skipped ones are not.)
+            rs_result-message = lx_cx_root->get_text( ).
         ENDTRY.
 
         " Populate mt_remote_files after deserialize — abapGit's internal remote
@@ -270,7 +271,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
                 mt_remote_files = mo_repo->get_files_remote( ).
               ENDIF.
             CATCH zcx_abapgit_exception cx_root.
-              " Still unavailable — XML sync will be skipped
+              CLEAR mt_remote_files. " Unavailable — XML sync will be skipped
           ENDTRY.
         ENDIF.
 
@@ -846,6 +847,12 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+      " DEVC (package.devc.xml) always parses to obj_name='PACKAGE' regardless of repo,
+      " so ZABGAGT_OBJ_META cannot distinguish which repo wrote it — skip entirely.
+      IF lv_obj_type = 'DEVC'.
+        CONTINUE.
+      ENDIF.
+
       " Convert xstring content to string (UTF-8)
       TRY.
           DATA(lv_content) = cl_abap_codepage=>convert_from(
@@ -1074,7 +1081,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           iv_object   = iv_object
           iv_obj_name = iv_obj_name ).
       CATCH cx_root.
-        " Ignore — object may already be gone from TADIR
+        RETURN. " Object already gone from TADIR — ignore
     ENDTRY.
   ENDMETHOD.
 

@@ -17,24 +17,41 @@ CLASS zcl_abgagt_command_inspect_doc DEFINITION PUBLIC FINAL CREATE PUBLIC.
              text  TYPE string,
            END OF ty_inspect_doc_result.
 
-  PRIVATE SECTION.
+    METHODS constructor
+      IMPORTING io_db TYPE REF TO zif_abgagt_docu_db OPTIONAL.
+
     TYPES: BEGIN OF ty_inc_doc,
              obj   TYPE doku_obj,
              lines TYPE tlinetab,
            END OF ty_inc_doc.
     TYPES ty_inc_doc_tab TYPE STANDARD TABLE OF ty_inc_doc WITH DEFAULT KEY.
 
-    CLASS-METHODS find_docu_key
+    CLASS-METHODS itf_lines_to_text
+      IMPORTING it_lines   TYPE tlinetab
+                it_inc_doc TYPE ty_inc_doc_tab
+      RETURNING VALUE(rv_text) TYPE string.
+
+  PRIVATE SECTION.
+    DATA mo_db TYPE REF TO zif_abgagt_docu_db.
+
+    METHODS find_docu_key
       IMPORTING iv_class  TYPE string
                 iv_code   TYPE string
       EXPORTING ev_id     TYPE doku_id
                 ev_object TYPE doku_obj
                 ev_langu  TYPE sylangu.
 
-    CLASS-METHODS itf_lines_to_text
-      IMPORTING it_lines   TYPE tlinetab
-                it_inc_doc TYPE ty_inc_doc_tab
-      RETURNING VALUE(rv_text) TYPE string.
+    METHODS fetch_inc_docs
+      IMPORTING it_lines       TYPE tlinetab
+                iv_parent_id   TYPE doku_id
+      RETURNING VALUE(rt_docs) TYPE ty_inc_doc_tab.
+
+    CLASS-METHODS pick_inc_langu
+      IMPORTING it_hits    TYPE zif_abgagt_docu_db=>ty_dokil_tab
+                iv_object  TYPE doku_obj
+                iv_pref_id TYPE doku_id
+      EXPORTING ev_id      TYPE doku_id
+                ev_langu   TYPE sylangu.
 
     CLASS-METHODS append_line
       IMPORTING iv_fmt     TYPE c
@@ -45,13 +62,22 @@ ENDCLASS.
 
 CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
 
+  METHOD constructor.
+    IF io_db IS BOUND.
+      mo_db = io_db.
+    ELSE.
+      mo_db = NEW lcl_docu_db( ).
+    ENDIF.
+  ENDMETHOD.
+
   METHOD zif_abgagt_command~get_name.
     rv_name = zif_abgagt_command=>gc_inspect_doc.
   ENDMETHOD.
 
   METHOD zif_abgagt_command~execute.
-    DATA: ls_params TYPE ty_inspect_doc_params,
-          ls_result TYPE ty_inspect_doc_result.
+    DATA: ls_params    TYPE ty_inspect_doc_params,
+          ls_result    TYPE ty_inspect_doc_result,
+          lv_ktd_found TYPE abap_bool.
 
     IF is_param IS SUPPLIED.
       ls_params = CORRESPONDING #( is_param ).
@@ -65,14 +91,15 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
     ENDIF.
 
     TRY.
-        " Try KTD documentation first (newer SAP systems)
+        " Try KTD documentation first (newer SAP systems).
+        " Store as a candidate but always continue to DOKIL — KTD per-message elements
+        " contain only the short message text; DOKIL has the full long text including
+        " the suppression pseudo-comment (e.g. "#EC CI_SORTSEQ).
         DATA lv_ktd_class TYPE sci_chk.
         DATA lv_ktd_code  TYPE satc_ci_message_code.
         lv_ktd_class = ls_params-check_class.
         lv_ktd_code  = ls_params-check_code.
-        DATA(lv_html) = cl_satc_ac_ui_ktd_docu=>get_ktd_docu_for_gui_if_exist(
-          check_class_name = lv_ktd_class
-          message_code     = lv_ktd_code ).
+        DATA(lv_html) = mo_db->get_ktd_html( iv_class = lv_ktd_class iv_code = lv_ktd_code ).
 
         IF lv_html IS NOT INITIAL.
           ls_result-title = ls_params-check_class && '/' && ls_params-check_code.
@@ -87,15 +114,14 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
           ENDIF.
           REPLACE ALL OCCURRENCES OF PCRE '<[^>]+>' IN lv_text WITH ''.
           ls_result-text = lv_text.
-          rv_result = /ui2/cl_json=>serialize( data = ls_result ).
-          RETURN.
+          lv_ktd_found = abap_true.
         ENDIF.
 
-        " Fall back: call DOCU_GET_FOR_F1HELP directly
+        " Always try DOKIL — it carries the full long text including suppression hints
         DATA: lv_docu_id     TYPE doku_id,
               lv_docu_object TYPE doku_obj,
               lv_langu       TYPE sylangu,
-              lv_header      TYPE thead,
+              lv_header      TYPE tdline,
               lt_lines       TYPE tlinetab.
 
         find_docu_key(
@@ -106,20 +132,15 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
                     ev_langu  = lv_langu ).
 
         IF lv_docu_object IS NOT INITIAL.
-          CALL FUNCTION 'DOCU_GET_FOR_F1HELP'
-            EXPORTING
-              id     = lv_docu_id
-              langu  = lv_langu
-              object = lv_docu_object
-            IMPORTING
-              head   = lv_header
-            TABLES
-              line   = lt_lines
-            EXCEPTIONS
-              OTHERS = 0.
+          mo_db->get_docu(
+            EXPORTING iv_id     = lv_docu_id
+                      iv_object = lv_docu_object
+                      iv_langu  = lv_langu
+            IMPORTING ev_title  = lv_header
+            CHANGING  ct_lines  = lt_lines ).
         ENDIF.
 
-        IF lt_lines IS INITIAL AND condense( CONV string( ls_params-check_code ) ) <> '0000'.
+        IF lt_lines IS INITIAL AND condense( ls_params-check_code ) <> '0000'.
           " No per-message doc — fall back to class-level overview (0000)
           find_docu_key(
             EXPORTING iv_class  = ls_params-check_class
@@ -128,105 +149,28 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
                       ev_object = lv_docu_object
                       ev_langu  = lv_langu ).
           IF lv_docu_object IS NOT INITIAL.
-            CALL FUNCTION 'DOCU_GET_FOR_F1HELP'
-              EXPORTING
-                id     = lv_docu_id
-                langu  = lv_langu
-                object = lv_docu_object
-              IMPORTING
-                head   = lv_header
-              TABLES
-                line   = lt_lines
-              EXCEPTIONS
-                OTHERS = 0.
+            mo_db->get_docu(
+              EXPORTING iv_id     = lv_docu_id
+                        iv_object = lv_docu_object
+                        iv_langu  = lv_langu
+              IMPORTING ev_title  = lv_header
+              CHANGING  ct_lines  = lt_lines ).
           ENDIF.
         ENDIF.
 
         IF lt_lines IS NOT INITIAL.
-          ls_result-title = lv_header-tdtitle.
+          ls_result-title = lv_header.
           IF ls_result-title IS INITIAL.
             ls_result-title = ls_params-check_class && '/' && ls_params-check_code.
           ENDIF.
 
           " Pre-fetch any ITF include documents
-          DATA lt_inc_doc TYPE ty_inc_doc_tab.
-          DATA lt_inc_objs TYPE STANDARD TABLE OF doku_obj WITH DEFAULT KEY.
-          LOOP AT lt_lines INTO DATA(ls_line)
-              WHERE tdformat = 'I'
-                 OR tdline(8) = 'INCLUDE '.
-            SPLIT ls_line-tdline AT ' ' INTO TABLE DATA(lt_parts).
-            DATA(lv_inc_obj) = VALUE doku_obj( ).
-            LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
-              IF lv_part <> 'INCLUDE' AND lv_part <> 'OBJECT' AND lv_part <> 'DOKU'
-                  AND lv_part <> 'ID' AND lv_inc_obj IS INITIAL.
-                lv_inc_obj = lv_part.
-              ENDIF.
-            ENDLOOP.
-            IF lv_inc_obj IS NOT INITIAL.
-              APPEND lv_inc_obj TO lt_inc_objs.
-            ENDIF.
-          ENDLOOP.
-          SORT lt_inc_objs. DELETE ADJACENT DUPLICATES FROM lt_inc_objs.
-
-          " Batch-select languages for all include objects (try both same id and 'E' fallback)
-          DATA lt_inc_langus TYPE SORTED TABLE OF dokil WITH NON-UNIQUE KEY object.
-          IF lt_inc_objs IS NOT INITIAL.
-            SELECT id, object, langu FROM dokil "#EC CI_GENBUFF
-              INTO TABLE @lt_inc_langus
-              FOR ALL ENTRIES IN @lt_inc_objs
-              WHERE object = @lt_inc_objs-table_line AND typ = 'E'.
-          ENDIF.
-
-          " Fetch each include document
-          LOOP AT lt_inc_objs INTO DATA(lv_fetch_obj).
-            DATA: lv_inc_head  TYPE thead.
-            DATA lt_inc_lines TYPE tlinetab.
-            " Prefer same id as parent; then logon language, English, any
-            DATA lv_inc_langu TYPE sylangu.
-            DATA lv_inc_id    TYPE doku_id.
-            LOOP AT lt_inc_langus INTO DATA(ls_il_row)
-              WHERE object = lv_fetch_obj AND id = lv_docu_id.
-              IF ls_il_row-langu = sy-langu.
-                lv_inc_langu = ls_il_row-langu.
-                lv_inc_id    = ls_il_row-id.
-                EXIT.
-              ELSEIF ls_il_row-langu = 'E' AND lv_inc_langu IS INITIAL.
-                lv_inc_langu = ls_il_row-langu.
-                lv_inc_id    = ls_il_row-id.
-              ELSEIF lv_inc_langu IS INITIAL.
-                lv_inc_langu = ls_il_row-langu.
-                lv_inc_id    = ls_il_row-id.
-              ENDIF.
-            ENDLOOP.
-            IF lv_inc_langu IS INITIAL.
-              " Try any id
-              LOOP AT lt_inc_langus INTO ls_il_row WHERE object = lv_fetch_obj.
-                lv_inc_langu = ls_il_row-langu.
-                lv_inc_id    = ls_il_row-id.
-                EXIT.
-              ENDLOOP.
-            ENDIF.
-            IF lv_inc_id IS INITIAL.
-              lv_inc_id = lv_docu_id.
-            ENDIF.
-            IF lv_inc_langu IS NOT INITIAL.
-              CALL FUNCTION 'DOCU_GET_FOR_F1HELP'
-                EXPORTING
-                  id     = lv_inc_id
-                  langu  = lv_inc_langu
-                  object = lv_fetch_obj
-                IMPORTING
-                  head   = lv_inc_head
-                TABLES
-                  line   = lt_inc_lines
-                EXCEPTIONS
-                  OTHERS = 0.
-            ENDIF.
-            APPEND VALUE ty_inc_doc( obj = lv_fetch_obj lines = lt_inc_lines ) TO lt_inc_doc.
-          ENDLOOP.
+          DATA(lt_inc_doc) = fetch_inc_docs(
+            it_lines     = lt_lines
+            iv_parent_id = lv_docu_id ).
 
           ls_result-text = itf_lines_to_text( it_lines = lt_lines it_inc_doc = lt_inc_doc ).
-        ELSE.
+        ELSEIF lv_ktd_found = abap_false.
           ls_result-title = 'No documentation'.
           ls_result-text  = |No documentation available for { ls_params-check_class }/{ ls_params-check_code }|.
         ENDIF.
@@ -240,12 +184,6 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD find_docu_key.
-    TYPES: BEGIN OF ty_candidate,
-             id     TYPE doku_id,
-             object TYPE doku_obj,
-             prio   TYPE i,
-           END OF ty_candidate.
-
     DATA: lv_class_part TYPE sci_chk,
           lv_attr_part  TYPE c LENGTH 30,
           lv_attr2      TYPE c LENGTH 30,
@@ -257,37 +195,32 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
     " Build primary attr: code starting with letter → classic; else → MCODE_ prefix
     IF lv_code(1) CA 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
       lv_attr_part = lv_code.
-      DATA(lv_sanitized) = condense( CONV string( lv_code ) ).
+      DATA(lv_sanitized) = condense( lv_code ).
       REPLACE ALL OCCURRENCES OF PCRE '[^[:alnum:]]' IN lv_sanitized WITH '_'.
       lv_attr2 = |MCODE_{ lv_sanitized }|.
     ELSE.
-      DATA(lv_num) = condense( CONV string( lv_code ) ).
+      DATA(lv_num) = condense( lv_code ).
       REPLACE ALL OCCURRENCES OF PCRE '[^[:alnum:]]' IN lv_num WITH '_'.
       lv_attr_part = |MCODE_{ lv_num }|.
       lv_attr2 = lv_code.
     ENDIF.
 
     " Build all candidate (id, object) keys at once
-    DATA lt_cands TYPE STANDARD TABLE OF ty_candidate WITH DEFAULT KEY.
+    DATA lt_cands TYPE zif_abgagt_docu_db=>ty_cand_tab.
     lv_obj = lv_class_part. lv_obj+30 = lv_attr_part.
-    APPEND VALUE #( id = 'CA' object = lv_obj prio = 1 ) TO lt_cands.
+    APPEND VALUE #( id = 'CA' object = lv_obj ) TO lt_cands.
     lv_obj = lv_class_part. lv_obj+30 = lv_attr2.
-    APPEND VALUE #( id = 'CA' object = lv_obj prio = 2 ) TO lt_cands.
+    APPEND VALUE #( id = 'CA' object = lv_obj ) TO lt_cands.
     " 0000 is the class-level overview doc, only looked up when explicitly requested
-    IF condense( CONV string( lv_code ) ) = '0000'.
+    IF condense( lv_code ) = '0000'.
       lv_obj = lv_class_part. lv_obj+30 = '0000'.
-      APPEND VALUE #( id = 'CA' object = lv_obj prio = 3 ) TO lt_cands.
+      APPEND VALUE #( id = 'CA' object = lv_obj ) TO lt_cands.
     ENDIF.
     " HY fallback: CL_CI_TEST_EXTENDED_CHECK stores numeric codes under id='HY'
     lv_obj = |CHAPBC_SLIN{ lv_code }|.
-    APPEND VALUE #( id = 'HY' object = lv_obj prio = 4 ) TO lt_cands.
+    APPEND VALUE #( id = 'HY' object = lv_obj ) TO lt_cands.
 
-    " One SELECT to fetch all matches, prefer logon language then 'E' then any
-    DATA lt_hits TYPE SORTED TABLE OF dokil WITH NON-UNIQUE KEY object id.
-    SELECT id, object, langu FROM dokil "#EC CI_GENBUFF
-      INTO TABLE @lt_hits
-      FOR ALL ENTRIES IN @lt_cands
-      WHERE id = @lt_cands-id AND object = @lt_cands-object AND typ = 'E'.
+    DATA(lt_hits) = mo_db->get_dokil_for_candidates( lt_cands ).
 
     LOOP AT lt_cands INTO DATA(ls_cand).
       " Prefer sy-langu, then 'E', then any
@@ -349,6 +282,79 @@ CLASS zcl_abgagt_command_inspect_doc IMPLEMENTATION.
         append_line( EXPORTING iv_fmt = ls_ln-tdformat iv_line = ls_ln-tdline
                      CHANGING  cv_text = rv_text ).
       ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD pick_inc_langu.
+    " Prefer iv_pref_id + sy-langu, then iv_pref_id + 'E', then iv_pref_id + any,
+    " then any id in same priority
+    LOOP AT it_hits INTO DATA(ls_row)
+        WHERE object = iv_object AND id = iv_pref_id.
+      IF ls_row-langu = sy-langu.
+        ev_langu = ls_row-langu. ev_id = ls_row-id. RETURN.
+      ELSEIF ls_row-langu = 'E' AND ev_langu IS INITIAL.
+        ev_langu = ls_row-langu. ev_id = ls_row-id.
+      ELSEIF ev_langu IS INITIAL.
+        ev_langu = ls_row-langu. ev_id = ls_row-id.
+      ENDIF.
+    ENDLOOP.
+    IF ev_langu IS NOT INITIAL. RETURN. ENDIF.
+    LOOP AT it_hits INTO ls_row WHERE object = iv_object.
+      IF ls_row-langu = sy-langu.
+        ev_langu = ls_row-langu. ev_id = ls_row-id. RETURN.
+      ELSEIF ls_row-langu = 'E' AND ev_langu IS INITIAL.
+        ev_langu = ls_row-langu. ev_id = ls_row-id.
+      ELSEIF ev_langu IS INITIAL.
+        ev_langu = ls_row-langu. ev_id = ls_row-id.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD fetch_inc_docs.
+    " Collect unique include object names from ITF include lines
+    DATA lt_inc_objs TYPE STANDARD TABLE OF doku_obj WITH DEFAULT KEY.
+    LOOP AT it_lines INTO DATA(ls_line)
+        WHERE tdformat = 'I'
+           OR tdline(8) = 'INCLUDE '.
+      SPLIT ls_line-tdline AT ' ' INTO TABLE DATA(lt_parts).
+      DATA(lv_inc_obj) = VALUE doku_obj( ).
+      LOOP AT lt_parts INTO DATA(lv_part) WHERE table_line IS NOT INITIAL.
+        IF lv_part <> 'INCLUDE' AND lv_part <> 'OBJECT' AND lv_part <> 'DOKU'
+            AND lv_part <> 'ID' AND lv_inc_obj IS INITIAL.
+          lv_inc_obj = lv_part.
+        ENDIF.
+      ENDLOOP.
+      IF lv_inc_obj IS NOT INITIAL.
+        APPEND lv_inc_obj TO lt_inc_objs.
+      ENDIF.
+    ENDLOOP.
+    SORT lt_inc_objs. DELETE ADJACENT DUPLICATES FROM lt_inc_objs.
+
+    DATA(lt_inc_langus) = mo_db->get_dokil_for_includes( it_objects = lt_inc_objs ).
+
+    LOOP AT lt_inc_objs INTO DATA(lv_fetch_obj).
+      DATA: lv_inc_title TYPE tdline,
+            lv_inc_id    TYPE doku_id,
+            lv_inc_langu TYPE sylangu.
+      DATA lt_inc_lines TYPE tlinetab.
+      pick_inc_langu(
+        EXPORTING it_hits    = lt_inc_langus
+                  iv_object  = lv_fetch_obj
+                  iv_pref_id = iv_parent_id
+        IMPORTING ev_id      = lv_inc_id
+                  ev_langu   = lv_inc_langu ).
+      IF lv_inc_id IS INITIAL.
+        lv_inc_id = iv_parent_id.
+      ENDIF.
+      IF lv_inc_langu IS NOT INITIAL.
+        mo_db->get_docu(
+          EXPORTING iv_id     = lv_inc_id
+                    iv_object = lv_fetch_obj
+                    iv_langu  = lv_inc_langu
+          IMPORTING ev_title  = lv_inc_title
+          CHANGING  ct_lines  = lt_inc_lines ).
+      ENDIF.
+      APPEND VALUE ty_inc_doc( obj = lv_fetch_obj lines = lt_inc_lines ) TO rt_docs.
     ENDLOOP.
   ENDMETHOD.
 

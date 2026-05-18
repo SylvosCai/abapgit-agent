@@ -55,6 +55,33 @@ function buildRunConfigXml(adtUri, coverage) {
  *     coverageStats: { totalLines, coveredLines, coverageRate } | null
  *   }
  */
+function extractAlert(block) {
+  const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
+  const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
+  const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
+  const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
+  const details = [];
+  const detailRe = /<detail\s[^>]*text="([^"]*)"/g;
+  let dm;
+  while ((dm = detailRe.exec(block)) !== null) {
+    const t = dm[1].trim();
+    if (t) details.push(t);
+  }
+  const stack = [];
+  const stackRe = /<stackEntry\s([^>]*\/?>)/g;
+  let sm;
+  while ((sm = stackRe.exec(block)) !== null) {
+    const entry = sm[1];
+    const snMatch = entry.match(/adtcore:name="([^"]*)"/);
+    const suMatch = entry.match(/adtcore:uri="([^"]*)"/);
+    if (snMatch) {
+      const lineMatch = suMatch && suMatch[1].match(/#start=(\d+)/);
+      stack.push({ name: snMatch[1], line: lineMatch ? parseInt(lineMatch[1], 10) : null });
+    }
+  }
+  return { kind, title, details, stack };
+}
+
 function parseRunResult(xml, className) {
   const methods = [];
 
@@ -65,6 +92,20 @@ function parseRunResult(xml, className) {
 
     const classNameMatch = classBlock.match(/adtcore:name="([^"]*)"/);
     const testClassName = classNameMatch ? classNameMatch[1] : className;
+
+    // Check for class-level alerts (e.g. SETUP/TEARDOWN failures) that appear before <testMethods>
+    const beforeMethods = classBlock.split(/<testMethods[\s>]/)[0];
+    const classAlertsMatch = beforeMethods.match(/<alerts>([\s\S]*?)<\/alerts>/);
+    if (classAlertsMatch && classAlertsMatch[1].trim()) {
+      const alert = extractAlert(beforeMethods);
+      // Determine synthetic method name from stack (look for SETUP/TEARDOWN in description)
+      let syntheticName = 'SETUP';
+      for (const s of alert.stack) {
+        const descMatch = s.name && s.name.match(/\(([^)]+)\)\s*$/);
+        if (descMatch) { syntheticName = descMatch[1].trim(); break; }
+      }
+      methods.push({ name: syntheticName, testClassName, passed: false, executionTime: 0, ...alert });
+    }
 
     // Split methods within this test class block
     const methodBlocks = classBlock.split(/<testMethod\s/);
@@ -87,40 +128,7 @@ function parseRunResult(xml, className) {
         continue;
       }
 
-      // Extract alert kind
-      const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
-      const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
-
-      // Extract title
-      const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
-      const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
-
-      // Extract all detail texts (may be multiple)
-      const details = [];
-      const detailRe = /<detail\s[^>]*text="([^"]*)"/g;
-      let dm;
-      while ((dm = detailRe.exec(block)) !== null) {
-        const t = dm[1].trim();
-        if (t) details.push(t);
-      }
-
-      // Extract stack entries: adtcore:name + adtcore:uri (contains #start=N for line)
-      const stack = [];
-      const stackRe = /<stackEntry\s([^>]*\/?>)/g;
-      let sm;
-      while ((sm = stackRe.exec(block)) !== null) {
-        const entry = sm[1];
-        const snMatch = entry.match(/adtcore:name="([^"]*)"/);
-        const suMatch = entry.match(/adtcore:uri="([^"]*)"/);
-        if (snMatch) {
-          const lineMatch = suMatch && suMatch[1].match(/#start=(\d+)/);
-          stack.push({
-            name: snMatch[1],
-            line: lineMatch ? parseInt(lineMatch[1], 10) : null,
-          });
-        }
-      }
-
+      const { kind, title, details, stack } = extractAlert(block);
       methods.push({ name, testClassName, passed: false, executionTime, kind, title, details, stack });
     }
   }

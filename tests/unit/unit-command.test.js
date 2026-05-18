@@ -145,6 +145,30 @@ const COVERAGE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </program>
 </aunit:runResult>`;
 
+const CLASS_ALERT_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit"
+                 xmlns:adtcore="http://www.sap.com/adt/core">
+  <program adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test" adtcore:name="ZCL_MY_TEST">
+    <testClasses>
+      <testClass adtcore:name="LTCL_MY_TEST">
+        <alerts>
+          <alert kind="runtimeAbortion" severity="fatal">
+            <title>Failed due to a runtime abortion</title>
+            <details>
+              <detail text="The ASSERT condition was violated."/>
+              <detail text="Runtime Error: ASSERTION_FAILED"/>
+            </details>
+            <stack>
+              <stackEntry adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test/includes/testclasses#start=83,0" adtcore:name="ZCL_MY_TEST" adtcore:description="Method ZCL_MY_TEST (SETUP)"/>
+            </stack>
+          </alert>
+        </alerts>
+        <testMethods/>
+      </testClass>
+    </testClasses>
+  </program>
+</aunit:runResult>`;
+
 const EMPTY_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit"
                  xmlns:adtcore="http://www.sap.com/adt/core">
@@ -221,6 +245,22 @@ describe('parseRunResult', () => {
   test('returns empty methods for no tests', () => {
     const r = _parseRunResult(EMPTY_XML, 'ZCL_MY_TEST');
     expect(r.methods).toHaveLength(0);
+  });
+
+  test('class-level alert (SETUP failure) produces a failed method entry', () => {
+    const r = _parseRunResult(CLASS_ALERT_XML, 'ZCL_MY_TEST');
+    expect(r.methods).toHaveLength(1);
+    const m = r.methods[0];
+    expect(m.passed).toBe(false);
+    expect(m.testClassName).toBe('LTCL_MY_TEST');
+    expect(m.kind).toBe('runtimeAbortion');
+    expect(m.title).toBe('Failed due to a runtime abortion');
+    expect(m.details).toContain('The ASSERT condition was violated.');
+  });
+
+  test('class-level alert uses SETUP as synthetic name from stack description', () => {
+    const r = _parseRunResult(CLASS_ALERT_XML, 'ZCL_MY_TEST');
+    expect(r.methods[0].name).toBe('SETUP');
   });
 });
 

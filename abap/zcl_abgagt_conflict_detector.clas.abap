@@ -20,6 +20,7 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
   " ---------------------------------------------------------------------------
   METHOD zif_abgagt_conflict_detector~check_conflicts.
     LOOP AT it_files INTO DATA(ls_file).
+      IF ls_file-obj_type = 'DEVC'. CONTINUE. ENDIF.
 
       " Load baseline from ZABGAGT_OBJ_META
       SELECT SINGLE last_git_sha, last_branch, last_pulled_at, last_pulled_by,
@@ -128,8 +129,6 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
     GET TIME STAMP FIELD lv_now.
 
     " Bulk-fetch DEVCLASS from TADIR for all files in one round-trip.
-    " DEVCLASS is not part of the primary key, so every MODIFY will naturally
-    " overwrite it with the current TADIR value (handles package moves).
     " PGMID = 'R3TR' is required: TADIR primary key is PGMID+OBJECT+OBJ_NAME,
     " omitting it causes the DB optimizer to match unexpected rows.
     TYPES: BEGIN OF ty_tadir_entry,
@@ -149,26 +148,30 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         INTO CORRESPONDING FIELDS OF TABLE @lt_tadir.
     ENDIF.
 
+    DATA lt_rows TYPE STANDARD TABLE OF zabgagt_obj_meta WITH DEFAULT KEY.
     LOOP AT it_files INTO DATA(ls_file).
+      IF ls_file-obj_type = 'DEVC'. CONTINUE. ENDIF.
       DATA(lv_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
 
-      DATA ls_row TYPE zabgagt_obj_meta.
-      ls_row-obj_type       = ls_file-obj_type.
-      ls_row-obj_name       = ls_file-obj_name.
-      ls_row-last_git_sha   = lv_sha.
-      ls_row-last_branch    = iv_branch.
-      ls_row-last_pulled_at = lv_now.
-      ls_row-last_pulled_by = sy-uname.
-      ls_row-sys_changed_at = lv_now.
-      ls_row-sys_changed_by = sy-uname.
-
-      " Populate DEVCLASS from TADIR lookup (O(1) via hashed table)
-      DATA(ls_tadir) = VALUE #( lt_tadir[ object   = ls_file-obj_type
-                                          obj_name = ls_file-obj_name ] OPTIONAL ).
-      ls_row-devclass = ls_tadir-devclass.
-
-      MODIFY zabgagt_obj_meta FROM @ls_row.
+      DATA(ls_tadir) = VALUE ty_tadir_entry(
+                         lt_tadir[ object   = ls_file-obj_type
+                                   obj_name = ls_file-obj_name ] OPTIONAL ).
+      APPEND VALUE zabgagt_obj_meta(
+        obj_type       = ls_file-obj_type
+        obj_name       = ls_file-obj_name
+        last_git_sha   = lv_sha
+        last_branch    = iv_branch
+        last_pulled_at = lv_now
+        last_pulled_by = sy-uname
+        sys_changed_at = lv_now
+        sys_changed_by = sy-uname
+        devclass       = ls_tadir-devclass
+      ) TO lt_rows.
     ENDLOOP.
+
+    IF lt_rows IS NOT INITIAL.
+      MODIFY zabgagt_obj_meta FROM TABLE @lt_rows. "#EC CI_SUBRC
+    ENDIF.
   ENDMETHOD.
 
   " ---------------------------------------------------------------------------

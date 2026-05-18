@@ -287,6 +287,7 @@ Per-method execution time table is shown for each class:
 | Invalid format | `Invalid file format: <file>` |
 | No --files specified | `Error: --files parameter required` |
 | No tests found | `➖ <class> - No unit tests` |
+| SETUP/TEARDOWN failure | `❌ <class> - Tests failed` with synthetic `✗ SETUP` / `✗ TEARDOWN` entry |
 
 ---
 
