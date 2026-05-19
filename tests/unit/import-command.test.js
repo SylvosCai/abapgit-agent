@@ -557,7 +557,7 @@ describe('Import Command - Exclude Patterns', () => {
 
     await importCommand.execute([], mockContext);
 
-    expect(capturedPayload.excludePatterns).toEqual(['zcl_*_dpc*.clas.*', '*.fugr.*']);
+    expect(capturedPayload.exclude_patterns).toEqual(['zcl_*_dpc*.clas.*', '*.fugr.*']);
   });
 
   test('does not include excludePatterns when none configured', async () => {
@@ -585,6 +585,6 @@ describe('Import Command - Exclude Patterns', () => {
 
     await importCommand.execute([], mockContext);
 
-    expect(capturedPayload.excludePatterns).toBeUndefined();
+    expect(capturedPayload.exclude_patterns).toBeUndefined();
   });
 });

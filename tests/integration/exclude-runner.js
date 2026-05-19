@@ -21,8 +21,10 @@
  *   2. unsupportedTypes: true → removes exactly the 3 unsupported-type files, keeps 7 others
  *   3. patterns only → removes DPC+MPC files (4 files), keeps everything else
  *   4. patterns + unsupportedTypes → removes DPC+MPC+unsupported (7 files total)
- *   5. pull --files with unsupportedTypes:true → BADI file skipped, INTF file
- *      activated in ABAP (uses abgagt-pull-test repo/package; repeatable)
+ *   5. real import with exclude patterns — end-to-end ABAP filter:
+ *      create → pull supported+DPC/MPC files into ABAP → import with
+ *      patterns ['zcl_*_dpc.clas.*','zcl_*_mpc.clas.*'] → files_staged=7,
+ *      DPC/MPC files absent from git commit → force-restore (repeatable)
  *
  * Each test resets the repo to its original state via git reset --hard origin/main after running.
  * Test 5 requires ABAP connectivity and the abgagt-pull-test repo to be set up (npm run test:setup).
@@ -205,65 +207,100 @@ function runExcludeTests(repoRoot, helpers) {
   // Reset
   execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
 
-  // ── Test 5: pull with excludeUnsupportedTypes — Node.js filter + ABAP activation ──
-  // Injects .abapGitAgent pointing to $ABGAGT_PULL_TEST (which has ZIF_SIMPLE_TEST),
-  // sets excludeUnsupportedTypes:true in .abapgit-agent.json, then runs:
-  //   pull --files src/zif_simple_test.intf.abap,src/zabgagt_excl_test.badi.xml
-  // The BADI file is an unsupported type and must be skipped; the INTF file must be
-  // pulled and activated in ABAP. Verifies via pull output messages.
-  // Repeatable: no git state is modified — pull only activates objects in ABAP.
-  printInfo('Test 5: pull with unsupportedTypes:true — BADI skipped, INTF activated');
+  // ── Test 5: real import with exclude patterns — end-to-end ABAP filter ────────
+  //
+  // Setup:  inject .abapGitAgent ($ABGAGT_EXCL_TEST), create repo in abapGit,
+  //         pull only supported+DPC/MPC files (skip BADI/TRAN/AVAS — not activatable
+  //         headlessly) → 11 objects land in ABAP package.
+  // Test:   import with patterns ['zcl_*_dpc.clas.*', 'zcl_*_mpc.clas.*'] →
+  //         ABAP sees 11 objects, filters 4 DPC/MPC, stages 7. Verify
+  //         files_staged=7 AND DPC/MPC files absent from the git commit.
+  // Reset:  force-push origin/main back to baseline SHA → repeatable.
+  // Clean:  delete repo from abapGit.
+  printInfo('Test 5: import with exclude patterns — end-to-end ABAP filter');
 
-  // Copy the BADI file from the exclude test repo into the pull-test clone dir
-  // so the path exists when pull tries to read it (pull reads local files).
-  const PULL_TEST_DIR = path.join(os.tmpdir(), 'abgagt-pull-test');
-  const pullTestReady = fs.existsSync(path.join(PULL_TEST_DIR, '.git'));
+  const baselineSha = git('rev-parse HEAD');
 
-  if (!pullTestReady) {
-    addResult('pull test: pull-test repo clone available', false, `${PULL_TEST_DIR} not found — run npm run test:setup first`);
+  const abapGitAgentSrc = path.join(repoRoot, '.abapGitAgent');
+  if (!fs.existsSync(abapGitAgentSrc)) {
+    addResult('import test: .abapGitAgent available', false, `${abapGitAgentSrc} not found`);
   } else {
-    // Inject .abapGitAgent using pull-test package + credentials from repoRoot
-    const abapGitAgentConfig = path.join(repoRoot, '.abapGitAgent');
-    if (fs.existsSync(abapGitAgentConfig)) {
-      const cfg = JSON.parse(fs.readFileSync(abapGitAgentConfig, 'utf8'));
-      cfg.package = '$ABGAGT_PULL_TEST';
-      cfg.folder  = '/src/';
-      if (process.env.TEST_GIT_USR) cfg.gitUsername = process.env.TEST_GIT_USR;
-      if (process.env.TEST_GIT_PSW) cfg.gitPassword = process.env.TEST_GIT_PSW;
-      fs.writeFileSync(path.join(PULL_TEST_DIR, '.abapGitAgent'), JSON.stringify(cfg, null, 2));
+    const cfg = JSON.parse(fs.readFileSync(abapGitAgentSrc, 'utf8'));
+    cfg.package = '$ABGAGT_EXCL_TEST';
+    cfg.folder  = '/src/';
+    if (process.env.TEST_GIT_USR) cfg.gitUsername = process.env.TEST_GIT_USR;
+    if (process.env.TEST_GIT_PSW) cfg.gitPassword = process.env.TEST_GIT_PSW;
+    fs.writeFileSync(path.join(CLONE_DIR, '.abapGitAgent'), JSON.stringify(cfg, null, 2));
+
+    // Step 5a: register repo in abapGit
+    printInfo('  Step 5a: create repo in abapGit...');
+    const outCreate = runCli(['create'], 180000);
+    const createOk = outCreate.toLowerCase().includes('created') ||
+                     outCreate.toLowerCase().includes('already') ||
+                     outCreate.toLowerCase().includes('success');
+    addResult('import test: create registers repo', createOk, outCreate);
+
+    if (createOk) {
+      // Step 5b: pull only activatable files (CLAS, INTF, TABL — skip unsupported types)
+      // BADI/TRAN/AVAS require interactive dialogs in ABAP and hang in background mode.
+      const activatableFiles = [...DPC_MPC_FILES, ...SUPPORTED_KEPT_FILES].join(',');
+      printInfo('  Step 5b: pull supported+DPC/MPC files into ABAP...');
+      const outSetupPull = runCli(
+        ['pull', '--files', activatableFiles, '--conflict-mode', 'ignore'],
+        120000
+      );
+      const setupPullOk = outSetupPull.includes('Pull completed') ||
+                          outSetupPull.includes('Activated') ||
+                          outSetupPull.includes('activated');
+      addResult('import test: setup pull activates supported objects in ABAP', setupPullOk, outSetupPull.slice(0, 300));
+
+      if (setupPullOk) {
+        // Step 5c: import with DPC/MPC exclude patterns — ABAP sees 11 objects, filters 4
+        writeProjectConfig({ exclude: { patterns: ['zcl_*_dpc.clas.*', 'zcl_*_mpc.clas.*'] } });
+        printInfo('  Step 5c: import with DPC/MPC exclude patterns...');
+        const outImport = runCli(['import', '--message', 'test: exclude DPC/MPC patterns'], 300000);
+
+        const importCompleted = outImport.includes('Import completed successfully') ||
+                                outImport.includes('completed');
+        addResult('import test: import job completes successfully', importCompleted, outImport.slice(0, 400));
+
+        // 11 activatable objects in ABAP − 4 DPC/MPC = 7
+        const stagedMatch = outImport.match(/Files staged:\s*(\d+)/i);
+        const filesStagedOk = stagedMatch && parseInt(stagedMatch[1], 10) === 7;
+        addResult(
+          `import test: files_staged = 7 (got ${stagedMatch ? stagedMatch[1] : 'none'})`,
+          !!filesStagedOk, outImport.slice(0, 400)
+        );
+
+        if (importCompleted) {
+          // Step 5d: fetch the commit and verify DPC/MPC files absent
+          try {
+            execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
+            const dpcMpcAbsent   = DPC_MPC_FILES.every(f => !fs.existsSync(path.join(CLONE_DIR, f)));
+            const supportedPresent = SUPPORTED_KEPT_FILES.every(f => fs.existsSync(path.join(CLONE_DIR, f)));
+            addResult('import test: DPC/MPC files absent from git commit', dpcMpcAbsent,
+              DPC_MPC_FILES.filter(f => fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
+            addResult('import test: supported files present in git commit', supportedPresent,
+              SUPPORTED_KEPT_FILES.filter(f => !fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
+          } catch (e) {
+            addResult('import test: git fetch after import', false, e.message);
+          }
+        }
+      }
+
+      // Cleanup: delete repo from abapGit
+      printInfo('  Cleaning up: deleting repo from abapGit...');
+      runCli(['delete'], 60000);
+
+      // Force-restore origin/main to baseline so the test is repeatable
+      printInfo('  Restoring origin/main to baseline...');
+      try {
+        execSync(`git reset --hard ${baselineSha}`, { cwd: CLONE_DIR, encoding: 'utf8' });
+        execSync('git push --force origin main', { cwd: CLONE_DIR, encoding: 'utf8', timeout: 30000 });
+      } catch (e) {
+        printInfo(`  Warning: could not restore origin/main: ${e.message.split('\n')[0]}`);
+      }
     }
-
-    // Copy a BADI file from the exclude test repo so it exists on disk in pull-test dir
-    const badiSrc  = path.join(CLONE_DIR, 'src/zabgagt_excl_test.badi.xml');
-    const badiDest = path.join(PULL_TEST_DIR, 'src/zabgagt_excl_test.badi.xml');
-    if (fs.existsSync(badiSrc)) fs.copyFileSync(badiSrc, badiDest);
-
-    // Set exclude config: unsupportedTypes only (no patterns)
-    fs.writeFileSync(
-      path.join(PULL_TEST_DIR, '.abapgit-agent.json'),
-      JSON.stringify({ exclude: { unsupportedTypes: true } }, null, 2)
-    );
-
-    printInfo('  Running pull --files with INTF + BADI (unsupported)...');
-    const pullFiles = 'src/zif_simple_test.intf.abap,src/zabgagt_excl_test.badi.xml';
-    const outPull5 = execSync(
-      `abapgit-agent pull --files "${pullFiles}" --conflict-mode ignore`,
-      { cwd: PULL_TEST_DIR, encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] }
-    ).trim();
-
-    // BADI must be skipped (excluded warning), INTF must be pulled
-    const badiSkipped = outPull5.includes('zabgagt_excl_test.badi') ||
-                        outPull5.toLowerCase().includes('exclud') ||
-                        outPull5.toLowerCase().includes('skip');
-    const intfPulled  = outPull5.includes('Pull completed') || outPull5.includes('Activated') ||
-                        outPull5.includes('zif_simple_test');
-    addResult('pull test: unsupported BADI file skipped with unsupportedTypes:true', badiSkipped, outPull5.slice(0, 400));
-    addResult('pull test: supported INTF file pulled successfully', intfPulled, outPull5.slice(0, 400));
-
-    // Cleanup: remove injected files from pull-test dir
-    try { fs.unlinkSync(badiDest); } catch (e) { /* ok */ }
-    try { fs.unlinkSync(path.join(PULL_TEST_DIR, '.abapgit-agent.json')); } catch (e) { /* ok */ }
-    try { fs.unlinkSync(path.join(PULL_TEST_DIR, '.abapGitAgent')); } catch (e) { /* ok */ }
   }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────

@@ -133,10 +133,10 @@ Examples:
     const { getExcludePatterns, getUnsupportedTypesFlag } = require('../config');
     const excludePatterns = getExcludePatterns();
     if (excludePatterns.length > 0) {
-      data.excludePatterns = excludePatterns;
+      data.exclude_patterns = excludePatterns;
     }
     if (getUnsupportedTypesFlag()) {
-      data.excludeUnsupportedTypes = true;
+      data.exclude_unsupported_types = true;
     }
 
     // Step 1: Start the background job

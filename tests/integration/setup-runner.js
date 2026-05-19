@@ -109,10 +109,10 @@ const REPOS = [
   {
     key:     'exclude',
     cloneDir: path.join(os.tmpdir(), 'abgagt-exclude-test'),
-    package: null,   // exclude tests are pure git — no ABAP activation needed
+    package: '$ABGAGT_EXCL_TEST',  // package used by import test (test 5)
     folder:  '/src/',
     activateFiles: null,
-    checkObject: null
+    checkObject: null  // no pre-activation needed — test 5 manages its own setup
   },
   {
     key:     'run',
@@ -349,7 +349,7 @@ function runSetup(repoRoot, { printSubHeader, printInfo, printSuccess, printErro
       continue;
     }
     if (repo.key === 'exclude') {
-      printInfo(`    ABAP setup skipped (exclude tests are pure git — no ABAP objects)`);
+      printInfo(`    ABAP setup skipped (exclude test 5 self-manages create/pull/import/delete)`);
       skippedCount++;
       printInfo('');
       continue;
