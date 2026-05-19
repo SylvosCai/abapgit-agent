@@ -1584,7 +1584,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     jest.mock('child_process', () => ({ execSync: (...a) => mockExecSyncHolder.fn(...a) }));
     jest.mock('fs', () => ({
       existsSync: jest.fn(() => true),
-      readFileSync: jest.fn(() => Buffer.from('original content')),
+      readFileSync: jest.fn((p) => p && p.includes && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('original content')),
       writeFileSync: jest.fn()
     }));
     jest.mock('path', () => ({

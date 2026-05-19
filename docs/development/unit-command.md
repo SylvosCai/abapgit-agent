@@ -344,4 +344,4 @@ Calls the standard SAP ADT endpoint directly — no custom ABAP backend required
 - Test class name (`LTCL_...`) comes from the parent `<testClass adtcore:name>` element
 - Execution time (`executionTime` attribute in seconds) is parsed per method; slow tests (> 0.1s) are surfaced automatically
 - Failure detail includes all `<detail text="...">` elements and `<stackEntry>` line numbers
-- Coverage stats (`lines_total`, `lines_covered`, `coverage_rate`) are embedded in the same response when `<coverage active="true"/>`
+- Coverage stats: when `<coverage active="true"/>` is set, the AUnit response includes a measurement URI in `<external><coverage adtcore:uri="..."/></external>`. A second `POST` to that URI with a `<cov:query>` body returns `<summary><coverages><coverage type="statement" total="N" executed="N"/>...` — statement totals are used for coverage percentage display and threshold enforcement.
