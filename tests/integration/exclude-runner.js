@@ -210,8 +210,12 @@ function runExcludeTests(repoRoot, helpers) {
   // Registers the test repo in abapGit (create), runs import with unsupportedTypes:true,
   // then verifies: (a) files_staged = 7, (b) the 3 unsupported files are absent from
   // the git commit (checked after git fetch + reset --hard origin/main).
+  // Restores origin/main to the baseline SHA afterwards so the test is repeatable.
   // Cleans up with delete at the end.
   printInfo('Test 5: real import with unsupportedTypes:true — verifies ABAP-side filtering');
+
+  // Record the baseline SHA before import pushes anything — used to restore origin/main
+  const baselineSha = git('rev-parse HEAD');
 
   // Inject .abapGitAgent with the exclude test package into the clone
   const abapGitAgentConfig = path.join(repoRoot, '.abapGitAgent');
@@ -266,6 +270,15 @@ function runExcludeTests(repoRoot, helpers) {
     // Delete the repo from abapGit to leave the system clean
     printInfo('  Cleaning up: deleting repo from abapGit...');
     runCli(['delete'], 60000);
+
+    // Force-restore origin/main to the pre-import baseline so the test is repeatable
+    printInfo('  Restoring origin/main to baseline...');
+    try {
+      execSync(`git reset --hard ${baselineSha}`, { cwd: CLONE_DIR, encoding: 'utf8' });
+      execSync('git push --force origin main', { cwd: CLONE_DIR, encoding: 'utf8', timeout: 30000 });
+    } catch (e) {
+      printInfo(`  Warning: could not restore origin/main: ${e.message.split('\n')[0]}`);
+    }
   }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
