@@ -107,6 +107,14 @@ const REPOS = [
     checkObject: null  // no ABAP check — just ensure clone exists
   },
   {
+    key:     'exclude',
+    cloneDir: path.join(os.tmpdir(), 'abgagt-exclude-test'),
+    package: null,   // exclude tests are pure git — no ABAP activation needed
+    folder:  '/src/',
+    activateFiles: null,
+    checkObject: null
+  },
+  {
     key:     'run',
     cloneDir: path.join(os.tmpdir(), 'abgagt-run-test'),
     package: '$ABGAGT_RUN_TEST',
@@ -333,9 +341,15 @@ function runSetup(repoRoot, { printSubHeader, printInfo, printSuccess, printErro
       continue;
     }
 
-    // Lifecycle repo: no ABAP setup needed — lifecycle-runner manages it
+    // Repos with no ABAP objects: no activation needed — just ensure clone exists
     if (repo.key === 'lifecycle') {
       printInfo(`    ABAP setup skipped (lifecycle-runner self-manages registration)`);
+      skippedCount++;
+      printInfo('');
+      continue;
+    }
+    if (repo.key === 'exclude') {
+      printInfo(`    ABAP setup skipped (exclude tests are pure git — no ABAP objects)`);
       skippedCount++;
       printInfo('');
       continue;
