@@ -260,6 +260,32 @@ function getInspectConfig() {
   };
 }
 
+/**
+ * Get exclude patterns from project-level config (.abapgit-agent.json)
+ * Patterns match against file basenames using minimatch glob syntax.
+ * @returns {string[]} Array of lowercase glob patterns, or empty array
+ */
+function getExcludePatterns() {
+  const projectConfig = loadProjectConfig();
+  const patterns = projectConfig?.exclude?.patterns;
+  if (!Array.isArray(patterns) || patterns.length === 0) return [];
+  return patterns.map(p => String(p).toLowerCase());
+}
+
+/**
+ * Check if a file path matches any of the exclude patterns.
+ * Matching is done against the basename only (directory stripped).
+ * @param {string} filePath
+ * @param {string[]} patterns - from getExcludePatterns()
+ * @returns {boolean}
+ */
+function isExcluded(filePath, patterns) {
+  if (!patterns || patterns.length === 0) return false;
+  const { minimatch } = require('minimatch');
+  const base = filePath.split('/').pop().toLowerCase();
+  return patterns.some(p => minimatch(base, p));
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -275,5 +301,7 @@ module.exports = {
   getTransportSettings,
   getScratchWorkspace,
   getCoverageConfig,
-  getInspectConfig
+  getInspectConfig,
+  getExcludePatterns,
+  isExcluded
 };

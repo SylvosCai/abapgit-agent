@@ -514,4 +514,59 @@ describe('Config', () => {
     });
   });
 
+  describe('getExcludePatterns', () => {
+    test('returns empty array when no exclude config', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(false);
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual([]);
+    });
+
+    test('returns empty array when exclude.patterns is missing', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: {} }));
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual([]);
+    });
+
+    test('returns patterns lowercased', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        exclude: { patterns: ['ZCL_*_DPC*.clas.*', '*.FUGR.*'] }
+      }));
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual(['zcl_*_dpc*.clas.*', '*.fugr.*']);
+    });
+  });
+
+  describe('isExcluded', () => {
+    test('returns false when patterns is empty', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_foo.clas.abap', [])).toBe(false);
+    });
+
+    test('matches file basename against pattern', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_zsegw_dpc.clas.abap', ['zcl_*_dpc*.clas.*'])).toBe(true);
+    });
+
+    test('strips directory before matching', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('src/deep/path/zcl_foo_dpc.clas.xml', ['zcl_*_dpc*.clas.*'])).toBe(true);
+    });
+
+    test('does not match non-matching file', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_normal.clas.abap', ['zcl_*_dpc*.clas.*'])).toBe(false);
+    });
+
+    test('matches any of multiple patterns', () => {
+      const { isExcluded } = require('../../src/config');
+      const patterns = ['zcl_*_dpc*.clas.*', '*.fugr.*'];
+      expect(isExcluded('abap/zfugr_my.fugr.abap', patterns)).toBe(true);
+    });
+  });
+
 });

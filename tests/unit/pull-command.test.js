@@ -2020,3 +2020,60 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     expect(args.includes('--sync-xml')).toBe(false);
   });
 });
+
+describe('Pull Command - Exclude Patterns', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+  });
+
+  test('skips files matching exclude patterns and prints warning', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*']),
+      isExcluded: jest.fn((f) => f.includes('_dpc'))
+    }));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockHttp = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+      post: jest.fn().mockResolvedValue({ SUCCESS: 'X', ACTIVATED_COUNT: 1, ACTIVATED_OBJECTS: [], LOG: [] }),
+      get: jest.fn().mockResolvedValue({ body: '' })
+    };
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn(() => mockHttp),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') },
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(
+      ['--files', 'abap/zcl_zsegw_dpc.clas.abap,abap/zcl_normal.clas.abap', '--url', 'https://github.com/test/repo'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Skipping 1 excluded file/);
+    expect(output).toMatch(/zcl_zsegw_dpc\.clas\.abap/);
+
+    // Only non-excluded file should be sent to ABAP
+    const pullCall = mockHttp.post.mock.calls.find(c => c[0].includes('/pull'));
+    const payload = pullCall ? pullCall[1] : null;
+    expect(payload).not.toBeNull();
+    expect(payload.files).not.toContain('abap/zcl_zsegw_dpc.clas.abap');
+    expect(payload.files).toContain('abap/zcl_normal.clas.abap');
+  });
+});

@@ -503,3 +503,86 @@ describe('Import Command - Async Job Pattern', () => {
     expect(capturedPayload.branch).toBe('main');
   });
 });
+
+describe('Import Command - Exclude Patterns', () => {
+  let originalConsoleLog;
+  let originalStdoutWrite;
+
+  beforeEach(() => {
+    jest.resetModules();
+    originalConsoleLog = console.log;
+    originalStdoutWrite = process.stdout.write;
+    console.log = jest.fn();
+    process.stdout.write = jest.fn();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    process.stdout.write = originalStdoutWrite;
+  });
+
+  function makeCompletedGetMock() {
+    return jest.fn().mockResolvedValue({
+      STATUS: 'completed',
+      PROGRESS: 100,
+      MESSAGE: 'Done',
+      RESULT: JSON.stringify({ success: 'X', filesStaged: 3, commitMessage: 'test' }),
+      STARTED_AT: '20260101000000',
+      COMPLETED_AT: '20260101000005'
+    });
+  }
+
+  test('passes excludePatterns to ABAP backend when configured', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*', '*.fugr.*'])
+    }));
+
+    const importCommand = require('../../src/commands/import');
+    let capturedPayload;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockImplementation((endpoint, payload) => {
+          capturedPayload = payload;
+          return Promise.resolve({ SUCCESS: 'X', JOB_NUMBER: '9999', JOB_NAME: 'IMPORT' });
+        }),
+        get: makeCompletedGetMock()
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') }
+    };
+
+    await importCommand.execute([], mockContext);
+
+    expect(capturedPayload.excludePatterns).toEqual(['zcl_*_dpc*.clas.*', '*.fugr.*']);
+  });
+
+  test('does not include excludePatterns when none configured', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getExcludePatterns: jest.fn(() => [])
+    }));
+
+    const importCommand = require('../../src/commands/import');
+    let capturedPayload;
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ disableImport: false })),
+      AbapHttp: jest.fn().mockImplementation(() => ({
+        fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+        post: jest.fn().mockImplementation((endpoint, payload) => {
+          capturedPayload = payload;
+          return Promise.resolve({ SUCCESS: 'X', JOB_NUMBER: '9999', JOB_NAME: 'IMPORT' });
+        }),
+        get: makeCompletedGetMock()
+      })),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') }
+    };
+
+    await importCommand.execute([], mockContext);
+
+    expect(capturedPayload.excludePatterns).toBeUndefined();
+  });
+});

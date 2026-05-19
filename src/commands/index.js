@@ -32,5 +32,6 @@ module.exports = {
   transport: require('./transport'),
   lint:      require('./lint'),
   drop:      require('./drop'),
-  customize: require('./customize')
+  customize: require('./customize'),
+  exclude:   require('./exclude')
 };

@@ -175,6 +175,21 @@ Examples:
       }
     }
 
+    // Filter out files matching exclude.patterns from .abapgit-agent.json
+    if (files && files.length > 0) {
+      const { getExcludePatterns, isExcluded } = require('../config');
+      const excludePatterns = getExcludePatterns();
+      if (excludePatterns.length > 0) {
+        const excluded = files.filter(f => isExcluded(f, excludePatterns));
+        files = files.filter(f => !isExcluded(f, excludePatterns));
+        if (excluded.length > 0 && !jsonOutput) {
+          console.log(`  ⚠️  Skipping ${excluded.length} excluded file(s):`);
+          excluded.forEach(f => console.log(`     ${f}`));
+          console.log('');
+        }
+      }
+    }
+
     // SAFEGUARD 2: Check if files are required but not provided
     if (safeguards.requireFilesForPull && !files) {
       console.error('❌ Error: --files parameter is required for this project\n');

@@ -173,6 +173,29 @@ Suppressed findings are moved from errors/warnings to infos with a `[suppressed]
 
 ---
 
+## `exclude`
+
+Controls which files should be excluded from git tracking and filtered from `pull` and `import`.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `patterns` | string[] | `[]` | Glob patterns matched against file basenames. `*` matches any chars. |
+
+```json
+"exclude": {
+  "patterns": [
+    "zcl_*_dpc*.clas.*",
+    "zcl_*_mpc*.clas.*",
+    "*.fugr.*"
+  ]
+}
+```
+
+Run `abapgit-agent exclude` after adding patterns to remove already-tracked files from git.
+See [exclude command](setup/exclude-command.md) for details.
+
+---
+
 ## `transports`
 
 Controls transport creation, release, and selection behaviour.

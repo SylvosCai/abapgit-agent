@@ -130,6 +130,12 @@ Examples:
       data.password = config.gitPassword;
     }
 
+    const { getExcludePatterns } = require('../config');
+    const excludePatterns = getExcludePatterns();
+    if (excludePatterns.length > 0) {
+      data.excludePatterns = excludePatterns;
+    }
+
     // Step 1: Start the background job
     const endpoint = '/sap/bc/z_abapgit_agent/import';
     const jobInfo = await startBackgroundJob(http, endpoint, data, csrfToken);

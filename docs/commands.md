@@ -49,6 +49,7 @@ All available CLI commands for abapGit Agent.
 
 | Command | Status | Description |
 |---------|--------|-------------|
+| [exclude](setup/exclude-command.md) | ✅ | Remove git-tracked files matching `exclude.patterns` from git (ABAP objects untouched) |
 | [lint](development/lint-command.md) | ✅ | Run abaplint static analysis on changed ABAP files (no ABAP connection) |
 | [guide](utility/guide-command.md) | ✅ | Show full bundled ABAP development guide |
 | [ref](utility/ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |

@@ -18,6 +18,7 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
              message TYPE string,
              username TYPE string,
              password TYPE string,
+             exclude_patterns TYPE string_table,
            END OF ty_import_params.
 
   PRIVATE SECTION.
@@ -166,6 +167,24 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 60.
 
         lt_files = li_repo->get_files_local( ).
+
+        " Filter files matching exclude_patterns (glob patterns, CP operator)
+        IF ls_params-exclude_patterns IS NOT INITIAL.
+          DATA lt_filtered TYPE zif_abapgit_definitions=>ty_files_item_tt.
+          LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_excl>).
+            DATA(lv_excluded) = abap_false.
+            LOOP AT ls_params-exclude_patterns INTO DATA(lv_pattern).
+              IF <ls_excl>-file-filename CP lv_pattern.
+                lv_excluded = abap_true.
+                EXIT.
+              ENDIF.
+            ENDLOOP.
+            CHECK lv_excluded = abap_false.
+            APPEND <ls_excl> TO lt_filtered.
+          ENDLOOP.
+          lt_files = lt_filtered.
+        ENDIF.
+
         DATA(lv_files_staged) = lines( lt_files ).
 
         IF lv_files_staged = 0.
