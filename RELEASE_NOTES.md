@@ -2,6 +2,34 @@
 title: Release Notes
 ---
 
+## v1.20.0
+
+### New Features
+
+- New `exclude` command: removes matching tracked files from git
+- `exclude.patterns` config: glob patterns to exclude files from git, pull, and import
+- `exclude.unsupportedTypes: true`: auto-removes unsupported ABAP type files after import
+- Added PINF to supported types list
+
+### Bug Fixes
+
+- Fix exclude fields silently dropped at REST layer in import
+- Fix snake_case serialization for exclude params to ABAP backend
+- Fix XSS taint check in import resource by inlining job status logic
+
+### Improvements
+
+- Batch `git rm --cached` in groups of 200 for large repos
+
+### Documentation
+
+- Updated exclude command docs to cover `unsupportedTypes` in all descriptions
+
+---
+
+---
+
+
 ## v1.19.3
 
 ### New Features
