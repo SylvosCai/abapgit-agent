@@ -2042,7 +2042,9 @@ describe('Pull Command - Exclude Patterns', () => {
       getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
       getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
       getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*']),
-      isExcluded: jest.fn((f) => f.includes('_dpc'))
+      isExcluded: jest.fn((f) => f.includes('_dpc')),
+      getUnsupportedTypesFlag: jest.fn(() => false),
+      isUnsupportedType: jest.fn(() => false)
     }));
 
     const pullCommand = require('../../src/commands/pull');
@@ -2074,6 +2076,48 @@ describe('Pull Command - Exclude Patterns', () => {
     const payload = pullCall ? pullCall[1] : null;
     expect(payload).not.toBeNull();
     expect(payload.files).not.toContain('abap/zcl_zsegw_dpc.clas.abap');
+    expect(payload.files).toContain('abap/zcl_normal.clas.abap');
+  });
+
+  test('skips unsupported-type file when unsupportedTypes flag is true', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getExcludePatterns: jest.fn(() => []),
+      isExcluded: jest.fn(() => false),
+      getUnsupportedTypesFlag: jest.fn(() => true),
+      isUnsupportedType: jest.fn((f) => f.includes('.badi.'))
+    }));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockHttp = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+      post: jest.fn().mockResolvedValue({ SUCCESS: 'X', ACTIVATED_COUNT: 1, ACTIVATED_OBJECTS: [], LOG: [] }),
+      get: jest.fn().mockResolvedValue({ body: '' })
+    };
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn(() => mockHttp),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') },
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(
+      ['--files', 'abap/zfoo.badi.xml,abap/zcl_normal.clas.abap', '--url', 'https://github.com/test/repo'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Skipping 1 excluded file/);
+    expect(output).toMatch(/zfoo\.badi\.xml/);
+
+    const pullCall = mockHttp.post.mock.calls.find(c => c[0].includes('/pull'));
+    const payload = pullCall ? pullCall[1] : null;
+    expect(payload).not.toBeNull();
+    expect(payload.files).not.toContain('abap/zfoo.badi.xml');
     expect(payload.files).toContain('abap/zcl_normal.clas.abap');
   });
 });

@@ -28,12 +28,13 @@ The files remain on disk and in the ABAP system — only their git tracking is r
 
 ## When to Use
 
-Use this command after adding `exclude.patterns` to `.abapgit-agent.json` to clean up files
+Use this command after configuring `exclude` in `.abapgit-agent.json` to clean up files
 that were previously tracked but should no longer be:
 
-- SEGW-generated classes (`zcl_*_dpc*.clas.*`, `zcl_*_mpc*.clas.*`)
-- Unsupported object types (function groups: `*.fugr.*`)
-- Any objects that cause activation failures during `pull`
+- **`unsupportedTypes: true`** — catch-all after `import`: removes BADI, W3MI, XSLT, WDYN,
+  and any other types abapGit cannot pull or activate
+- **`patterns`** — target specific supported-type files by name pattern (e.g. SEGW-generated
+  DPC/MPC classes that cause activation failures)
 
 ## Configuration
 
@@ -42,17 +43,23 @@ Add an `exclude` section to `.abapgit-agent.json`:
 ```json
 {
   "exclude": {
+    "unsupportedTypes": true,
     "patterns": [
       "zcl_*_dpc*.clas.*",
-      "zcl_*_mpc*.clas.*",
-      "*.fugr.*"
+      "zcl_*_mpc*.clas.*"
     ]
   }
 }
 ```
 
-Patterns match against the **basename** of each file (directory path is stripped).
-Standard glob semantics: `*` matches any sequence of characters.
+**`unsupportedTypes: true`** — automatically excludes any file whose object type (the middle
+dot-segment of the filename, e.g. `badi` in `zfoo.badi.xml`) is not in the set of types
+supported by abapgit-agent: CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS,
+MSAG, STRU, ENHO, SUSO. Use this after `import` to remove all types abapGit cannot activate.
+
+**`patterns`** — explicit glob patterns matched against the **basename** of each file
+(directory path is stripped). Standard glob semantics: `*` matches any sequence of characters.
+Use this to exclude specific supported-type files (e.g. SEGW-generated DPC/MPC classes).
 
 ## Effect on Other Commands
 

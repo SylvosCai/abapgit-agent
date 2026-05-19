@@ -180,13 +180,14 @@ Controls which files should be excluded from git tracking and filtered from `pul
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `patterns` | string[] | `[]` | Glob patterns matched against file basenames. `*` matches any chars. |
+| `unsupportedTypes` | boolean | `false` | Auto-exclude all files whose object type is not supported by abapgit-agent (CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS, MSAG, STRU, ENHO, SUSO). Useful after `import` to remove types abapGit cannot activate. |
 
 ```json
 "exclude": {
+  "unsupportedTypes": true,
   "patterns": [
     "zcl_*_dpc*.clas.*",
-    "zcl_*_mpc*.clas.*",
-    "*.fugr.*"
+    "zcl_*_mpc*.clas.*"
   ]
 }
 ```

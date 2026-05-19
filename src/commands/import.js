@@ -130,10 +130,13 @@ Examples:
       data.password = config.gitPassword;
     }
 
-    const { getExcludePatterns } = require('../config');
+    const { getExcludePatterns, getUnsupportedTypesFlag } = require('../config');
     const excludePatterns = getExcludePatterns();
     if (excludePatterns.length > 0) {
       data.excludePatterns = excludePatterns;
+    }
+    if (getUnsupportedTypesFlag()) {
+      data.excludeUnsupportedTypes = true;
     }
 
     // Step 1: Start the background job

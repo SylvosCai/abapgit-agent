@@ -175,13 +175,15 @@ Examples:
       }
     }
 
-    // Filter out files matching exclude.patterns from .abapgit-agent.json
+    // Filter out files matching exclude config from .abapgit-agent.json
     if (files && files.length > 0) {
-      const { getExcludePatterns, isExcluded } = require('../config');
+      const { getExcludePatterns, isExcluded, getUnsupportedTypesFlag, isUnsupportedType } = require('../config');
       const excludePatterns = getExcludePatterns();
-      if (excludePatterns.length > 0) {
-        const excluded = files.filter(f => isExcluded(f, excludePatterns));
-        files = files.filter(f => !isExcluded(f, excludePatterns));
+      const excludeUnsupported = getUnsupportedTypesFlag();
+      if (excludePatterns.length > 0 || excludeUnsupported) {
+        const isExcl = f => isExcluded(f, excludePatterns) || (excludeUnsupported && isUnsupportedType(f));
+        const excluded = files.filter(isExcl);
+        files = files.filter(f => !isExcl(f));
         if (excluded.length > 0 && !jsonOutput) {
           console.log(`  ⚠️  Skipping ${excluded.length} excluded file(s):`);
           excluded.forEach(f => console.log(`     ${f}`));

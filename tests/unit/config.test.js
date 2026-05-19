@@ -569,4 +569,64 @@ describe('Config', () => {
     });
   });
 
+  describe('getUnsupportedTypesFlag / isUnsupportedType', () => {
+    test('getUnsupportedTypesFlag returns false when not configured', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(false);
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(false);
+    });
+
+    test('getUnsupportedTypesFlag returns false when set to false', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: { unsupportedTypes: false } }));
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(false);
+    });
+
+    test('getUnsupportedTypesFlag returns true when set', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: { unsupportedTypes: true } }));
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(true);
+    });
+
+    test('isUnsupportedType returns true for BADI file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zfoo.badi.xml')).toBe(true);
+    });
+
+    test('isUnsupportedType returns true for W3MI file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zfoo.w3mi.xml')).toBe(true);
+    });
+
+    test('isUnsupportedType returns false for CLAS file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zcl_foo.clas.abap')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for TABL file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/ztable.tabl.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for .abapgit.xml (not an ABAP object)', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/.abapgit.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for package.devc.xml', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/package.devc.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for plain .xml with only 2 parts', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('something.xml')).toBe(false);
+    });
+  });
+
 });

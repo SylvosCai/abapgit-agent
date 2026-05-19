@@ -535,7 +535,8 @@ describe('Import Command - Exclude Patterns', () => {
   test('passes excludePatterns to ABAP backend when configured', async () => {
     jest.mock('../../src/config', () => ({
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*', '*.fugr.*'])
+      getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*', '*.fugr.*']),
+      getUnsupportedTypesFlag: jest.fn(() => false)
     }));
 
     const importCommand = require('../../src/commands/import');
@@ -562,7 +563,8 @@ describe('Import Command - Exclude Patterns', () => {
   test('does not include excludePatterns when none configured', async () => {
     jest.mock('../../src/config', () => ({
       loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
-      getExcludePatterns: jest.fn(() => [])
+      getExcludePatterns: jest.fn(() => []),
+      getUnsupportedTypesFlag: jest.fn(() => false)
     }));
 
     const importCommand = require('../../src/commands/import');

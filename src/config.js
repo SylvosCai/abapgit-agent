@@ -286,6 +286,27 @@ function isExcluded(filePath, patterns) {
   return patterns.some(p => minimatch(base, p));
 }
 
+const SUPPORTED_ABAP_TYPES = new Set([
+  'clas','intf','prog','fugr','tabl','dtel','ttyp','doma',
+  'ddls','dcls','msag','stru','enho','suso'
+]);
+
+function getUnsupportedTypesFlag() {
+  const projectConfig = loadProjectConfig();
+  return projectConfig?.exclude?.unsupportedTypes === true;
+}
+
+function isUnsupportedType(filePath) {
+  const base = filePath.split('/').pop().toLowerCase();
+  const parts = base.split('.');
+  if (parts.length < 3) return false;
+  if (parts[0].length === 0) return false;  // .abapgit.xml, .gitignore etc.
+  const typeExt = parts[1];
+  if (!/^[a-z0-9]+$/.test(typeExt)) return false;
+  if (typeExt === 'devc') return false;
+  return !SUPPORTED_ABAP_TYPES.has(typeExt);
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -303,5 +324,7 @@ module.exports = {
   getCoverageConfig,
   getInspectConfig,
   getExcludePatterns,
-  isExcluded
+  isExcluded,
+  getUnsupportedTypesFlag,
+  isUnsupportedType
 };

@@ -1,12 +1,13 @@
 /**
- * exclude command — Remove git-tracked files matching exclude.patterns from git.
+ * exclude command — Remove git-tracked files matching exclude.patterns from git,
+ * and/or auto-exclude files whose object type is not supported by abapgit-agent.
  * ABAP objects in the system are never touched.
  */
 
 'use strict';
 
 const { execSync } = require('child_process');
-const { getExcludePatterns, isExcluded } = require('../config');
+const { getExcludePatterns, isExcluded, getUnsupportedTypesFlag, isUnsupportedType } = require('../config');
 
 module.exports = {
   name: 'exclude',
@@ -19,36 +20,49 @@ module.exports = {
 Usage:
   abapgit-agent exclude
 
-Reads exclude.patterns from .abapgit-agent.json, finds all matching git-tracked
+Reads exclude config from .abapgit-agent.json, finds all matching git-tracked
 files, removes them from git tracking (git rm --cached), and commits the removal.
 ABAP objects in the system are never touched.
 
 Configuration (.abapgit-agent.json):
   {
     "exclude": {
+      "unsupportedTypes": true,
       "patterns": [
         "zcl_*_dpc*.clas.*",
-        "zcl_*_mpc*.clas.*",
-        "*.fugr.*"
+        "zcl_*_mpc*.clas.*"
       ]
     }
   }
 
-Patterns match against the file basename using glob syntax (* = any chars).
+  unsupportedTypes: true  — auto-exclude any file whose object type is not
+    supported by abapgit-agent (CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP,
+    DOMA, DDLS, DCLS, MSAG, STRU, ENHO, SUSO). Useful after import to clean
+    up types abapGit cannot activate.
+
+  patterns  — glob patterns matched against the file basename (* = any chars).
+    Use when you also want to exclude specific supported-type files (e.g. DPC).
 `);
       return;
     }
 
     const patterns = getExcludePatterns();
+    const excludeUnsupported = getUnsupportedTypesFlag();
 
-    if (patterns.length === 0) {
+    if (patterns.length === 0 && !excludeUnsupported) {
       console.log('  No exclude patterns configured in .abapgit-agent.json.');
-      console.log('  Add an "exclude.patterns" array to define files to exclude.');
+      console.log('  Add an "exclude.patterns" array or set "exclude.unsupportedTypes": true.');
       return;
     }
 
-    console.log(`\n  Checking exclude patterns from .abapgit-agent.json...`);
-    console.log(`  Found ${patterns.length} pattern(s): ${patterns.join(', ')}\n`);
+    console.log(`\n  Checking exclude config from .abapgit-agent.json...`);
+    if (patterns.length > 0) {
+      console.log(`  Found ${patterns.length} pattern(s): ${patterns.join(', ')}`);
+    }
+    if (excludeUnsupported) {
+      console.log(`  Auto-excluding unsupported object types: true`);
+    }
+    console.log('');
 
     // Get all git-tracked files
     let trackedFiles;
@@ -62,10 +76,12 @@ Patterns match against the file basename using glob syntax (* = any chars).
       process.exit(1);
     }
 
-    const toRemove = trackedFiles.filter(f => isExcluded(f, patterns));
+    const toRemove = trackedFiles.filter(f =>
+      isExcluded(f, patterns) || (excludeUnsupported && isUnsupportedType(f))
+    );
 
     if (toRemove.length === 0) {
-      console.log('  No tracked files match the exclude patterns. Nothing to do.');
+      console.log('  No tracked files match the exclude config. Nothing to do.');
       return;
     }
 
