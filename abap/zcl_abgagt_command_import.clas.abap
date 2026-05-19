@@ -173,7 +173,7 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
         IF ls_params-exclude_patterns IS NOT INITIAL
         OR ls_params-exclude_unsupported_types = abap_true.
           CONSTANTS lc_supported TYPE string
-            VALUE 'CLAS INTF PROG FUGR TABL DTEL TTYP DOMA DDLS DCLS MSAG STRU ENHO SUSO'.
+            VALUE 'CLAS INTF PROG FUGR TABL DTEL TTYP DOMA DDLS DCLS MSAG STRU ENHO SUSO PINF'.
           DATA lt_filtered TYPE zif_abapgit_definitions=>ty_files_item_tt.
           LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_excl>).
             DATA(lv_excluded) = abap_false.

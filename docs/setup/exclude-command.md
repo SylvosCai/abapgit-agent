@@ -55,7 +55,7 @@ Add an `exclude` section to `.abapgit-agent.json`:
 **`unsupportedTypes: true`** — automatically excludes any file whose object type (the middle
 dot-segment of the filename, e.g. `badi` in `zfoo.badi.xml`) is not in the set of types
 supported by abapgit-agent: CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS,
-MSAG, STRU, ENHO, SUSO. Use this after `import` to remove all types abapGit cannot activate.
+MSAG, STRU, ENHO, SUSO, PINF. Use this after `import` to remove all types abapGit cannot activate.
 
 **`patterns`** — explicit glob patterns matched against the **basename** of each file
 (directory path is stripped). Standard glob semantics: `*` matches any sequence of characters.

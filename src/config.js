@@ -288,7 +288,7 @@ function isExcluded(filePath, patterns) {
 
 const SUPPORTED_ABAP_TYPES = new Set([
   'clas','intf','prog','fugr','tabl','dtel','ttyp','doma',
-  'ddls','dcls','msag','stru','enho','suso'
+  'ddls','dcls','msag','stru','enho','suso','pinf'
 ]);
 
 function getUnsupportedTypesFlag() {

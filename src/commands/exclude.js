@@ -67,7 +67,7 @@ Configuration (.abapgit-agent.json):
     // Get all git-tracked files
     let trackedFiles;
     try {
-      trackedFiles = execSync('git ls-files', { encoding: 'utf8' })
+      trackedFiles = execSync('git ls-files', { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 })
         .split('\n')
         .map(f => f.trim())
         .filter(Boolean);
@@ -89,10 +89,14 @@ Configuration (.abapgit-agent.json):
     toRemove.forEach(f => console.log(`     ${f}`));
     console.log('');
 
-    // git rm --cached
+    // git rm --cached in batches to avoid exceeding shell argument limits
+    const BATCH_SIZE = 200;
     try {
-      const fileArgs = toRemove.map(f => `"${f}"`).join(' ');
-      execSync(`git rm --cached ${fileArgs}`, { encoding: 'utf8' });
+      for (let i = 0; i < toRemove.length; i += BATCH_SIZE) {
+        const batch = toRemove.slice(i, i + BATCH_SIZE);
+        const fileArgs = batch.map(f => `"${f}"`).join(' ');
+        execSync(`git rm --cached ${fileArgs}`, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+      }
     } catch (e) {
       console.error(`❌ Error running git rm --cached: ${e.message}`);
       process.exit(1);
