@@ -846,6 +846,21 @@ function printSummary(results) {
     }
   }
 
+  // Exclude tests
+  if (results.exclude) {
+    if (results.exclude.skipped) {
+      printWarning('Exclude Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.exclude.duration);
+      if (results.exclude.success) {
+        printSuccess(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} PASSED (${results.exclude.duration}s)`);
+      } else {
+        printError(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} FAILED (${results.exclude.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   // Scripted debug scenarios (3/4/5) — Node.js runner, CI-safe
   if (results.debugScripted) {
     if (results.debugScripted.skipped) {

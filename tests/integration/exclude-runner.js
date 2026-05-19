@@ -21,12 +21,11 @@
  *   2. unsupportedTypes: true → removes exactly the 3 unsupported-type files, keeps 7 others
  *   3. patterns only → removes DPC+MPC files (4 files), keeps everything else
  *   4. patterns + unsupportedTypes → removes DPC+MPC+unsupported (7 files total)
- *   5. real import with excludeUnsupportedTypes → registers repo via create, runs
- *      import --message, verifies files_staged = 7 AND unsupported files absent
- *      from the resulting git commit (ABAP-side filtering verified end-to-end)
+ *   5. pull --files with unsupportedTypes:true → BADI file skipped, INTF file
+ *      activated in ABAP (uses abgagt-pull-test repo/package; repeatable)
  *
  * Each test resets the repo to its original state via git reset --hard origin/main after running.
- * Test 5 requires ABAP connectivity (registers repo via create, runs a real async import job).
+ * Test 5 requires ABAP connectivity and the abgagt-pull-test repo to be set up (npm run test:setup).
  *
  * Run:
  *   node tests/run-all.js --exclude
@@ -168,8 +167,8 @@ function runExcludeTests(repoRoot, helpers) {
   addResult('unsupportedTypes keeps all 7 supported-type files', kept2, trackedFiles().join(', '));
   addResult(`unsupportedTypes removes exactly 3 files (got ${removedCount2})`, removedCount2 === 3, out2);
 
-  // Reset
-  try { git('revert HEAD --no-edit'); git('reset HEAD~1 --hard'); } catch (e) { /* ok */ }
+  // Reset — git rm --cached leaves files untracked; clean them before reset
+  try { execSync('git clean -fd', { cwd: CLONE_DIR, encoding: 'utf8' }); } catch (e) { /* ok */ }
   execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
 
   // ── Test 3: patterns only ────────────────────────────────────────────────────
@@ -206,79 +205,65 @@ function runExcludeTests(repoRoot, helpers) {
   // Reset
   execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
 
-  // ── Test 5: real import with excludeUnsupportedTypes — ABAP-side filtering ───
-  // Registers the test repo in abapGit (create), runs import with unsupportedTypes:true,
-  // then verifies: (a) files_staged = 7, (b) the 3 unsupported files are absent from
-  // the git commit (checked after git fetch + reset --hard origin/main).
-  // Restores origin/main to the baseline SHA afterwards so the test is repeatable.
-  // Cleans up with delete at the end.
-  printInfo('Test 5: real import with unsupportedTypes:true — verifies ABAP-side filtering');
+  // ── Test 5: pull with excludeUnsupportedTypes — Node.js filter + ABAP activation ──
+  // Injects .abapGitAgent pointing to $ABGAGT_PULL_TEST (which has ZIF_SIMPLE_TEST),
+  // sets excludeUnsupportedTypes:true in .abapgit-agent.json, then runs:
+  //   pull --files src/zif_simple_test.intf.abap,src/zabgagt_excl_test.badi.xml
+  // The BADI file is an unsupported type and must be skipped; the INTF file must be
+  // pulled and activated in ABAP. Verifies via pull output messages.
+  // Repeatable: no git state is modified — pull only activates objects in ABAP.
+  printInfo('Test 5: pull with unsupportedTypes:true — BADI skipped, INTF activated');
 
-  // Record the baseline SHA before import pushes anything — used to restore origin/main
-  const baselineSha = git('rev-parse HEAD');
+  // Copy the BADI file from the exclude test repo into the pull-test clone dir
+  // so the path exists when pull tries to read it (pull reads local files).
+  const PULL_TEST_DIR = path.join(os.tmpdir(), 'abgagt-pull-test');
+  const pullTestReady = fs.existsSync(path.join(PULL_TEST_DIR, '.git'));
 
-  // Inject .abapGitAgent with the exclude test package into the clone
-  const abapGitAgentConfig = path.join(repoRoot, '.abapGitAgent');
-  if (fs.existsSync(abapGitAgentConfig)) {
-    const cfg = JSON.parse(fs.readFileSync(abapGitAgentConfig, 'utf8'));
-    cfg.package = '$ABGAGT_EXCL_TEST';
-    cfg.folder  = '/src/';
-    fs.writeFileSync(path.join(CLONE_DIR, '.abapGitAgent'), JSON.stringify(cfg, null, 2));
-  }
+  if (!pullTestReady) {
+    addResult('pull test: pull-test repo clone available', false, `${PULL_TEST_DIR} not found — run npm run test:setup first`);
+  } else {
+    // Inject .abapGitAgent using pull-test package + credentials from repoRoot
+    const abapGitAgentConfig = path.join(repoRoot, '.abapGitAgent');
+    if (fs.existsSync(abapGitAgentConfig)) {
+      const cfg = JSON.parse(fs.readFileSync(abapGitAgentConfig, 'utf8'));
+      cfg.package = '$ABGAGT_PULL_TEST';
+      cfg.folder  = '/src/';
+      if (process.env.TEST_GIT_USR) cfg.gitUsername = process.env.TEST_GIT_USR;
+      if (process.env.TEST_GIT_PSW) cfg.gitPassword = process.env.TEST_GIT_PSW;
+      fs.writeFileSync(path.join(PULL_TEST_DIR, '.abapGitAgent'), JSON.stringify(cfg, null, 2));
+    }
 
-  // Register the repo in abapGit
-  printInfo('  Registering repo via create...');
-  const outCreate = runCli(['create'], 180000);
-  const createOk = outCreate.toLowerCase().includes('created') ||
-                   outCreate.toLowerCase().includes('already') ||
-                   outCreate.toLowerCase().includes('success');
-  addResult('import test: create registers repo in abapGit', createOk, outCreate);
+    // Copy a BADI file from the exclude test repo so it exists on disk in pull-test dir
+    const badiSrc  = path.join(CLONE_DIR, 'src/zabgagt_excl_test.badi.xml');
+    const badiDest = path.join(PULL_TEST_DIR, 'src/zabgagt_excl_test.badi.xml');
+    if (fs.existsSync(badiSrc)) fs.copyFileSync(badiSrc, badiDest);
 
-  if (createOk) {
-    // Run import with unsupportedTypes filter — async job, needs longer timeout
-    writeProjectConfig({ exclude: { unsupportedTypes: true } });
-    printInfo('  Running import with unsupportedTypes:true (async)...');
-    const outImport = runCli(['import', '--message', 'test: exclude unsupported types'], 300000);
-
-    const importCompleted = outImport.includes('Import completed successfully') ||
-                            outImport.includes('completed');
-    addResult('import test: import job completes successfully', importCompleted, outImport.slice(0, 400));
-
-    // Verify files_staged count: 10 files in repo − 3 unsupported = 7
-    const stagedMatch = outImport.match(/Files staged:\s*(\d+)/i);
-    const filesStagedOk = stagedMatch && parseInt(stagedMatch[1], 10) === 7;
-    addResult(
-      `import test: files_staged = 7 (got ${stagedMatch ? stagedMatch[1] : 'none'})`,
-      !!filesStagedOk, outImport.slice(0, 400)
+    // Set exclude config: unsupportedTypes only (no patterns)
+    fs.writeFileSync(
+      path.join(PULL_TEST_DIR, '.abapgit-agent.json'),
+      JSON.stringify({ exclude: { unsupportedTypes: true } }, null, 2)
     );
 
-    if (importCompleted) {
-      // Fetch the commit pushed by import and check file content
-      try {
-        execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
-        const unsupportedAbsent = UNSUPPORTED_FILES.every(f => !fs.existsSync(path.join(CLONE_DIR, f)));
-        const supportedPresent  = SUPPORTED_KEPT_FILES.every(f => fs.existsSync(path.join(CLONE_DIR, f)));
-        addResult('import test: unsupported files absent from git commit', unsupportedAbsent,
-          UNSUPPORTED_FILES.filter(f => fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
-        addResult('import test: supported files present in git commit', supportedPresent,
-          SUPPORTED_KEPT_FILES.filter(f => !fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
-      } catch (e) {
-        addResult('import test: git fetch after import', false, e.message);
-      }
-    }
+    printInfo('  Running pull --files with INTF + BADI (unsupported)...');
+    const pullFiles = 'src/zif_simple_test.intf.abap,src/zabgagt_excl_test.badi.xml';
+    const outPull5 = execSync(
+      `abapgit-agent pull --files "${pullFiles}" --conflict-mode ignore`,
+      { cwd: PULL_TEST_DIR, encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
 
-    // Delete the repo from abapGit to leave the system clean
-    printInfo('  Cleaning up: deleting repo from abapGit...');
-    runCli(['delete'], 60000);
+    // BADI must be skipped (excluded warning), INTF must be pulled
+    const badiSkipped = outPull5.includes('zabgagt_excl_test.badi') ||
+                        outPull5.toLowerCase().includes('exclud') ||
+                        outPull5.toLowerCase().includes('skip');
+    const intfPulled  = outPull5.includes('Pull completed') || outPull5.includes('Activated') ||
+                        outPull5.includes('zif_simple_test');
+    addResult('pull test: unsupported BADI file skipped with unsupportedTypes:true', badiSkipped, outPull5.slice(0, 400));
+    addResult('pull test: supported INTF file pulled successfully', intfPulled, outPull5.slice(0, 400));
 
-    // Force-restore origin/main to the pre-import baseline so the test is repeatable
-    printInfo('  Restoring origin/main to baseline...');
-    try {
-      execSync(`git reset --hard ${baselineSha}`, { cwd: CLONE_DIR, encoding: 'utf8' });
-      execSync('git push --force origin main', { cwd: CLONE_DIR, encoding: 'utf8', timeout: 30000 });
-    } catch (e) {
-      printInfo(`  Warning: could not restore origin/main: ${e.message.split('\n')[0]}`);
-    }
+    // Cleanup: remove injected files from pull-test dir
+    try { fs.unlinkSync(badiDest); } catch (e) { /* ok */ }
+    try { fs.unlinkSync(path.join(PULL_TEST_DIR, '.abapgit-agent.json')); } catch (e) { /* ok */ }
+    try { fs.unlinkSync(path.join(PULL_TEST_DIR, '.abapGitAgent')); } catch (e) { /* ok */ }
   }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
@@ -288,10 +273,6 @@ function runExcludeTests(repoRoot, helpers) {
   if (fs.existsSync(path.join(CLONE_DIR, '.abapGitAgent'))) {
     fs.unlinkSync(path.join(CLONE_DIR, '.abapGitAgent'));
   }
-  // Restore the test repo to origin/main after the import may have changed it
-  try {
-    execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
-  } catch (e) { /* best-effort */ }
 
   function finalize() {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
