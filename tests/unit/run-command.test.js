@@ -6,7 +6,7 @@
 
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content')
+  readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content')
 }));
 
 jest.mock('path', () => ({

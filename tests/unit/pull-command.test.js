@@ -8,7 +8,7 @@ const verifiers = require('../helpers/output-verifiers');
 // Mock fs module
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content')
+  readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content')
 }));
 
 // Mock path module
@@ -1381,7 +1381,7 @@ describe('Pull Command - Conflict Detection', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    jest.mock('fs', () => ({ existsSync: jest.fn(() => true), readFileSync: jest.fn(() => 'mock content') }));
+    jest.mock('fs', () => ({ existsSync: jest.fn(() => true), readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content') }));
     jest.mock('path', () => ({ isAbsolute: jest.fn(() => false), join: jest.fn((...args) => args.join('/')), resolve: jest.fn((...args) => '/' + args.join('/')), basename: jest.fn((p) => p.split('/').pop()) }));
     jest.mock('../../src/utils/format-error', () => ({ printHttpError: jest.fn() }));
     jest.mock('../../src/utils/transport-selector', () => ({ selectTransport: jest.fn(), isNonInteractive: jest.fn(() => false), _getTransportHookConfig: jest.fn(() => null), interactivePicker: jest.fn(() => Promise.resolve(null)) }));
