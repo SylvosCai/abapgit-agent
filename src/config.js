@@ -296,11 +296,15 @@ function getUnsupportedTypesFlag() {
   return projectConfig?.exclude?.unsupportedTypes === true;
 }
 
+const ABAP_FILE_EXTENSIONS = new Set(['xml','abap','asddls','asdcls','baseinfo']);
+
 function isUnsupportedType(filePath) {
   const base = filePath.split('/').pop().toLowerCase();
   const parts = base.split('.');
   if (parts.length < 3) return false;
   if (parts[0].length === 0) return false;  // .abapgit.xml, .gitignore etc.
+  const fileExt = parts[parts.length - 1];
+  if (!ABAP_FILE_EXTENSIONS.has(fileExt)) return false;  // not an ABAP source file
   const typeExt = parts[1];
   if (!/^[a-z0-9]+$/.test(typeExt)) return false;
   if (typeExt === 'devc') return false;
