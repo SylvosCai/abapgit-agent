@@ -45,6 +45,7 @@ const { runJUnitTests } = require('./integration/junit-runner');
 const { runDebugTests } = require('./integration/debug-runner');
 const { runDropTests } = require('./integration/drop-runner');
 const { runCustomizeTests } = require('./integration/customize-runner');
+const { runExcludeTests } = require('./integration/exclude-runner');
 const { runSetup } = require('./integration/setup-runner');
 
 // Colors for output
@@ -249,6 +250,17 @@ function runDropTestsWrapper() {
 
 function runCustomizeTestsWrapper() {
   return runCustomizeTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+function runExcludeTestsWrapper() {
+  return runExcludeTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -834,6 +846,21 @@ function printSummary(results) {
     }
   }
 
+  // Exclude tests
+  if (results.exclude) {
+    if (results.exclude.skipped) {
+      printWarning('Exclude Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.exclude.duration);
+      if (results.exclude.success) {
+        printSuccess(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} PASSED (${results.exclude.duration}s)`);
+      } else {
+        printError(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} FAILED (${results.exclude.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   // Scripted debug scenarios (3/4/5) — Node.js runner, CI-safe
   if (results.debugScripted) {
     if (results.debugScripted.skipped) {
@@ -893,7 +920,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -902,7 +929,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -1159,6 +1186,25 @@ async function main() {
     runDrop = false;
     runCustomize = true;
     runAsyncPull = false;
+    runExclude = false;
+  } else if (args.includes('--exclude')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = false;
+    runAsyncPull = false;
+    runExclude = true;
   } else if (args.includes('--async-pull')) {
     runJest = false;
     runAunit = false;
@@ -1190,6 +1236,7 @@ async function main() {
     runDrop = true;
     runCustomize = true;
     runAsyncPull = false;        // Async pull tests run as part of cmd tests
+    runExclude = true;             // Exclude tests use dedicated test repo, run in CI
     runLifecycle = false;        // Lifecycle tests run as part of cmd tests
     runPull = false;             // Pull tests run as part of cmd tests
     runFullPull = false;         // Full pull tests run as part of cmd tests
@@ -1320,6 +1367,11 @@ async function main() {
   // Run Async Pull tests (>10 files → background job)
   if (runAsyncPull) {
     results.asyncPull = runAsyncPullTestsWrapper();
+  }
+
+  // Run Exclude command tests
+  if (runExclude) {
+    results.exclude = runExcludeTestsWrapper();
   }
 
   // Run Debug scenario tests — always last.

@@ -8,7 +8,7 @@ const verifiers = require('../helpers/output-verifiers');
 // Mock fs module
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content')
+  readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content')
 }));
 
 // Mock path module

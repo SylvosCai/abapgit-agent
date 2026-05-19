@@ -59,6 +59,7 @@
     "test:full-pull": "node tests/run-all.js --full-pull",
     "test:conflict": "node tests/run-all.js --conflict",
     "test:async-pull": "node tests/run-all.js --async-pull",
+    "test:exclude": "node tests/run-all.js --exclude",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"
@@ -66,6 +67,7 @@
   "dependencies": {
     "axios": "^1.15.2",
     "dotenv": "^16.3.1",
+    "minimatch": "^10.2.5",
     "node-fetch": "^2.7.0",
     "uuid": "^9.0.0",
     "winston": "^3.11.0"

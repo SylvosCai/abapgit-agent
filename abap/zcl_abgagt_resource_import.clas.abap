@@ -26,13 +26,9 @@ CLASS zcl_abgagt_resource_import DEFINITION PUBLIC FINAL
              message TYPE string,
              username TYPE string,
              password TYPE string,
+             exclude_patterns TYPE string_table,
+             exclude_unsupported_types TYPE abap_bool,
            END OF ty_import_request.
-
-    METHODS get_job_status
-      IMPORTING
-        iv_job_number TYPE btcjobcnt
-      RETURNING
-        VALUE(rv_result) TYPE string.
 
 ENDCLASS.
 
@@ -73,59 +69,58 @@ CLASS zcl_abgagt_resource_import IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD if_rest_resource~get.
-    " Get job number from query parameter
     DATA: lv_job_num_str TYPE string,
-          lv_job_number TYPE btcjobcnt,
-          lv_result TYPE string.
+          lv_job_number  TYPE btcjobcnt,
+          ls_status      TYPE zif_abgagt_job_status_mgr=>ty_job_status,
+          lo_mgr         TYPE REF TO zif_abgagt_job_status_mgr.
 
     TRY.
         lv_job_num_str = mo_request->get_uri_query_parameter( 'jobNumber' ).
         lv_job_number = lv_job_num_str.
 
         IF lv_job_number IS INITIAL.
-          lv_result = '{"success":"","error":"jobNumber parameter required"}'.
-          mo_response->create_entity( )->set_string_data( lv_result ).
+          DATA: BEGIN OF ls_err1,
+                  success TYPE string,
+                  error   TYPE string,
+                END OF ls_err1.
+          ls_err1-error = 'jobNumber parameter required'.
+          mo_response->create_entity( )->set_string_data(
+            /ui2/cl_json=>serialize( data = ls_err1 pretty_name = /ui2/cl_json=>pretty_mode-low_case ) ).
           mo_response->set_status( cl_rest_status_code=>gc_client_error_bad_request ).
           RETURN.
         ENDIF.
 
-        " Get job status
-        lv_result = get_job_status( lv_job_number ).
-
-        " Return status
-        mo_response->create_entity( )->set_string_data( lv_result ).
-        mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
-
-      CATCH cx_root INTO DATA(lx_error).
-        lv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
-        mo_response->create_entity( )->set_string_data( lv_result ).
-        mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
-    ENDTRY.
-  ENDMETHOD.
-
-  METHOD get_job_status.
-    DATA: ls_status TYPE zif_abgagt_job_status_mgr=>ty_job_status,
-          lo_mgr    TYPE REF TO zif_abgagt_job_status_mgr.
-
-    TRY.
-        " Get status from shared buffer using interface
         lo_mgr = NEW zcl_abgagt_bg_status_mgr( ).
-        ls_status = lo_mgr->get_status( iv_job_number ).
+        ls_status = lo_mgr->get_status( lv_job_number ).
 
         IF ls_status IS INITIAL.
-          " No status in memory - check if job exists
-          rv_result = '{"success":"","error":"Job not found"}'.
+          DATA: BEGIN OF ls_not_found,
+                  success TYPE string,
+                  error   TYPE string,
+                END OF ls_not_found.
+          ls_not_found-error = 'Job not found'.
+          mo_response->create_entity( )->set_string_data(
+            /ui2/cl_json=>serialize( data = ls_not_found pretty_name = /ui2/cl_json=>pretty_mode-low_case ) ).
+          mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
           RETURN.
         ENDIF.
 
-        " Convert status to JSON
-        rv_result = /ui2/cl_json=>serialize(
-          data          = ls_status
-          compress      = abap_false
-          pretty_name   = /ui2/cl_json=>pretty_mode-camel_case ).
+        mo_response->create_entity( )->set_string_data(
+          /ui2/cl_json=>serialize(
+            data        = ls_status
+            compress    = abap_false
+            pretty_name = /ui2/cl_json=>pretty_mode-camel_case ) ).
+        mo_response->set_status( cl_rest_status_code=>gc_success_ok ).
 
       CATCH cx_root INTO DATA(lx_error).
-        rv_result = '{"success":"","error":"' && lx_error->get_text( ) && '"}'.
+        DATA: BEGIN OF ls_err2,
+                success TYPE string,
+                error   TYPE string,
+              END OF ls_err2.
+        ls_err2-error = lx_error->get_text( ).
+        mo_response->create_entity( )->set_string_data(
+          /ui2/cl_json=>serialize( data = ls_err2 pretty_name = /ui2/cl_json=>pretty_mode-low_case ) ).
+        mo_response->set_status( cl_rest_status_code=>gc_server_error_internal ).
     ENDTRY.
   ENDMETHOD.
 

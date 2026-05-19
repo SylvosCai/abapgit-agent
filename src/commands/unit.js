@@ -133,23 +133,49 @@ function parseRunResult(xml, className) {
     }
   }
 
-  // Parse coverage stats if present
-  let coverageStats = null;
-  const covMatch = xml.match(/<coverage\b[^>]*>/);
-  if (covMatch) {
-    const covEl = covMatch[0];
-    const totalMatch = covEl.match(/adtcore:lines_total="([^"]*)"/);
-    const coveredMatch = covEl.match(/adtcore:lines_covered="([^"]*)"/);
-    const rateMatch = covEl.match(/adtcore:coverage_rate="([^"]*)"/);
-    if (totalMatch || coveredMatch || rateMatch) {
-      const totalLines = totalMatch ? parseInt(totalMatch[1], 10) : 0;
-      const coveredLines = coveredMatch ? parseInt(coveredMatch[1], 10) : 0;
-      const coverageRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
-      coverageStats = { totalLines, coveredLines, coverageRate };
-    }
-  }
+  // Extract coverage measurement URI from <external><coverage adtcore:uri="..."/></external>
+  let coverageMeasurementUri = null;
+  const covUriMatch = xml.match(/coverage[^>]*adtcore:uri="([^"]*)"/);
+  if (covUriMatch) coverageMeasurementUri = covUriMatch[1];
 
-  return { className, methods, coverageStats };
+  return { className, methods, coverageStats: null, coverageMeasurementUri };
+}
+
+/**
+ * Fetch coverage statistics for a class by querying the ADT coverage measurement URI.
+ *
+ * The AUnit response contains a measurement URI in <external><coverage adtcore:uri="..."/></external>.
+ * Posting a cov:query to that URI returns statement/branch/procedure coverage totals.
+ *
+ * Returns { totalStatements, executedStatements, statementRate } or null if unavailable.
+ */
+async function fetchCoverageStats(adt, measurementUri, classAdtUri, className) {
+  try {
+    const resp = await adt.post(
+      measurementUri,
+      `<cov:query xmlns:cov="http://www.sap.com/adt/cov" xmlns:adtcore="http://www.sap.com/adt/core">` +
+      `<adtcore:objectSets>` +
+      `<adtcore:objectSet kind="inclusive">` +
+      `<adtcore:objectReferences>` +
+      `<adtcore:objectReference adtcore:uri="${classAdtUri}" adtcore:name="${className}" adtcore:type="CLAS/OC"/>` +
+      `</adtcore:objectReferences>` +
+      `</adtcore:objectSet>` +
+      `</adtcore:objectSets>` +
+      `</cov:query>`,
+      { contentType: 'application/xml', accept: 'application/xml' }
+    );
+    const xml = resp.body || '';
+    // Parse <coverage type="statement" total="N" executed="N"/>
+    const stmtMatch = xml.match(/<coverage type="statement"[^>]*total="(\d+)"[^>]*executed="(\d+)"/);
+    if (!stmtMatch) return null;
+    const total = parseInt(stmtMatch[1], 10);
+    const executed = parseInt(stmtMatch[2], 10);
+    if (total === 0) return null;
+    const rate = Math.round(executed / total * 100 * 10) / 10;
+    return { totalLines: total, coveredLines: executed, coverageRate: rate };
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
@@ -261,6 +287,11 @@ async function runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose
     });
 
     const result = parseRunResult(resp.body || '', className);
+
+    // Fetch coverage stats via the measurement URI (second API call)
+    if (coverage && result.coverageMeasurementUri) {
+      result.coverageStats = await fetchCoverageStats(adt, result.coverageMeasurementUri, adtUri, className);
+    }
 
     const testCount = result.methods.length;
     const failedCount = result.methods.filter(m => !m.passed).length;
@@ -498,4 +529,5 @@ Examples:
   _buildRunConfigXml: buildRunConfigXml,
   _parseRunResult: parseRunResult,
   _buildUnitJUnit: buildUnitJUnit,
+  _fetchCoverageStats: fetchCoverageStats,
 };

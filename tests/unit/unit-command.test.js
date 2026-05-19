@@ -5,7 +5,7 @@
 // Mock fs module
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content'),
+  readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content'),
   mkdirSync: jest.fn(),
   writeFileSync: jest.fn(),
 }));
@@ -131,8 +131,8 @@ const SLOW_XML = `<?xml version="1.0" encoding="UTF-8"?>
 const COVERAGE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit"
                  xmlns:adtcore="http://www.sap.com/adt/core">
+  <external><coverage adtcore:uri="/sap/bc/adt/runtime/traces/coverage/measurements/AABBCC" xmlns:adtcore="http://www.sap.com/adt/core"/></external>
   <program adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test" adtcore:name="ZCL_MY_TEST">
-    <coverage adtcore:lines_total="41" adtcore:lines_covered="27" adtcore:coverage_rate="65.9"/>
     <testClasses>
       <testClass adtcore:name="ZCL_MY_TEST">
         <testMethods>
@@ -229,17 +229,16 @@ describe('parseRunResult', () => {
     expect(pass.passed).toBe(true);
   });
 
-  test('returns null coverageStats when no coverage element', () => {
+  test('returns null coverageStats and null coverageMeasurementUri when no coverage in XML', () => {
     const r = _parseRunResult(PASS_XML, 'ZCL_MY_TEST');
     expect(r.coverageStats).toBeNull();
+    expect(r.coverageMeasurementUri).toBeNull();
   });
 
-  test('parses coverage stats from XML', () => {
+  test('extracts coverageMeasurementUri from external block', () => {
     const r = _parseRunResult(COVERAGE_XML, 'ZCL_MY_TEST');
-    expect(r.coverageStats).not.toBeNull();
-    expect(r.coverageStats.totalLines).toBe(41);
-    expect(r.coverageStats.coveredLines).toBe(27);
-    expect(r.coverageStats.coverageRate).toBe(65.9);
+    expect(r.coverageStats).toBeNull();
+    expect(r.coverageMeasurementUri).toBe('/sap/bc/adt/runtime/traces/coverage/measurements/AABBCC');
   });
 
   test('returns empty methods for no tests', () => {
@@ -413,7 +412,10 @@ describe('Unit Command - execute', () => {
   });
 
   test('shows coverage stats when --coverage', async () => {
-    mockAdt.post.mockResolvedValue({ body: COVERAGE_XML });
+    const covMeasResp = `<cov:result xmlns:cov="http://www.sap.com/adt/cov"><atom:link href="/sap/bc/adt/runtime/traces/coverage/results/X" rel="self" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/runtime/traces/coverage/results/X/statements" rel="http://www.sap.com/adt/relations/runtime/traces/coverage/results/bulkstatements" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/runtime/traces/coverage/measurements/AABBCC/coveredobjects" rel="http://www.sap.com/adt/relations/runtime/traces/coverage/measurements/coveredobjects" xmlns:atom="http://www.w3.org/2005/Atom"/><summary><coverages><coverage type="branch" total="10" executed="5"/><coverage type="procedure" total="5" executed="4"/><coverage type="statement" total="41" executed="27"/></coverages></summary></cov:result>`;
+    mockAdt.post
+      .mockResolvedValueOnce({ body: COVERAGE_XML })
+      .mockResolvedValueOnce({ body: covMeasResp });
     await unitCmd.execute(['--files', 'src/zcl_my_test.clas.testclasses.abap', '--coverage'], makeContext());
     expect(consoleOutput.some(l => l.includes('Coverage: 65.9%'))).toBe(true);
     expect(consoleOutput.some(l => l.includes('Total Lines: 41'))).toBe(true);
@@ -495,7 +497,10 @@ describe('Unit Command - execute', () => {
   });
 
   test('coverage threshold fail mode exits 1 and injects failure', async () => {
-    mockAdt.post.mockResolvedValue({ body: COVERAGE_XML });
+    const covMeasResp = `<cov:result xmlns:cov="http://www.sap.com/adt/cov"><summary><coverages><coverage type="statement" total="41" executed="27"/></coverages></summary></cov:result>`;
+    mockAdt.post
+      .mockResolvedValueOnce({ body: COVERAGE_XML })
+      .mockResolvedValueOnce({ body: covMeasResp });
     await expect(
       unitCmd.execute(
         ['--files', 'src/zcl_my_test.clas.testclasses.abap', '--coverage', '--coverage-threshold', '80'],
@@ -505,7 +510,10 @@ describe('Unit Command - execute', () => {
   });
 
   test('coverage threshold warn mode does not exit 1', async () => {
-    mockAdt.post.mockResolvedValue({ body: COVERAGE_XML });
+    const covMeasResp = `<cov:result xmlns:cov="http://www.sap.com/adt/cov"><summary><coverages><coverage type="statement" total="41" executed="27"/></coverages></summary></cov:result>`;
+    mockAdt.post
+      .mockResolvedValueOnce({ body: COVERAGE_XML })
+      .mockResolvedValueOnce({ body: covMeasResp });
     await unitCmd.execute(
       ['--files', 'src/zcl_my_test.clas.testclasses.abap', '--coverage', '--coverage-threshold', '80', '--coverage-mode', 'warn'],
       makeContext()

@@ -35,6 +35,7 @@ const DEFAULTS = {
   syntax:    'https://github.com/SylvosCai/abgagt-syntax-test.git',
   unit:      'https://github.com/SylvosCai/abgagt-unit-test.git',
   pullType:  'https://github.com/SylvosCai/abgagt-pull-type-test.git',
+  exclude:   'https://github.tools.sap/I045696/abgagt-exclude-test.git',
 };
 
 /**
@@ -67,7 +68,7 @@ const _overrides = loadTestRepos();
  * Returns the URL for the given test repo key, preferring any override
  * configured in .abapGitAgent over the built-in default.
  *
- * @param {'pull'|'drop'|'customize'|'lifecycle'|'run'|'syntax'} key
+ * @param {'pull'|'drop'|'customize'|'lifecycle'|'run'|'syntax'|'exclude'} key
  * @returns {string}
  */
 function getTestRepoUrl(key) {

@@ -8,7 +8,7 @@ const verifiers = require('../helpers/output-verifiers');
 // Mock fs module
 jest.mock('fs', () => ({
   existsSync: jest.fn(() => true),
-  readFileSync: jest.fn(() => 'mock content')
+  readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content')
 }));
 
 // Mock path module
@@ -1381,7 +1381,7 @@ describe('Pull Command - Conflict Detection', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    jest.mock('fs', () => ({ existsSync: jest.fn(() => true), readFileSync: jest.fn(() => 'mock content') }));
+    jest.mock('fs', () => ({ existsSync: jest.fn(() => true), readFileSync: jest.fn((p) => p.includes('.abapgit-agent.json') ? '{}' : 'mock content') }));
     jest.mock('path', () => ({ isAbsolute: jest.fn(() => false), join: jest.fn((...args) => args.join('/')), resolve: jest.fn((...args) => '/' + args.join('/')), basename: jest.fn((p) => p.split('/').pop()) }));
     jest.mock('../../src/utils/format-error', () => ({ printHttpError: jest.fn() }));
     jest.mock('../../src/utils/transport-selector', () => ({ selectTransport: jest.fn(), isNonInteractive: jest.fn(() => false), _getTransportHookConfig: jest.fn(() => null), interactivePicker: jest.fn(() => Promise.resolve(null)) }));
@@ -1584,7 +1584,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     jest.mock('child_process', () => ({ execSync: (...a) => mockExecSyncHolder.fn(...a) }));
     jest.mock('fs', () => ({
       existsSync: jest.fn(() => true),
-      readFileSync: jest.fn(() => Buffer.from('original content')),
+      readFileSync: jest.fn((p) => p && p.includes && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('original content')),
       writeFileSync: jest.fn()
     }));
     jest.mock('path', () => ({
@@ -1667,7 +1667,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const fs = require('fs');
 
     const serializedXml = '<xml>serialized</xml>';
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>hand-crafted</xml>'));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1692,7 +1692,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
 
-    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('old'));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1745,7 +1745,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const fs = require('fs');
 
     const content = '<xml>identical</xml>';
-    fs.readFileSync.mockReturnValue(Buffer.from(content));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from(content));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1785,7 +1785,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>hand-crafted</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1857,7 +1857,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1897,7 +1897,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1939,7 +1939,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1974,7 +1974,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from(content));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from(content));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1990,7 +1990,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
   test('handles uppercase LOCAL_XML_FILES from ABAP JSON serialization', async () => {
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('old'));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -2018,5 +2018,106 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
   test('--sync-xml flag absent by default', () => {
     const args = ['--files', 'zcl_test.clas.abap'];
     expect(args.includes('--sync-xml')).toBe(false);
+  });
+});
+
+describe('Pull Command - Exclude Patterns', () => {
+  let consoleOutput;
+  let originalConsoleLog;
+
+  beforeEach(() => {
+    consoleOutput = [];
+    originalConsoleLog = console.log;
+    console.log = (...args) => consoleOutput.push(args.join(' '));
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+  });
+
+  test('skips files matching exclude patterns and prints warning', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getExcludePatterns: jest.fn(() => ['zcl_*_dpc*.clas.*']),
+      isExcluded: jest.fn((f) => f.includes('_dpc')),
+      getUnsupportedTypesFlag: jest.fn(() => false),
+      isUnsupportedType: jest.fn(() => false)
+    }));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockHttp = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+      post: jest.fn().mockResolvedValue({ SUCCESS: 'X', ACTIVATED_COUNT: 1, ACTIVATED_OBJECTS: [], LOG: [] }),
+      get: jest.fn().mockResolvedValue({ body: '' })
+    };
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn(() => mockHttp),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') },
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(
+      ['--files', 'abap/zcl_zsegw_dpc.clas.abap,abap/zcl_normal.clas.abap', '--url', 'https://github.com/test/repo'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Skipping 1 excluded file/);
+    expect(output).toMatch(/zcl_zsegw_dpc\.clas\.abap/);
+
+    // Only non-excluded file should be sent to ABAP
+    const pullCall = mockHttp.post.mock.calls.find(c => c[0].includes('/pull'));
+    const payload = pullCall ? pullCall[1] : null;
+    expect(payload).not.toBeNull();
+    expect(payload.files).not.toContain('abap/zcl_zsegw_dpc.clas.abap');
+    expect(payload.files).toContain('abap/zcl_normal.clas.abap');
+  });
+
+  test('skips unsupported-type file when unsupportedTypes flag is true', async () => {
+    jest.mock('../../src/config', () => ({
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getExcludePatterns: jest.fn(() => []),
+      isExcluded: jest.fn(() => false),
+      getUnsupportedTypesFlag: jest.fn(() => true),
+      isUnsupportedType: jest.fn((f) => f.includes('.badi.'))
+    }));
+
+    const pullCommand = require('../../src/commands/pull');
+    const mockHttp = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'),
+      post: jest.fn().mockResolvedValue({ SUCCESS: 'X', ACTIVATED_COUNT: 1, ACTIVATED_OBJECTS: [], LOG: [] }),
+      get: jest.fn().mockResolvedValue({ body: '' })
+    };
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      AbapHttp: jest.fn(() => mockHttp),
+      gitUtils: { getRemoteUrl: jest.fn(() => 'https://github.com/test/repo'), getBranch: jest.fn(() => 'main') },
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null })),
+      getTransport: jest.fn(() => null)
+    };
+
+    await pullCommand.execute(
+      ['--files', 'abap/zfoo.badi.xml,abap/zcl_normal.clas.abap', '--url', 'https://github.com/test/repo'],
+      mockContext
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toMatch(/Skipping 1 excluded file/);
+    expect(output).toMatch(/zfoo\.badi\.xml/);
+
+    const pullCall = mockHttp.post.mock.calls.find(c => c[0].includes('/pull'));
+    const payload = pullCall ? pullCall[1] : null;
+    expect(payload).not.toBeNull();
+    expect(payload.files).not.toContain('abap/zfoo.badi.xml');
+    expect(payload.files).toContain('abap/zcl_normal.clas.abap');
   });
 });

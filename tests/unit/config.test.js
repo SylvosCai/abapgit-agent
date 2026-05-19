@@ -514,4 +514,119 @@ describe('Config', () => {
     });
   });
 
+  describe('getExcludePatterns', () => {
+    test('returns empty array when no exclude config', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(false);
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual([]);
+    });
+
+    test('returns empty array when exclude.patterns is missing', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: {} }));
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual([]);
+    });
+
+    test('returns patterns lowercased', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        exclude: { patterns: ['ZCL_*_DPC*.clas.*', '*.FUGR.*'] }
+      }));
+      const { getExcludePatterns } = require('../../src/config');
+      expect(getExcludePatterns()).toEqual(['zcl_*_dpc*.clas.*', '*.fugr.*']);
+    });
+  });
+
+  describe('isExcluded', () => {
+    test('returns false when patterns is empty', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_foo.clas.abap', [])).toBe(false);
+    });
+
+    test('matches file basename against pattern', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_zsegw_dpc.clas.abap', ['zcl_*_dpc*.clas.*'])).toBe(true);
+    });
+
+    test('strips directory before matching', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('src/deep/path/zcl_foo_dpc.clas.xml', ['zcl_*_dpc*.clas.*'])).toBe(true);
+    });
+
+    test('does not match non-matching file', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('abap/zcl_normal.clas.abap', ['zcl_*_dpc*.clas.*'])).toBe(false);
+    });
+
+    test('matches any of multiple patterns', () => {
+      const { isExcluded } = require('../../src/config');
+      const patterns = ['zcl_*_dpc*.clas.*', '*.fugr.*'];
+      expect(isExcluded('abap/zfugr_my.fugr.abap', patterns)).toBe(true);
+    });
+  });
+
+  describe('getUnsupportedTypesFlag / isUnsupportedType', () => {
+    test('getUnsupportedTypesFlag returns false when not configured', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(false);
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(false);
+    });
+
+    test('getUnsupportedTypesFlag returns false when set to false', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: { unsupportedTypes: false } }));
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(false);
+    });
+
+    test('getUnsupportedTypesFlag returns true when set', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({ exclude: { unsupportedTypes: true } }));
+      const { getUnsupportedTypesFlag } = require('../../src/config');
+      expect(getUnsupportedTypesFlag()).toBe(true);
+    });
+
+    test('isUnsupportedType returns true for BADI file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zfoo.badi.xml')).toBe(true);
+    });
+
+    test('isUnsupportedType returns true for W3MI file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zfoo.w3mi.xml')).toBe(true);
+    });
+
+    test('isUnsupportedType returns false for CLAS file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/zcl_foo.clas.abap')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for TABL file', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/ztable.tabl.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for .abapgit.xml (not an ABAP object)', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/.abapgit.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for package.devc.xml', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('abap/package.devc.xml')).toBe(false);
+    });
+
+    test('isUnsupportedType returns false for plain .xml with only 2 parts', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('something.xml')).toBe(false);
+    });
+  });
+
 });

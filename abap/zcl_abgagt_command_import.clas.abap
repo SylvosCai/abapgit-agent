@@ -18,6 +18,8 @@ CLASS zcl_abgagt_command_import DEFINITION PUBLIC FINAL CREATE PUBLIC.
              message TYPE string,
              username TYPE string,
              password TYPE string,
+             exclude_patterns TYPE string_table,
+             exclude_unsupported_types TYPE abap_bool,
            END OF ty_import_params.
 
   PRIVATE SECTION.
@@ -166,6 +168,37 @@ CLASS zcl_abgagt_command_import IMPLEMENTATION.
             iv_progress = 60.
 
         lt_files = li_repo->get_files_local( ).
+
+        " Filter files by exclude_patterns and/or exclude_unsupported_types
+        IF ls_params-exclude_patterns IS NOT INITIAL
+        OR ls_params-exclude_unsupported_types = abap_true.
+          CONSTANTS lc_supported TYPE string
+            VALUE 'CLAS INTF PROG FUGR TABL DTEL TTYP DOMA DDLS DCLS MSAG STRU ENHO SUSO PINF'.
+          DATA lt_filtered TYPE zif_abapgit_definitions=>ty_files_item_tt.
+          LOOP AT lt_files ASSIGNING FIELD-SYMBOL(<ls_excl>).
+            DATA(lv_excluded) = abap_false.
+            LOOP AT ls_params-exclude_patterns INTO DATA(lv_pattern).
+              IF <ls_excl>-file-filename CP lv_pattern.
+                lv_excluded = abap_true.
+                EXIT.
+              ENDIF.
+            ENDLOOP.
+            IF lv_excluded = abap_false
+            AND ls_params-exclude_unsupported_types = abap_true.
+              SPLIT <ls_excl>-file-filename AT '.' INTO TABLE DATA(lt_parts).
+              IF lines( lt_parts ) >= 3.
+                DATA(lv_type_seg) = to_upper( lt_parts[ 2 ] ).
+                IF lc_supported NS lv_type_seg.
+                  lv_excluded = abap_true.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+            CHECK lv_excluded = abap_false.
+            APPEND <ls_excl> TO lt_filtered.
+          ENDLOOP.
+          lt_files = lt_filtered.
+        ENDIF.
+
         DATA(lv_files_staged) = lines( lt_files ).
 
         IF lv_files_staged = 0.

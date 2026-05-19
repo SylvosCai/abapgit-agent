@@ -260,6 +260,53 @@ function getInspectConfig() {
   };
 }
 
+/**
+ * Get exclude patterns from project-level config (.abapgit-agent.json)
+ * Patterns match against file basenames using minimatch glob syntax.
+ * @returns {string[]} Array of lowercase glob patterns, or empty array
+ */
+function getExcludePatterns() {
+  const projectConfig = loadProjectConfig();
+  const patterns = projectConfig?.exclude?.patterns;
+  if (!Array.isArray(patterns) || patterns.length === 0) return [];
+  return patterns.map(p => String(p).toLowerCase());
+}
+
+/**
+ * Check if a file path matches any of the exclude patterns.
+ * Matching is done against the basename only (directory stripped).
+ * @param {string} filePath
+ * @param {string[]} patterns - from getExcludePatterns()
+ * @returns {boolean}
+ */
+function isExcluded(filePath, patterns) {
+  if (!patterns || patterns.length === 0) return false;
+  const { minimatch } = require('minimatch');
+  const base = filePath.split('/').pop().toLowerCase();
+  return patterns.some(p => minimatch(base, p));
+}
+
+const SUPPORTED_ABAP_TYPES = new Set([
+  'clas','intf','prog','fugr','tabl','dtel','ttyp','doma',
+  'ddls','dcls','msag','stru','enho','suso','pinf'
+]);
+
+function getUnsupportedTypesFlag() {
+  const projectConfig = loadProjectConfig();
+  return projectConfig?.exclude?.unsupportedTypes === true;
+}
+
+function isUnsupportedType(filePath) {
+  const base = filePath.split('/').pop().toLowerCase();
+  const parts = base.split('.');
+  if (parts.length < 3) return false;
+  if (parts[0].length === 0) return false;  // .abapgit.xml, .gitignore etc.
+  const typeExt = parts[1];
+  if (!/^[a-z0-9]+$/.test(typeExt)) return false;
+  if (typeExt === 'devc') return false;
+  return !SUPPORTED_ABAP_TYPES.has(typeExt);
+}
+
 module.exports = {
   loadConfig,
   getAbapConfig,
@@ -275,5 +322,9 @@ module.exports = {
   getTransportSettings,
   getScratchWorkspace,
   getCoverageConfig,
-  getInspectConfig
+  getInspectConfig,
+  getExcludePatterns,
+  isExcluded,
+  getUnsupportedTypesFlag,
+  isUnsupportedType
 };
