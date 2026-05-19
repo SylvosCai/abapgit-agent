@@ -1667,7 +1667,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const fs = require('fs');
 
     const serializedXml = '<xml>serialized</xml>';
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>hand-crafted</xml>'));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1692,7 +1692,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
 
-    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('old'));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1745,7 +1745,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const fs = require('fs');
 
     const content = '<xml>identical</xml>';
-    fs.readFileSync.mockReturnValue(Buffer.from(content));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from(content));
 
     const ctx = makeXmlContext({
       postResult: {
@@ -1785,7 +1785,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>hand-crafted</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>hand-crafted</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1857,7 +1857,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1897,7 +1897,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1939,7 +1939,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('<xml>old</xml>'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('<xml>old</xml>'));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1974,7 +1974,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from(content));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from(content));
 
     const ctx = makeXmlContext({ postMock });
 
@@ -1990,7 +1990,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
   test('handles uppercase LOCAL_XML_FILES from ABAP JSON serialization', async () => {
     const pullCommand = require('../../src/commands/pull');
     const fs = require('fs');
-    fs.readFileSync.mockReturnValue(Buffer.from('old'));
+    fs.readFileSync.mockImplementation((p) => p && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('old'));
 
     const ctx = makeXmlContext({
       postResult: {
