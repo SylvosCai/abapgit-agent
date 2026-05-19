@@ -7,7 +7,7 @@ parent: Setup Commands
 
 # exclude Command
 
-Remove git-tracked files matching `exclude.patterns` from git tracking.
+Remove git-tracked files matching `exclude` configuration from git tracking.
 ABAP objects are never touched — only git tracking is affected.
 
 ## Command
@@ -18,7 +18,7 @@ abapgit-agent exclude
 
 ## What It Does
 
-1. Reads `exclude.patterns` from `.abapgit-agent.json`
+1. Reads `exclude` config (`patterns` and/or `unsupportedTypes`) from `.abapgit-agent.json`
 2. Runs `git ls-files` to list all tracked files
 3. Filters files matching any of the glob patterns
 4. Runs `git rm --cached` to untrack matching files
@@ -65,7 +65,7 @@ Use this to exclude specific supported-type files (e.g. SEGW-generated DPC/MPC c
 
 Once patterns are configured:
 
-- **`pull --files`** — files matching exclude patterns are skipped with a warning
+- **`pull`** — files matching exclude config are skipped with a warning
 - **`import`** — excluded files are filtered before staging/committing to git
 
 ## Example
@@ -90,4 +90,4 @@ abapgit-agent exclude
 ## Prerequisite
 
 - Current folder is a git repository
-- `.abapgit-agent.json` exists with an `exclude.patterns` array
+- `.abapgit-agent.json` exists with `exclude.patterns` and/or `exclude.unsupportedTypes: true`
