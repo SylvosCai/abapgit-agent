@@ -21,10 +21,12 @@
  *   2. unsupportedTypes: true → removes exactly the 3 unsupported-type files, keeps 7 others
  *   3. patterns only → removes DPC+MPC files (4 files), keeps everything else
  *   4. patterns + unsupportedTypes → removes DPC+MPC+unsupported (7 files total)
- *   5. import with excludeUnsupportedTypes → files_staged excludes unsupported types
- *      (Node.js side: verified via --json output without hitting ABAP backend)
+ *   5. real import with excludeUnsupportedTypes → registers repo via create, runs
+ *      import --message, verifies files_staged = 7 AND unsupported files absent
+ *      from the resulting git commit (ABAP-side filtering verified end-to-end)
  *
- * Each test resets the repo to its original state via git checkout after running.
+ * Each test resets the repo to its original state via git reset --hard origin/main after running.
+ * Test 5 requires ABAP connectivity (registers repo via create, runs a real async import job).
  *
  * Run:
  *   node tests/run-all.js --exclude
@@ -87,12 +89,12 @@ function runExcludeTests(repoRoot, helpers) {
     return execSync(`git ${cmd}`, { cwd: CLONE_DIR, encoding: 'utf8' }).trim();
   }
 
-  function runCli(args = []) {
+  function runCli(args = [], timeout = 60000) {
     try {
       return execSync(`abapgit-agent ${args.join(' ')}`, {
         cwd: CLONE_DIR,
         encoding: 'utf8',
-        timeout: 60000,
+        timeout,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (e) {
@@ -204,30 +206,79 @@ function runExcludeTests(repoRoot, helpers) {
   // Reset
   execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
 
-  // ── Test 5: import --json passes excludePatterns / excludeUnsupportedTypes ───
-  // This test verifies the Node.js side of import: when exclude config is set,
-  // the correct flags are sent in the request payload. We check this by running
-  // import --json and inspecting what payload it would send (via the error response
-  // which echoes back the attempt), OR by checking that the command does not crash
-  // and includes the expected config in its dry-run output.
-  // Since import calls the ABAP backend, we only verify the CLI correctly reads
-  // and forwards the exclude config — full ABAP-side filtering is unit-tested.
-  printInfo('Test 5: import --json with excludeUnsupportedTypes — CLI passes flag to backend');
-  writeProjectConfig({ exclude: { unsupportedTypes: true } });
+  // ── Test 5: real import with excludeUnsupportedTypes — ABAP-side filtering ───
+  // Registers the test repo in abapGit (create), runs import with unsupportedTypes:true,
+  // then verifies: (a) files_staged = 7, (b) the 3 unsupported files are absent from
+  // the git commit (checked after git fetch + reset --hard origin/main).
+  // Cleans up with delete at the end.
+  printInfo('Test 5: real import with unsupportedTypes:true — verifies ABAP-side filtering');
 
-  // Run import without ABAP credentials — it will fail but the error happens AFTER
-  // the payload is constructed, so we can check that config was read correctly.
-  // We detect this by checking for a connection error (not a config error).
-  const out5 = runCli(['import', '--message', 'test', '--json']);
-  const configReadOk = !out5.includes('No exclude') &&
-    (out5.includes('error') || out5.includes('connect') || out5.includes('ECONNREFUSED') ||
-     out5.includes('url') || out5.includes('URL') || out5.includes('{'));
-  addResult('import --json with excludeUnsupportedTypes — config read, request attempted', configReadOk, out5.slice(0, 200));
+  // Inject .abapGitAgent with the exclude test package into the clone
+  const abapGitAgentConfig = path.join(repoRoot, '.abapGitAgent');
+  if (fs.existsSync(abapGitAgentConfig)) {
+    const cfg = JSON.parse(fs.readFileSync(abapGitAgentConfig, 'utf8'));
+    cfg.package = '$ABGAGT_EXCL_TEST';
+    cfg.folder  = '/src/';
+    fs.writeFileSync(path.join(CLONE_DIR, '.abapGitAgent'), JSON.stringify(cfg, null, 2));
+  }
+
+  // Register the repo in abapGit
+  printInfo('  Registering repo via create...');
+  const outCreate = runCli(['create'], 180000);
+  const createOk = outCreate.toLowerCase().includes('created') ||
+                   outCreate.toLowerCase().includes('already') ||
+                   outCreate.toLowerCase().includes('success');
+  addResult('import test: create registers repo in abapGit', createOk, outCreate);
+
+  if (createOk) {
+    // Run import with unsupportedTypes filter — async job, needs longer timeout
+    writeProjectConfig({ exclude: { unsupportedTypes: true } });
+    printInfo('  Running import with unsupportedTypes:true (async)...');
+    const outImport = runCli(['import', '--message', 'test: exclude unsupported types'], 300000);
+
+    const importCompleted = outImport.includes('Import completed successfully') ||
+                            outImport.includes('completed');
+    addResult('import test: import job completes successfully', importCompleted, outImport.slice(0, 400));
+
+    // Verify files_staged count: 10 files in repo − 3 unsupported = 7
+    const stagedMatch = outImport.match(/Files staged:\s*(\d+)/i);
+    const filesStagedOk = stagedMatch && parseInt(stagedMatch[1], 10) === 7;
+    addResult(
+      `import test: files_staged = 7 (got ${stagedMatch ? stagedMatch[1] : 'none'})`,
+      !!filesStagedOk, outImport.slice(0, 400)
+    );
+
+    if (importCompleted) {
+      // Fetch the commit pushed by import and check file content
+      try {
+        execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
+        const unsupportedAbsent = UNSUPPORTED_FILES.every(f => !fs.existsSync(path.join(CLONE_DIR, f)));
+        const supportedPresent  = SUPPORTED_KEPT_FILES.every(f => fs.existsSync(path.join(CLONE_DIR, f)));
+        addResult('import test: unsupported files absent from git commit', unsupportedAbsent,
+          UNSUPPORTED_FILES.filter(f => fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
+        addResult('import test: supported files present in git commit', supportedPresent,
+          SUPPORTED_KEPT_FILES.filter(f => !fs.existsSync(path.join(CLONE_DIR, f))).join(', '));
+      } catch (e) {
+        addResult('import test: git fetch after import', false, e.message);
+      }
+    }
+
+    // Delete the repo from abapGit to leave the system clean
+    printInfo('  Cleaning up: deleting repo from abapGit...');
+    runCli(['delete'], 60000);
+  }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
   if (fs.existsSync(path.join(CLONE_DIR, '.abapgit-agent.json'))) {
     fs.unlinkSync(path.join(CLONE_DIR, '.abapgit-agent.json'));
   }
+  if (fs.existsSync(path.join(CLONE_DIR, '.abapGitAgent'))) {
+    fs.unlinkSync(path.join(CLONE_DIR, '.abapGitAgent'));
+  }
+  // Restore the test repo to origin/main after the import may have changed it
+  try {
+    execSync('git fetch origin && git reset --hard origin/main', { cwd: CLONE_DIR, encoding: 'utf8' });
+  } catch (e) { /* best-effort */ }
 
   function finalize() {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
