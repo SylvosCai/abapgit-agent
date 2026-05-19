@@ -1221,7 +1221,7 @@ async function main() {
     runDrop = true;
     runCustomize = true;
     runAsyncPull = false;        // Async pull tests run as part of cmd tests
-    runExclude = false;          // Exclude tests are standalone; opt-in with --exclude
+    runExclude = true;             // Exclude tests use dedicated test repo, run in CI
     runLifecycle = false;        // Lifecycle tests run as part of cmd tests
     runPull = false;             // Pull tests run as part of cmd tests
     runFullPull = false;         // Full pull tests run as part of cmd tests
