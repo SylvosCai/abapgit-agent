@@ -26,6 +26,8 @@ CLASS zcl_abgagt_resource_import DEFINITION PUBLIC FINAL
              message TYPE string,
              username TYPE string,
              password TYPE string,
+             exclude_patterns TYPE string_table,
+             exclude_unsupported_types TYPE abap_bool,
            END OF ty_import_request.
 
     METHODS get_job_status
