@@ -76,10 +76,10 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | Run | `npm run test:cmd -- --command=run` | `run --program` and `run --class` | `$ABGAGT_RUN_TEST` |
 | Exclude | `npm run test:exclude` | `exclude` command — pattern + unsupportedTypes filtering | `$ABGAGT_EXCL_TEST` |
 | Syntax (FUGR) | `npm run test:cmd -- --command=syntax` | FUGR function group syntax checks | `$ABGAGT_SYNTAX_TEST` |
-| JUnit output | `npm run test:junit` | `--junit-output` flag | project package |
-| Debug | `npm run test:debug` | Breakpoint management (ADT) | project package |
+| JUnit output | `npm run test:junit` | `--junit-output` flag | `$ABGAGT_UNIT_TEST` |
+| Debug | `npm run test:debug` | Breakpoint management (ADT) | `$ABGAGT_DEBUG_TEST` |
 
-> **Note:** Most command tests use objects in the project package. Exceptions: `run` tests require `$ABGAGT_RUN_TEST`, and `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST` — both are set up automatically by the setup phase.
+> **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase.
 
 ### Running a single command suite
 
