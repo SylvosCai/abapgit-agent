@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.20.2
+
+### Bug Fixes
+
+- Fix `unit` misattributing test results when test class names don't contain the production class name as a substring (e.g. `ltc_anth_connector` → `CL_GRCAUD_ANTH_CONNECTOR`)
+
+---
+
+---
+
+
 ## v1.20.1
 
 ### New Features
