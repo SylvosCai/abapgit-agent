@@ -30,6 +30,7 @@ CLASS zcl_abgagt_command_unit DEFINITION
     " Single test method outcome.
     TYPES:
       BEGIN OF ts_method_result,
+        program         TYPE string,        "owning class pool, e.g. CL_FOO===========CP
         test_class_name TYPE string,
         name            TYPE string,
         passed          TYPE abap_bool,
@@ -119,6 +120,7 @@ CLASS zcl_abgagt_command_unit DEFINITION
     " Listener buffer — populated during AUnit run, drained by attach_test_results.
     DATA:
       mt_listener_results TYPE tt_method_results,
+      mv_current_program  TYPE string,
       mv_current_class    TYPE string,
       mv_current_idx      TYPE i,
       mv_current_start    TYPE timestampl.
@@ -283,32 +285,53 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD attach_test_results.
-    LOOP AT io_listener->mt_listener_results INTO DATA(ls_method).
-      " Find the parent class entry. test_class_name is e.g. LTCL_ZCL_FOO; the parent class
-      " was ZCL_FOO. We map by stripping a leading 'LTCL_' or any test class prefix and
-      " falling back to: any class entry whose class_name appears in the test class name.
-      DATA: lv_match_class TYPE seoclsname,
-            lv_test_upper  TYPE string.
-      lv_test_upper = ls_method-test_class_name.
-      TRANSLATE lv_test_upper TO UPPER CASE.
+    " Build a class-pool → class-name lookup once. The listener captures the
+    " program (class pool) name in program_start; we use that to attribute
+    " each method result to the correct production class — independent of
+    " the local test class naming convention (LTC_, LTCL_, LT_, ...).
+    DATA: BEGIN OF ls_pool_class,
+            pool_name  TYPE string,
+            class_name TYPE seoclsname,
+          END OF ls_pool_class,
+          lt_pool_class LIKE STANDARD TABLE OF ls_pool_class.
 
-      LOOP AT ct_class_results ASSIGNING FIELD-SYMBOL(<ls_cr>).
-        IF lv_test_upper CS <ls_cr>-class_name.
-          lv_match_class = <ls_cr>-class_name.
-          EXIT.
+    LOOP AT ct_class_results INTO DATA(ls_seed).
+      ls_pool_class-pool_name  = cl_oo_classname_service=>get_classpool_name( ls_seed-class_name ).
+      ls_pool_class-class_name = ls_seed-class_name.
+      APPEND ls_pool_class TO lt_pool_class.
+    ENDLOOP.
+
+    LOOP AT io_listener->mt_listener_results INTO DATA(ls_method).
+      DATA: lv_match_class TYPE seoclsname.
+      CLEAR lv_match_class.
+
+      " Primary path: look up via the captured program name.
+      IF ls_method-program IS NOT INITIAL.
+        READ TABLE lt_pool_class INTO ls_pool_class WITH KEY pool_name = ls_method-program.
+        IF sy-subrc = 0.
+          lv_match_class = ls_pool_class-class_name.
         ENDIF.
-      ENDLOOP.
+      ENDIF.
+
+      " Fallback: substring match against the test class name (legacy convention).
+      IF lv_match_class IS INITIAL.
+        DATA(lv_test_upper) = ls_method-test_class_name.
+        TRANSLATE lv_test_upper TO UPPER CASE.
+        LOOP AT ct_class_results ASSIGNING FIELD-SYMBOL(<ls_lookup>).
+          IF lv_test_upper CS <ls_lookup>-class_name.
+            lv_match_class = <ls_lookup>-class_name.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
 
       IF lv_match_class IS INITIAL.
-        " Couldn't attribute — append to first entry as a fallback.
-        IF lines( ct_class_results ) > 0.
-          ASSIGN ct_class_results[ 1 ] TO <ls_cr>.
-          APPEND ls_method TO <ls_cr>-methods.
-        ENDIF.
+        " Couldn't attribute — drop the result; better than corrupting an
+        " unrelated class entry. (Could also be logged as a warning later.)
         CONTINUE.
       ENDIF.
 
-      LOOP AT ct_class_results ASSIGNING <ls_cr> WHERE class_name = lv_match_class.
+      LOOP AT ct_class_results ASSIGNING FIELD-SYMBOL(<ls_cr>) WHERE class_name = lv_match_class.
         APPEND ls_method TO <ls_cr>-methods.
         EXIT.
       ENDLOOP.
@@ -481,6 +504,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD if_aunit_listener~program_start.
+    mv_current_program = info->name.
   ENDMETHOD.
 
   METHOD if_aunit_listener~program_end.
@@ -488,6 +512,7 @@ CLASS zcl_abgagt_command_unit IMPLEMENTATION.
 
   METHOD if_aunit_listener~method_start.
     DATA: ls_row TYPE ts_method_result.
+    ls_row-program         = mv_current_program.
     ls_row-test_class_name = mv_current_class.
     ls_row-name            = info->name.
     ls_row-passed          = abap_true.
