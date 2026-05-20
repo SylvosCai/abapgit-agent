@@ -2,6 +2,26 @@
 title: Release Notes
 ---
 
+## v1.20.3
+
+### Bug Fixes
+
+- `inspect --junit-output`: warnings no longer fail the build
+
+### Improvements
+
+- Inspect warnings aggregated into `<system-out>` (build stays green)
+- Add `inspect.warnings: "failure"` config to restore legacy strict mode
+
+### Documentation
+
+- Document `inspect.warnings` config field in `project-config.md`
+
+---
+
+---
+
+
 ## v1.20.2
 
 ### Bug Fixes
