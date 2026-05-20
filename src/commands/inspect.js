@@ -36,7 +36,21 @@ function escapeXml(str) {
  * after the SCI check rule (check_class/check_code) so Jenkins shows exactly
  * which rule fired. Clean objects get a single passing testcase.
  */
-function buildInspectJUnit(results) {
+/**
+ * Build the JUnit XML for a list of inspect results.
+ *
+ * @param {object[]} results
+ * @param {object} [options]
+ * @param {'info'|'failure'} [options.warnings='info']
+ *   How warnings are encoded:
+ *   - `'info'` (default): warnings become a `<system-out>` block on a single
+ *     passing `<testcase>` per suite. Jenkins keeps the build GREEN.
+ *   - `'failure'`: warnings become individual `<failure type="Warning">`
+ *     elements (legacy behaviour). Jenkins marks the build UNSTABLE.
+ */
+function buildInspectJUnit(results, options = {}) {
+  const warningsMode = options.warnings === 'failure' ? 'failure' : 'info';
+
   const suites = results.map(res => {
     const objectType = res.OBJECT_TYPE !== undefined ? res.OBJECT_TYPE : (res.object_type || 'UNKNOWN');
     const objectName = res.OBJECT_NAME !== undefined ? res.OBJECT_NAME : (res.object_name || 'UNKNOWN');
@@ -44,12 +58,14 @@ function buildInspectJUnit(results) {
     const warnings   = res.WARNINGS !== undefined ? res.WARNINGS : (res.warnings || []);
     const errorCount = errors.length;
     const warnCount  = warnings.length;
-    const testCount  = Math.max(1, errorCount + warnCount);
 
     const testcases = [];
 
     const inspectClass = `${escapeXml(objectName)}.Inspect`;
 
+    // Emit a "no findings" passed testcase only when nothing else will be added.
+    const willEmitWarningTestcase = warnCount > 0 && warningsMode === 'info';
+    const willEmitWarningFailures = warnCount > 0 && warningsMode === 'failure';
     if (errorCount === 0 && warnCount === 0) {
       testcases.push(`    <testcase name="Syntax check" classname="${inspectClass}"/>`);
     }
@@ -77,7 +93,8 @@ function buildInspectJUnit(results) {
       );
     }
 
-    for (const warn of warnings) {
+    // Render each warning as a single-line summary that's reusable in either mode.
+    const renderWarning = (warn) => {
       const line       = warn.LINE        || warn.line        || '?';
       const text       = warn.MESSAGE     || warn.message     || warn.TEXT || warn.text || 'Warning';
       const methodName = warn.METHOD_NAME || warn.method_name;
@@ -92,16 +109,46 @@ function buildInspectJUnit(results) {
       ].filter(Boolean).join('\n');
       const checkId  = checkClass && checkCode ? `${checkClass}/${checkCode}` : null;
       const caseName = checkId ? checkId : (methodName ? `${methodName} line ${line}` : `Line ${line}`);
+      return { line, text, detail, caseName };
+    };
+
+    if (willEmitWarningFailures) {
+      for (const warn of warnings) {
+        const { text, detail, caseName } = renderWarning(warn);
+        testcases.push(
+          `    <testcase name="${escapeXml(caseName)}" classname="${inspectClass}">\n` +
+          `      <failure type="Warning" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
+          `    </testcase>`
+        );
+      }
+    } else if (willEmitWarningTestcase) {
+      // 'info' mode — one passing testcase per suite carrying all warning text in <system-out>.
+      const lines = warnings.map(w => {
+        const { caseName, text } = renderWarning(w);
+        return `${caseName}: ${text}`;
+      });
       testcases.push(
-        `    <testcase name="${escapeXml(caseName)}" classname="${inspectClass}">\n` +
-        `      <failure type="Warning" message="${escapeXml(text)}">${escapeXml(detail)}</failure>\n` +
+        `    <testcase name="Warnings (${warnCount})" classname="${inspectClass}">\n` +
+        `      <system-out>${escapeXml(lines.join('\n'))}</system-out>\n` +
         `    </testcase>`
       );
     }
 
+    // Counters: warnings only count toward `failures=` in legacy mode.
+    const reportedFailures = errorCount + (warningsMode === 'failure' ? warnCount : 0);
+    // testCount must reflect the number of <testcase> elements actually emitted.
+    let reportedTests;
+    if (errorCount === 0 && warnCount === 0) {
+      reportedTests = 1;                              // single "Syntax check" passed
+    } else if (warningsMode === 'failure') {
+      reportedTests = errorCount + warnCount;         // one testcase per error/warning
+    } else {
+      reportedTests = errorCount + (warnCount > 0 ? 1 : 0); // errors + 1 aggregated warning case
+    }
+
     return (
       `  <testsuite name="${escapeXml(objectType + ' ' + objectName)}" ` +
-      `tests="${testCount}" failures="${errorCount + warnCount}" errors="0">\n` +
+      `tests="${reportedTests}" failures="${reportedFailures}" errors="0">\n` +
       testcases.join('\n') + '\n' +
       `  </testsuite>`
     );
@@ -335,6 +382,8 @@ module.exports = {
   description: 'Inspect ABAP source files for syntax issues',
   requiresAbapConfig: true,
   requiresVersionCheck: true,
+  // Exported for unit tests
+  _buildInspectJUnit: buildInspectJUnit,
 
   async execute(args, context) {
     const { loadConfig, AbapHttp, getInspectConfig } = context;
@@ -516,7 +565,7 @@ Examples:
 
     // JUnit output mode — write XML file, then continue to normal output
     if (junitOutput) {
-      const xml = buildInspectJUnit(results);
+      const xml = buildInspectJUnit(results, { warnings: inspectConfig.warnings });
       const outputPath = pathModule.isAbsolute(junitOutput)
         ? junitOutput
         : pathModule.join(process.cwd(), junitOutput);

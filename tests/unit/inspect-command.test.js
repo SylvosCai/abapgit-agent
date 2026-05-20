@@ -683,7 +683,10 @@ describe('Inspect Command - JUnit Output', () => {
 
     const writtenXml = fs.writeFileSync.mock.calls[0][1];
     expect(writtenXml).toContain('name="CL_CI_TEST_EXCEPTION/UNHANDLED_01"');
-    expect(writtenXml).toContain('name="CL_CI_TEST_SELECT_TAW_BYBUF/0051"');
+    // Warnings are aggregated into a single <system-out> testcase under default
+    // 'info' mode — the check_class/check_code is rendered inside the text.
+    expect(writtenXml).toContain('CL_CI_TEST_SELECT_TAW_BYBUF/0051');
+    expect(writtenXml).toContain('<system-out>');
   });
 
   test('JUnit XML clean object uses "Syntax check" testcase name with class-first classname', async () => {
@@ -1237,5 +1240,149 @@ describe('Inspect Command - --doc mode', () => {
 
     const output = consoleOutput.join('\n');
     expect(output).toContain('--doc requires');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JUnit "warnings" mode — option A
+//
+// When the project config sets `inspect.warnings = "info"` (default), a class
+// with only warnings should produce a JUnit XML where `failures="0"` so that
+// Jenkins keeps the build GREEN. When `inspect.warnings = "failure"` (legacy
+// opt-in), warnings continue to be `<failure type="Warning">` elements and
+// the build is marked UNSTABLE.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('buildInspectJUnit — warnings mode', () => {
+  // Reset module-level fs/path mocks so the require below picks up cleanly.
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  function build(warningsMode) {
+    const inspect = require('../../src/commands/inspect');
+    const results = [
+      {
+        OBJECT_TYPE: 'CLAS',
+        OBJECT_NAME: 'ZCL_FOO',
+        ERROR_COUNT: 0,
+        ERRORS: [],
+        WARNINGS: [
+          {
+            LINE: 12,
+            MESSAGE: 'ABAP Doc comment is in the wrong position.',
+            CHECK_CLASS: 'CL_CI_TEST_SYNTAX_CHECK',
+            CHECK_CODE: 'MESSAGEGDT'
+          },
+          {
+            LINE: 30,
+            MESSAGE: 'ABAP Doc comment is in the wrong position.',
+            CHECK_CLASS: 'CL_CI_TEST_SYNTAX_CHECK',
+            CHECK_CODE: 'MESSAGEGDT'
+          }
+        ]
+      }
+    ];
+    return inspect._buildInspectJUnit(results, { warnings: warningsMode });
+  }
+
+  test("default 'info' mode produces failures=\"0\" when only warnings present", () => {
+    const xml = build('info');
+    expect(xml).toMatch(/<testsuite[^>]+failures="0"/);
+    expect(xml).not.toContain('<failure type="Warning"');
+    // Aggregated <system-out> testcase carries warning text
+    expect(xml).toContain('<system-out>');
+    expect(xml).toContain('Warnings (2)');
+    expect(xml).toContain('ABAP Doc comment is in the wrong position');
+  });
+
+  test("'failure' mode keeps legacy <failure type=\"Warning\"> per warning", () => {
+    const xml = build('failure');
+    // failures="2" — one per warning
+    expect(xml).toMatch(/<testsuite[^>]+failures="2"/);
+    const failureCount = (xml.match(/<failure type="Warning"/g) || []).length;
+    expect(failureCount).toBe(2);
+    // No aggregated system-out in legacy mode
+    expect(xml).not.toContain('<system-out>');
+  });
+
+  test("'info' mode still emits <failure type=\"SyntaxError\"> for actual errors", () => {
+    const inspect = require('../../src/commands/inspect');
+    const xml = inspect._buildInspectJUnit([{
+      OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_FOO',
+      ERROR_COUNT: 1,
+      ERRORS: [{ LINE: 5, COLUMN: 1, TEXT: 'syntax error' }],
+      WARNINGS: [{ LINE: 7, MESSAGE: 'minor warning' }]
+    }], { warnings: 'info' });
+    expect(xml).toContain('<failure type="SyntaxError"');
+    expect(xml).not.toContain('<failure type="Warning"');
+    // failures=1 (only the error counts), not 2
+    expect(xml).toMatch(/<testsuite[^>]+failures="1"/);
+  });
+
+  test("class with neither errors nor warnings emits a single passed testcase", () => {
+    const inspect = require('../../src/commands/inspect');
+    const xml = inspect._buildInspectJUnit([{
+      OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_CLEAN',
+      ERROR_COUNT: 0, ERRORS: [], WARNINGS: []
+    }], { warnings: 'info' });
+    expect(xml).toMatch(/<testsuite[^>]+tests="1"\s+failures="0"/);
+    expect(xml).toContain('Syntax check');
+    expect(xml).not.toContain('<failure');
+    expect(xml).not.toContain('<system-out>');
+  });
+
+  test("default (no options arg) behaves like 'info' mode", () => {
+    const inspect = require('../../src/commands/inspect');
+    const xml = inspect._buildInspectJUnit([{
+      OBJECT_TYPE: 'CLAS', OBJECT_NAME: 'ZCL_FOO',
+      ERROR_COUNT: 0, ERRORS: [],
+      WARNINGS: [{ LINE: 12, MESSAGE: 'minor' }]
+    }]);
+    expect(xml).toMatch(/<testsuite[^>]+failures="0"/);
+    expect(xml).not.toContain('<failure type="Warning"');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getInspectConfig — `warnings` field
+// ─────────────────────────────────────────────────────────────────────────────
+describe('getInspectConfig — warnings field', () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  test("defaults to 'info' when no config", () => {
+    const fs = require('fs');
+    fs.existsSync.mockReturnValue(false);
+    const { getInspectConfig } = require('../../src/config');
+    expect(getInspectConfig().warnings).toBe('info');
+  });
+
+  test("defaults to 'info' when inspect section missing", () => {
+    const fs = require('fs');
+    fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+    fs.readFileSync.mockReturnValue(JSON.stringify({ project: {} }));
+    const { getInspectConfig } = require('../../src/config');
+    expect(getInspectConfig().warnings).toBe('info');
+  });
+
+  test("'failure' is honoured", () => {
+    const fs = require('fs');
+    fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      inspect: { warnings: 'failure' }
+    }));
+    const { getInspectConfig } = require('../../src/config');
+    expect(getInspectConfig().warnings).toBe('failure');
+  });
+
+  test("invalid value falls back to 'info'", () => {
+    const fs = require('fs');
+    fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+    fs.readFileSync.mockReturnValue(JSON.stringify({
+      inspect: { warnings: 'whatever' }
+    }));
+    const { getInspectConfig } = require('../../src/config');
+    expect(getInspectConfig().warnings).toBe('info');
   });
 });

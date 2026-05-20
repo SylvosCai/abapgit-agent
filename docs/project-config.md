@@ -153,11 +153,13 @@ get the same checks without having to remember a `--variant` flag.
 | `variant` | string | `null` (system default) | Code Inspector variant name. Overridden by `--variant` CLI flag. |
 | `exclude` | string[] | `[]` | Object name patterns to skip entirely. Supports `*` wildcard. Case-insensitive. |
 | `suppress` | object[] | `[]` | Downgrade matching errors/warnings to info (visible but won't fail CI). |
+| `warnings` | `info` \| `failure` | `info` | How warnings are encoded in JUnit XML. `info` (default): warnings become a single `<system-out>` block on a passed `<testcase>` — Jenkins keeps the build **GREEN**. `failure`: each warning becomes a `<failure type="Warning">` element — Jenkins marks the build **UNSTABLE** (legacy behaviour). Errors are unaffected and always fail the build. |
 
 ```json
 "inspect": {
   "variant": "MY_VARIANT",
   "exclude": ["zcl_generated_*"],
+  "warnings": "info",
   "suppress": [
     { "object": "zcl_my_class", "message": "*pragma*" },
     { "object": "zcl_*_legacy", "message": "*obsolete statement*" }
@@ -170,6 +172,17 @@ get the same checks without having to remember a `--variant` flag.
 - `message` — error/warning text pattern (`*` wildcard, case-insensitive)
 
 Suppressed findings are moved from errors/warnings to infos with a `[suppressed]` prefix — they still appear in the output for tracking but don't count as failures.
+
+### Why `warnings: "info"` is the default
+
+CI pipelines that run `abapgit-agent inspect --junit-output ...` use the Jenkins JUnit
+plugin to interpret the report. Any `<failure>` element marks the build UNSTABLE.
+Treating warnings as failures conflates "needs attention" with "the code is broken" —
+which makes warning regressions impossible to distinguish from real syntax issues.
+
+`info` mode keeps warnings visible (as `<system-out>` text on a passing testcase) without
+flagging the build. Set `warnings: "failure"` if your project policy is strict and you
+want every warning to fail the gate.
 
 ---
 

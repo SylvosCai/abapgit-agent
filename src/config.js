@@ -276,14 +276,27 @@ function getTimeoutMs(commandName) {
 
 /**
  * Get inspect settings from project-level config (.abapgit-agent.json)
- * @returns {{ variant: string|null }}
+ *
+ * @returns {{
+ *   variant:  string|null,
+ *   exclude:  string[],
+ *   suppress: object[],
+ *   warnings: 'info'|'failure'   // how warnings are emitted in JUnit XML.
+ *                                // 'info' (default) — warnings become <system-out>
+ *                                //   on a passed <testcase>; build stays green.
+ *                                // 'failure' — warnings become <failure type="Warning">;
+ *                                //   build is marked UNSTABLE (legacy behaviour).
+ * }}
  */
 function getInspectConfig() {
   const projectConfig = loadProjectConfig();
+  const rawWarnings = projectConfig?.inspect?.warnings;
+  const warnings = (rawWarnings === 'failure') ? 'failure' : 'info';
   return {
     variant: projectConfig?.inspect?.variant || null,
     exclude: projectConfig?.inspect?.exclude || [],
     suppress: projectConfig?.inspect?.suppress || [],
+    warnings,
   };
 }
 
