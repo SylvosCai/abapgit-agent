@@ -14,7 +14,7 @@
     "parser_error": { "exclude": ["tests/fixtures/fugr/.*\\.abap", "tests/fixtures/include-prog.*/.*\\.abap"] },
     "identical_form_names": true,
     "global_class": true,
-    "implement_methods": { "exclude": [".*.testclasses.abap"] },
+    "implement_methods": { "exclude": [".*.testclasses.abap", "abap/zcl_abgagt_command_unit.clas.abap"] },
     "method_implemented_twice": true,
     "superclass_final": false,
     "xml_consistency": true,

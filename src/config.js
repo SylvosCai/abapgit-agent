@@ -248,6 +248,33 @@ function getCoverageConfig() {
 }
 
 /**
+ * Get HTTP timeout (in milliseconds) for a given command from project config.
+ *
+ * `.abapgit-agent.json`:
+ *   {
+ *     "timeouts": {
+ *       "default": 120,        // seconds; applies to all commands not listed below
+ *       "pull": 600,           // per-command override
+ *       "import": 900
+ *     }
+ *   }
+ *
+ * Values are in **seconds**. Returns the resolved timeout in **milliseconds**
+ * (because that's what axios expects). When neither a per-command nor a
+ * `default` is set, returns 120000 (120s) — same as the previous hard-coded value.
+ *
+ * @param {string} commandName  e.g. 'pull', 'import', 'unit'
+ * @returns {number} timeout in milliseconds
+ */
+function getTimeoutMs(commandName) {
+  const projectConfig = loadProjectConfig();
+  const timeouts = projectConfig?.timeouts || {};
+  const seconds = timeouts[commandName] ?? timeouts.default ?? 120;
+  if (typeof seconds !== 'number' || seconds <= 0) return 120000;
+  return Math.floor(seconds * 1000);
+}
+
+/**
  * Get inspect settings from project-level config (.abapgit-agent.json)
  * @returns {{ variant: string|null }}
  */
@@ -326,6 +353,7 @@ module.exports = {
   getTransportSettings,
   getScratchWorkspace,
   getCoverageConfig,
+  getTimeoutMs,
   getInspectConfig,
   getExcludePatterns,
   isExcluded,

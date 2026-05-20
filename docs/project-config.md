@@ -173,6 +173,28 @@ Suppressed findings are moved from errors/warnings to infos with a `[suppressed]
 
 ---
 
+## `timeouts`
+
+HTTP request timeouts (in **seconds**) for backend calls. Useful when a `pull` or `import` of many objects exceeds the default 2-minute window.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default` | number | `120` | Fallback timeout for any command not explicitly listed. |
+| `pull` | number | inherits `default` | Timeout for `pull` requests. Increase for repos with many objects or slow systems. |
+| `<command>` | number | inherits `default` | Per-command override (any command name supported by abapgit-agent). |
+
+```json
+"timeouts": {
+  "default": 180,
+  "pull": 600,
+  "import": 900
+}
+```
+
+Values are in **seconds**. Non-positive or non-numeric values fall back to the 120s default. CLI flags do not yet override these — adjust `.abapgit-agent.json` to change them.
+
+---
+
 ## `exclude`
 
 Controls which files should be excluded from git tracking and filtered from `pull` and `import`.

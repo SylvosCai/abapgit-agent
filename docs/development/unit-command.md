@@ -33,13 +33,13 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--files` | Yes | Comma-separated list of `.testclasses.abap` files |
-| `--coverage` | No | Enable code coverage measurement |
-| `--coverage-threshold <N>` | No | Fail (or warn) when a class's coverage is below N percent (0–100). Default: `0` (off). Requires `--coverage`. |
-| `--coverage-mode <warn\|fail>` | No | Action when a class is below threshold: `fail` = exit 1 (default), `warn` = print warning only |
+| `--files` | Yes | Comma-separated list of `.testclasses.abap` files. Multiple files referring to the same parent class are de-duplicated automatically. |
+| `--coverage` | No | Enable per-method statement coverage measurement |
+| `--coverage-threshold <N>` | No | Fail (or warn) when a class's coverage is below N percent (0–100). Defaults to `coverage.threshold` from `.abapgit-agent.json`, or `0` (off). Requires `--coverage`. |
+| `--coverage-mode <warn\|fail>` | No | Action when a class is below threshold: `fail` = exit 1 (default), `warn` = print warning only. Defaults to `coverage.mode` from `.abapgit-agent.json`. |
 | `--junit-output <file>` | No | Write results as JUnit XML to this file |
 | `--json` | No | Output results as JSON |
-| `--verbose` | No | Show per-method execution times; also print raw HTTP error responses |
+| `--verbose` | No | Show per-method execution times AND per-method coverage; also print raw HTTP error responses |
 
 > **When using the CI pipeline**, coverage policy (`threshold`, `mode`, `excludes`) is read
 > from `.abapgit-agent.json` instead of being passed as CLI flags — see
@@ -94,18 +94,35 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
 
 When a class fails the coverage threshold in `fail` mode, a `coverage_threshold` `<failure>` element is injected into that class's `<testsuite>` in the XML — so the CI test report shows the failure alongside the class it belongs to, not as a separate unrelated node.
 
-Coverage statistics are also emitted as `<properties>` on each testsuite:
+Coverage statistics are emitted in two places:
+- **Per-class totals** as `<properties>` on `<testsuite>`
+- **Per-method totals** as `<properties>` on each `<testcase>` whose name maps
+  to a covered production method (heuristic: strip leading `TEST_`, then look
+  for an exact or interface-prefixed match in `coverage.methods`)
 
 ```xml
 <testsuite name="ZCL_MY_TEST" tests="6" failures="1" errors="0">
   <properties>
-    <property name="coverage.rate"          value="20"/>
-    <property name="coverage.lines.total"   value="10"/>
-    <property name="coverage.lines.covered" value="2"/>
+    <property name="coverage.rate"          value="65.9"/>
+    <property name="coverage.lines.total"   value="41"/>
+    <property name="coverage.lines.covered" value="27"/>
   </properties>
-  <testcase name="TEST_METHOD_1" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.001"/>
-  <testcase name="TEST_METHOD_2" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.002"/>
-  <testcase name="TEST_METHOD_FAIL" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.003">
+  <testcase name="TEST_ADD" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.001">
+    <properties>
+      <property name="coverage.method.lines.total"   value="3"/>
+      <property name="coverage.method.lines.covered" value="3"/>
+      <property name="coverage.method.rate"          value="100"/>
+    </properties>
+  </testcase>
+  <testcase name="TEST_PARSE" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.002">
+    <properties>
+      <property name="coverage.method.lines.total"   value="48"/>
+      <property name="coverage.method.lines.covered" value="35"/>
+      <property name="coverage.method.rate"          value="72.9"/>
+    </properties>
+  </testcase>
+  <testcase name="TEST_NO_PROD_METHOD" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.001"/>
+  <testcase name="TEST_FAIL" classname="ZCL_MY_TEST.LTCL_UNIT_TEST" time="0.003">
     <failure type="failedAssertion" message="Assertion failed">Assertion failed&#10;Expected X but got Y</failure>
   </testcase>
   <testcase name="coverage_threshold" classname="ZCL_MY_TEST">
@@ -113,6 +130,10 @@ Coverage statistics are also emitted as `<properties>` on each testsuite:
   </testcase>
 </testsuite>
 ```
+
+> Test methods that don't map to a production method (e.g. helper-only tests)
+> simply omit the `<properties>` block — there's no synthetic
+> `coverage.method.rate=0` filler.
 
 ## Tasks
 
@@ -133,36 +154,22 @@ GET /health (with X-CSRF-Token: fetch)
 
 ### 4. Make Unit Request
 
-**Endpoint:** `POST /sap/bc/adt/abapunit/testruns` (standard SAP ADT endpoint)
+**Endpoint:** `POST /sap/bc/z_abapgit_agent/unit` (abapgit-agent backend)
 
-**Content-Type:** `application/*`
-**Accept:** `application/*`
+**Content-Type:** `application/json`
 
-**Request Body (XML):**
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
-  <external>
-    <coverage active="false"/>
-  </external>
-  <options>
-    <uriType value="semantic"/>
-    <testDeterminationStrategy sameProgram="true" assignedTests="false"/>
-    <testRiskLevels harmless="true" dangerous="false" critical="false"/>
-    <testDurations short="true" medium="false" long="false"/>
-    <withNavigationUri enabled="true"/>
-  </options>
-  <adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
-    <objectSet kind="inclusive">
-      <adtcore:objectReferences>
-        <adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_my_test"/>
-      </adtcore:objectReferences>
-    </objectSet>
-  </adtcore:objectSets>
-</aunit:runConfiguration>
+**Request Body:**
+
+```json
+{
+  "files":    ["src/zcl_my_test.clas.testclasses.abap"],
+  "coverage": true
+}
 ```
 
-ADT URI is derived from the file name: `zcl_my_test.clas.testclasses.abap` → `/sap/bc/adt/oo/classes/zcl_my_test`.
+The backend (`ZCL_ABGAGT_COMMAND_UNIT`) drives `CL_AUCV_TASK` directly — see
+[Implementation](#implementation) below for why this replaces the older ADT
+`testruns` path.
 
 ### 5. Display Results
 
@@ -244,18 +251,37 @@ Per-method execution time table is shown for each class:
 
   ✅ ZCL_MY_TEST - All tests passed
      Tests: 10 | Passed: 10 | Failed: 0
-     📊 Coverage: 65.9%
-        Total Lines: 41
-        Covered Lines: 27
+     📊 Coverage: 65.9%   (27/41 statements)
+```
+
+### With Coverage + `--verbose`
+
+`--verbose` adds the per-method coverage breakdown:
+
+```
+  ✅ ZCL_ABGAGT_UTIL - All tests passed
+     Tests: 12 | Passed: 12 | Failed: 0
+     📊 Coverage: 51.1%   (160/313 statements)
+     Method coverage:
+       GET_INSTANCE                                     3/3 (100.0%)
+       ZIF_ABGAGT_UTIL~CONVERT_INDEX_TO_CM_SUFFIX       42/82 (51.2%)
+       ZIF_ABGAGT_UTIL~DETECT_INCLUDE_INFO              36/47 (76.6%)
+       ZIF_ABGAGT_UTIL~PARSE_FILE_TO_OBJECT             35/48 (72.9%)
+       ZIF_ABGAGT_UTIL~GET_INCLUDE_DESCRIPTION           0/31 (0.0%)
+       ...
 ```
 
 ---
 
 ## Response Structure
 
+The CLI surfaces this shape internally (one entry per parent class) — used for
+console output, JUnit emission, and `--json` mode.
+
 ```json
 {
   "className": "ZCL_MY_TEST",
+  "file":      "src/zcl_my_test.clas.testclasses.abap",
   "methods": [
     { "name": "TEST_METHOD_1", "testClassName": "LTCL_UNIT_TEST", "passed": true, "executionTime": 0.001 },
     {
@@ -264,18 +290,25 @@ Per-method execution time table is shown for each class:
       "passed": false,
       "executionTime": 0.003,
       "kind": "failedAssertion",
-      "title": "Assertion failed",
-      "details": ["Expected X but got Y", "at ZCL_MY_TEST line 42"],
-      "stack": [{ "name": "ZCL_MY_TEST", "line": 42 }]
+      "title": "[FM02] Different values",
+      "details": ["Expected [99] Actual [5]"],
+      "stack": [{ "name": "ZCL_MY_TEST===========CCAU 42 TEST_METHOD_FAIL", "line": 42 }]
     }
   ],
-  "coverageStats": {
-    "totalLines": 41,
-    "coveredLines": 27,
-    "coverageRate": 65.9
+  "coverage": {
+    "totalStatements":    41,
+    "executedStatements": 27,
+    "statementRate":      65.9,
+    "methods": [
+      { "name": "ADD",        "totalStatements": 3,  "executedStatements": 3,  "rate": 100 },
+      { "name": "PARSE",      "totalStatements": 48, "executedStatements": 35, "rate": 72.9 }
+    ]
   }
 }
 ```
+
+If `--coverage` is not set, the `coverage` field is omitted. If a class has no
+tests, `methods` is `[]` (the run still succeeds with exit code 0).
 
 ---
 
@@ -336,12 +369,30 @@ abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap \
 
 ## Implementation
 
-Calls the standard SAP ADT endpoint directly — no custom ABAP backend required:
-- `POST /sap/bc/adt/abapunit/testruns` with `application/*` content-type
-- One request per test class file
-- ADT URI derived from file name: `zcl_my_test.clas.testclasses.abap` → `/sap/bc/adt/oo/classes/zcl_my_test`
-- Response is XML (`<aunit:runResult>`); each `<testMethod>` element is present for both passing and failing tests
-- Test class name (`LTCL_...`) comes from the parent `<testClass adtcore:name>` element
-- Execution time (`executionTime` attribute in seconds) is parsed per method; slow tests (> 0.1s) are surfaced automatically
-- Failure detail includes all `<detail text="...">` elements and `<stackEntry>` line numbers
-- Coverage stats: when `<coverage active="true"/>` is set, the AUnit response includes a measurement URI in `<external><coverage adtcore:uri="..."/></external>`. A second `POST` to that URI with a `<cov:query>` body returns `<summary><coverages><coverage type="statement" total="N" executed="N"/>...` — statement totals are used for coverage percentage display and threshold enforcement.
+The command calls the abapgit-agent ABAP backend, which runs AUnit and
+queries SCV directly using SAP_BASIS-shipped APIs:
+
+- **CLI** (`src/commands/unit.js`): single `POST /sap/bc/z_abapgit_agent/unit`
+  with `{ files, coverage }`. Files referring to the same parent class are
+  forwarded as-is — the backend de-duplicates them internally.
+- **ABAP backend** (`ZCL_ABGAGT_COMMAND_UNIT`):
+  - Resolves files to class names (`abap/zcl_foo.clas.testclasses.abap` →
+    `ZCL_FOO`); de-duplicates.
+  - Builds an `IF_AUNIT_LISTENER` instance to capture per-method outcomes
+    (`method_start` / `method_end` / `assert_failure` / `cx_failure` / `rt_failure`).
+  - Runs `CL_AUCV_TASK=>create( i_measure_coverage = abap_true )` with
+    `add_associated_unit_tests( ... )` for the resolved classes, then
+    `task->run( c_run_mode-external )`.
+  - When `--coverage` is set, calls `task->get_coverage_measurement( )` →
+    `measurement->build_selection_result( i_selection )` and walks the
+    `IF_SCV_RESULT_NODE` tree. Each `block` node carries per-method statement
+    totals via `node->get_coverage( ce_scv_coverage_type=>statement )`.
+  - Returns the structured response shown in [Response Structure](#response-structure)
+    serialised with `/ui2/cl_json` (`pretty_mode-low_case`).
+
+> **Why a backend** rather than the older direct-ADT path? The ADT
+> `cov:query` endpoint returns `total=0` on some systems even when coverage
+> data is recorded in `COVRES` (kernel-level configuration drift). Calling
+> `IF_SCV_MEASUREMENT.build_selection_result` directly bypasses that layer
+> and consistently produces method-level results. See `memory/project_coverage_disabled_gze.md`
+> for the trace that motivated this design.

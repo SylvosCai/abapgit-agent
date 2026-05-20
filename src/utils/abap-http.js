@@ -19,10 +19,33 @@ const os = require('os');
 const crypto = require('crypto');
 
 class AbapHttp {
-  constructor(config) {
+  /**
+   * @param {object} config            ABAP connection (host, port, user, ...)
+   * @param {object} [options]
+   * @param {number} [options.defaultTimeout]  Default request timeout in ms.
+   *   When omitted, the timeout is read from `.abapgit-agent.json`'s
+   *   `timeouts[options.command]`, falling back to `timeouts.default`,
+   *   falling back to 120000 (2 min).
+   * @param {string} [options.command]  Command name (e.g. 'pull') used to
+   *   look up a per-command timeout in project config. Optional.
+   */
+  constructor(config, options = {}) {
     this.config = config;
     this.csrfToken = null;
     this.cookies = null;
+
+    if (typeof options.defaultTimeout === 'number' && options.defaultTimeout > 0) {
+      this.defaultTimeout = options.defaultTimeout;
+    } else {
+      // Read from project config without creating a circular require: the
+      // helper exists in src/config.js which is loaded eagerly by the CLI bin.
+      try {
+        const { getTimeoutMs } = require('../config');
+        this.defaultTimeout = getTimeoutMs(options.command);
+      } catch (_) {
+        this.defaultTimeout = 120000;
+      }
+    }
 
     const isHttp = config.protocol === 'http';
     const baseURL = `${config.protocol || 'https'}://${config.host}:${config.sapport}`;
@@ -201,7 +224,7 @@ class AbapHttp {
       data: data ? JSON.stringify(data) : undefined,
       headers,
       responseType: 'text',
-      timeout: 120000,
+      timeout: options.timeout || this.defaultTimeout,
     });
 
     const statusCode = resp.status;

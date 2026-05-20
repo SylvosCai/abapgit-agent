@@ -18,7 +18,8 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_dump TYPE string VALUE 'DUMP',
     gc_transport TYPE string VALUE 'TRANSPORT',
     gc_drop TYPE string VALUE 'DROP',
-    gc_customize TYPE string VALUE 'CUSTOMIZE'.
+    gc_customize TYPE string VALUE 'CUSTOMIZE',
+    gc_unit TYPE string VALUE 'UNIT'.
 
   "! Get the name of this command
   "! @parameter rv_name | Command name constant (e.g., 'PULL', 'SYNTAX')

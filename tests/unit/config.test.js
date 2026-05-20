@@ -629,4 +629,62 @@ describe('Config', () => {
     });
   });
 
+  describe('getTimeoutMs()', () => {
+    test('returns 120s default when project config has no timeouts section', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({}));
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('pull')).toBe(120000);
+      expect(getTimeoutMs(undefined)).toBe(120000);
+    });
+
+    test('returns 120s default when .abapgit-agent.json does not exist', () => {
+      const fs = require('fs');
+      fs.existsSync.mockReturnValue(false);
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('pull')).toBe(120000);
+    });
+
+    test('reads per-command override from project config', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        timeouts: { pull: 600, default: 180 }
+      }));
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('pull')).toBe(600000);
+    });
+
+    test('falls back to timeouts.default when command-specific value is missing', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        timeouts: { default: 300 }
+      }));
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('import')).toBe(300000);
+    });
+
+    test('rejects non-positive numbers and falls back to 120s', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        timeouts: { pull: 0 }
+      }));
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('pull')).toBe(120000);
+    });
+
+    test('rejects non-numeric values and falls back to 120s', () => {
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => p.includes('abapgit-agent.json'));
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        timeouts: { pull: 'forever' }
+      }));
+      const { getTimeoutMs } = require('../../src/config');
+      expect(getTimeoutMs('pull')).toBe(120000);
+    });
+  });
+
 });

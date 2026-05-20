@@ -358,9 +358,17 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
 
   test('unit --coverage: coverage stats appear in CLI output', () => {
     const { output } = tryRun(`unit --files ${UNIT_TEST_FILE} --coverage`);
-    // Coverage line is only printed when coverage data is returned by ABAP
-    // If not supported, the test still passes — we just confirm no crash
-    return output.includes('Tests:');
+    // Backend (CL_AUCV_TASK + CL_SCV_*) is expected to return coverage on every run.
+    // Output should show the "📊 Coverage: NN.N%   (X/Y statements)" line.
+    return output.includes('📊 Coverage:') && /\d+\/\d+ statements/.test(output);
+  });
+
+  test('unit --coverage --verbose: per-method coverage breakdown appears in CLI output', () => {
+    const { output } = tryRun(`unit --files ${UNIT_TEST_FILE} --coverage --verbose`);
+    // --verbose adds a "Method coverage:" section with one line per production method.
+    if (!output.includes('Method coverage:')) return false;
+    // At least one method line of the form "<NAME>  X/Y (Z%)"
+    return /\s\d+\/\d+\s+\(\d+(\.\d+)?%\)/.test(output);
   });
 
   test('unit --coverage --junit-output: JUnit XML contains coverage properties', () => {
@@ -370,44 +378,56 @@ function runJUnitTests(repoRoot, { printSubHeader, printInfo, printSuccess, prin
       tryRun(`unit --files ${UNIT_TEST_FILE} --coverage --junit-output ${out}`);
       if (!fs.existsSync(out)) return false;
       const xml = fs.readFileSync(out, 'utf8');
-      // Properties block only present when ABAP returns coverage data.
-      // If coverage not returned, verify no crash and valid XML structure.
-      return xml.includes('<testsuites') && xml.includes('<testsuite');
+      // Per-class properties on <testsuite>
+      const hasClassRate = /property name="coverage\.rate"\s+value="\d+/.test(xml);
+      const hasClassTotal = /property name="coverage\.lines\.total"\s+value="\d+/.test(xml);
+      const hasClassCovered = /property name="coverage\.lines\.covered"\s+value="\d+/.test(xml);
+      return xml.includes('<testsuites') && xml.includes('<testsuite')
+          && hasClassRate && hasClassTotal && hasClassCovered;
+    } finally {
+      cleanup(out);
+    }
+  });
+
+  test('unit --coverage --junit-output: per-method coverage.method.* properties on <testcase>', () => {
+    const out = path.join(TMP, 'abapgit-junit-method-coverage.xml');
+    cleanup(out);
+    try {
+      tryRun(`unit --files ${UNIT_TEST_FILE} --coverage --junit-output ${out}`);
+      if (!fs.existsSync(out)) return false;
+      const xml = fs.readFileSync(out, 'utf8');
+      // At least one <testcase> should have coverage.method.* properties when its
+      // name maps to a covered production method (test_FOO → FOO heuristic).
+      const hasMethodTotal   = /property name="coverage\.method\.lines\.total"\s+value="\d+/.test(xml);
+      const hasMethodCovered = /property name="coverage\.method\.lines\.covered"\s+value="\d+/.test(xml);
+      const hasMethodRate    = /property name="coverage\.method\.rate"/.test(xml);
+      return hasMethodTotal && hasMethodCovered && hasMethodRate;
     } finally {
       cleanup(out);
     }
   });
 
   test('unit --coverage-threshold 1: passes (any non-zero coverage meets threshold of 1)', () => {
-    // A threshold of 1% should always pass on a class with tests.
-    // If the ABAP system does not return coverage data, the threshold is silently skipped.
     const { exitCode } = tryRun(
       `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 1`
     );
     return exitCode === 0;
   });
 
-  test('unit --coverage-threshold 101: fails (impossible threshold fires gate)', () => {
-    // Threshold of 101 is impossible — always below. Verifies the gate fires.
-    // Uses ZCL_ABGAGT_UNIT_LOW_COV which has intentionally low coverage.
+  test('unit --coverage-threshold 101: fails with below-threshold message', () => {
+    // Threshold of 101 is impossible — always below. Backend always returns coverage now,
+    // so the gate must fire and the CLI must exit 1 with "below threshold".
     const { output, exitCode } = tryRun(
       `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 101`
     );
-    const coverageDataReturned = output.includes('Coverage') && !output.includes('unavailable');
-    if (!coverageDataReturned) {
-      // Coverage not supported on this system — gate skipped, exit 0 expected
-      return exitCode === 0 && output.includes('unavailable');
-    }
-    // Gate fired: exit 1 with message; OR totalLines=0 so gate was skipped (exit 0 is acceptable)
-    return (exitCode === 1 && output.includes('below threshold')) || exitCode === 0;
+    return exitCode === 1 && output.includes('below threshold');
   });
 
   test('unit --coverage-threshold 101 --coverage-mode warn: warns but exits 0', () => {
-    const { exitCode } = tryRun(
+    const { output, exitCode } = tryRun(
       `unit --files ${UNIT_LOW_COV_FILE} --coverage --coverage-threshold 101 --coverage-mode warn`
     );
-    // In warn mode the process must not exit with error
-    return exitCode === 0;
+    return exitCode === 0 && output.includes('below threshold');
   });
 
   // ── summary ───────────────────────────────────────────────────────────────

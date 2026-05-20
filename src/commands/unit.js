@@ -1,10 +1,16 @@
 /**
- * Unit command - Run AUnit tests via ADT /sap/bc/adt/abapunit/testruns
+ * Unit command — Run AUnit tests + optional method-level statement coverage.
+ *
+ * Calls the abapgit-agent ABAP backend (ZCL_ABGAGT_COMMAND_UNIT) at
+ * POST /sap/bc/z_abapgit_agent/unit. The backend uses CL_AUCV_TASK and
+ * CL_SCV_COVERAGE_API directly, bypassing the ADT cov:query endpoint that
+ * returns zero on some systems. See memory/project_coverage_disabled_gze.md.
  */
 
 const pathModule = require('path');
 const fs = require('fs');
-const { AdtHttp } = require('../utils/adt-http');
+const { AbapHttp } = require('../utils/abap-http');
+const { getCoverageConfig } = require('../config');
 const { formatHttpError } = require('../utils/format-error');
 
 function escapeXml(str) {
@@ -17,192 +23,60 @@ function escapeXml(str) {
 }
 
 /**
- * Build the ADT AUnit run configuration XML for one class URI.
+ * Look up coverage data for a production method given a test method name.
+ * Heuristic: strip a leading "TEST_" from the test method name and find a
+ * coverage entry whose name contains that suffix.
+ *
+ *   TEST_PARSE_CLAS  →  PARSE_CLAS                  (direct match)
+ *   TEST_PARSE_CLAS  →  ZIF_FOO~PARSE_CLAS          (interface-prefixed)
+ *
+ * Returns null when no plausible match exists.
  */
-function buildRunConfigXml(adtUri, coverage) {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
-  <external>
-    <coverage active="${coverage ? 'true' : 'false'}"/>
-  </external>
-  <options>
-    <uriType value="semantic"/>
-    <testDeterminationStrategy sameProgram="true" assignedTests="false"/>
-    <testRiskLevels harmless="true" dangerous="false" critical="false"/>
-    <testDurations short="true" medium="false" long="false"/>
-    <withNavigationUri enabled="true"/>
-  </options>
-  <adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
-    <objectSet kind="inclusive">
-      <adtcore:objectReferences>
-        <adtcore:objectReference adtcore:uri="${adtUri}"/>
-      </adtcore:objectReferences>
-    </objectSet>
-  </adtcore:objectSets>
-</aunit:runConfiguration>`;
+function findMethodCoverage(testMethodName, coverageMethods) {
+  if (!coverageMethods || coverageMethods.length === 0) return null;
+  const upper = (testMethodName || '').toUpperCase();
+  if (!upper) return null;
+
+  const candidates = [];
+  candidates.push(upper);
+  if (upper.startsWith('TEST_')) candidates.push(upper.substring(5));
+
+  for (const c of candidates) {
+    const exact = coverageMethods.find(m => (m.name || '').toUpperCase() === c);
+    if (exact) return exact;
+    const interfacePrefixed = coverageMethods.find(m => {
+      const n = (m.name || '').toUpperCase();
+      return n.endsWith('~' + c) || n.endsWith('=>' + c);
+    });
+    if (interfacePrefixed) return interfacePrefixed;
+  }
+  return null;
 }
 
 /**
- * Parse the ADT AUnit run result XML into a structured result object.
+ * Build JUnit XML from class results.
  *
- * Returns:
- *   {
- *     className,
- *     methods: [{
- *       name, testClassName, passed, executionTime,
- *       kind?, title?, details?: string[], stack?: [{name, uri}]
- *     }],
- *     coverageStats: { totalLines, coveredLines, coverageRate } | null
- *   }
- */
-function extractAlert(block) {
-  const kindMatch = block.match(/<alert\s[^>]*kind="([^"]*)"/);
-  const kind = kindMatch ? kindMatch[1] : 'failedAssertion';
-  const titleMatch = block.match(/<title[^>]*>([^<]*)<\/title>/);
-  const title = titleMatch ? titleMatch[1].trim() : 'Test failed';
-  const details = [];
-  const detailRe = /<detail\s[^>]*text="([^"]*)"/g;
-  let dm;
-  while ((dm = detailRe.exec(block)) !== null) {
-    const t = dm[1].trim();
-    if (t) details.push(t);
-  }
-  const stack = [];
-  const stackRe = /<stackEntry\s([^>]*\/?>)/g;
-  let sm;
-  while ((sm = stackRe.exec(block)) !== null) {
-    const entry = sm[1];
-    const snMatch = entry.match(/adtcore:name="([^"]*)"/);
-    const suMatch = entry.match(/adtcore:uri="([^"]*)"/);
-    if (snMatch) {
-      const lineMatch = suMatch && suMatch[1].match(/#start=(\d+)/);
-      stack.push({ name: snMatch[1], line: lineMatch ? parseInt(lineMatch[1], 10) : null });
-    }
-  }
-  return { kind, title, details, stack };
-}
-
-function parseRunResult(xml, className) {
-  const methods = [];
-
-  // Split on <testClass blocks to capture test class name per method
-  const testClassBlocks = xml.split(/<testClass\s/);
-  for (let ci = 1; ci < testClassBlocks.length; ci++) {
-    const classBlock = testClassBlocks[ci];
-
-    const classNameMatch = classBlock.match(/adtcore:name="([^"]*)"/);
-    const testClassName = classNameMatch ? classNameMatch[1] : className;
-
-    // Check for class-level alerts (e.g. SETUP/TEARDOWN failures) that appear before <testMethods>
-    const beforeMethods = classBlock.split(/<testMethods[\s>]/)[0];
-    const classAlertsMatch = beforeMethods.match(/<alerts>([\s\S]*?)<\/alerts>/);
-    if (classAlertsMatch && classAlertsMatch[1].trim()) {
-      const alert = extractAlert(beforeMethods);
-      // Determine synthetic method name from stack (look for SETUP/TEARDOWN in description)
-      let syntheticName = 'SETUP';
-      for (const s of alert.stack) {
-        const descMatch = s.name && s.name.match(/\(([^)]+)\)\s*$/);
-        if (descMatch) { syntheticName = descMatch[1].trim(); break; }
-      }
-      methods.push({ name: syntheticName, testClassName, passed: false, executionTime: 0, ...alert });
-    }
-
-    // Split methods within this test class block
-    const methodBlocks = classBlock.split(/<testMethod\s/);
-    for (let i = 1; i < methodBlocks.length; i++) {
-      const block = methodBlocks[i];
-
-      const nameMatch = block.match(/adtcore:name="([^"]*)"/);
-      if (!nameMatch) continue;
-      const name = nameMatch[1];
-
-      const execTimeMatch = block.match(/executionTime="([^"]*)"/);
-      const executionTime = execTimeMatch ? parseFloat(execTimeMatch[1]) : 0;
-
-      // Find the <alerts> section
-      const alertsMatch = block.match(/<alerts>([\s\S]*?)<\/alerts>/);
-      const alertsContent = alertsMatch ? alertsMatch[1].trim() : '';
-
-      if (!alertsContent || alertsContent === '<alerts/>') {
-        methods.push({ name, testClassName, passed: true, executionTime });
-        continue;
-      }
-
-      const { kind, title, details, stack } = extractAlert(block);
-      methods.push({ name, testClassName, passed: false, executionTime, kind, title, details, stack });
-    }
-  }
-
-  // Extract coverage measurement URI from <external><coverage adtcore:uri="..."/></external>
-  let coverageMeasurementUri = null;
-  const covUriMatch = xml.match(/coverage[^>]*adtcore:uri="([^"]*)"/);
-  if (covUriMatch) coverageMeasurementUri = covUriMatch[1];
-
-  return { className, methods, coverageStats: null, coverageMeasurementUri };
-}
-
-/**
- * Fetch coverage statistics for a class by querying the ADT coverage measurement URI.
- *
- * The AUnit response contains a measurement URI in <external><coverage adtcore:uri="..."/></external>.
- * Posting a cov:query to that URI returns statement/branch/procedure coverage totals.
- *
- * Returns { totalStatements, executedStatements, statementRate } or null if unavailable.
- */
-async function fetchCoverageStats(adt, measurementUri, classAdtUri, className) {
-  try {
-    const resp = await adt.post(
-      measurementUri,
-      `<cov:query xmlns:cov="http://www.sap.com/adt/cov" xmlns:adtcore="http://www.sap.com/adt/core">` +
-      `<adtcore:objectSets>` +
-      `<adtcore:objectSet kind="inclusive">` +
-      `<adtcore:objectReferences>` +
-      `<adtcore:objectReference adtcore:uri="${classAdtUri}" adtcore:name="${className}" adtcore:type="CLAS/OC"/>` +
-      `</adtcore:objectReferences>` +
-      `</adtcore:objectSet>` +
-      `</adtcore:objectSets>` +
-      `</cov:query>`,
-      { contentType: 'application/xml', accept: 'application/xml' }
-    );
-    const xml = resp.body || '';
-    // Parse <coverage type="statement" total="N" executed="N"/>
-    const stmtMatch = xml.match(/<coverage type="statement"[^>]*total="(\d+)"[^>]*executed="(\d+)"/);
-    if (!stmtMatch) return null;
-    const total = parseInt(stmtMatch[1], 10);
-    const executed = parseInt(stmtMatch[2], 10);
-    if (total === 0) return null;
-    const rate = Math.round(executed / total * 100 * 10) / 10;
-    return { totalLines: total, coveredLines: executed, coverageRate: rate };
-  } catch (_) {
-    return null;
-  }
-}
-
-/**
- * Build JUnit XML from parsed ADT AUnit results.
- *
- * Each test method gets its own <testcase> element (pass or fail).
- * Coverage stats (if present) are emitted as <properties> on the testsuite.
- * A synthetic coverage_threshold <failure> is injected when threshold is breached.
+ * Each class becomes a <testsuite>; per-class coverage totals are emitted as
+ * <properties> on the suite. Each test method becomes a <testcase>; if the
+ * test method name maps to a production method covered in `coverage.methods`,
+ * the per-method statement totals are emitted as <properties> on the testcase.
  */
 function buildUnitJUnit(results) {
   const suites = results.map(res => {
-    const { className, methods, coverageStats, thresholdFailure } = res;
+    const { className, methods, coverage, thresholdFailure } = res;
     const testCount = methods.length;
     const failedMethods = methods.filter(m => !m.passed);
     const syntheticFailures = thresholdFailure ? 1 : 0;
     const totalFailures = failedMethods.length + syntheticFailures;
-    // classname "ZCL_MY_TEST.LTCL_UNIT_TEST" groups under the same ABAP class node
-    // as "ZCL_MY_TEST.Inspect" from the inspect report — one node per ABAP class.
     const suiteLabel = className;
 
     const lines = [];
 
-    if (coverageStats) {
+    if (coverage) {
       lines.push('    <properties>');
-      lines.push(`      <property name="coverage.rate"          value="${coverageStats.coverageRate}"/>`);
-      lines.push(`      <property name="coverage.lines.total"   value="${coverageStats.totalLines}"/>`);
-      lines.push(`      <property name="coverage.lines.covered" value="${coverageStats.coveredLines}"/>`);
+      lines.push(`      <property name="coverage.rate"          value="${coverage.statementRate}"/>`);
+      lines.push(`      <property name="coverage.lines.total"   value="${coverage.totalStatements}"/>`);
+      lines.push(`      <property name="coverage.lines.covered" value="${coverage.executedStatements}"/>`);
       lines.push('    </properties>');
     }
 
@@ -211,18 +85,40 @@ function buildUnitJUnit(results) {
     } else {
       for (const m of methods) {
         const timeAttr = m.executionTime != null ? ` time="${m.executionTime}"` : '';
-        // "Unit Tests / ZCL_MY_TEST.LTCL_UNIT_TEST" groups by namespace → class → local test class.
         const testClass = m.testClassName ? `${suiteLabel}.${m.testClassName}` : suiteLabel;
+        const methodCov = coverage ? findMethodCoverage(m.name, coverage.methods || []) : null;
+
+        const methodPropsLines = methodCov
+          ? [
+              '      <properties>',
+              `        <property name="coverage.method.lines.total"   value="${methodCov.totalStatements}"/>`,
+              `        <property name="coverage.method.lines.covered" value="${methodCov.executedStatements}"/>`,
+              `        <property name="coverage.method.rate"          value="${methodCov.rate ?? 0}"/>`,
+              '      </properties>',
+            ]
+          : [];
+
         if (m.passed) {
-          lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}/>`);
+          if (methodPropsLines.length > 0) {
+            lines.push(
+              `    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}>\n` +
+              methodPropsLines.join('\n') + '\n' +
+              `    </testcase>`
+            );
+          } else {
+            lines.push(`    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}/>`);
+          }
         } else {
           const msg = escapeXml(m.title || 'Test failed');
           const bodyParts = [m.title || 'Test failed'];
           if (m.details && m.details.length) bodyParts.push(...m.details);
           const body = escapeXml(bodyParts.join('\n'));
+          const inner =
+            methodPropsLines.join('\n') + (methodPropsLines.length > 0 ? '\n' : '') +
+            `      <failure type="${escapeXml(m.kind || 'failedAssertion')}" message="${msg}">${body}</failure>`;
           lines.push(
             `    <testcase name="${escapeXml(m.name)}" classname="${escapeXml(testClass)}"${timeAttr}>\n` +
-            `      <failure type="${escapeXml(m.kind || 'failedAssertion')}" message="${msg}">${body}</failure>\n` +
+            inner + '\n' +
             `    </testcase>`
           );
         }
@@ -254,124 +150,115 @@ function buildUnitJUnit(results) {
 }
 
 /**
- * Run AUnit tests for a single .testclasses.abap file via ADT.
+ * Map a backend `ts_class_result` (snake_case) to the internal CLI shape
+ * (camelCase) used by `buildUnitJUnit` and the console renderer.
  */
-async function runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose) {
-  if (!jsonOutput) {
-    console.log(`  Running unit test for: ${sourceFile}`);
-  }
+function normalizeBackendResult(raw, originalFile) {
+  const className = raw.class_name || '';
+  const methods = (raw.methods || []).map(m => ({
+    testClassName: m.test_class_name,
+    name: m.name,
+    passed: !!m.passed,
+    executionTime: typeof m.execution_time === 'number' ? m.execution_time : 0,
+    kind: m.kind || undefined,
+    title: m.title || undefined,
+    details: Array.isArray(m.details) && m.details.length > 0 ? m.details : undefined,
+    stack: Array.isArray(m.stack) && m.stack.length > 0
+      ? m.stack.map(s => ({ name: s.name, line: s.line || null }))
+      : undefined,
+  }));
 
-  const absolutePath = pathModule.isAbsolute(sourceFile)
-    ? sourceFile
-    : pathModule.join(process.cwd(), sourceFile);
+  const result = {
+    className,
+    file: raw.file || originalFile,
+    methods,
+  };
 
-  if (!fs.existsSync(absolutePath)) {
-    if (!jsonOutput) console.error(`  ❌ File not found: ${absolutePath}`);
-    return { error: 'File not found', statusCode: 404, file: sourceFile };
-  }
-
-  const fileName = pathModule.basename(sourceFile);
-  if (!fileName.toLowerCase().includes('.testclasses.abap')) {
-    if (!jsonOutput) console.error(`  ❌ Invalid file format: ${sourceFile}`);
-    return { error: 'Invalid file format: must be .testclasses.abap', statusCode: 400, file: sourceFile };
-  }
-
-  const className = fileName.split('.')[0].toUpperCase();
-  const adtUri = `/sap/bc/adt/oo/classes/${className.toLowerCase()}`;
-  const xmlBody = buildRunConfigXml(adtUri, coverage);
-
-  try {
-    const resp = await adt.post('/sap/bc/adt/abapunit/testruns', xmlBody, {
-      contentType: 'application/*',
-      accept: 'application/*',
-    });
-
-    const result = parseRunResult(resp.body || '', className);
-
-    // Fetch coverage stats via the measurement URI (second API call)
-    if (coverage && result.coverageMeasurementUri) {
-      result.coverageStats = await fetchCoverageStats(adt, result.coverageMeasurementUri, adtUri, className);
-    }
-
-    const testCount = result.methods.length;
-    const failedCount = result.methods.filter(m => !m.passed).length;
-    const passedCount = testCount - failedCount;
-
-    if (!jsonOutput) {
-      if (testCount === 0) {
-        console.log(`  ➖ ${className} - No unit tests`);
-      } else if (failedCount === 0) {
-        console.log(`  ✅ ${className} - All tests passed`);
-      } else {
-        console.log(`  ❌ ${className} - Tests failed`);
-      }
-      console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
-
-      if (coverage && result.coverageStats) {
-        const { totalLines, coveredLines, coverageRate } = result.coverageStats;
-        console.log(`     📊 Coverage: ${coverageRate}%`);
-        console.log(`        Total Lines: ${totalLines}`);
-        console.log(`        Covered Lines: ${coveredLines}`);
-      }
-
-      // Slow test summary: show methods with executionTime > 0.1s
-      const slowThreshold = 0.1;
-      const slowMethods = result.methods
-        .filter(m => m.executionTime > slowThreshold)
-        .sort((a, b) => b.executionTime - a.executionTime);
-      if (slowMethods.length > 0) {
-        const slowList = slowMethods.map(m => `${m.name} (${m.executionTime.toFixed(3)}s)`).join(', ');
-        console.log(`     ⏱  Slowest: ${slowList}`);
-      }
-
-      if (failedCount > 0) {
-        for (const m of result.methods.filter(m => !m.passed)) {
-          const prefix = m.testClassName || className;
-          console.log(`\n     ✗ ${prefix}=>${m.name}`);
-          console.log(`       ${m.title || 'Test failed'}`);
-          if (m.details && m.details.length) {
-            for (const d of m.details) console.log(`       ${d}`);
-          }
-          if (m.stack && m.stack.length) {
-            for (const s of m.stack) {
-              const loc = s.line != null ? ` (line ${s.line})` : '';
-              console.log(`         at ${s.name}${loc}`);
-            }
-          }
-        }
-        console.log('');
-      }
-
-      // --verbose: per-method time table
-      if (verbose && testCount > 0) {
-        console.log(`     Method times:`);
-        for (const m of result.methods) {
-          const mark = m.passed ? '✓' : '✗';
-          console.log(`       ${mark} ${m.name.padEnd(40)} ${(m.executionTime || 0).toFixed(3)}s`);
-        }
-        console.log('');
-      }
-    }
-
-    return result;
-  } catch (error) {
-    const errorResponse = {
-      error: error.message || 'Unknown error',
-      statusCode: error.statusCode || 500,
-      file: sourceFile,
-      className,
-      methods: [],
-      coverageStats: null,
+  if (raw.coverage_present && raw.coverage) {
+    result.coverage = {
+      totalStatements: raw.coverage.total_statements || 0,
+      executedStatements: raw.coverage.executed_statements || 0,
+      statementRate: typeof raw.coverage.statement_rate === 'number' ? raw.coverage.statement_rate : 0,
+      methods: (raw.coverage.methods || []).map(mc => ({
+        name: mc.name,
+        totalStatements: mc.total_statements || 0,
+        executedStatements: mc.executed_statements || 0,
+        rate: typeof mc.rate === 'number' ? mc.rate : 0,
+      })),
     };
-    if (!jsonOutput) {
-      console.error(`\n  ❌ Error: ${formatHttpError(error)}`);
-      if (verbose && error.body) {
-        console.error('\n--- Raw response body ---');
-        console.error(typeof error.body === 'object' ? JSON.stringify(error.body, null, 2) : String(error.body));
-        console.error('--- End of response body ---');
+  }
+
+  return result;
+}
+
+/**
+ * Print one class's results to the console.
+ */
+function printClassResult(result, coverage, verbose) {
+  const { className, methods, coverage: cov } = result;
+  const testCount = methods.length;
+  const failedCount = methods.filter(m => !m.passed).length;
+  const passedCount = testCount - failedCount;
+
+  if (testCount === 0) {
+    console.log(`  ➖ ${className} - No unit tests`);
+  } else if (failedCount === 0) {
+    console.log(`  ✅ ${className} - All tests passed`);
+  } else {
+    console.log(`  ❌ ${className} - Tests failed`);
+  }
+  console.log(`     Tests: ${testCount} | Passed: ${passedCount} | Failed: ${failedCount}`);
+
+  if (coverage && cov) {
+    const rate = cov.statementRate.toFixed ? cov.statementRate.toFixed(1) : cov.statementRate;
+    console.log(`     📊 Coverage: ${rate}%   (${cov.executedStatements}/${cov.totalStatements} statements)`);
+    if (verbose && cov.methods && cov.methods.length > 0) {
+      console.log(`     Method coverage:`);
+      const sorted = [...cov.methods].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      for (const mc of sorted) {
+        const r = (mc.rate ?? 0).toFixed ? (mc.rate ?? 0).toFixed(1) : (mc.rate ?? 0);
+        console.log(`       ${(mc.name || '').padEnd(48)} ${mc.executedStatements}/${mc.totalStatements} (${r}%)`);
       }
     }
-    return errorResponse;
+  } else if (coverage && !cov) {
+    console.log(`     📊 Coverage: unavailable`);
+  }
+
+  // Slow tests
+  const slowThreshold = 0.1;
+  const slowMethods = methods
+    .filter(m => (m.executionTime || 0) > slowThreshold)
+    .sort((a, b) => (b.executionTime || 0) - (a.executionTime || 0));
+  if (slowMethods.length > 0) {
+    const slowList = slowMethods.map(m => `${m.name} (${(m.executionTime || 0).toFixed(3)}s)`).join(', ');
+    console.log(`     ⏱  Slowest: ${slowList}`);
+  }
+
+  if (failedCount > 0) {
+    for (const m of methods.filter(mm => !mm.passed)) {
+      const prefix = m.testClassName || className;
+      console.log(`\n     ✗ ${prefix}=>${m.name}`);
+      console.log(`       ${m.title || 'Test failed'}`);
+      if (m.details && m.details.length) {
+        for (const d of m.details) console.log(`       ${d}`);
+      }
+      if (m.stack && m.stack.length) {
+        for (const s of m.stack) {
+          const loc = s.line != null ? ` (line ${s.line})` : '';
+          console.log(`         at ${s.name}${loc}`);
+        }
+      }
+    }
+    console.log('');
+  }
+
+  if (verbose && testCount > 0) {
+    console.log(`     Method times:`);
+    for (const m of methods) {
+      const mark = m.passed ? '✓' : '✗';
+      console.log(`       ${mark} ${m.name.padEnd(40)} ${(m.executionTime || 0).toFixed(3)}s`);
+    }
+    console.log('');
   }
 }
 
@@ -391,19 +278,28 @@ Usage:
 Description:
   Run AUnit tests for ABAP test class files (.testclasses.abap).
   Objects must be already active in the ABAP system (run pull first).
-  Calls the standard ADT endpoint /sap/bc/adt/abapunit/testruns directly.
+  Calls the abapgit-agent ABAP backend (ZCL_ABGAGT_COMMAND_UNIT), which uses
+  CL_AUCV_TASK + CL_SCV_COVERAGE_API directly. Per-method coverage is included
+  with --coverage.
 
 Parameters:
   --files <file1,...>          Comma-separated .testclasses.abap files (required).
-  --coverage                   Include code coverage data in output.
-  --coverage-threshold <N>     Fail/warn when coverage is below N percent (0–100). Default: 0 (off).
-  --coverage-mode <warn|fail>  Action when below threshold: warn = UNSTABLE, fail = error. Default: fail.
-  --junit-output <file>        Write results as JUnit XML to this file.
+                               Multiple files referring to the same parent class
+                               are de-duplicated automatically.
+  --coverage                   Include per-method statement coverage.
+  --coverage-threshold <N>     Fail/warn when coverage is below N percent (0–100).
+                               Defaults to .abapgit-agent.json "coverage.threshold"
+                               or 0 (off).
+  --coverage-mode <warn|fail>  Action when below threshold. Defaults to project
+                               config "coverage.mode" or "fail".
+  --junit-output <file>        Write results as JUnit XML.
   --json                       Output as JSON.
-  --verbose                    Show per-method execution times; also print raw HTTP error responses.
+  --verbose                    Show per-method execution times AND per-method
+                               coverage; also print raw HTTP error responses.
 
 Examples:
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap
+  abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage --verbose
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --coverage --coverage-threshold 80
   abapgit-agent unit --files src/zcl_my_test.clas.testclasses.abap --junit-output reports/unit.xml
 `);
@@ -420,14 +316,19 @@ Examples:
       process.exit(1);
     }
 
-    const files = args[filesArgIndex + 1].split(',').map(f => f.trim());
+    const files = args[filesArgIndex + 1].split(',').map(f => f.trim()).filter(Boolean);
     const coverage = args.includes('--coverage');
 
+    // Coverage threshold/mode: CLI > project config > default
+    const projectCoverage = getCoverageConfig();
     const coverageThresholdIdx = args.indexOf('--coverage-threshold');
-    const coverageThreshold = coverageThresholdIdx !== -1 ? parseInt(args[coverageThresholdIdx + 1], 10) : 0;
-
+    const coverageThreshold = coverageThresholdIdx !== -1
+      ? parseInt(args[coverageThresholdIdx + 1], 10)
+      : (projectCoverage.threshold || 0);
     const coverageModeIdx = args.indexOf('--coverage-mode');
-    const coverageMode = coverageModeIdx !== -1 ? args[coverageModeIdx + 1] : 'fail';
+    const coverageMode = coverageModeIdx !== -1
+      ? args[coverageModeIdx + 1]
+      : (projectCoverage.mode || 'fail');
 
     const junitArgIndex = args.indexOf('--junit-output');
     const junitOutput = junitArgIndex !== -1 ? args[junitArgIndex + 1] : null;
@@ -438,45 +339,82 @@ Examples:
       console.log('');
     }
 
-    const config = loadConfig();
-    const adt = new AdtHttp(config);
-    await adt.fetchCsrfToken();
-
-    const results = [];
-    let hasErrors = false;
-
-    for (const sourceFile of files) {
-      const result = await runUnitTestForFile(sourceFile, adt, coverage, jsonOutput, verbose);
-      results.push(result);
-
-      if (result.error || result.statusCode >= 400) {
-        hasErrors = true;
+    // Pre-check: every file must exist on disk (matches old behaviour)
+    const missing = files.filter(f => !fs.existsSync(pathModule.isAbsolute(f) ? f : pathModule.join(process.cwd(), f)));
+    if (missing.length > 0) {
+      for (const f of missing) {
+        if (!jsonOutput) console.error(`  ❌ File not found: ${f}`);
       }
-      const methods = result.methods || [];
-      if (methods.some(m => !m.passed)) hasErrors = true;
+      if (jsonOutput) {
+        console.log(JSON.stringify(missing.map(f => ({ error: 'File not found', file: f })), null, 2));
+      }
+      process.exit(1);
     }
 
-    // Coverage threshold enforcement — per file
+    const config = loadConfig();
+    const http = new AbapHttp(config);
+    await http.fetchCsrfToken();
+
+    let backendResponse;
+    try {
+      backendResponse = await http.post(
+        '/sap/bc/z_abapgit_agent/unit',
+        { files, coverage },
+        { csrfToken: http.csrfToken }
+      );
+    } catch (error) {
+      if (!jsonOutput) {
+        console.error(`\n  ❌ Error: ${formatHttpError(error)}`);
+        if (verbose && error.body) {
+          console.error('\n--- Raw response body ---');
+          console.error(typeof error.body === 'object' ? JSON.stringify(error.body, null, 2) : String(error.body));
+          console.error('--- End of response body ---');
+        }
+      } else {
+        console.log(JSON.stringify({ error: error.message || 'Unknown error', statusCode: error.statusCode || 500 }, null, 2));
+      }
+      process.exit(1);
+    }
+
+    const rawResults = (backendResponse && backendResponse.results) || [];
+    const results = rawResults.map(r => normalizeBackendResult(r, ''));
+
+    let hasErrors = false;
+    if (results.length === 0) {
+      if (!jsonOutput) console.error('  ❌ No valid test classes found in --files input.');
+      process.exit(1);
+    }
+
+    if (!jsonOutput) {
+      for (const r of results) {
+        printClassResult(r, coverage, verbose);
+      }
+    }
+
+    for (const r of results) {
+      if (r.methods && r.methods.some(m => !m.passed)) hasErrors = true;
+    }
+
+    // Coverage threshold enforcement — per class
     if (coverage && coverageThreshold > 0) {
       let anyData = false;
-      for (const result of results) {
-        if (!result.coverageStats) continue;
+      for (const r of results) {
+        if (!r.coverage) continue;
         anyData = true;
-        const { totalLines, coveredLines, coverageRate } = result.coverageStats;
-        if (totalLines === 0) continue;
-        const className = result.className || 'UNKNOWN';
-        const rate = Math.round(coveredLines / totalLines * 100);
+        const total = r.coverage.totalStatements;
+        if (total === 0) continue;
+        const rate = Math.round(r.coverage.executedStatements / total * 100);
         if (rate < coverageThreshold) {
-          const msg = `${className}: coverage ${rate}% is below threshold ${coverageThreshold}%`;
+          const msg = `${r.className}: coverage ${rate}% is below threshold ${coverageThreshold}%`;
           if (coverageMode === 'warn') {
             if (!jsonOutput) console.warn(`⚠️  ${msg}`);
           } else {
             if (!jsonOutput) console.error(`❌ ${msg}`);
             hasErrors = true;
-            result.thresholdFailure = msg;
+            r.thresholdFailure = msg;
           }
         } else {
-          if (!jsonOutput) console.log(`✅ ${className}: coverage ${rate}% meets threshold ${coverageThreshold}%`);
+          if (!jsonOutput) console.log(`✅ ${r.className}: coverage ${rate}% meets threshold ${coverageThreshold}%`);
         }
       }
       if (!anyData && !jsonOutput) {
@@ -486,7 +424,9 @@ Examples:
 
     // Failed tests summary
     if (!jsonOutput) {
-      const allFailed = results.flatMap(r => (r.methods || []).filter(m => !m.passed).map(m => ({ ...m, className: r.className })));
+      const allFailed = results.flatMap(r =>
+        (r.methods || []).filter(m => !m.passed).map(m => ({ ...m, className: r.className }))
+      );
       if (allFailed.length > 0) {
         console.log('\nFailed Tests:');
         console.log('─'.repeat(80));
@@ -502,7 +442,6 @@ Examples:
       }
     }
 
-    // JUnit output
     if (junitOutput) {
       const xml = buildUnitJUnit(results);
       const outputPath = pathModule.isAbsolute(junitOutput)
@@ -514,7 +453,6 @@ Examples:
       if (!jsonOutput) console.log(`  JUnit report written to: ${outputPath}`);
     }
 
-    // JSON output
     if (jsonOutput) {
       console.log(JSON.stringify(results, null, 2));
     }
@@ -526,8 +464,7 @@ Examples:
   },
 
   // Exported for testing
-  _buildRunConfigXml: buildRunConfigXml,
-  _parseRunResult: parseRunResult,
   _buildUnitJUnit: buildUnitJUnit,
-  _fetchCoverageStats: fetchCoverageStats,
+  _normalizeBackendResult: normalizeBackendResult,
+  _findMethodCoverage: findMethodCoverage,
 };

@@ -215,7 +215,7 @@ Examples:
       let statusResult;
       try {
         const config = loadConfig();
-        const http = new AbapHttp(config);
+        const http = new AbapHttp(config, { command: 'pull' });
         const csrfToken = await http.fetchCsrfToken();
         statusResult = await http.post('/sap/bc/z_abapgit_agent/status', { url: gitUrl }, { csrfToken });
       } catch (e) {
@@ -241,7 +241,7 @@ Examples:
 
       if (transportRequired) {
         const config = loadConfig();
-        const http = new AbapHttp(config);
+        const http = new AbapHttp(config, { command: 'pull' });
         transportRequest = await selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings);
 
         // If a hook was configured but returned no transport, handle based on context
@@ -287,7 +287,7 @@ Examples:
       const config = loadConfig();
 
       // Fetch CSRF token first
-      const http = new AbapHttp(config);
+      const http = new AbapHttp(config, { command: 'pull' });
       const csrfToken = await http.fetchCsrfToken();
 
       // Prepare request data with git credentials
