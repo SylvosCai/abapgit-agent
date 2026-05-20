@@ -2,6 +2,30 @@
 title: Release Notes
 ---
 
+## v1.20.1
+
+### New Features
+
+- `unit`: per-method statement coverage (ABAP backend, replaces broken ADT path)
+- `unit --verbose`: per-method coverage breakdown in CLI output
+- `unit`: human-readable assertion details with line references in failures
+- Configurable per-command HTTP timeouts via `timeouts` in project config
+
+### Bug Fixes
+
+- `unit`: coverage now works on systems where `cov:query` returned zero
+- `isUnsupportedType`: guard against non-ABAP files (`.md`, `.json`)
+- `unit`: default exclude test repo uses github.com mirror
+
+### Improvements
+
+- JUnit XML: per-method coverage as `<testcase>` properties
+
+---
+
+---
+
+
 ## v1.20.0
 
 ### New Features
