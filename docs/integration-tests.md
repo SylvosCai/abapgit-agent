@@ -74,6 +74,7 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | Customize | `npm run test:customize` | `customize` command (C-class tables) | `$ABGAGT_CUS_TST` |
 | Lifecycle | `npm run test:lifecycle` | `init → create → import → delete` | `$ABGAGT_LIFECYCLE_TEST` |
 | Run | `npm run test:cmd -- --command=run` | `run --program` and `run --class` | `$ABGAGT_RUN_TEST` |
+| Exclude | `npm run test:exclude` | `exclude` command — pattern + unsupportedTypes filtering | `$ABGAGT_EXCL_TEST` |
 | Syntax (FUGR) | `npm run test:cmd -- --command=syntax` | FUGR function group syntax checks | `$ABGAGT_SYNTAX_TEST` |
 | JUnit output | `npm run test:junit` | `--junit-output` flag | project package |
 | Debug | `npm run test:debug` | Breakpoint management (ADT) | project package |
@@ -113,6 +114,9 @@ pushes, abapGit registrations). This means:
    - `github.com/SylvosCai/abgagt-debug-test`
    - `github.com/SylvosCai/abgagt-run-test`
    - `github.com/SylvosCai/abgagt-syntax-test`
+   - `github.com/SylvosCai/abgagt-unit-test`
+   - `github.com/SylvosCai/abgagt-pull-type-test`
+   - `github.com/SylvosCai/abgagt-exclude-test`
 
 2. Add a `testRepos` section to `.abapGitAgent` pointing to your forks
    (this file is gitignored and never committed):
@@ -126,7 +130,10 @@ pushes, abapGit registrations). This means:
     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git",
     "debug":     "https://github.com/your-org/abgagt-debug-test.git",
     "run":       "https://github.com/your-org/abgagt-run-test.git",
-    "syntax":    "https://github.com/your-org/abgagt-syntax-test.git"
+    "syntax":    "https://github.com/your-org/abgagt-syntax-test.git",
+    "unit":      "https://github.com/your-org/abgagt-unit-test.git",
+    "pullType":  "https://github.com/your-org/abgagt-pull-type-test.git",
+    "exclude":   "https://github.com/your-org/abgagt-exclude-test.git"
   }
 }
 ```
