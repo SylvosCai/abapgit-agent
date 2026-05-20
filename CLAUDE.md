@@ -14,10 +14,10 @@ This is the **abapgit-agent** Node.js CLI project. It has two development surfac
 Run the full ABAP development guide before writing any ABAP code:
 
 ```bash
-abapgit-agent guide
+abapgit-agent guide --ai
 ```
 
-**Never pipe `abapgit-agent guide` or `abapgit-agent ref` through `head`, `tail`, or any truncation command. Always read the full output.**
+**Never pipe `abapgit-agent guide --ai` or `abapgit-agent ref` through `head`, `tail`, or any truncation command. Always read the full output.**
 
 ## Finding Your Way Around
 
