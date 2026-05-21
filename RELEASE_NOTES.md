@@ -2,6 +2,25 @@
 title: Release Notes
 ---
 
+## v1.20.4
+
+### New Features
+
+- `exclude.patterns` now supports path-based glob patterns (e.g. `src/aud_legacy/**`) to exclude entire folders
+
+### Improvements
+
+- `import` warns when path-based exclude patterns are present (ABAP filter is basename-only)
+
+### Documentation
+
+- `docs/project-config.md` and `docs/setup/exclude-command.md` updated with path pattern examples
+
+---
+
+---
+
+
 ## v1.20.3
 
 ### Bug Fixes
