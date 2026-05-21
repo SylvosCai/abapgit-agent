@@ -46,20 +46,47 @@ Add an `exclude` section to `.abapgit-agent.json`:
     "unsupportedTypes": true,
     "patterns": [
       "zcl_*_dpc*.clas.*",
-      "zcl_*_mpc*.clas.*"
+      "zcl_*_mpc*.clas.*",
+      "src/aud_legacy/**"
     ]
   }
 }
 ```
+
+The first two are basename patterns (no `/`) — they match SEGW-generated
+DPC/MPC classes anywhere in the repo. The third is a path pattern — it
+excludes every file under `src/aud_legacy/`.
 
 **`unsupportedTypes: true`** — automatically excludes any file whose object type (the middle
 dot-segment of the filename, e.g. `badi` in `zfoo.badi.xml`) is not in the set of types
 supported by abapgit-agent: CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS,
 MSAG, STRU, ENHO, SUSO, PINF. Use this after `import` to remove all types abapGit cannot activate.
 
-**`patterns`** — explicit glob patterns matched against the **basename** of each file
-(directory path is stripped). Standard glob semantics: `*` matches any sequence of characters.
-Use this to exclude specific supported-type files (e.g. SEGW-generated DPC/MPC classes).
+**`patterns`** — explicit glob patterns. Two styles, distinguished by whether the
+pattern contains a forward slash:
+
+- **Without `/` — basename match.** Matched against the file's basename (directory
+  stripped). Examples:
+  ```
+  zcl_*_dpc*.clas.*       # SEGW-generated data-provider classes
+  cl_temp_*.clas.*        # any "temp" class anywhere in the repo
+  ```
+
+- **With `/` — full-path match.** Matched against the full relative path. Use `**`
+  for cross-segment matching. Examples:
+  ```
+  src/aud_legacy/**                    # exclude a whole folder/package
+  src/aud_*/cl_temp_*.clas.*           # wildcards in the directory portion
+  src/aud_legacy/**/*.clas.*           # only CLAS files under a folder
+  ```
+
+Matching is case-insensitive.
+
+> **Path-based patterns and `import`**: the ABAP-side filter inside `import` only
+> sees file basenames. Path patterns (those containing `/`) are silently skipped
+> during `import` and a warning is printed. They DO take effect for `exclude` and
+> `pull --files`. Run `abapgit-agent exclude` after `import` to prune the unwanted
+> files from git.
 
 ## Effect on Other Commands
 

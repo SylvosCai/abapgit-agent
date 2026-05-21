@@ -302,7 +302,12 @@ function getInspectConfig() {
 
 /**
  * Get exclude patterns from project-level config (.abapgit-agent.json)
- * Patterns match against file basenames using minimatch glob syntax.
+ *
+ * Patterns use minimatch glob syntax. Two pattern styles are supported:
+ *  - Without `/`  → matched against the file basename only (e.g. "zcl_*_test.clas.*").
+ *  - With `/`     → matched against the full relative path (e.g. "src/aud_legacy/**").
+ *                   Use `**` for cross-segment matches.
+ *
  * @returns {string[]} Array of lowercase glob patterns, or empty array
  */
 function getExcludePatterns() {
@@ -314,16 +319,36 @@ function getExcludePatterns() {
 
 /**
  * Check if a file path matches any of the exclude patterns.
- * Matching is done against the basename only (directory stripped).
- * @param {string} filePath
- * @param {string[]} patterns - from getExcludePatterns()
+ *
+ * Two pattern styles are supported, distinguished by whether the pattern
+ * contains a forward slash:
+ *
+ *   "cl_legacy_*.clas.*"             — basename match. The directory part of
+ *                                       `filePath` is stripped before matching.
+ *                                       (Original behaviour, backwards compatible.)
+ *
+ *   "src/aud_legacy/**"              — path match. The full normalised relative
+ *   "src/aud_legacy/**\/*.clas.*"     path is matched against the pattern.
+ *                                       Use `**` to match any number of path
+ *                                       segments (standard minimatch semantics).
+ *
+ * Matching is always case-insensitive.
+ *
+ * @param {string}   filePath   The relative file path (e.g. from `git ls-files`).
+ * @param {string[]} patterns   Already-lowercased patterns from getExcludePatterns().
  * @returns {boolean}
  */
 function isExcluded(filePath, patterns) {
   if (!patterns || patterns.length === 0) return false;
   const { minimatch } = require('minimatch');
-  const base = filePath.split('/').pop().toLowerCase();
-  return patterns.some(p => minimatch(base, p));
+  const lowerPath = String(filePath).toLowerCase();
+  const baseName  = lowerPath.split('/').pop();
+  return patterns.some(p => {
+    const isPathPattern = p.includes('/');
+    const target = isPathPattern ? lowerPath : baseName;
+    // matchBase=false (default) — `**` is needed for cross-segment matches.
+    return minimatch(target, p);
+  });
 }
 
 const SUPPORTED_ABAP_TYPES = new Set([

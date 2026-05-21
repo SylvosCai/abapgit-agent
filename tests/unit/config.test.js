@@ -567,6 +567,45 @@ describe('Config', () => {
       const patterns = ['zcl_*_dpc*.clas.*', '*.fugr.*'];
       expect(isExcluded('abap/zfugr_my.fugr.abap', patterns)).toBe(true);
     });
+
+    // ── Path-based patterns (containing `/`) ──────────────────────────
+    test('path pattern with `**` matches files anywhere under a folder', () => {
+      const { isExcluded } = require('../../src/config');
+      const patterns = ['src/aud_legacy/**'];
+      expect(isExcluded('src/aud_legacy/zcl_foo.clas.abap', patterns)).toBe(true);
+      expect(isExcluded('src/aud_legacy/sub/zcl_bar.clas.xml', patterns)).toBe(true);
+    });
+
+    test('path pattern only matches the configured prefix', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('src/aud_main/zcl_foo.clas.abap', ['src/aud_legacy/**'])).toBe(false);
+      expect(isExcluded('src/aud_legacy_extra/zcl_foo.clas.abap', ['src/aud_legacy/**'])).toBe(false);
+    });
+
+    test('path pattern with extension constraint', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('src/aud_legacy/sub/zcl_foo.clas.abap', ['src/aud_legacy/**/*.clas.*'])).toBe(true);
+      expect(isExcluded('src/aud_legacy/sub/zcl_foo.intf.abap', ['src/aud_legacy/**/*.clas.*'])).toBe(false);
+    });
+
+    test('basename pattern still ignores directory portion (backwards compatible)', () => {
+      const { isExcluded } = require('../../src/config');
+      // pattern has no `/` → basename match, location doesn't matter
+      expect(isExcluded('any/where/zcl_legacy_foo.clas.abap', ['zcl_legacy_*.clas.*'])).toBe(true);
+    });
+
+    test('path matching is case-insensitive', () => {
+      const { isExcluded } = require('../../src/config');
+      expect(isExcluded('SRC/AUD_LEGACY/ZCL_FOO.CLAS.ABAP', ['src/aud_legacy/**'])).toBe(true);
+    });
+
+    test('mixing basename and path patterns', () => {
+      const { isExcluded } = require('../../src/config');
+      const patterns = ['cl_temp_*.clas.*', 'src/aud_legacy/**'];
+      expect(isExcluded('src/aud_main/cl_temp_foo.clas.abap', patterns)).toBe(true); // basename
+      expect(isExcluded('src/aud_legacy/cl_x.clas.abap',     patterns)).toBe(true);  // path
+      expect(isExcluded('src/aud_main/cl_x.clas.abap',       patterns)).toBe(false);
+    });
   });
 
   describe('getUnsupportedTypesFlag / isUnsupportedType', () => {

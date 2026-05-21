@@ -214,7 +214,7 @@ Controls which files should be excluded from git tracking and filtered from `pul
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `patterns` | string[] | `[]` | Glob patterns matched against file basenames. `*` matches any chars. |
+| `patterns` | string[] | `[]` | Glob patterns. **Without `/`** → matched against file basenames. **With `/`** → matched against the full relative path. Use `**` for cross-segment paths. Case-insensitive. |
 | `unsupportedTypes` | boolean | `false` | Auto-exclude all files whose object type is not supported by abapgit-agent (CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS, MSAG, STRU, ENHO, SUSO, PINF). Useful after `import` to remove types abapGit cannot activate. |
 
 ```json
@@ -222,13 +222,27 @@ Controls which files should be excluded from git tracking and filtered from `pul
   "unsupportedTypes": true,
   "patterns": [
     "zcl_*_dpc*.clas.*",
-    "zcl_*_mpc*.clas.*"
+    "zcl_*_mpc*.clas.*",
+    "src/aud_legacy/**",
+    "src/aud_*/cl_temp_*.clas.*"
   ]
 }
 ```
 
+The first two entries are basename patterns (no `/`) — they match files
+anywhere in the repo whose filename matches. The last two entries are
+path patterns (contain `/`) — `src/aud_legacy/**` excludes every file
+under that folder; `src/aud_*/cl_temp_*.clas.*` mixes wildcards in the
+directory portion with a basename glob.
+
 Run `abapgit-agent exclude` after adding patterns to remove already-tracked files from git.
 See [exclude command](setup/exclude-command.md) for details.
+
+> **Path-based patterns and `import`**: the ABAP-side filter inside `import`
+> only sees file basenames, so path patterns are silently skipped during
+> `import` (a CLI warning is printed). They take effect for `exclude` and
+> `pull --files` (where the JS-side filter has the full path). Run
+> `abapgit-agent exclude` after `import` to prune the unwanted files from git.
 
 ---
 

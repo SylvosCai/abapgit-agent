@@ -133,7 +133,18 @@ Examples:
     const { getExcludePatterns, getUnsupportedTypesFlag } = require('../config');
     const excludePatterns = getExcludePatterns();
     if (excludePatterns.length > 0) {
-      data.exclude_patterns = excludePatterns;
+      // Path-based patterns (containing '/') are JS-only — the ABAP-side
+      // filter operates on file basenames and would never match them.
+      // Forward only the basename-style patterns and warn about the rest.
+      const basenamePatterns = excludePatterns.filter(p => !p.includes('/'));
+      const pathPatterns     = excludePatterns.filter(p =>  p.includes('/'));
+      if (pathPatterns.length > 0) {
+        console.warn(`⚠️  ${pathPatterns.length} path-based exclude pattern(s) ignored by import (basename-only). Use \`abapgit-agent exclude\` after import to prune them from git.`);
+        for (const p of pathPatterns) console.warn(`     - ${p}`);
+      }
+      if (basenamePatterns.length > 0) {
+        data.exclude_patterns = basenamePatterns;
+      }
     }
     if (getUnsupportedTypesFlag()) {
       data.exclude_unsupported_types = true;
