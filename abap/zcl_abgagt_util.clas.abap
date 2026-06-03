@@ -366,8 +366,11 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
           rs_info-include_type = lv_suffix.
           rs_info-type_text = 'Interface'.
         ELSE.
-          " Other program/include - verify it exists in TADIR
-          SELECT SINGLE object FROM tadir
+          " Other program/include - verify it exists in TADIR.
+          " #EC CI_GENBUFF: TADIR's single-record buffer can't satisfy this lookup
+          " pattern (key not fully specified); Code Inspector reports the bypass
+          " as informational — the suppression makes it stay green.
+          SELECT SINGLE object FROM tadir              "#EC CI_GENBUFF
             INTO rs_info-obj_type
             WHERE obj_name = lv_name
               AND object = 'PROG'.
@@ -387,7 +390,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     lv_obj_name = iv_obj_name.
     TRANSLATE lv_obj_name TO UPPER CASE.
 
-    SELECT SINGLE object obj_name devclass FROM tadir
+    " #EC CI_GENBUFF: WHERE has IN list on OBJECT — single-record buffer can't
+    " serve this; the bypass is intended.
+    SELECT SINGLE object obj_name devclass FROM tadir   "#EC CI_GENBUFF
       INTO (rs_info-obj_type, rs_info-obj_name, rs_info-devclass)
       WHERE obj_name = lv_obj_name
         AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG', 'STOB', 'ENHO').

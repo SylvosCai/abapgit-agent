@@ -55,7 +55,7 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
-- Supported object types: CLAS, INTF, PROG (including INCLUDEs), DDLS, FUGR
+- Supported object types: CLAS, INTF, PROG (including INCLUDEs), DDLS, DCLS, FUGR
 - For class files: Companion files are auto-detected if they exist
 - For FUGR files: All FM source files in the function group are auto-detected
 - For INCLUDE programs (SUBC=I): Parent program is auto-detected in the same directory
@@ -293,6 +293,7 @@ Errors:
 | PROG | Program (executable) | `.prog.abap` |
 | PROG | INCLUDE program | `.prog.abap` (SUBC=I in `.prog.xml`) |
 | DDLS | CDS View | `.ddls.asddls` |
+| DCLS | CDS Access Control (role) | `.dcls.asdcls` |
 | FUGR | Function module source | `<group>.fugr.<fm_name>.abap` |
 
 **Note:**
@@ -300,6 +301,7 @@ Errors:
 - For FUGR files, ALL FM source files in the function group are automatically detected and checked
 - For INCLUDE programs (SUBC=I), the parent program is auto-detected in the same directory; if no parent is found, a warning is printed and the check is skipped
 - For DDLS: Requires `@AbapCatalog.sqlViewName` annotation for CDS views
+- For DCLS: Requires the granted-on DDL view to be active (CL_ACM_DCL_HANDLER->CHECK validates entity references). Pull the DDL view first if it isn't active yet.
 - For other types (TABL, STRU, etc.), use `pull` then `inspect`
 
 ---
@@ -369,6 +371,7 @@ Files are parsed to extract object type and name:
 | `zcl_my_class.clas.locals_imp.abap` | CLAS | ZCL_MY_CLASS (local imps) |
 | `zcl_my_class.clas.testclasses.abap` | CLAS | ZCL_MY_CLASS (test classes) |
 | `zc_my_view.ddls.asddls` | DDLS | ZC_MY_VIEW |
+| `zc_my_role.dcls.asdcls` | DCLS | ZC_MY_ROLE |
 | `zmy_fugr.fugr.zmy_my_function.abap` | FUGR | ZMY_FUGR (FM: ZMY_MY_FUNCTION) |
 | `zmy_fugr.fugr.lzmy_fugrtop.abap` | FUGR | ZMY_FUGR (triggers auto-detection) |
 | `zmy_include.prog.abap` (SUBC=I) | PROG | ZMY_INCLUDE (checked via parent) |
@@ -491,7 +494,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap
 | Checks | Local source | Activated code |
 | Uses | SYNTAX-CHECK / DDL handler | Code Inspector (SCI) |
 | Warnings | No (DDLS: Yes) | Yes |
-| Object types | CLAS, INTF, PROG, DDLS, FUGR | All (including FUGR, TABL) |
+| Object types | CLAS, INTF, PROG, DDLS, DCLS, FUGR | All (including FUGR, TABL) |
 | Speed | Fast | Slower |
 
 ---

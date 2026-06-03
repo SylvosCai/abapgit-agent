@@ -904,6 +904,9 @@ Modified ABAP files?
    ├─ DCLS (CDS access control)?
    │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --files <folder>/<name>.dcls.asdcls --sync-xml
    │         Pass the .asdcls file (not the .xml) — same convention as DDLS.
+   │         ⚠️  DCLS syntax check needs the granted-on DDL view to be active in the
+   │            ABAP system (CL_ACM_DCL_HANDLER->CHECK validates entity references).
+   │            If the view isn't active yet, pull it first or skip syntax for now.
    ├─ ENHO (Enhancement)?
    │  └─ ✅ Use: syntax (optional) → [abaplint] → commit → push → pull --files <folder>/<name>.enho.xml --sync-xml
    │         ⚠️  syntax checks basic errors in the hook body; semantic checks require pull

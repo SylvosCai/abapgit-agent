@@ -75,7 +75,7 @@ const REPOS = [
       'src/zabgagt_drp_fugr.fugr.xml',
       'src/zabgagt_drp_msag.msag.xml',
       'src/zc_abgagt_drp.ddls.xml',
-      'src/zc_abgagt_drp.dcls.xml',
+      'src/zc_abgagt_drp.dcls.asdcls',
       'src/zif_abgagt_drp_test.intf.abap',
       'src/zcl_abgagt_drp_test.clas.abap',
       'src/zabgagt_drp_enho.enho.xml'

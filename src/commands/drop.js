@@ -90,10 +90,10 @@ Examples:
     const base = filePath.split('/').pop();
     const parts = base.split('.');
     const lastExt = parts[parts.length - 1].toLowerCase();
-    const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+    const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls', 'asdcls']);
     const isXmlOnlyObject = parts.length === 3 && parts[0].length > 0 && lastExt === 'xml';
     if (!ABAP_SOURCE_EXTS.has(lastExt) && !isXmlOnlyObject) {
-      console.error('❌ Error: --files must be an ABAP source file (.abap, .asddls) or an XML-only object file (name.type.xml).');
+      console.error('❌ Error: --files must be an ABAP source file (.abap, .asddls, .asdcls) or an XML-only object file (name.type.xml).');
       process.exit(1);
     }
 

@@ -17,7 +17,7 @@
  *     - src/zabgagt_drp_stru.tabl.xml         STRU ZABGAGT_DRP_STRU
  *     - src/zabgagt_drp_doma.doma.xml         DOMA ZABGAGT_DRP_DOMA
  *     - src/zc_abgagt_drp.ddls.xml            DDLS ZC_ABGAGT_DRP
- *     - src/zc_abgagt_drp.dcls.xml            DCLS ZC_ABGAGT_DRP
+ *     - src/zc_abgagt_drp.dcls.asdcls         DCLS ZC_ABGAGT_DRP
  *     - src/zabgagt_drp_msag.msag.xml         MSAG ZABGAGT_DRP_MSAG
  *     - src/zabgagt_ds.suso.xml               SUSO ZABGAGT_DS
  *     - src/zabgagt_drp_enho.enho.xml         ENHO ZABGAGT_DRP_ENHO
@@ -122,7 +122,7 @@ const TEST_OBJECTS = [
   // DCLS depends on DDLS
   {
     name:   'DCLS ZC_ABGAGT_DRP',
-    file:   'src/zc_abgagt_drp.dcls.xml',
+    file:   'src/zc_abgagt_drp.dcls.asdcls',
     type:   'DCLS',
     object: 'ZC_ABGAGT_DRP'
   },
@@ -385,7 +385,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
       runPullFromDropRepo(agentBin, 'src/zabgagt_drp_ttyp.ttyp.xml', ['--conflict-mode', 'ignore']);
     }
     if (obj.type === 'DDLS') {
-      runPullFromDropRepo(agentBin, 'src/zc_abgagt_drp.dcls.xml', ['--conflict-mode', 'ignore']);
+      runPullFromDropRepo(agentBin, 'src/zc_abgagt_drp.dcls.asdcls', ['--conflict-mode', 'ignore']);
     }
     if (obj.type === 'INTF') {
       // CLAS implements INTF; after INTF is re-pulled CLAS becomes inactive — restore it too

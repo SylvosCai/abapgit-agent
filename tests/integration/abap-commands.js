@@ -1120,6 +1120,82 @@ where carrid = $parameters.p_carrid
     }
   },
 
+  // DCLS/CDS Access Control syntax tests
+  // CL_ACM_DCL_HANDLER->CHECK requires the granted-on view to exist on the system,
+  // so we only test parser-level errors that work without any external object.
+  {
+    command: 'syntax',
+    name: 'syntax check DCLS detects unknown CDS entity',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/dcls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `@EndUserText.label: 'Unknown Entity'
+@MappingRole: true
+define role zc_dcl_unknown {
+  grant select on zc_view_that_does_not_exist;
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_dcl_unknown.dcls.asdcls'), source);
+    },
+    args: ['--files', 'tests/fixtures/dcls/zc_dcl_unknown.dcls.asdcls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.OBJECT_TYPE === 'DCLS'
+          && result.SUCCESS === false
+          && result.ERROR_COUNT > 0;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/dcls/zc_dcl_unknown.dcls.asdcls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax check DCLS detects invalid keyword',
+    setup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const fixturesDir = path.join(__dirname, '../fixtures/dcls');
+      if (!fs.existsSync(fixturesDir)) {
+        fs.mkdirSync(fixturesDir, { recursive: true });
+      }
+      const source = `INVALID_KEYWORD zc_dcl_bad {
+  grant select on sflight;
+}`;
+      fs.writeFileSync(path.join(fixturesDir, 'zc_dcl_bad.dcls.asdcls'), source);
+    },
+    args: ['--files', 'tests/fixtures/dcls/zc_dcl_bad.dcls.asdcls', '--json'],
+    expectSuccess: true,
+    verify: (output) => {
+      try {
+        const json = JSON.parse(output);
+        const result = json.RESULTS && json.RESULTS[0];
+        return result && result.OBJECT_TYPE === 'DCLS'
+          && result.SUCCESS === false
+          && result.ERROR_COUNT > 0;
+      } catch (e) {
+        return false;
+      }
+    },
+    cleanup: () => {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../fixtures/dcls/zc_dcl_bad.dcls.asdcls');
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+  },
+
   // ===================================================================
   // DUMP COMMAND - 4 tests
   // Purpose: Query short dumps (ST22) from ABAP system
