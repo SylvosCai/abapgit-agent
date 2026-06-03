@@ -291,7 +291,7 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 - `DCLNAME` matches the CDS view name
 - Source file contains the DCL (`@MappingRole ... define role ...`)
-- **Pull with the `.xml` file, not `.asdcls`**: `pull --files src/zc_my_view.dcls.xml` — the `pull --files` filter does not accept `.asdcls` extensions
+- **Pull with the `.asdcls` file**: `pull --files src/zc_my_view.dcls.asdcls --sync-xml` — same convention as DDLS
 
 ---
 
