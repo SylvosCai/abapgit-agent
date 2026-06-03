@@ -2,6 +2,28 @@
 title: Release Notes
 ---
 
+## v1.20.5
+
+### New Features
+
+- `syntax` command now supports DCLS (CDS access control) files
+- `syntax --files <name>.dcls.asdcls` reports parser errors with line/column
+
+### Bug Fixes
+
+- `pull --files` now accepts `.dcls.asdcls` source files
+- `drop` command now accepts `.dcls.asdcls` files
+- Node.js minimum version bumped to 18 (matches transitive deps)
+
+### Documentation
+
+- `syntax` command docs updated: DCLS requires granted-on DDL view to be active
+
+---
+
+---
+
+
 ## v1.20.4
 
 ### New Features
