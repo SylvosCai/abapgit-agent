@@ -200,7 +200,7 @@ abapgit-agent syntax --files src/<name>.fugr.<fm_name>.abap
 abapgit-agent syntax --files src/<name1>.clas.abap,src/<name2>.clas.abap
 ```
 
-**For other types (TABL, STRU, DCLS, etc.)**: Skip syntax, proceed to commit/push/pull.
+**For other types (TABL, STRU, etc.)**: Skip syntax, proceed to commit/push/pull.
 
 **Why use syntax command?**
 - Catches syntax errors BEFORE polluting git history with fix commits
@@ -849,7 +849,7 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 
 **Before every `git commit` (when `.abaplint.json` exists AND changed files include `.abap` or `.xml` ABAP source files):**
 1. ✓ Run `abapgit-agent lint` before committing — no exceptions for ABAP file type or workflow mode (trunk or branch)
-2. ✓ Run lint even when syntax is skipped (dependent files, XML-only types, DCLS, ENHO)
+2. ✓ Run lint even when syntax is skipped (dependent files, XML-only types, ENHO)
 3. ✓ Correct pre-commit sequence: syntax (if applicable for CLAS/INTF/PROG/DDLS/FUGR) → `abapgit-agent lint` → `git commit`
 4. ✗ Never commit ABAP files without running lint first when `.abaplint.json` exists
 5. ✓ Non-ABAP changes only (docs, config, JS): skip lint and syntax — they do not apply
@@ -902,8 +902,8 @@ Modified ABAP files?
    ├─ XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG)?
    │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<name>.tabl.xml --sync-xml
    ├─ DCLS (CDS access control)?
-   │  └─ ✅ Use: skip syntax → [abaplint] → commit → push → pull --files <folder>/<name>.dcls.xml --sync-xml
-   │         ⚠️  Pass the .xml file — pull --files does NOT accept .asdcls extensions
+   │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --files <folder>/<name>.dcls.asdcls --sync-xml
+   │         Pass the .asdcls file (not the .xml) — same convention as DDLS.
    ├─ ENHO (Enhancement)?
    │  └─ ✅ Use: syntax (optional) → [abaplint] → commit → push → pull --files <folder>/<name>.enho.xml --sync-xml
    │         ⚠️  syntax checks basic errors in the hook body; semantic checks require pull

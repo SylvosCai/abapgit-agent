@@ -73,7 +73,7 @@ describe('Pull Command - Logic Tests', () => {
 
   // Helper that mirrors the --files validation in pull.js
   function findNonSourceFiles(files) {
-    const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+    const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls', 'asdcls']);
     const isXmlOnlyObject = (f) => {
       const base = f.split('/').pop();
       const parts = base.split('.');
@@ -100,6 +100,11 @@ describe('Pull Command - Logic Tests', () => {
 
     test('accepts .ddls.asddls files', () => {
       expect(findNonSourceFiles(['zc_my_view.ddls.asddls'])).toHaveLength(0);
+    });
+
+    test('accepts .dcls.asdcls files', () => {
+      expect(findNonSourceFiles(['zc_my_acl.dcls.asdcls'])).toHaveLength(0);
+      expect(findNonSourceFiles(['src/aud_main/zc_my_acl.dcls.asdcls'])).toHaveLength(0);
     });
 
     test('accepts .testclasses.abap files', () => {
@@ -335,7 +340,7 @@ describe('Pull Command - Logic Tests', () => {
         'src/ztest.prog.abap'
       ];
 
-      const validExtensions = ['.clas.abap', '.intf.abap', '.prog.abap', '.ddls.asddls'];
+      const validExtensions = ['.clas.abap', '.intf.abap', '.prog.abap', '.ddls.asddls', '.dcls.asdcls'];
       const allValid = files.every(f =>
         validExtensions.some(ext => f.endsWith(ext))
       );

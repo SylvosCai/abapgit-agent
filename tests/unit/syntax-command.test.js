@@ -124,6 +124,8 @@ describe('Syntax Command - Logic Tests', () => {
       if (baseName.includes('.clas.')) return { type: 'CLAS', kind: 'main' };
       if (baseName.includes('.intf.')) return { type: 'INTF', kind: 'main' };
       if (baseName.includes('.prog.')) return { type: 'PROG', kind: 'main' };
+      if (baseName.includes('.ddls.asddls')) return { type: 'DDLS', kind: 'main' };
+      if (baseName.includes('.dcls.asdcls')) return { type: 'DCLS', kind: 'main' };
       return { type: 'PROG', kind: 'main' }; // default
     }
 
@@ -142,6 +144,18 @@ describe('Syntax Command - Logic Tests', () => {
     test('detects PROG type from .prog.abap', () => {
       const result = detectObjectType('ztest.prog.abap');
       expect(result.type).toBe('PROG');
+      expect(result.kind).toBe('main');
+    });
+
+    test('detects DDLS type from .ddls.asddls', () => {
+      const result = detectObjectType('zc_my_view.ddls.asddls');
+      expect(result.type).toBe('DDLS');
+      expect(result.kind).toBe('main');
+    });
+
+    test('detects DCLS type from .dcls.asdcls', () => {
+      const result = detectObjectType('zc_my_acl.dcls.asdcls');
+      expect(result.type).toBe('DCLS');
       expect(result.kind).toBe('main');
     });
 

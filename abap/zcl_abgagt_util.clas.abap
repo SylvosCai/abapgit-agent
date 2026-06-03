@@ -41,7 +41,7 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       "   <name>.clas.locals_imp.abap   → CLAS  (class local impl include)
       "   <name>.enho.<hash>.abap       → ENHO  (enhancement hook source)
       READ TABLE lt_parts INDEX 4 INTO DATA(lv_ext4).
-      IF lv_ext4 <> 'ABAP' AND lv_ext4 <> 'ASDDLS' AND lv_ext4 <> 'XML'.
+      IF lv_ext4 <> 'ABAP' AND lv_ext4 <> 'ASDDLS' AND lv_ext4 <> 'ASDCLS' AND lv_ext4 <> 'XML'.
         RETURN.
       ENDIF.
       READ TABLE lt_parts INDEX 2 INTO DATA(lv_type4).
@@ -59,9 +59,10 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
 
     ELSEIF lv_part_count = 3.
       " 3-part pattern: <name>.<type>.<ext>
-      " Last part should be 'ABAP', 'ASDDLS', or 'XML' (XML-only objects: TABL, STRU, DTEL, TTYP, ...)
+      " Last part should be 'ABAP', 'ASDDLS', 'ASDCLS', or 'XML'
+      " (XML-only objects: TABL, STRU, DTEL, TTYP, ...)
       READ TABLE lt_parts INDEX 3 INTO DATA(lv_last).
-      IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS' AND lv_last <> 'XML'.
+      IF lv_last <> 'ABAP' AND lv_last <> 'ASDDLS' AND lv_last <> 'ASDCLS' AND lv_last <> 'XML'.
         RETURN.
       ENDIF.
 

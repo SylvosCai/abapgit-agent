@@ -110,6 +110,10 @@ Examples:
         objType = 'DDLS';
         objName = baseName.split('.')[0].toUpperCase();
         fileKind = 'main';
+      } else if (baseName.includes('.dcls.asdcls')) {
+        objType = 'DCLS';
+        objName = baseName.split('.')[0].toUpperCase();
+        fileKind = 'main';
       } else if (baseName.includes('.fugr.')) {
         objType = 'FUGR';
         const parts = baseName.split('.');   // e.g. ['zmy_fugr', 'fugr', 'zmy_my_function', 'abap']

@@ -132,11 +132,11 @@ Examples:
       files = args[filesArgIndex + 1].split(',').map(f => f.trim());
 
       // Validate that every file has a recognised extension:
-      // - .abap / .asddls  — ABAP source files
-      // - name.type.xml    — XML-only objects (TABL, STRU, DTEL, TTYP, ...)
+      // - .abap / .asddls / .asdcls  — ABAP source files
+      // - name.type.xml              — XML-only objects (TABL, STRU, DTEL, TTYP, ...)
       //   Must have exactly 3 dot-separated parts with a non-empty name part
       //   to exclude .abapgit.xml, package.devc.xml, plain .xml, etc.
-      const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls']);
+      const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls', 'asdcls']);
       const isXmlOnlyObject = (f) => {
         const base = f.split('/').pop();
         const parts = base.split('.');
@@ -146,12 +146,12 @@ Examples:
         const base = f.split('/').pop(); // strip directory
         const parts = base.split('.');
         const ext = parts[parts.length - 1].toLowerCase();
-        if (ABAP_SOURCE_EXTS.has(ext)) return false;  // .abap / .asddls — valid
+        if (ABAP_SOURCE_EXTS.has(ext)) return false;  // .abap / .asddls / .asdcls — valid
         if (isXmlOnlyObject(f)) return false;          // name.type.xml — valid
         return true;                                   // everything else — invalid
       });
       if (nonSourceFiles.length > 0) {
-        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls) or XML-only object files (name.type.xml).');
+        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls, .asdcls) or XML-only object files (name.type.xml).');
         console.error('   The following file(s) are not recognised:');
         nonSourceFiles.forEach(f => console.error(`     ${f}`));
         console.error('   Tip: for source objects pass the .abap file (e.g. zcl_foo.clas.abap or zcl_foo.enho.28bbfe2f.abap);');
