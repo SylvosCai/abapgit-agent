@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+## v1.21.0
+
+### New Features
+
+- `hana view` — deploy, import, list, drop, and preview HANA calculation/attribute views
+- `hana schema` — list schemas, tables, and columns from HANA catalog
+- `hana table preview` — query raw HANA tables by physical or logical schema
+
+### Documentation
+
+- Added HANA authoring guides (views, schema mapping, table functions, CDS split)
+- Removed stale `.asdcls` pull workaround; `.asdcls` is now fully supported
+
+---
+
+---
+
+
 ## v1.20.5
 
 ### New Features
