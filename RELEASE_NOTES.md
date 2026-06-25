@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+## v1.21.1
+
+### Bug Fixes
+
+- Fix DTEL activation failures silently reported as success
+- Add pre-flight validation for DTEL label lengths vs SCRLEN limits
+- Show full DDIC error text when log column truncates messages
+
+### Documentation
+
+- Document POST /hana API endpoint
+- Add HANA suite to integration test guide
+
+---
+
+---
+
+
 ## v1.21.0
 
 ### New Features
