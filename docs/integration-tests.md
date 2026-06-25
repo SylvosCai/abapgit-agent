@@ -78,8 +78,9 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | Syntax (FUGR) | `npm run test:cmd -- --command=syntax` | FUGR function group syntax checks | `$ABGAGT_SYNTAX_TEST` |
 | JUnit output | `npm run test:junit` | `--junit-output` flag | `$ABGAGT_UNIT_TEST` |
 | Debug | `npm run test:debug` | Breakpoint management (ADT) | `$ABGAGT_DEBUG_TEST` |
+| HANA | `npm run test:hana` | `hana view/schema/table` commands against a real HANA tenant | — (HANA-only repo; no ABAP package) |
 
-> **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase.
+> **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase. The `hana` suite is different: its test repo (`abgagt-hta-test`) holds only HANA artifacts (`.calculationview` etc.), so setup just clones it — the HANA tenant connection comes from your `.abapGitAgent` and the test deploys/drops via the `hana` command itself.
 
 ### Running a single command suite
 
@@ -117,6 +118,7 @@ pushes, abapGit registrations). This means:
    - `github.com/SylvosCai/abgagt-unit-test`
    - `github.com/SylvosCai/abgagt-pull-type-test`
    - `github.com/SylvosCai/abgagt-exclude-test`
+   - `github.com/SylvosCai/abgagt-hta-test`
 
 2. Add a `testRepos` section to `.abapGitAgent` pointing to your forks
    (this file is gitignored and never committed):
@@ -133,7 +135,8 @@ pushes, abapGit registrations). This means:
     "syntax":    "https://github.com/your-org/abgagt-syntax-test.git",
     "unit":      "https://github.com/your-org/abgagt-unit-test.git",
     "pullType":  "https://github.com/your-org/abgagt-pull-type-test.git",
-    "exclude":   "https://github.com/your-org/abgagt-exclude-test.git"
+    "exclude":   "https://github.com/your-org/abgagt-exclude-test.git",
+    "hana":      "https://github.com/your-org/abgagt-hta-test.git"
   }
 }
 ```
