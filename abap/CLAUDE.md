@@ -174,7 +174,7 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 > **Tip for project setup**: Add package rules to `objects.local.md` so Claude never
 > needs to ask. Run: `abapgit-agent ref --topic objects`
 
-→ For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/DDLS/DCLS/FUGR) or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
+→ For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/ENHO), `abapgit-agent ref --topic abapgit-cds` (DDLS view/view-entity/table-function/DCLS), or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
 → For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
 → For documentation comment format (shorttext, @parameter, CDS): `abapgit-agent ref --topic comments`
 
@@ -867,7 +867,7 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 - ✓ **`LOCAL_XML_FILES` is empty:** Two possible causes:
   - (a) Objects are already at the latest version — verify with `abapgit-agent view --objects <NAME>`. If the object exists and looks correct, no action needed.
   - (b) Commits not pushed yet — run `git log origin/<branch>..HEAD` to check. If unpushed commits exist, run `git push` then retry pull.
-- ✓ **Message is "Activation cancelled. Check the inactive objects."**: The ABAP system rejected the object during activation but returned no detailed error. Run `abapgit-agent inspect --files <file>` to surface the compile error (the object is already on the system after the failed pull). For DDLS: also verify that the `define view entity <NAME>` name in the `.asddls` source exactly matches the `<DDLNAME>` in the `.ddls.xml` (case-sensitive — the DDL name must be UPPER CASE). Fix the error locally, run `syntax` to verify, then re-commit and re-pull.
+- ✓ **Message is "Activation cancelled. Check the inactive objects."**: The ABAP system rejected the object during activation but returned no detailed error. Run `abapgit-agent inspect --files <file>` to surface the compile error (the object is already on the system after the failed pull). For DDLS: also verify that the `define view entity <NAME>` name in the `.asddls` source exactly matches the `<DDLNAME>` in the `.ddls.xml` (case-sensitive — the DDL name must be UPPER CASE). Fix the error locally, run `syntax` to verify, then re-commit and re-pull. **⚠️ For DDLS table functions (`SOURCE_TYPE F`), `inspect` is unreliable** — it can report "Syntax check passed" while activation still fails (e.g. data-element-not-found, unresolvable `$ABAP.schema`). To see the real error, run `pull --files ... --json` and read the `LOG_MESSAGES` array, or activate manually in ADT. See `abapgit-agent ref --topic table-function`.
 
 **After every pull:**
 1. ✓ If pull output shows `⚠️  X XML file(s) differ from serializer output` — re-run immediately with `--sync-xml`, even on an initial setup pull with no ABAP objects (`.abapgit.xml` can drift too)
@@ -890,6 +890,12 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 ```
 Modified ABAP files?
 ├─ CLAS/INTF/PROG/DDLS/FUGR files?
+│  ├─ DDLS table function (SOURCE_TYPE F, `define table function` + AMDP class)?
+│  │  └─ ✅ Use: skip syntax (inspect is unreliable for TFs) → [abaplint] → commit → push →
+│  │         pull --files <folder>/<clas>.clas.abap   (activates AMDP first) →
+│  │         pull --files <folder>/<ddls>.ddls.asddls --sync-xml   (then DDLS)
+│  │         Real activation errors: pull --json → read LOG_MESSAGES.
+│  │         See: abapgit-agent ref --topic table-function
 │  ├─ Independent files (no cross-dependencies)?
 │  │  └─ ✅ Use: syntax → [abaplint] → commit → push → pull --files <folder>/<name>.<ext> --sync-xml
 │  │         Examples:
@@ -945,10 +951,14 @@ Modified ABAP files?
 | `ref --topic unit-testable-code` | Unit Testable Code (Dependency Injection) |
 | `ref --topic cds` | CDS Views |
 | `ref --topic cds-testing` | CDS Testing (Test Double Framework) |
+| `ref --topic table-function` | CDS Table Functions (DDLS `SOURCE_TYPE F` + AMDP, return-type pitfalls, activation order) |
+| `ref --topic abap-schema-mapping` | ABAP Schema Mapping (`$ABAP.schema(...)` and `DB_SCHEMA_MAP`) — for reading from replicated or co-deployed HANA schemas in table functions / AMDP |
+| `ref --topic hana-views` | HANA Views Authoring (`.attributeview` / `.calculationview` — discover with `hana schema`, import template, deploy, read activation errors, query via `_SYS_BIC`) |
 | `ref --topic json` | JSON Handling |
 | `ref --topic common-errors` | Common ABAP Errors - Quick Fixes |
 | `ref --topic string-template` | String Templates — syntax, escaping `\{` `\}`, JSON payloads |
-| `ref --topic abapgit` | abapGit XML Metadata — **use for CDS/DDLS XML**, also CLAS, INTF, PROG, DCLS, FUGR |
+| `ref --topic abapgit` | abapGit XML Metadata — CLAS, INTF, PROG, ENHO; high-level field-presence rules |
+| `ref --topic abapgit-cds` | abapGit XML Metadata — CDS objects: DDLS view / view entity / table function + AMDP class side-car, DCLS access control |
 | `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `ref --topic abapgit-fugr` | abapGit XML Metadata — Function Group (FUGR) details |
 | `ref --topic enho` | Enhancement Objects (ENHO) — workflow, hash algorithm, creation guide |

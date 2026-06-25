@@ -41,6 +41,7 @@ All available CLI commands for abapGit Agent.
 | [run](development/run-command.md) | ✅ | Execute ABAP program (`--program`) or class implementing `IF_OO_ADT_CLASSRUN` (`--class`) |
 | [transport](development/transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
 | [customize](development/customize-command.md) | ✅ | Write a row to a SAP customizing table (delivery class C/E) |
+| [hana](development/hana-command.md) | ✅ | Manage HANA repository views (`view deploy/import/list/drop/preview`), query the HANA catalog (`schema list/tables/fields`), and preview raw tables (`table preview`) |
 | [status](utility/status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](utility/health-command.md) | ✅ | Health check |
 | [upgrade](utility/upgrade-command.md) | ✅ | Upgrade CLI and/or ABAP backend |
@@ -170,6 +171,22 @@ abapgit-agent health
 # Write a row to a SAP customizing table (delivery class C/E)
 abapgit-agent customize ZAPP_CONFIG --set CONFIG_KEY=FEATURE_X CONFIG_VALUE=X --no-transport
 abapgit-agent customize ZAPP_CONFIG --set KEY=MYAPP VALUE=active --transport DEVK900001
+
+# Manage HANA repository views (.attributeview / .calculationview)
+abapgit-agent hana view list   --package com.example.myapp
+abapgit-agent hana view deploy --file hana/com/example/myapp/SalesAnalytics.calculationview --force
+abapgit-agent hana view import --package com.example.myapp
+abapgit-agent hana view drop    --file hana/com/example/myapp/SalesAnalytics.calculationview
+abapgit-agent hana view preview --file hana/com/example/myapp/SalesAnalytics.calculationview --limit 20
+
+# Query the HANA catalog (find schemas, tables, columns before authoring views)
+abapgit-agent hana schema list   --filter '%CORE%'
+abapgit-agent hana schema tables --schema SAP_FRA_CORE_S4 --filter 'T001%'
+abapgit-agent hana schema fields --schema SAP_FRA_CORE_S4 --table T001
+
+# Preview rows from a raw HANA table (input data of a view)
+abapgit-agent hana table preview --schema SAP_FRA_CORE_S4 --table T001 --limit 10
+abapgit-agent hana table preview --logical-schema FRA_CORE_ERP --table T001  # resolved via DB_SCHEMA_MAP
 ```
 
 ### Offline Reference

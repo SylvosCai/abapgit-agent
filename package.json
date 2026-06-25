@@ -60,6 +60,7 @@
     "test:conflict": "node tests/run-all.js --conflict",
     "test:async-pull": "node tests/run-all.js --async-pull",
     "test:exclude": "node tests/run-all.js --exclude",
+    "test:hana": "node tests/run-all.js --hana",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"

@@ -243,55 +243,13 @@ abapGit's serializer **omits fields that have their default value**. Writing ext
 
 ---
 
-### CDS View / View Entity (DDLS)
+### CDS Objects (DDLS, DCLS)
 
-**Files**: `src/zc_my_view.ddls.asddls` (source) + `src/zc_my_view.ddls.xml` (metadata)
+CDS views, view entities, table functions, and access controls have their own
+dedicated XML metadata file because of `SOURCE_TYPE` variants (V / W / F) and
+the AMDP class side-car for table functions.
 
-```xml
-﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DDLS>
-    <DDLNAME>ZC_MY_VIEW</DDLNAME>
-    <DDLANGUAGE>E</DDLANGUAGE>
-    <DDTEXT>My CDS View</DDTEXT>
-    <SOURCE_TYPE>W</SOURCE_TYPE>
-   </DDLS>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-- `SOURCE_TYPE W` → View Entity (`define view entity`, modern — **use by default**)
-- `SOURCE_TYPE V` → View (`define view` + `@AbapCatalog.sqlViewName`, legacy)
-
-→ For DDL source syntax: `abapgit-agent ref --topic cds`
-
----
-
-### CDS Access Control (DCLS)
-
-**Files**: `src/zc_my_view.dcls.asdcls` (source) + `src/zc_my_view.dcls.xml` (metadata)
-
-```xml
-﻿<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_DCLS" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <DCLS>
-    <DCLNAME>ZC_MY_VIEW</DCLNAME>
-    <DCLLANGUAGE>E</DCLLANGUAGE>
-    <DDTEXT>Access control for ZC_MY_VIEW</DDTEXT>
-   </DCLS>
-  </asx:values>
- </asx:abap>
-</abapGit>
-```
-
-- `DCLNAME` matches the CDS view name
-- Source file contains the DCL (`@MappingRole ... define role ...`)
-- **Pull with the `.asdcls` file**: `pull --files src/zc_my_view.dcls.asdcls --sync-xml` — same convention as DDLS
+→ Full templates and field rules: `abapgit-agent ref --topic abapgit-cds`
 
 ---
 

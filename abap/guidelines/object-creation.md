@@ -20,8 +20,9 @@ Replace `<name>` with the actual object name from this project's naming conventi
 | Class (CLAS) | `<name>.clas.abap` | `<name>.clas.xml` | `ref --topic abapgit` |
 | Interface (INTF) | `<name>.intf.abap` | `<name>.intf.xml` | `ref --topic abapgit` |
 | Program (PROG) | `<name>.prog.abap` | `<name>.prog.xml` | `ref --topic abapgit` |
-| CDS View Entity (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` | **Use by default** — `ref --topic abapgit` |
-| CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` | `ref --topic abapgit` |
+| CDS View Entity (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` | **Use by default** — `ref --topic abapgit-cds` |
+| CDS Table Function (DDLS, `SOURCE_TYPE F`) | `<name>.ddls.asddls` + AMDP class | `<name>.ddls.xml` + `.clas.xml` | `ref --topic abapgit-cds` + `ref --topic table-function` |
+| CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` | `ref --topic abapgit-cds` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` | `ref --topic abapgit` |
 | Enhancement (ENHO) | `<name>.enho.<hash>.abap` (one per hook) | `<name>.enho.xml` | `ref --topic enho` |
 | Table (TABL) | *(none — XML-only)* | `<name>.tabl.xml` | `ref --topic abapgit-xml-only` |

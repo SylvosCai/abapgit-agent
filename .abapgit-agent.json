@@ -5,6 +5,12 @@
     "reason": "No need to transport"
   },
   "inspect": {
-    "variant": "ZACS_CI"
+    "variant": "ZACS_CI",
+    "suppress": [
+      {
+        "object": "zcl_abgagt_command_hana",
+        "message": "*NonLocal Nested EXEC SQL*"
+      }
+    ]
   }
 }

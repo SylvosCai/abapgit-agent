@@ -390,5 +390,7 @@ abapgit-agent preview --objects ZC_MY_VIEW --limit 1
 
 ## See Also
 - **Unit Testing** (testing.md) - for CDS Test Double Framework
-- **abapGit** (abapgit.md) - for CDS XML metadata templates
+- **abapGit XML — CDS** (abapgit-cds.md) - for DDLS/DCLS XML templates and SOURCE_TYPE rules
+- **Table Functions** (table-function.md) - for `define table function` + AMDP details
+- **ABAP Schema Mapping** (abap-schema-mapping.md) - for `$ABAP.schema(...)` and reading from replicated/foreign HANA schemas
 - **ABAP SQL** (sql.md) - for SQL functions used in CDS

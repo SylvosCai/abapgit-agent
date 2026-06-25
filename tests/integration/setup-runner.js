@@ -143,6 +143,14 @@ const REPOS = [
       'src/zabgagt_st_err.fugr.xml'
     ],
     checkObject: { name: 'ZABGAGT_ST_FG', type: 'FUGR' }
+  },
+  {
+    key:     'hana',
+    cloneDir: path.join(os.tmpdir(), 'abgagt-hana-test'),
+    package: null,        // HANA-only repo — no ABAP package or objects
+    folder:  null,
+    activateFiles: null,
+    checkObject: null      // setup is just "clone exists" — hana-runner activates nothing
   }
 ];
 
@@ -350,6 +358,14 @@ function runSetup(repoRoot, { printSubHeader, printInfo, printSuccess, printErro
     }
     if (repo.key === 'exclude') {
       printInfo(`    ABAP setup skipped (exclude test 5 self-manages create/pull/import/delete)`);
+      skippedCount++;
+      printInfo('');
+      continue;
+    }
+    if (repo.key === 'hana') {
+      // HANA-only repo — no ABAP objects; hana-runner deploys/drops via the
+      // command itself against the live HANA repository.
+      printInfo(`    ABAP setup skipped (hana-runner manages HANA-side deploy/drop)`);
       skippedCount++;
       printInfo('');
       continue;

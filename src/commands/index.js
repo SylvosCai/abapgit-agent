@@ -33,5 +33,6 @@ module.exports = {
   lint:      require('./lint'),
   drop:      require('./drop'),
   customize: require('./customize'),
-  exclude:   require('./exclude')
+  exclude:   require('./exclude'),
+  hana:      require('./hana')
 };

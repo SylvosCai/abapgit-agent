@@ -27,6 +27,10 @@ Commands:
     Create abapGit online repository in ABAP system.
     Auto-detects URL from git remote and package from .abapGitAgent.
 
+  delete
+    Delete the abapGit online repository from the ABAP system.
+    Auto-detects URL from git remote. Does not touch the git repository.
+
   import [--message <message>]
     Import existing objects from package to git repository.
     Uses the git remote URL to find the abapGit online repository.
@@ -58,6 +62,10 @@ Commands:
   lint [--files <file1,...>] [--base <branch>] [--config <file>]
     Run abaplint static analysis on changed ABAP files. Requires .abaplint.json.
 
+  exclude [--dry-run]
+    Remove git-tracked files matching the 'exclude' config (patterns + unsupportedTypes)
+    from git. ABAP objects on the server are untouched. Use --dry-run to preview.
+
   debug <subcommand> [options]
     Manage ABAP debugger breakpoints and attach debug sessions.
     Subcommands: set, list, delete, attach, step, vars, stack
@@ -68,6 +76,19 @@ Commands:
 
   customize <table> --set <field>=<value> [<field>=<value> ...] [--transport <TRKORR>] [--no-transport] [--json]
     Write a row (insert-or-update) into a SAP customizing table (delivery class C or E).
+
+  hana <subcommand> [options]
+    Manage HANA repository views and query the HANA catalog.
+    Subcommands:
+      view deploy  --file <path> | --folder <path> [--force] [--dry-run] [--transport <trkorr>]
+      view import  --package <hana-pkg> [--abap-package <devc>] [--output <dir>] [--dry-run]
+      view list    --package <hana-pkg> [--json]
+      view drop    --file <path> [--dry-run]
+      view preview --file <path> [--limit <n>] [--offset <n>] [--where <expr>] [--columns A,B,C] [--vertical] [--compact] [--json]
+      schema list   [--filter <pattern>] [--limit <n>] [--json]
+      schema tables --schema <name> [--filter <pattern>] [--limit <n>] [--json]
+      schema fields --schema <name> --table <name> [--json]
+      table preview { --schema <name> | --logical-schema <name> } --table <name> [--limit <n>] [--offset <n>] [--where <expr>] [--columns A,B,C] [--vertical] [--compact] [--json]
 
   tree --package <package> [--depth <n>] [--include-types] [--json]
     Display package hierarchy tree from ABAP system
@@ -151,6 +172,11 @@ Examples:
   abapgit-agent preview --objects SFLIGHT                    # Preview table data
   abapgit-agent where --objects ZCL_MY_CLASS                 # Find where class is used
   abapgit-agent customize ZAPP_CONFIG --set KEY=X VALUE=Y --no-transport  # Write customizing entry
+  abapgit-agent hana view list --package com.example.myapp   # List HANA views in a package
+  abapgit-agent hana view deploy --file hana/.../SalesAnalytics.calculationview --force
+  abapgit-agent hana view preview --file hana/.../SalesAnalytics.calculationview --limit 20
+  abapgit-agent hana schema fields --schema SAP_FRA_CORE_S4 --table T001  # Columns of a HANA table
+  abapgit-agent hana table preview --schema SAP_FRA_CORE_S4 --table T001 --limit 10  # Preview raw table
   abapgit-agent dump --date TODAY                            # Recent short dumps
   abapgit-agent dump --user DEVELOPER --detail 1             # Full detail of first result
   abapgit-agent ref "CORRESPONDING"                          # Search for pattern

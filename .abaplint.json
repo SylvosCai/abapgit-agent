@@ -48,7 +48,8 @@
         "abap/zcl_abgagt_command_where.clas.abap",
         "abap/zcl_abgagt_conflict_detector.clas.abap",
         "abap/zcl_abgagt_viewer_stru.clas.abap",
-        "abap/zcl_abgagt_viewer_tabl.clas.abap"
+        "abap/zcl_abgagt_viewer_tabl.clas.abap",
+        "abap/zcl_abgagt_command_hana.clas.abap"
       ]
     },
 

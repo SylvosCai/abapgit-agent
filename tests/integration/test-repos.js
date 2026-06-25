@@ -13,7 +13,8 @@
  *     "customize": "https://github.com/your-org/abgagt-customize-test.git",
  *     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git",
  *     "run":       "https://github.com/your-org/abgagt-run-test.git",
- *     "syntax":    "https://github.com/your-org/abgagt-syntax-test.git"
+ *     "syntax":    "https://github.com/your-org/abgagt-syntax-test.git",
+ *     "hana":      "https://github.com/your-org/abgagt-hta-test.git"
  *   }
  *
  * If a key is absent the default (github.tools.sap) URL is used, so existing
@@ -36,6 +37,7 @@ const DEFAULTS = {
   unit:      'https://github.com/SylvosCai/abgagt-unit-test.git',
   pullType:  'https://github.com/SylvosCai/abgagt-pull-type-test.git',
   exclude:   'https://github.com/SylvosCai/abgagt-exclude-test.git',
+  hana:      'https://github.com/SylvosCai/abgagt-hta-test.git',
 };
 
 /**
@@ -68,7 +70,7 @@ const _overrides = loadTestRepos();
  * Returns the URL for the given test repo key, preferring any override
  * configured in .abapGitAgent over the built-in default.
  *
- * @param {'pull'|'drop'|'customize'|'lifecycle'|'debug'|'run'|'syntax'|'unit'|'pullType'|'exclude'} key
+ * @param {'pull'|'drop'|'customize'|'lifecycle'|'debug'|'run'|'syntax'|'unit'|'pullType'|'exclude'|'hana'} key
  * @returns {string}
  */
 function getTestRepoUrl(key) {

@@ -46,6 +46,7 @@ const { runDebugTests } = require('./integration/debug-runner');
 const { runDropTests } = require('./integration/drop-runner');
 const { runCustomizeTests } = require('./integration/customize-runner');
 const { runExcludeTests } = require('./integration/exclude-runner');
+const { runHanaTests } = require('./integration/hana-runner');
 const { runSetup } = require('./integration/setup-runner');
 
 // Colors for output
@@ -250,6 +251,17 @@ function runDropTestsWrapper() {
 
 function runCustomizeTestsWrapper() {
   return runCustomizeTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+function runHanaTestsWrapper() {
+  return runHanaTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -858,6 +870,20 @@ function printSummary(results) {
         printError(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} FAILED (${results.exclude.duration}s)`);
         allPassed = false;
       }
+    }  }
+
+  // HANA tests
+  if (results.hana) {
+    if (results.hana.skipped) {
+      printWarning('HANA Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.hana.duration);
+      if (results.hana.success) {
+        printSuccess(`HANA Tests: ${results.hana.passedCount}/${results.hana.totalCount} PASSED (${results.hana.duration}s)`);
+      } else {
+        printError(`HANA Tests: ${results.hana.passedCount}/${results.hana.totalCount} FAILED (${results.hana.duration}s)`);
+        allPassed = false;
+      }
     }
   }
 
@@ -920,7 +946,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude', '--hana'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -929,7 +955,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude, runHana;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -1205,6 +1231,25 @@ async function main() {
     runCustomize = false;
     runAsyncPull = false;
     runExclude = true;
+  } else if (args.includes('--hana')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = false;
+    runAsyncPull = false;
+    runExclude = false;
+    runHana = true;
   } else if (args.includes('--async-pull')) {
     runJest = false;
     runAunit = false;
@@ -1237,6 +1282,7 @@ async function main() {
     runCustomize = true;
     runAsyncPull = false;        // Async pull tests run as part of cmd tests
     runExclude = true;             // Exclude tests use dedicated test repo, run in CI
+    runHana = true;                // HANA tests use abgagt-hta-test repo, run in CI
     runLifecycle = false;        // Lifecycle tests run as part of cmd tests
     runPull = false;             // Pull tests run as part of cmd tests
     runFullPull = false;         // Full pull tests run as part of cmd tests
@@ -1372,6 +1418,11 @@ async function main() {
   // Run Exclude command tests
   if (runExclude) {
     results.exclude = runExcludeTestsWrapper();
+  }
+
+  // Run HANA command tests
+  if (runHana) {
+    results.hana = runHanaTestsWrapper();
   }
 
   // Run Debug scenario tests — always last.
