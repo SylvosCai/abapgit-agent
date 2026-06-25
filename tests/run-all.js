@@ -734,213 +734,88 @@ function runScriptedDebugScenarios() {
 }
 
 
+/**
+ * Registry of every integration test suite this runner can dispatch.
+ *
+ * Each entry owns a suite's identity: CLI flag, summary label, wrapper, CI default,
+ * and any per-suite quirks (async, optional sub-header, cooldowns). Adding a new
+ * suite is one row in this array — main()'s selection / setup-gate / execution /
+ * summary loops all read from here.
+ *
+ *   key            — property name in the `results` object
+ *   flag           — CLI flag (e.g. '--cmd'); matched against process.argv
+ *   label          — printed in the summary line; should read naturally as a prefix
+ *                    before "PASSED" / "FAILED" / "SKIPPED"
+ *   run            — wrapper function; receives `ctx = { demoMode, commandFilter }`
+ *   ciDefault      — true / false / 'localOnly' (= !isCI). Used only when the user
+ *                    passed no suite flags; explicit flags override defaults.
+ *   needsAbap      — when true, triggers the runSetup() phase before dispatch.
+ *                    runSetup clones / verifies all test repos and (re-)activates
+ *                    their ABAP objects. Suites with their own clone+setup logic
+ *                    (e.g. hana, dtel-scrlen, exclude) set this false — they
+ *                    manage their own preconditions inside the runner.
+ *   async          — true when the wrapper returns a Promise; runner will await.
+ *   subHeader      — optional banner printed before invocation (mirrors the legacy
+ *                    `printSubHeader('Running X Only')` lines).
+ *   cooldownAfter  — when set, sleeps 15s before this suite runs if the named
+ *                    suite also ran in this invocation. Currently only `drop` uses
+ *                    this (waits for the EZABAPGIT lock to drain after `cmd`).
+ */
+const SUITES = [
+  { key: 'jest',           flag: '--jest',           label: 'npm test (Jest)',                       run: () => runJestTests(),                                                ciDefault: true                              },
+  { key: 'aunit',          flag: '--aunit',          label: 'AUnit Tests',                           run: () => runAUnitTestsWrapper(),                                        ciDefault: true,        needsAbap: true     },
+  { key: 'cmd',            flag: '--cmd',            label: 'Command Tests',                         run: (ctx) => runCommandTests(ctx.demoMode, ctx.commandFilter),           ciDefault: true,        needsAbap: true, async: true },
+  { key: 'lifecycle',      flag: '--lifecycle',      label: 'Lifecycle Tests',                       run: () => runLifecycleTestsWrapper(),                                    ciDefault: false,       needsAbap: true,    subHeader: 'Running Lifecycle Tests Only' },
+  { key: 'pull',           flag: '--pull',           label: 'Pull Tests',                            run: () => runPullTestsWrapper(),                                         ciDefault: false,       needsAbap: true,    subHeader: 'Running Pull Tests Only' },
+  { key: 'fullPull',       flag: '--full-pull',      label: 'Full Pull Tests',                       run: () => runFullPullTestsWrapper(),                                     ciDefault: false,       needsAbap: true,    subHeader: 'Running Full Pull Tests Only (no --files)' },
+  { key: 'conflict',       flag: '--conflict',       label: 'Conflict Detection Tests',              run: () => runConflictTestsWrapper(),                                     ciDefault: false,       needsAbap: true,    subHeader: 'Running Conflict Detection Tests Only' },
+  { key: 'syncXml',        flag: '--sync-xml',       label: '--sync-xml Integration Tests',          run: () => runSyncXmlTestsWrapper(),                                      ciDefault: false,       needsAbap: true,    subHeader: 'Running --sync-xml Integration Tests Only' },
+  { key: 'xmlOnly',        flag: '--xml-only',       label: 'XML-Only Object Pull Tests',            run: () => runXmlOnlyTestsWrapper(),                                      ciDefault: false,       needsAbap: true,    subHeader: 'Running XML-Only Object Pull Tests Only' },
+  { key: 'junit',          flag: '--junit',          label: 'JUnit Output Tests',                    run: () => runJUnitTestsWrapper(),                                        ciDefault: true,        needsAbap: true     },
+  { key: 'debugBp',        flag: '--debug',          label: 'Debug Breakpoint Tests',                run: () => runDebugTestsWrapper(),                                        ciDefault: true,        needsAbap: true     },
+  { key: 'drop',           flag: '--drop',           label: 'Drop Tests',                            run: () => runDropTestsWrapper(),                                         ciDefault: true,        needsAbap: true,    cooldownAfter: 'cmd' },
+  { key: 'customize',      flag: '--customize',      label: 'Customize Tests',                       run: () => runCustomizeTestsWrapper(),                                    ciDefault: true,        needsAbap: true     },
+  { key: 'asyncPull',      flag: '--async-pull',     label: 'Async Pull Tests',                      run: () => runAsyncPullTestsWrapper(),                                    ciDefault: false,       needsAbap: true     },
+  { key: 'exclude',        flag: '--exclude',        label: 'Exclude Tests',                         run: () => runExcludeTestsWrapper(),                                      ciDefault: true                              },
+  { key: 'hana',           flag: '--hana',           label: 'HANA Tests',                            run: () => runHanaTestsWrapper(),                                         ciDefault: true                              },
+  { key: 'dtelScrlen',     flag: '--dtel-scrlen',    label: 'DTEL SCRLEN Tests',                     run: () => runDtelScrlenTestsWrapper(),                                   ciDefault: true                              },
+  { key: 'debugScripted',  flag: '--debug-scripted', label: 'Debug Scenarios (Scripted)',            run: () => runScriptedDebugScenarios(),                                   ciDefault: 'localOnly', needsAbap: true     },
+  { key: 'debugRepl',      flag: '--debug-repl',     label: 'Debug Scenarios (REPL)',                run: () => runReplDebugScenarios(),                                       ciDefault: 'localOnly', needsAbap: true     },
+];
+
+
 function printSummary(results) {
   printHeader('TEST SUITE SUMMARY');
 
   let totalDuration = 0;
   let allPassed = true;
 
-  // npm test (Jest)
-  if (results.jest) {
-    totalDuration += parseFloat(results.jest.duration);
-    if (results.jest.success) {
-      printSuccess(`npm test (Jest): PASSED (${results.jest.duration}s)`);
+  // Walk SUITES in declaration order so summary output preserves the
+  // (intentionally-ordered) sequence developers and CI logs are used to.
+  for (const suite of SUITES) {
+    const r = results[suite.key];
+    if (!r) continue;
+
+    if (r.skipped) {
+      // Some runners attach an explanatory `error` field to a skip; surface it.
+      printWarning(`${suite.label}: SKIPPED${r.error ? ` - ${r.error}` : ''}`);
+      continue;
+    }
+
+    if (r.duration != null) totalDuration += parseFloat(r.duration);
+
+    // Jest doesn't expose passed/total counts; suppress when missing so the line
+    // reads `npm test (Jest): PASSED (12.3s)` rather than `/<undef> PASSED`.
+    const counts = (r.passedCount != null && r.totalCount != null)
+      ? `${r.passedCount}/${r.totalCount} `
+      : '';
+    const durationStr = r.duration != null ? ` (${r.duration}s)` : '';
+
+    if (r.success) {
+      printSuccess(`${suite.label}: ${counts}PASSED${durationStr}`);
     } else {
-      printError(`npm test (Jest): FAILED (${results.jest.duration}s)`);
+      printError(`${suite.label}: ${counts}FAILED${durationStr}`);
       allPassed = false;
-    }
-  }
-
-  // AUnit tests
-  if (results.aunit) {
-    totalDuration += parseFloat(results.aunit.duration);
-    if (results.aunit.success) {
-      printSuccess(`AUnit Tests: ${results.aunit.passedCount}/${results.aunit.totalCount} classes PASSED (${results.aunit.duration}s)`);
-    } else {
-      printError(`AUnit Tests: ${results.aunit.passedCount}/${results.aunit.totalCount} classes FAILED (${results.aunit.duration}s)`);
-      allPassed = false;
-    }
-  }
-
-  // Command tests
-  if (results.cmd) {
-    if (results.cmd.skipped) {
-      printWarning(`Command Tests: SKIPPED - ${results.cmd.error}`);
-    } else {
-      totalDuration += parseFloat(results.cmd.duration);
-      if (results.cmd.success) {
-        printSuccess(`Command Tests: ${results.cmd.passedCount}/${results.cmd.totalCount} PASSED (${results.cmd.duration}s)`);
-      } else {
-        printError(`Command Tests: ${results.cmd.passedCount}/${results.cmd.totalCount} FAILED (${results.cmd.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Lifecycle tests
-  if (results.lifecycle) {
-    totalDuration += parseFloat(results.lifecycle.duration);
-    if (results.lifecycle.success) {
-      printSuccess(`Lifecycle Tests: ${results.lifecycle.passedCount}/${results.lifecycle.totalCount} PASSED (${results.lifecycle.duration}s)`);
-    } else {
-      printError(`Lifecycle Tests: ${results.lifecycle.passedCount}/${results.lifecycle.totalCount} FAILED (${results.lifecycle.duration}s)`);
-      allPassed = false;
-    }
-  }
-
-  // Conflict detection tests
-  if (results.conflict) {
-    totalDuration += parseFloat(results.conflict.duration);
-    if (results.conflict.success) {
-      printSuccess(`Conflict Detection Tests: ${results.conflict.passedCount}/${results.conflict.totalCount} PASSED (${results.conflict.duration}s)`);
-    } else {
-      printError(`Conflict Detection Tests: ${results.conflict.passedCount}/${results.conflict.totalCount} FAILED (${results.conflict.duration}s)`);
-      allPassed = false;
-    }
-  }
-
-  // Full pull tests (no --files)
-  if (results.fullPull) {
-    totalDuration += parseFloat(results.fullPull.duration);
-    if (results.fullPull.success) {
-      printSuccess(`Full Pull Tests: ${results.fullPull.passedCount}/${results.fullPull.totalCount} PASSED (${results.fullPull.duration}s)`);
-    } else {
-      printError(`Full Pull Tests: ${results.fullPull.passedCount}/${results.fullPull.totalCount} FAILED (${results.fullPull.duration}s)`);
-      allPassed = false;
-    }
-  }
-
-  // JUnit output tests
-  if (results.junit) {
-    if (results.junit.skipped) {
-      printWarning('JUnit Output Tests: SKIPPED - ABAP not configured');
-    } else {
-      totalDuration += parseFloat(results.junit.duration);
-      if (results.junit.success) {
-        printSuccess(`JUnit Output Tests: ${results.junit.passedCount}/${results.junit.totalCount} PASSED (${results.junit.duration}s)`);
-      } else {
-        printError(`JUnit Output Tests: ${results.junit.passedCount}/${results.junit.totalCount} FAILED (${results.junit.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Debug breakpoint tests
-  if (results.debugBp) {
-    if (results.debugBp.skipped) {
-      printWarning('Debug Breakpoint Tests: SKIPPED (abgagt-debug-test repo not found)');
-    } else {
-      totalDuration += parseFloat(results.debugBp.duration);
-      if (results.debugBp.success) {
-        printSuccess(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} PASSED (${results.debugBp.duration}s)`);
-      } else {
-        printError(`Debug Breakpoint Tests: ${results.debugBp.passedCount}/${results.debugBp.totalCount} FAILED (${results.debugBp.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Drop command tests
-  if (results.drop) {
-    if (results.drop.skipped) {
-      printWarning('Drop Tests: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.drop.duration);
-      if (results.drop.success) {
-        printSuccess(`Drop Tests: ${results.drop.passedCount}/${results.drop.totalCount} PASSED (${results.drop.duration}s)`);
-      } else {
-        printError(`Drop Tests: ${results.drop.passedCount}/${results.drop.totalCount} FAILED (${results.drop.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Customize command tests
-  if (results.customize) {
-    if (results.customize.skipped) {
-      printWarning('Customize Tests: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.customize.duration);
-      if (results.customize.success) {
-        printSuccess(`Customize Tests: ${results.customize.passedCount}/${results.customize.totalCount} PASSED (${results.customize.duration}s)`);
-      } else {
-        printError(`Customize Tests: ${results.customize.passedCount}/${results.customize.totalCount} FAILED (${results.customize.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Exclude tests
-  if (results.exclude) {
-    if (results.exclude.skipped) {
-      printWarning('Exclude Tests: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.exclude.duration);
-      if (results.exclude.success) {
-        printSuccess(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} PASSED (${results.exclude.duration}s)`);
-      } else {
-        printError(`Exclude Tests: ${results.exclude.passedCount}/${results.exclude.totalCount} FAILED (${results.exclude.duration}s)`);
-        allPassed = false;
-      }
-    }  }
-
-  // HANA tests
-  if (results.hana) {
-    if (results.hana.skipped) {
-      printWarning('HANA Tests: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.hana.duration);
-      if (results.hana.success) {
-        printSuccess(`HANA Tests: ${results.hana.passedCount}/${results.hana.totalCount} PASSED (${results.hana.duration}s)`);
-      } else {
-        printError(`HANA Tests: ${results.hana.passedCount}/${results.hana.totalCount} FAILED (${results.hana.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // DTEL SCRLEN tests
-  if (results.dtelScrlen) {
-    if (results.dtelScrlen.skipped) {
-      printWarning('DTEL SCRLEN Tests: SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.dtelScrlen.duration);
-      if (results.dtelScrlen.success) {
-        printSuccess(`DTEL SCRLEN Tests: ${results.dtelScrlen.passedCount}/${results.dtelScrlen.totalCount} PASSED (${results.dtelScrlen.duration}s)`);
-      } else {
-        printError(`DTEL SCRLEN Tests: ${results.dtelScrlen.passedCount}/${results.dtelScrlen.totalCount} FAILED (${results.dtelScrlen.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // Scripted debug scenarios (3/4/5) — Node.js runner, CI-safe
-  if (results.debugScripted) {
-    if (results.debugScripted.skipped) {
-      printWarning('Debug Scenarios (Scripted): SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.debugScripted.duration);
-      if (results.debugScripted.success) {
-        printSuccess(`Debug Scenarios (Scripted): ${results.debugScripted.passedCount}/${results.debugScripted.totalCount} PASSED (${results.debugScripted.duration}s)`);
-      } else {
-        printError(`Debug Scenarios (Scripted): ${results.debugScripted.passedCount}/${results.debugScripted.totalCount} FAILED (${results.debugScripted.duration}s)`);
-        allPassed = false;
-      }
-    }
-  }
-
-  // REPL debug scenarios (1/2) — bash script, local dev only
-  if (results.debugRepl) {
-    if (results.debugRepl.skipped) {
-      printWarning('Debug Scenarios (REPL): SKIPPED');
-    } else {
-      totalDuration += parseFloat(results.debugRepl.duration);
-      if (results.debugRepl.success) {
-        printSuccess(`Debug Scenarios (REPL): ${results.debugRepl.passedCount}/${results.debugRepl.totalCount} PASSED (${results.debugRepl.duration}s)`);
-      } else {
-        printError(`Debug Scenarios (REPL): ${results.debugRepl.passedCount}/${results.debugRepl.totalCount} FAILED (${results.debugRepl.duration}s)`);
-        allPassed = false;
-      }
     }
   }
 
@@ -971,381 +846,33 @@ async function main() {
     return;
   }
 
-  // Logic: if any specific test type is specified, run ONLY that type
-  // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude', '--hana', '--dtel-scrlen'].includes(arg));
+  // Logic: if any specific --<flag> is passed, run ONLY matching suite(s).
+  // Otherwise run the CI-default set declared in SUITES.
 
-  // Demo mode shows command and output for each test
+  // Demo mode shows command and output for each test (only meaningful for `cmd`).
   const demoMode = args.includes('--demo');
 
-  // Command filter for running tests of specific command only (e.g., --command=syntax)
+  // Command filter for running tests of a specific command only (e.g., --command=syntax)
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude, runHana, runDtelScrlen;
+  // Selection: explicit --flag(s) win; otherwise run the CI-default set.
+  // SUITES is declared at module scope; see the comment block above its definition.
+  const isCI = !!(process.env.BUILD_NUMBER || process.env.CI || process.env.GITHUB_ACTIONS);
+  const resolveDefault = (s) =>
+    s.ciDefault === 'localOnly' ? !isCI : !!s.ciDefault;
 
-  if (args.includes('--jest')) {
-    runJest = true;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--aunit')) {
-    runJest = false;
-    runAunit = true;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--cmd')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = true;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--lifecycle')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = true;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--pull')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = true;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--full-pull')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = true;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--conflict')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = true;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--sync-xml')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = true;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--xml-only')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = true;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--junit')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = true;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--debug')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = true;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--debug-scripted')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = true;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--debug-repl')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = true;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--drop')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = true;
-    runCustomize = false;
-    runAsyncPull = false;
-  } else if (args.includes('--customize')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = true;
-    runAsyncPull = false;
-    runExclude = false;
-  } else if (args.includes('--exclude')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-    runExclude = true;
-  } else if (args.includes('--hana')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-    runExclude = false;
-    runHana = true;
-  } else if (args.includes('--dtel-scrlen')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-    runExclude = false;
-    runHana = false;
-    runDtelScrlen = true;
-  } else if (args.includes('--async-pull')) {
-    runJest = false;
-    runAunit = false;
-    runCmd = false;
-    runLifecycle = false;
-    runPull = false;
-    runFullPull = false;
-    runConflict = false;
-    runSyncXml = false;
-    runXmlOnly = false;
-    runJunit = false;
-    runDebugRepl = false;
-    runDebugScripted = false;
-    runDebugBp = false;
-    runDrop = false;
-    runCustomize = false;
-    runAsyncPull = false;
-    runAsyncPull = true;
-  } else {
-    // Run all tests.
-    // In CI (Jenkins/GitHub Actions): skip REPL scenarios (1 & 2) — they require
-    // an interactive TTY that CI pods don't have. Scripted scenarios (3, 4, 5) use
-    // --json throughout — no TTY needed — and are stable enough to run in CI.
-    const isCI = !!(process.env.BUILD_NUMBER || process.env.CI || process.env.GITHUB_ACTIONS);
-    runJest = true;
-    runAunit = true;
-    runCmd = true;
-    runJunit = true;
-    runDrop = true;
-    runCustomize = true;
-    runAsyncPull = false;        // Async pull tests run as part of cmd tests
-    runExclude = true;             // Exclude tests use dedicated test repo, run in CI
-    runHana = true;                // HANA tests use abgagt-hta-test repo, run in CI
-    runDtelScrlen = true;          // DTEL SCRLEN tests use abgagt-pull-test repo, run in CI
-    runLifecycle = false;        // Lifecycle tests run as part of cmd tests
-    runPull = false;             // Pull tests run as part of cmd tests
-    runFullPull = false;         // Full pull tests run as part of cmd tests
-    runConflict = false;         // Conflict tests run standalone (stateful, sequential)
-    runSyncXml = false;          // Sync-xml tests run as part of cmd tests (--command=pull)
-    runXmlOnly = false;          // XML-only tests run as part of cmd tests (--command=pull)
-    runDebugRepl = !isCI;      // Skip REPL scenarios in CI (require interactive TTY)
-    runDebugScripted = !isCI;  // Skip scripted scenarios in CI: k8s SAP system (GZE/100) never
-                               // issues SAP_SESSIONID. After attach(), only routing is sap-contextid
-                               // (frozen debuggee WP) which the k8s proxy blocks (→ 400). Without
-                               // contextid, dialog WPs have no debug session state (→ 404). No
-                               // HTTP-level workaround exists; requires infrastructure-level fix.
-    runDebugBp = true;         // Always run — only needs ABAP system connection
-    if (isCI) {
-      printInfo('  ⚠️  CI environment detected — skipping debug scenarios 1-5 (REPL needs TTY, scripted: k8s GZE/100 has no SAP_SESSIONID routing)');
+  const explicit = SUITES.filter(s => args.includes(s.flag));
+  const toRun = explicit.length > 0 ? explicit : SUITES.filter(resolveDefault);
+  const toRunKeys = new Set(toRun.map(s => s.key));
+
+  // Surface non-trivial CI defaulting once, like the legacy code did.
+  if (explicit.length === 0 && isCI) {
+    const dropped = SUITES
+      .filter(s => s.ciDefault === 'localOnly')
+      .map(s => s.key);
+    if (dropped.length > 0) {
+      printInfo(`  ⚠️  CI environment detected — skipping local-only suites: ${dropped.join(', ')}`);
     }
   }
 
@@ -1356,10 +883,8 @@ async function main() {
   // Run setup phase before any ABAP-dependent integration tests.
   // Skipped when running Jest-only (no ABAP connection needed).
   // --no-setup flag disables auto-setup for developers who manage prerequisites manually.
+  const needsAbap = toRun.some(s => s.needsAbap);
   const skipAutoSetup = args.includes('--no-setup');
-  const needsAbap = runAunit || runCmd || runDrop || runCustomize || runAsyncPull || runDebugBp ||
-                    runPull || runFullPull || runConflict || runSyncXml || runXmlOnly ||
-                    runJunit || runDebugRepl || runDebugScripted || runLifecycle;
   if (needsAbap && !skipAutoSetup) {
     const setupResult = runSetup(repoRoot, {
       printSubHeader, printInfo, printSuccess, printError, printWarning, colorize
@@ -1372,119 +897,19 @@ async function main() {
     printInfo('');
   }
 
-  // Run Jest tests
-  if (runJest) {
-    results.jest = runJestTests();
-  }
-
-  // Run AUnit tests
-  if (runAunit) {
-    results.aunit = runAUnitTestsWrapper();
-  }
-
-  // Run Command tests
-  if (runCmd) {
-    results.cmd = await runCommandTests(demoMode, commandFilter);
-  }
-
-  // Run Lifecycle tests only
-  if (runLifecycle) {
-    printSubHeader('Running Lifecycle Tests Only');
-    const lifecycleResults = runLifecycleTestsWrapper();
-    results.lifecycle = lifecycleResults;
-  }
-
-  // Run Pull tests only
-  if (runPull) {
-    printSubHeader('Running Pull Tests Only');
-    const pullResults = runPullTestsWrapper();
-    results.pull = pullResults;
-  }
-
-  // Run Full Pull tests only (no --files)
-  if (runFullPull) {
-    printSubHeader('Running Full Pull Tests Only (no --files)');
-    const fullPullResults = runFullPullTestsWrapper();
-    results.fullPull = fullPullResults;
-  }
-
-  // Run Conflict detection tests only
-  if (runConflict) {
-    printSubHeader('Running Conflict Detection Tests Only');
-    const conflictResults = runConflictTestsWrapper();
-    results.conflict = conflictResults;
-  }
-
-  // Run --sync-xml integration tests only
-  if (runSyncXml) {
-    printSubHeader('Running --sync-xml Integration Tests Only');
-    const syncXmlResults = runSyncXmlTestsWrapper();
-    results.syncXml = syncXmlResults;
-  }
-
-  // Run XML-only object pull tests only
-  if (runXmlOnly) {
-    printSubHeader('Running XML-Only Object Pull Tests Only');
-    const xmlOnlyResults = runXmlOnlyTestsWrapper();
-    results.xmlOnly = xmlOnlyResults;
-  }
-
-  // Run JUnit output integration tests
-  if (runJunit) {
-    results.junit = runJUnitTestsWrapper();
-  }
-
-  // Run Debug breakpoint tests (requires abgagt-debug-test repo)
-  if (runDebugBp) {
-    results.debugBp = runDebugTestsWrapper();
-  }
-
-  // Cooldown between command tests and drop tests.
-  // Command tests make ~90 HTTP requests; the EZABAPGIT lock may still be held
-  // briefly when drop tests start, causing the reset pull to return
-  // "Activation cancelled" — leaving PROG/FUGR absent from TADIR.
-  if (runCmd && runDrop) {
-    printInfo('  Cooling down 15s after command tests before drop tests...');
-    await new Promise(r => setTimeout(r, 15000));
-  }
-
-  // Run Drop command tests
-  if (runDrop) {
-    results.drop = runDropTestsWrapper();
-  }
-
-  // Run Customize command tests
-  if (runCustomize) {
-    results.customize = runCustomizeTestsWrapper();
-  }
-
-  // Run Async Pull tests (>10 files → background job)
-  if (runAsyncPull) {
-    results.asyncPull = runAsyncPullTestsWrapper();
-  }
-
-  // Run Exclude command tests
-  if (runExclude) {
-    results.exclude = runExcludeTestsWrapper();
-  }
-
-  // Run HANA command tests
-  if (runHana) {
-    results.hana = runHanaTestsWrapper();
-  }
-
-  if (runDtelScrlen) {
-    results.dtelScrlen = runDtelScrlenTestsWrapper();
-  }
-
-  // Run Debug scenario tests — always last.
-  // REPL scenarios (1 & 2) require an interactive TTY and bash — local dev only.
-  // Scripted scenarios (3/4/5) are disabled in CI — see runDebugScripted comment above.
-  if (runDebugScripted) {
-    results.debugScripted = runScriptedDebugScenarios();
-  }
-  if (runDebugRepl) {
-    results.debugRepl = runReplDebugScenarios();
+  // Execute selected suites in declaration order.
+  // - Honors `subHeader` (printed before invocation).
+  // - Honors `cooldownAfter` (15s pause when the named suite also ran this invocation —
+  //   currently only `drop` after `cmd`, waiting for the EZABAPGIT lock to drain).
+  // - Honors `async: true` for runners that return a Promise (only `cmd` today).
+  const ctx = { demoMode, commandFilter };
+  for (const suite of toRun) {
+    if (suite.cooldownAfter && toRunKeys.has(suite.cooldownAfter)) {
+      printInfo(`  Cooling down 15s after ${suite.cooldownAfter} tests before ${suite.key} tests...`);
+      await new Promise(r => setTimeout(r, 15000));
+    }
+    if (suite.subHeader) printSubHeader(suite.subHeader);
+    results[suite.key] = suite.async ? await suite.run(ctx) : suite.run(ctx);
   }
 
   // Print summary and exit with appropriate code
