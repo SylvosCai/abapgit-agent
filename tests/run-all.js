@@ -47,6 +47,7 @@ const { runDropTests } = require('./integration/drop-runner');
 const { runCustomizeTests } = require('./integration/customize-runner');
 const { runExcludeTests } = require('./integration/exclude-runner');
 const { runHanaTests } = require('./integration/hana-runner');
+const { runDtelScrlenTests } = require('./integration/dtel-scrlen-runner');
 const { runSetup } = require('./integration/setup-runner');
 
 // Colors for output
@@ -262,6 +263,17 @@ function runCustomizeTestsWrapper() {
 
 function runHanaTestsWrapper() {
   return runHanaTests(repoRoot, {
+    printSubHeader,
+    printInfo,
+    printSuccess,
+    printError,
+    colorize,
+    colors
+  });
+}
+
+function runDtelScrlenTestsWrapper() {
+  return runDtelScrlenTests(repoRoot, {
     printSubHeader,
     printInfo,
     printSuccess,
@@ -887,6 +899,21 @@ function printSummary(results) {
     }
   }
 
+  // DTEL SCRLEN tests
+  if (results.dtelScrlen) {
+    if (results.dtelScrlen.skipped) {
+      printWarning('DTEL SCRLEN Tests: SKIPPED');
+    } else {
+      totalDuration += parseFloat(results.dtelScrlen.duration);
+      if (results.dtelScrlen.success) {
+        printSuccess(`DTEL SCRLEN Tests: ${results.dtelScrlen.passedCount}/${results.dtelScrlen.totalCount} PASSED (${results.dtelScrlen.duration}s)`);
+      } else {
+        printError(`DTEL SCRLEN Tests: ${results.dtelScrlen.passedCount}/${results.dtelScrlen.totalCount} FAILED (${results.dtelScrlen.duration}s)`);
+        allPassed = false;
+      }
+    }
+  }
+
   // Scripted debug scenarios (3/4/5) — Node.js runner, CI-safe
   if (results.debugScripted) {
     if (results.debugScripted.skipped) {
@@ -946,7 +973,7 @@ async function main() {
 
   // Logic: if any specific test type is specified, run ONLY that type
   // Otherwise run all tests
-  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude', '--hana'].includes(arg));
+  const hasSpecificTest = args.some(arg => ['--jest', '--aunit', '--cmd', '--lifecycle', '--pull', '--full-pull', '--conflict', '--sync-xml', '--xml-only', '--junit', '--debug', '--debug-scripted', '--debug-repl', '--drop', '--customize', '--exclude', '--hana', '--dtel-scrlen'].includes(arg));
 
   // Demo mode shows command and output for each test
   const demoMode = args.includes('--demo');
@@ -955,7 +982,7 @@ async function main() {
   const commandFilterArg = args.find(arg => arg.startsWith('--command='));
   const commandFilter = commandFilterArg ? commandFilterArg.split('=')[1] : null;
 
-  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude, runHana;
+  let runJest, runAunit, runCmd, runLifecycle, runPull, runFullPull, runConflict, runDebugRepl, runDebugScripted, runDebugBp, runSyncXml, runXmlOnly, runJunit, runDrop, runCustomize, runAsyncPull, runExclude, runHana, runDtelScrlen;
 
   if (args.includes('--jest')) {
     runJest = true;
@@ -1250,6 +1277,26 @@ async function main() {
     runAsyncPull = false;
     runExclude = false;
     runHana = true;
+  } else if (args.includes('--dtel-scrlen')) {
+    runJest = false;
+    runAunit = false;
+    runCmd = false;
+    runLifecycle = false;
+    runPull = false;
+    runFullPull = false;
+    runConflict = false;
+    runSyncXml = false;
+    runXmlOnly = false;
+    runJunit = false;
+    runDebugRepl = false;
+    runDebugScripted = false;
+    runDebugBp = false;
+    runDrop = false;
+    runCustomize = false;
+    runAsyncPull = false;
+    runExclude = false;
+    runHana = false;
+    runDtelScrlen = true;
   } else if (args.includes('--async-pull')) {
     runJest = false;
     runAunit = false;
@@ -1283,6 +1330,7 @@ async function main() {
     runAsyncPull = false;        // Async pull tests run as part of cmd tests
     runExclude = true;             // Exclude tests use dedicated test repo, run in CI
     runHana = true;                // HANA tests use abgagt-hta-test repo, run in CI
+    runDtelScrlen = true;          // DTEL SCRLEN tests use abgagt-pull-test repo, run in CI
     runLifecycle = false;        // Lifecycle tests run as part of cmd tests
     runPull = false;             // Pull tests run as part of cmd tests
     runFullPull = false;         // Full pull tests run as part of cmd tests
@@ -1423,6 +1471,10 @@ async function main() {
   // Run HANA command tests
   if (runHana) {
     results.hana = runHanaTestsWrapper();
+  }
+
+  if (runDtelScrlen) {
+    results.dtelScrlen = runDtelScrlenTestsWrapper();
   }
 
   // Run Debug scenario tests — always last.

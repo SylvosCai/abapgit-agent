@@ -180,6 +180,51 @@ with what the ABAP serializer produces.
 
 ---
 
+## DTEL Label Too Long for SCRLEN — Silent Activation Cancellation
+
+**Symptom**: `pull` of a `.dtel.xml` cancels with no actionable error. Without the
+`abapgit-agent` fix in v1.21+, the CLI reports `✅ Pull completed — object already
+active` and exit 0 despite the DTEL being inactive on the system. From v1.21+, `pull`
+correctly reports `❌ Pull completed with errors!` (exit 1) and lists the violation:
+
+```
+DTEL ZMY_DTEL label too long for SCRLEN:
+SCRTEXT_M "long screen text" (16 chars) exceeds SCRLEN2 (10).
+Either shorten the label or raise the SCRLEN value.
+```
+
+**Root cause**: When the `.dtel.xml` declares explicit `<SCRLEN1>` / `<SCRLEN2>` /
+`<SCRLEN3>` tags AND the corresponding `<SCRTEXT_S>` / `<SCRTEXT_M>` / `<SCRTEXT_L>`
+values exceed those declared lengths, DDIC's `DD_MASS_ACT_C3` returns `rc > 4` with no
+TR_READ_LOG entries. abapGit raises a generic "Activation cancelled" without object
+identification or cause.
+
+**Fix**: Either shorten the SCRTEXT value or raise the SCRLEN. Defaults DDIC normally
+uses when SCRLENs are omitted: 10 / 15 / 20.
+
+```xml
+<!-- BAD: 25-char SCRTEXT_L declared as 15 chars -->
+<SCRLEN3>15</SCRLEN3>
+<SCRTEXT_L>Long description text here</SCRTEXT_L>
+
+<!-- GOOD option 1: shorten SCRTEXT_L to ≤ 15 chars -->
+<SCRLEN3>15</SCRLEN3>
+<SCRTEXT_L>Long descr text</SCRTEXT_L>
+
+<!-- GOOD option 2: raise SCRLEN3 to fit -->
+<SCRLEN3>40</SCRLEN3>
+<SCRTEXT_L>Long description text here</SCRTEXT_L>
+
+<!-- GOOD option 3: omit SCRLENs entirely — DDIC auto-sizes -->
+<SCRTEXT_L>Long description text here</SCRTEXT_L>
+```
+
+**Pre-flight detection**: `pull --files src/zmy_dtel.dtel.xml` validates `SCRTEXT` vs
+`SCRLEN` locally before the HTTP round trip and rejects with exit 1 if violated. No
+ABAP backend version requirement.
+
+---
+
 **Error**: `Expression limiter '{' in string template not followed by space`
 
 Literal `{` and `}` (e.g. in JSON payloads) must be escaped as `\{` and `\}` inside `|...|`.

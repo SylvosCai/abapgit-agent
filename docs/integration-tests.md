@@ -79,6 +79,7 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | JUnit output | `npm run test:junit` | `--junit-output` flag | `$ABGAGT_UNIT_TEST` |
 | Debug | `npm run test:debug` | Breakpoint management (ADT) | `$ABGAGT_DEBUG_TEST` |
 | HANA | `npm run test:hana` | `hana view/schema/table` commands against a real HANA tenant | — (HANA-only repo; no ABAP package) |
+| DTEL SCRLEN | `npm run test:dtel-scrlen` | `pull` correctly fails (exit 1, ❌) and surfaces the cause when a DTEL's SCRTEXT exceeds its SCRLEN | `$ABGABT_PULL_TEST` (uses fixture branch `test/dtel-scrlen` of `abgagt-pull-test`) |
 
 > **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase. The `hana` suite is different: its test repo (`abgagt-hta-test`) holds only HANA artifacts (`.calculationview` etc.), so setup just clones it — the HANA tenant connection comes from your `.abapGitAgent` and the test deploys/drops via the `hana` command itself.
 

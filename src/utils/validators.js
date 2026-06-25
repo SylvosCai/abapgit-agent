@@ -64,9 +64,59 @@ function parseObjectFromFile(filePath) {
   };
 }
 
+/**
+ * Validate a single .dtel.xml file for SCRTEXT vs SCRLEN constraints.
+ *
+ * Background: when SCRTEXT_S/M/L exceeds its declared SCRLEN1/2/3, DDIC's
+ * DD_MASS_ACT_C3 cancels activation silently — abapGit returns
+ * MESSAGE="Activation cancelled" with LOG_MESSAGES=[], so callers see no
+ * actionable error. This pre-flight catches the violation locally before
+ * the round-trip to ABAP.
+ *
+ * Only enforces when SCRLENn is **explicitly present** in the XML. When
+ * SCRLENn is omitted, DDIC auto-derives the length from the supplied
+ * SCRTEXTn at activation time — there is no constraint to violate, and
+ * flagging would produce false positives on valid DTELs.
+ *
+ * @param {string} xmlContent - Raw .dtel.xml file content
+ * @returns {Array<{field: string, length: number, declared: number, value: string}>}
+ *          Empty array if all labels fit; one entry per violation otherwise.
+ */
+function validateDtelLabels(xmlContent) {
+  if (!xmlContent) return [];
+
+  const read = (tag) => {
+    const m = xmlContent.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`));
+    return m ? m[1] : null;
+  };
+
+  // SCRLENn read returns null if the tag is absent → skip the corresponding
+  // SCRTEXT check (DDIC will auto-size). An empty tag like <SCRLEN1></SCRLEN1>
+  // parses as the empty string → still skipped.
+  const checks = [
+    { textTag: 'SCRTEXT_S', lenTag: 'SCRLEN1' },
+    { textTag: 'SCRTEXT_M', lenTag: 'SCRLEN2' },
+    { textTag: 'SCRTEXT_L', lenTag: 'SCRLEN3' }
+  ];
+
+  const violations = [];
+  for (const { textTag, lenTag } of checks) {
+    const value = read(textTag);
+    const lenStr = read(lenTag);
+    if (!value || lenStr === null || lenStr === '') continue;
+    const declared = parseInt(lenStr, 10);
+    if (!Number.isFinite(declared) || declared <= 0) continue;
+    if (value.length > declared) {
+      violations.push({ field: textTag, length: value.length, declared, value });
+    }
+  }
+  return violations;
+}
+
 module.exports = {
   convertDatesInWhereClause,
   isValidPackageName,
   isValidObjectName,
-  parseObjectFromFile
+  parseObjectFromFile,
+  validateDtelLabels
 };

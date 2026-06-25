@@ -150,6 +150,23 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING
         VALUE(rt_xml_files) TYPE zif_abgagt_agent=>ty_xml_files.
 
+    "! <p class="shorttext synchronized">Enrich silent "Activation cancelled" with known causes</p>
+    "! abapGit catches "Activation cancelled" raised when DD_MASS_ACT_C3 returns rc>4,
+    "! but DDIC sometimes does not write any TR_READ_LOG entries — so LOG_MESSAGES
+    "! comes back empty and the caller sees only the generic message.
+    "!
+    "! Only escalates the result to failure for well-understood DDIC causes we can
+    "! explain to the caller. Currently: SCRTEXT vs explicit non-zero SCRLEN
+    "! violations on DTELs. When no recognised cause is found, the existing
+    "! "no-op cancel" classification (success, generic message) is left intact —
+    "! preserves backward compatibility for the many DTELs that exist in a
+    "! perpetually-inactive 'L'-only state but pull cleanly in practice.
+    METHODS analyze_silent_cancellation
+      IMPORTING
+        it_file_entries TYPE zif_abgagt_conflict_detector=>ty_file_entries
+      CHANGING
+        cs_result       TYPE zif_abgagt_agent=>ty_result.
+
     METHODS abapgit_delete
       IMPORTING
         it_tadir TYPE zif_abapgit_definitions=>ty_tadir_tt
@@ -281,6 +298,13 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           rs_result-message        = 'Activation cancelled. Check the inactive objects.'.
           rs_result-local_xml_files = get_local_xml_files( ).
           GET TIME STAMP FIELD rs_result-finished_at.
+
+          " Disambiguate "no-op cancel" (all already active) from a real failure
+          " (something stayed inactive). Real failures get rs_result-success
+          " cleared and a structured violation message in LOG_MESSAGES.
+          analyze_silent_cancellation(
+            EXPORTING it_file_entries = lt_file_entries
+            CHANGING  cs_result       = rs_result ).
         ELSE.
           build_pull_result(
             EXPORTING
@@ -999,6 +1023,109 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ls_xml-data     = cl_http_utility=>encode_x_base64( unencoded = ls_item-file-data ).
       APPEND ls_xml TO rt_xml_files.
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD analyze_silent_cancellation.
+    " abapGit catches "Activation cancelled" raised when DD_MASS_ACT_C3 returns rc>4,
+    " but DDIC sometimes does not write any TR_READ_LOG entries — so LOG_MESSAGES
+    " comes back empty and the caller sees only the generic message.
+    "
+    " This method enriches the response with structured diagnostic detail ONLY for
+    " specific, well-understood DDIC failure modes. The bar for declaring an
+    " activation a real failure is high: we must be confident the cause is
+    " actionable (e.g. SCRTEXT exceeds explicit non-zero SCRLEN). When the cause
+    " is not one we recognise, leave the existing message untouched so the
+    " original "no-op cancel" classification continues to apply — many DTELs sit
+    " in a perpetually-inactive 'L'-only state that is harmless and was always
+    " treated as success by abapGit-agent in the past.
+
+    DATA lt_dtel_names TYPE STANDARD TABLE OF dd04l-rollname.
+
+    LOOP AT it_file_entries ASSIGNING FIELD-SYMBOL(<ls_entry>) WHERE obj_type = 'DTEL'.
+      APPEND <ls_entry>-obj_name TO lt_dtel_names.
+    ENDLOOP.
+
+    IF lt_dtel_names IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " Read the rejected/draft DD04L row plus its DD04T texts for every DTEL in
+    " the deserialize set, regardless of whether an active row exists. We only
+    " escalate to failure when we find a SCRLEN violation we can describe.
+    SELECT rollname, scrlen1, scrlen2, scrlen3
+      FROM dd04l
+      FOR ALL ENTRIES IN @lt_dtel_names
+      WHERE rollname = @lt_dtel_names-table_line
+        AND as4local IN ( 'L', 'N' )
+      INTO TABLE @DATA(lt_dd04l).
+
+    IF lt_dd04l IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT rollname, scrtext_s, scrtext_m, scrtext_l
+      FROM dd04t
+      FOR ALL ENTRIES IN @lt_dd04l
+      WHERE rollname   = @lt_dd04l-rollname
+        AND as4local   IN ( 'L', 'N' )
+        AND ddlanguage = @sy-langu
+      INTO TABLE @DATA(lt_dd04t).
+
+    DATA ls_msg TYPE zif_abgagt_agent=>ty_object.
+    DATA(lv_any_violation) = abap_false.
+
+    LOOP AT lt_dd04l ASSIGNING FIELD-SYMBOL(<ls_l>).
+      DATA(lv_scrtext_s) = VALUE dd04t-scrtext_s( ).
+      DATA(lv_scrtext_m) = VALUE dd04t-scrtext_m( ).
+      DATA(lv_scrtext_l) = VALUE dd04t-scrtext_l( ).
+      LOOP AT lt_dd04t ASSIGNING FIELD-SYMBOL(<ls_t>) WHERE rollname = <ls_l>-rollname.
+        lv_scrtext_s = <ls_t>-scrtext_s.
+        lv_scrtext_m = <ls_t>-scrtext_m.
+        lv_scrtext_l = <ls_t>-scrtext_l.
+      ENDLOOP.
+
+      DATA(lt_violations) = VALUE string_table( ).
+      " Only flag when SCRLENn is explicitly non-zero (zero/blank means DDIC
+      " auto-sizes — no constraint to violate). Mirrors the client-side pre-flight.
+      IF lv_scrtext_s IS NOT INITIAL AND <ls_l>-scrlen1 > 0
+         AND strlen( lv_scrtext_s ) > <ls_l>-scrlen1.
+        APPEND |SCRTEXT_S "{ lv_scrtext_s }" ({ strlen( lv_scrtext_s ) } chars) | &&
+               |exceeds SCRLEN1 ({ <ls_l>-scrlen1 })| TO lt_violations.
+      ENDIF.
+      IF lv_scrtext_m IS NOT INITIAL AND <ls_l>-scrlen2 > 0
+         AND strlen( lv_scrtext_m ) > <ls_l>-scrlen2.
+        APPEND |SCRTEXT_M "{ lv_scrtext_m }" ({ strlen( lv_scrtext_m ) } chars) | &&
+               |exceeds SCRLEN2 ({ <ls_l>-scrlen2 })| TO lt_violations.
+      ENDIF.
+      IF lv_scrtext_l IS NOT INITIAL AND <ls_l>-scrlen3 > 0
+         AND strlen( lv_scrtext_l ) > <ls_l>-scrlen3.
+        APPEND |SCRTEXT_L "{ lv_scrtext_l }" ({ strlen( lv_scrtext_l ) } chars) | &&
+               |exceeds SCRLEN3 ({ <ls_l>-scrlen3 })| TO lt_violations.
+      ENDIF.
+
+      IF lt_violations IS INITIAL.
+        " No recognised cause for THIS DTEL — leave it for the existing
+        " "no-op cancel" classification. Don't flag.
+        CONTINUE.
+      ENDIF.
+
+      lv_any_violation = abap_true.
+
+      CLEAR ls_msg.
+      ls_msg-type     = 'E'.
+      ls_msg-obj_type = 'DTEL'.
+      ls_msg-obj_name = <ls_l>-rollname.
+      ls_msg-text     = |DTEL { <ls_l>-rollname } label too long for SCRLEN: | &&
+                        concat_lines_of( table = lt_violations sep = `; ` ) &&
+                        |. Either shorten the label or raise the SCRLEN value.|.
+      APPEND ls_msg TO cs_result-log_messages.
+      APPEND ls_msg TO cs_result-failed_objects.
+    ENDLOOP.
+
+    IF lv_any_violation = abap_true.
+      cs_result-success = abap_false.
+      cs_result-message = 'Activation cancelled — see log_messages for the cause.'.
+    ENDIF.
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~drop.

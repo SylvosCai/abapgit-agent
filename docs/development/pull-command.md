@@ -108,6 +108,21 @@ Contact the project maintainer if you need to change this setting.
 | `--conflict-mode` | No | `abort` (default) or `ignore` — see [Conflict Detection](pull-conflict-detection.md) |
 | `--sync-xml` | No | Accept serializer XML output and amend last commit (see [XML Sync](#xml-sync)) |
 
+## Local Pre-flight Checks
+
+Before sending the request to ABAP, the CLI runs cheap local validations on any `--files` passed in. Failed pre-flight checks exit 1 with an actionable error and never reach the network.
+
+| Check | Applies to | What it catches |
+|---|---|---|
+| File exists on disk | all | Typos in the `--files` path. |
+| DTEL `SCRTEXT` ≤ `SCRLEN` | `.dtel.xml` | `SCRTEXT_S/M/L` exceeds the explicitly declared `SCRLEN1/2/3`. DDIC's `DD_MASS_ACT_C3` silently cancels activation when this is violated, with no log message — pre-flight surfaces the violation locally so you don't waste a round trip. When the XML omits `SCRLENn`, DDIC auto-sizes from the supplied text — no constraint, no check. |
+
+Pre-flight is skipped when `--url` is set: the files belong to a different repository and aren't present in the current working directory.
+
+→ Full reference: [DTEL Label Too Long for SCRLEN](../../abap/guidelines/common-errors.md#dtel-label-too-long-for-scrlen--silent-activation-cancellation) (`abapgit-agent ref --topic common-errors`).
+
+---
+
 ## Transport Request Precedence
 
 The transport request is determined in this order:
@@ -431,6 +446,7 @@ Files are parsed to extract `(obj_type, obj_name)`:
 6. **Missing `.abapgit.xml` warning** - If the repository root contains no `.abapgit.xml`, pull prints a warning on stderr. Without this file, abapGit may use an incorrect `STARTING_FOLDER` from ABAP-side persistence, causing `ACTIVATED_COUNT=0` with an empty log. In `--json` mode the result object includes `"missing_abapgit_xml": true` instead. Run `abapgit-agent init` to create the file.
 7. **XML Sync** - After every successful pull, the ABAP serializer output is compared byte-for-byte against the git remote files. Differing XML files are reported as a warning; `--sync-xml` rewrites, amends, and re-pulls automatically.
 8. **Async for large pulls** - Pulls with >10 files run as ABAP background jobs automatically. Node.js detects the 202 response and polls for completion, showing a progress bar. The final output is identical to a synchronous pull.
+9. **Silent activation cancellation enrichment** - When DDIC cancels activation without writing any log messages (e.g. DTEL `SCRTEXT` exceeds declared `SCRLEN`), the ABAP backend introspects the rejected `DD04L`/`DD04T` rows and injects a structured `E`-type entry into `LOG_MESSAGES` naming the field, value, length, and declared limit. The CLI then classifies the pull as failure (exit 1, ❌) instead of the historical false-success behavior. Currently covers DTEL SCRLEN violations; other DDIC error modes fall through unchanged to the existing "no-op cancel" classification.
 
 ---
 

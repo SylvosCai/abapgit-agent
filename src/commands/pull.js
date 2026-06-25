@@ -172,6 +172,28 @@ Examples:
           console.error('   Check the path and try again.');
           process.exit(1);
         }
+
+        // Pre-flight: catch DTEL SCRTEXT > SCRLEN locally.
+        // DDIC cancels activation silently for these, so reject before the round trip.
+        const { validateDtelLabels } = require('../utils/validators');
+        const dtelViolations = [];
+        for (const f of files.filter(p => /\.dtel\.xml$/i.test(p))) {
+          const content = fs.readFileSync(f, 'utf8');
+          const violations = validateDtelLabels(content);
+          if (violations.length > 0) dtelViolations.push({ file: f, violations });
+        }
+        if (dtelViolations.length > 0) {
+          console.error('❌ Error: data element label(s) exceed declared screen length (SCRLEN).\n');
+          console.error('   DDIC will silently cancel activation in this case — fix locally first.\n');
+          for (const { file, violations } of dtelViolations) {
+            console.error(`   ${file}`);
+            for (const v of violations) {
+              console.error(`     ${v.field} "${v.value}" (${v.length} chars) > declared ${v.declared}`);
+            }
+          }
+          console.error('\n   Either shorten the label or raise the corresponding SCRLEN value.');
+          process.exit(1);
+        }
       }
     }
 
@@ -476,6 +498,19 @@ Examples:
           const displayText = text.length > msgCol ? text.substring(0, msgCol - 3) + '...' : text;
 
           console.log(padToWidth(icon, iconCol) + '│' + padToWidth(obj.substring(0, objCol), objCol) + '│' + displayText);
+        }
+
+        // Any message whose text was truncated in the table — print full text below
+        // so Claude / humans see the actionable detail (DDIC errors are often long).
+        const truncatedMessages = logMessages.filter(m => (m.TEXT || '').length > msgCol);
+        if (truncatedMessages.length > 0) {
+          console.log(`\n📋 Full message text (${truncatedMessages.length} truncated above):`);
+          console.log('─'.repeat(TERM_WIDTH));
+          for (const msg of truncatedMessages) {
+            const obj = msg.OBJ_TYPE && msg.OBJ_NAME ? `${msg.OBJ_TYPE} ${msg.OBJ_NAME}` : '';
+            console.log(`${getIcon(msg.TYPE)} ${obj}`);
+            console.log(`   ${msg.TEXT}`);
+          }
         }
       }
 

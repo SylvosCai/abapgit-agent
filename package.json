@@ -61,6 +61,7 @@
     "test:async-pull": "node tests/run-all.js --async-pull",
     "test:exclude": "node tests/run-all.js --exclude",
     "test:hana": "node tests/run-all.js --hana",
+    "test:dtel-scrlen": "node tests/run-all.js --dtel-scrlen",
     "pull": "node bin/abapgit-agent",
     "release": "node scripts/release.js",
     "unrelease": "node scripts/unrelease.js"

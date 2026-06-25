@@ -233,6 +233,8 @@ Use when the data element's type and length come from an existing domain (`DOMNA
 
 **Omit `<PARAMID>`** unless you specifically need a SET/GET parameter ID — the serializer omits it when empty.
 
+> ⚠️ **SCRLEN vs SCRTEXT lengths**: if you include explicit `<SCRLEN1>` / `<SCRLEN2>` / `<SCRLEN3>` tags, every corresponding `<SCRTEXT_S>` / `<SCRTEXT_M>` / `<SCRTEXT_L>` value MUST fit within its declared SCRLEN. Otherwise DDIC's `DD_MASS_ACT_C3` silently cancels activation (rc>4) with no error log. `pull` will surface this as a structured `dtel_label_too_long` violation; the local pre-flight also catches it before the HTTP round trip. Either shorten the label or raise the SCRLEN value. If you omit the SCRLEN tags entirely, DDIC auto-sizes from the supplied SCRTEXTs — no constraint to violate.
+
 ---
 
 ### Structure (STRU)

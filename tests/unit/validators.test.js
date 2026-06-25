@@ -223,4 +223,69 @@ describe('validators', () => {
       expect(result).toEqual({ name: 'ZCL_MY_CLASS', type: 'CLAS' });
     });
   });
+
+  describe('validateDtelLabels', () => {
+    const makeXml = (scr) => `<?xml version="1.0"?>
+<abapGit>
+ <asx:abap><asx:values>
+  <DD04V>
+   <ROLLNAME>ZTEST</ROLLNAME>
+   ${scr.SCRLEN1 != null ? `<SCRLEN1>${scr.SCRLEN1}</SCRLEN1>` : ''}
+   ${scr.SCRLEN2 != null ? `<SCRLEN2>${scr.SCRLEN2}</SCRLEN2>` : ''}
+   ${scr.SCRLEN3 != null ? `<SCRLEN3>${scr.SCRLEN3}</SCRLEN3>` : ''}
+   ${scr.SCRTEXT_S != null ? `<SCRTEXT_S>${scr.SCRTEXT_S}</SCRTEXT_S>` : ''}
+   ${scr.SCRTEXT_M != null ? `<SCRTEXT_M>${scr.SCRTEXT_M}</SCRTEXT_M>` : ''}
+   ${scr.SCRTEXT_L != null ? `<SCRTEXT_L>${scr.SCRTEXT_L}</SCRTEXT_L>` : ''}
+  </DD04V>
+ </asx:values></asx:abap>
+</abapGit>`;
+
+    test('returns empty array when all labels fit declared widths', () => {
+      const xml = makeXml({
+        SCRLEN1: 10, SCRLEN2: 20, SCRLEN3: 40,
+        SCRTEXT_S: 'short', SCRTEXT_M: 'medium label', SCRTEXT_L: 'longer label'
+      });
+      expect(validators.validateDtelLabels(xml)).toEqual([]);
+    });
+
+    test('flags SCRTEXT_S exceeding SCRLEN1', () => {
+      const xml = makeXml({ SCRLEN1: 5, SCRTEXT_S: 'too long' });
+      const violations = validators.validateDtelLabels(xml);
+      expect(violations).toHaveLength(1);
+      expect(violations[0]).toMatchObject({ field: 'SCRTEXT_S', length: 8, declared: 5, value: 'too long' });
+    });
+
+    test('flags all three labels independently', () => {
+      const xml = makeXml({
+        SCRLEN1: 5, SCRLEN2: 10, SCRLEN3: 15,
+        SCRTEXT_S: 'nine char', SCRTEXT_M: 'eighteen char text', SCRTEXT_L: 'thirty character long screen text'
+      });
+      const violations = validators.validateDtelLabels(xml);
+      expect(violations.map(v => v.field)).toEqual(['SCRTEXT_S', 'SCRTEXT_M', 'SCRTEXT_L']);
+      expect(violations[2]).toMatchObject({ length: 33, declared: 15 });
+    });
+
+    test('does NOT flag when SCRLENn is omitted (DDIC auto-sizes)', () => {
+      // No SCRLEN tags present — DDIC infers the length from the SCRTEXT at
+      // activation time. The pre-flight must not raise false positives here.
+      const xml = makeXml({ SCRTEXT_M: 'sixteen-char-msg' });
+      expect(validators.validateDtelLabels(xml)).toEqual([]);
+    });
+
+    test('does NOT flag when SCRLENn is present but empty', () => {
+      // <SCRLEN1></SCRLEN1> behaves the same as missing — auto-sized by DDIC.
+      const xml = `<DD04V><SCRTEXT_S>too long</SCRTEXT_S><SCRLEN1></SCRLEN1></DD04V>`;
+      expect(validators.validateDtelLabels(xml)).toEqual([]);
+    });
+
+    test('skips empty SCRTEXT fields', () => {
+      const xml = makeXml({ SCRLEN1: 1, SCRTEXT_S: '' });
+      expect(validators.validateDtelLabels(xml)).toEqual([]);
+    });
+
+    test('returns empty array for empty input', () => {
+      expect(validators.validateDtelLabels('')).toEqual([]);
+      expect(validators.validateDtelLabels(null)).toEqual([]);
+    });
+  });
 });
