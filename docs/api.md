@@ -28,6 +28,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 - [POST /preview](#post-preview)
 - [POST /where](#post-where)
 - [POST /customize](#post-customize)
+- [POST /hana](#post-hana)
 
 ---
 
@@ -51,6 +52,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/preview` | Preview table/CDS view data |
 | POST | `/where` | Find where-used list for ABAP objects |
 | POST | `/customize` | Write a single row to a SAP customizing table |
+| POST | `/hana` | **Manage HANA repository views and query the HANA catalog** |
 
 ## GET /health
 
@@ -1611,3 +1613,85 @@ Only tables with delivery class `C` (Customer Customizing) or `E` (System Settin
 | `action` | String | `"MODIFIED"` (row updated) or `"INSERTED"` (new row created) |
 | `transport` | String | Transport request number used (empty if none recorded) |
 | `delivery_class` | String | Table delivery class (`C` or `E`) |
+
+---
+
+## POST /hana
+
+Single REST resource for all `hana` subcommands (deploy / import / list / drop / preview HANA views, query the HANA catalog, preview raw HANA tables). The specific operation is selected by the `action` field in the request body.
+
+### Actions
+
+| `action` | What it does | CLI subcommand |
+|---|---|---|
+| `check` | Phase 1 of `deploy`: report whether the ABAP package is transportable | `hana view deploy` (internal) |
+| `deploy` | Phase 2 of `deploy`: write HOT content + activate in HANA + assign transport | `hana view deploy` |
+| `import` | Read HANA package contents and stream files back to the client | `hana view import` |
+| `list` | List objects in a HANA package with `deploy_state` and `hot_status` | `hana view list` |
+| `drop` | Set `hot_status='D'` and propagate the delete to HANA | `hana view drop` |
+| `preview` | `SELECT` from `"_SYS_BIC"."<pkg>/<view>"` via ADBC | `hana view preview` |
+| `schema` | Query `SYS.SCHEMAS` / `SYS.TABLES` / `SYS.TABLE_COLUMNS` (dispatched by `subaction`) | `hana schema list/tables/fields` |
+| `tablePreview` | `SELECT` from `"<schema>"."<table>"` via ADBC; supports `--logical-schema` resolution | `hana table preview` |
+
+### Request Body
+
+Common envelope (action-specific fields documented per-action in the canonical spec):
+
+```json
+{
+  "action":        "deploy" | "import" | "list" | "drop" | "preview" | "check" | "schema" | "tablePreview",
+  "hanaPackage":   "com.example.myapp",
+  "abapPackage":   "ZMYAPP",
+  "transport":     "DEVK900123",
+  "force":         false,
+  "dryRun":        false,
+  "subpackages":   false,
+  "subaction":     "list" | "tables" | "fields",
+  "schema":        "SAP_FRA_CORE_S4",
+  "logicalSchema": "FRA_CORE_ERP",
+  "table":         "T001",
+  "filter":        "%CORE%",
+  "limit":         100,
+  "offset":        0,
+  "where":         "BUKRS = '1000'",
+  "columns":       ["BUKRS", "BUTXT"],
+  "objects":       [ { "filename": "...", "type": "calculationview", "content": "<?xml ..." } ]
+}
+```
+
+> Per-action request and response shapes (including all error codes — `view_not_active`, `table_not_found`, `schema_not_mapped`, `deploy_failed`, `invalid_sql`) are in [development/hana-command.md → REST Endpoints](development/hana-command.md#rest-endpoints).
+
+### Sample — `deploy` (phase 2)
+
+Request:
+```json
+{
+  "action":      "deploy",
+  "hanaPackage": "com.example.myapp",
+  "transport":   "DEVK900123",
+  "force":       false,
+  "dryRun":      false,
+  "objects": [
+    { "filename": "SalesAnalytics.calculationview", "type": "calculationview", "content": "<?xml version=\"1.0\" ..." }
+  ]
+}
+```
+
+Response (success):
+```json
+{
+  "success":   true,
+  "transport": "DEVK900123",
+  "deployed":  1,
+  "skipped":   0,
+  "results": [
+    { "filename": "SalesAnalytics.calculationview", "type": "calculationview", "status": "deployed" }
+  ]
+}
+```
+
+### Notes
+
+- All HANA communication runs server-side via the HTA API (`CL_CTS_HTA_API_FACTORY`) and ADBC; HANA ports are not directly exposed to clients.
+- Only `.attributeview` and `.calculationview` are in scope. `.hdbview`, `.hdbprocedure`, `.hdbtablefunction` are rejected.
+- Dynamic SQL fragments (schema names, table names, column lists, WHERE clauses) are routed through `cl_abap_dyn_prg=>escape_quotes` before being interpolated.
