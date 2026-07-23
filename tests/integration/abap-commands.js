@@ -35,7 +35,6 @@
  *   npm run test:cmd:pull
  *   npm run test:cmd:view
  *   npm run test:cmd:dump
- *   npm run test:cmd:debug
  *   npm run test:cmd:upgrade
  */
 const commandTestCases = [
