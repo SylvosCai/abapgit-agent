@@ -2,6 +2,17 @@
 title: Release Notes
 ---
 
+## v1.21.2
+
+### Bug Fixes
+
+- Debug breakpoints now work for SAP standard `CL_`/`IF_` classes
+
+---
+
+---
+
+
 ## v1.21.1
 
 ### Bug Fixes
