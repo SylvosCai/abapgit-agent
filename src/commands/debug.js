@@ -107,7 +107,7 @@ const INCLUDE_TYPE_TO_ADT = {
 function objectUri(name, includeType) {
   const upper = (name || '').toUpperCase();
   const lower = upper.toLowerCase();
-  if (/^[ZY](CL|IF)_/.test(upper) || /^(ZCL|ZIF|YCL|YIF)/.test(upper)) {
+  if (/^[ZY]?(CL|IF)_/.test(upper)) {
     if (includeType && CLASS_INCLUDE_TYPES.has(includeType)) {
       const adtType = INCLUDE_TYPE_TO_ADT[includeType];
       return `/sap/bc/adt/oo/classes/${lower}/includes/${adtType}`;
