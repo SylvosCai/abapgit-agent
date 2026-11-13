@@ -1865,6 +1865,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const remote = realPath.join(root, 'remote.git');
     const git = (...args) => execFileSync('git', args, { cwd: work, encoding: 'utf8', stdio: 'pipe' }).trim();
     let cwdSpy;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       realFs.mkdirSync(work);
       execFileSync('git', ['init', '--bare', remote], { stdio: 'pipe' });
@@ -1874,6 +1875,18 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       git('config', 'commit.gpgsign', 'false');
       git('config', 'core.hooksPath', realPath.join(root, 'no-hooks'));
       realFs.mkdirSync(realPath.join(work, 'src'));
+      realFs.writeFileSync(realPath.join(work, '.abapgit.xml'), `\ufeff<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <NAME>XML Sync Test</NAME>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/src/</STARTING_FOLDER>
+   <FOLDER_LOGIC>PREFIX</FOLDER_LOGIC>
+  </DATA>
+ </asx:values>
+</asx:abap>
+`);
       const native = `src/zrap_sync.${type}.${extension}`;
       const xml = `src/zrap_sync.${type}.xml`;
       const canonical = Buffer.from('\ufeff<xml>canonical</xml>\n');
@@ -1919,8 +1932,10 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
         `git push --set-upstream origin main --force-with-lease=main:${before}`, expect.any(Object));
       expect(postMock).toHaveBeenCalledTimes(json ? 2 : 3);
+      expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       process.exitCode = undefined;
+      warnSpy.mockRestore();
       if (cwdSpy) cwdSpy.mockRestore();
       realFs.rmSync(root, { recursive: true, force: true });
     }

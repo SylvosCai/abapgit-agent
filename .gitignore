@@ -8,6 +8,7 @@ coverage/
 output/
 .abapGitAgent
 .claude/
+/.pi/
 _site/
 .ruby-version
 .jekyll-cache/
