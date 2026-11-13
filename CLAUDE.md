@@ -46,6 +46,47 @@ npm run test:aunit                # ABAP unit tests only
 
 See [docs/integration-tests.md](docs/integration-tests.md) for the full integration test guide.
 
+## Release Tooling (Repository Developers Only)
+
+`npm run release -- --patch` (or `--minor` / `--major`) generates release notes,
+asks for confirmation, then updates the version, commits, tags and pushes the
+release. This is repository maintenance, not an `abapgit-agent` CLI command.
+
+Release notes default to the external Pi CLI:
+
+```text
+pi --print --no-tools --no-session --no-context-files
+```
+
+Install/authenticate Pi separately using a permitted model/provider. Pi's runtime
+requirements apply to the developer's Pi installation, not this package's Node
+engine range. No override is needed to use the default.
+
+To select a different command or Pi model for one invocation:
+
+```bash
+ABGAGT_RELEASE_NOTES_AI_COMMAND='pi --print --no-tools --no-session --no-context-files --model provider/model' \
+  npm run release -- --patch
+```
+
+Replace `provider/model` with an available Pi model. For a persistent developer
+setting, export `ABGAGT_RELEASE_NOTES_AI_COMMAND` in your shell profile (for example
+`~/.zshrc`) or set it in the release job's environment. Unset/blank values use Pi.
+The script does not load `.env` or read `.abapGitAgent` for this setting.
+
+The override is a **trusted shell command**. Another AI CLI must accept the prompt
+on stdin and return only release-note Markdown on stdout; diagnostics belong on
+stderr. Commit subjects/bodies and `--hint` are sent to that CLI's configured
+provider, so use a provider permitted for the repository's content. The script
+keeps its two-minute timeout and plain-text fallback on command failure; it never
+automatically invokes Claude. Review the generated draft before confirming.
+
+**`--dry-run` still invokes the AI and temporarily writes/deletes
+`.release-notes-draft.md`**; it skips version changes, commits, tags and publishing.
+`--hint "text"` adds release-note guidance to the prompt. Do not run the release
+script merely to test this integration: use `tests/unit/release-script.test.js`,
+which mocks the AI, filesystem and release subprocesses.
+
 ## Docs Development (Jekyll)
 
 The documentation site uses **Just the Docs** (Jekyll). Config is in `_config.yml` at the repo root — always start Jekyll from the root, not from `docs/`:

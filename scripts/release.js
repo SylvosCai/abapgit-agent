@@ -8,12 +8,12 @@
  *   --minor    Bump minor version (e.g., 1.4.0 -> 1.5.0)
  *   --major    Bump major version (e.g., 1.4.0 -> 2.0.0)
  *   --dry-run  Preview only, don't make any changes
- *   --hint     Extra guidance for Claude when generating release notes
+ *   --hint     Extra guidance for the AI CLI when generating release notes
  *              e.g. --hint "add a link to the guide command docs"
  *
  * This script:
  * 1. Determines new version based on --patch/--minor/--major flag
- * 2. Generates release notes using Claude
+ * 2. Generates release notes using Pi (override with ABGAGT_RELEASE_NOTES_AI_COMMAND)
  * 3. Shows preview of what will happen
  * 4. Asks for confirmation (unless --dry-run is specified)
  * 5. Updates RELEASE_NOTES.md with new version notes
@@ -32,6 +32,8 @@ const abapHealthPath = path.join(__dirname, '..', 'abap', 'zcl_abgagt_resource_h
 const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
 const releaseNotesDraftPath = path.join(__dirname, '..', '.release-notes-draft.md');
 const repoRoot = path.join(__dirname, '..');
+const aiCommand = process.env.ABGAGT_RELEASE_NOTES_AI_COMMAND?.trim()
+  || 'pi --print --no-tools --no-session --no-context-files';
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -43,7 +45,7 @@ if (args.includes('--patch')) bumpType = 'patch';
 else if (args.includes('--minor')) bumpType = 'minor';
 else if (args.includes('--major')) bumpType = 'major';
 
-// Get optional hint for Claude
+// Get optional hint for release notes
 const hintIndex = args.indexOf('--hint');
 const userHint = hintIndex !== -1 ? args[hintIndex + 1] : null;
 
@@ -57,7 +59,8 @@ if (!bumpType) {
   console.error('');
   console.error('Options:');
   console.error('  --dry-run          Preview only, no changes made');
-  console.error('  --hint "<text>"    Extra guidance for Claude when generating release notes');
+  console.error('  --hint "<text>"    Extra guidance for the AI CLI when generating release notes');
+  console.error('  ABGAGT_RELEASE_NOTES_AI_COMMAND overrides the default Pi command.');
   process.exit(1);
 }
 
@@ -107,7 +110,7 @@ try {
 console.log('');
 
 // Get commits since last tag for release notes
-console.log('Generating release notes with Claude...');
+console.log('Generating release notes with AI CLI...');
 console.log('');
 
 let releaseNotesContent = '';
@@ -143,7 +146,7 @@ try {
     console.log(`Found ${commitCount} commit(s) since last release`);
     console.log('');
 
-    // Create Claude prompt - use stdin to avoid shell escaping issues
+    // Pass commit text and hints on stdin, not through shell interpolation.
     const hintSection = userHint
       ? `\nAdditional instructions from the developer:\n${userHint}\n`
       : '';
@@ -184,12 +187,13 @@ Instructions:
 
 OMIT any category that has no items.`;
 
-    // Call Claude CLI - use stdin
+    // The command override is trusted developer configuration.
     try {
-      releaseNotesContent = execSync('claude --print', {
+      releaseNotesContent = execSync(aiCommand, {
         cwd: repoRoot,
         encoding: 'utf8',
         timeout: 120000,
+        stdio: ['pipe', 'pipe', 'pipe'],
         input: prompt
       });
       releaseNotesContent = releaseNotesContent.trim();
@@ -197,7 +201,7 @@ OMIT any category that has no items.`;
       console.log(releaseNotesContent);
       console.log('');
     } catch (e) {
-      console.log('Claude CLI error:', e.message);
+      console.log('AI CLI error:', e.code || e.status || 'command failed');
       console.log('Using fallback release notes');
       releaseNotesContent = `## v${newVersion}\n\nSee commit history for changes.`;
     }
