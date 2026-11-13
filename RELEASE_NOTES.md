@@ -2,6 +2,29 @@
 title: Release Notes
 ---
 
+## v1.22.0
+
+### New Features
+
+- Added BDEF, SRVD, and DDLX source viewing.
+- Added native RAP source syntax checks.
+- Added abaplint parsing for BDEF and DDLX.
+
+### Improvements
+
+- Recognized RAP source identities across source commands.
+- Clarified errors for unsupported where-used operations.
+
+### Documentation
+
+- Documented RAP source handling and validation.
+- Documented excluded service bindings and incomplete RAP coverage.
+
+---
+
+---
+
+
 ## v1.21.2
 
 ### Bug Fixes
