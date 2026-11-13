@@ -915,11 +915,26 @@ describe('Pull Command - Safeguard Validation', () => {
     const fs = require('fs');
     // Should NOT call existsSync for the --files paths when --url is explicit
     await pullCommand.execute(
-      ['--url', 'https://example.com/other-repo.git', '--files', 'src/zif_simple_test.intf.abap'],
+      ['--url', 'https://example.com/other-repo.git', '--files', 'src/zrap.bdef.asbdef'],
       mockContext
     );
     const checkedPaths = fs.existsSync.mock.calls.map(c => c[0]);
-    expect(checkedPaths.some(p => String(p).includes('zif_simple_test'))).toBe(false);
+    expect(checkedPaths.some(p => String(p).includes('zrap.bdef.asbdef'))).toBe(false);
+  });
+  test('rejects RAP XML-only selective pull', async () => {
+    const pullCommand = require('../../src/commands/pull');
+    const mockContext = {
+      loadConfig: jest.fn(() => ({ host: 'test', port: 443 })),
+      getSafeguards: jest.fn(() => ({ requireFilesForPull: false, disablePull: false, reason: null })),
+      gitUtils: { getBranch: jest.fn(() => 'master'), getRemoteUrl: jest.fn(() => null) },
+      getTransport: jest.fn(() => null),
+      getConflictSettings: jest.fn(() => ({ mode: 'abort', reason: null }))
+    };
+
+    await expect(pullCommand.execute([
+      '--url', 'https://example.com/repo.git', '--files', 'src/zrap.bdef.xml'
+    ], mockContext)).rejects.toThrow('process.exit(1)');
+    expect(consoleErrorOutput.join('\n')).toMatch(/native \.asbdef/);
   });
 });
 
@@ -1797,6 +1812,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     // git rev-parse HEAD returns a SHA before amend; origin/main exists (branch already pushed)
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
       if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git remote') return 'origin\n';
       if (cmd === 'git ls-remote origin "refs/heads/main"') return 'abc1234\trefs/heads/main\n';
     });
 
@@ -1816,7 +1832,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     // 3. git commit --amend called
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      'git commit --amend --no-edit',
+      'git commit --amend --no-edit --allow-empty',
       expect.any(Object)
     );
 
@@ -1835,6 +1851,104 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     expect(output).toMatch(/Synced 1 XML file\(s\)/);
     expect(output).toMatch(/amended commit/);
     expect(output).toMatch(/re-pulled/);
+  });
+
+  test.each([
+    ['bdef', 'asbdef', false], ['srvd', 'srvdsrv', false], ['ddlx', 'asddlxs', false],
+    ['bdef', 'asbdef', true], ['srvd', 'srvdsrv', true], ['ddlx', 'asddlxs', true]
+  ])('--sync-xml preserves an empty normalized %s.%s commit and re-pulls (real Git, json=%s)', async (type, extension, json) => {
+    const realFs = jest.requireActual('fs');
+    const realPath = jest.requireActual('path');
+    const { execFileSync, execSync } = jest.requireActual('child_process');
+    const root = realFs.mkdtempSync(realPath.join(require('os').tmpdir(), 'rap-xml-sync-test-'));
+    const work = realPath.join(root, 'work');
+    const remote = realPath.join(root, 'remote.git');
+    const git = (...args) => execFileSync('git', args, { cwd: work, encoding: 'utf8', stdio: 'pipe' }).trim();
+    let cwdSpy;
+    try {
+      realFs.mkdirSync(work);
+      execFileSync('git', ['init', '--bare', remote], { stdio: 'pipe' });
+      git('init', '-b', 'main');
+      git('config', 'user.name', 'XML Sync Test');
+      git('config', 'user.email', 'xml-sync@example.invalid');
+      git('config', 'commit.gpgsign', 'false');
+      git('config', 'core.hooksPath', realPath.join(root, 'no-hooks'));
+      realFs.mkdirSync(realPath.join(work, 'src'));
+      const native = `src/zrap_sync.${type}.${extension}`;
+      const xml = `src/zrap_sync.${type}.xml`;
+      const canonical = Buffer.from('\ufeff<xml>canonical</xml>\n');
+      realFs.writeFileSync(realPath.join(work, native), 'unchanged source\n');
+      realFs.writeFileSync(realPath.join(work, xml), canonical);
+      git('add', '.');
+      git('commit', '-m', 'Original canonical XML');
+      const base = git('rev-parse', 'HEAD');
+      realFs.writeFileSync(realPath.join(work, xml), '\ufeff<xml>canonical</xml>\n\n');
+      git('add', xml);
+      git('commit', '-m', 'XML formatting only');
+      const before = git('rev-parse', 'HEAD');
+      git('remote', 'add', 'origin', remote);
+      git('push', '-u', 'origin', 'main');
+
+      const pullCommand = require('../../src/commands/pull');
+      const fs = require('fs');
+      fs.existsSync.mockImplementation((p) => realFs.existsSync(realPath.resolve(work, p)));
+      fs.readFileSync.mockImplementation((p) => p.includes('.abapgit-agent.json') ? '{}' : realFs.readFileSync(realPath.resolve(work, p)));
+      fs.writeFileSync.mockImplementation(realFs.writeFileSync);
+      mockExecSyncHolder.fn.mockImplementation(execSync);
+      cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(work);
+      const postMock = jest.fn();
+      if (!json) postMock.mockResolvedValueOnce({ status: 'Found', transport_required: false });
+      postMock.mockResolvedValueOnce({ success: 'X', local_xml_files: [
+          { path: '/src/', filename: `zrap_sync.${type}.xml`, data: canonical.toString('base64') }
+        ] })
+        .mockResolvedValueOnce({ success: 'X', local_xml_files: [] });
+      await pullCommand.execute(['--files', native, '--sync-xml', ...(json ? ['--json'] : [])], makeXmlContext({ postMock }));
+      if (json) {
+        expect(consoleOutput).toHaveLength(1);
+        expect(JSON.parse(consoleOutput[0]).success).toBe('X');
+      }
+
+      const after = git('rev-parse', 'HEAD');
+      expect(after).not.toBe(before);
+      expect(git('rev-parse', 'HEAD^')).toBe(base);
+      expect(git('rev-parse', 'HEAD^{tree}')).toBe(git('rev-parse', `${base}^{tree}`));
+      expect(git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0]).toBe(after);
+      expect(git('status', '--porcelain')).toBe('');
+      expect(realFs.readFileSync(realPath.join(work, xml))).toEqual(canonical);
+      expect(realFs.readFileSync(realPath.join(work, native), 'utf8')).toBe('unchanged source\n');
+      expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+        `git push --set-upstream origin main --force-with-lease=main:${before}`, expect.any(Object));
+      expect(postMock).toHaveBeenCalledTimes(json ? 2 : 3);
+    } finally {
+      process.exitCode = undefined;
+      if (cwdSpy) cwdSpy.mockRestore();
+      realFs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test.each([false, true])('JSON sync reports a failed pull without a false success (repull=%s)', async (repull) => {
+    const pullCommand = require('../../src/commands/pull');
+    const fs = require('fs');
+    const failed = { SUCCESS: '', CONFLICT_COUNT: 1, CONFLICT_REPORT: 'LOCAL_EDIT', MESSAGE: 'Pull aborted' };
+    const postMock = jest.fn();
+    if (repull) postMock.mockResolvedValueOnce({ SUCCESS: 'X', LOCAL_XML_FILES: [
+      { PATH: '/src/', FILENAME: 'zrap_sync.bdef.xml', DATA: encode('<xml>serialized</xml>') }
+    ] });
+    postMock.mockResolvedValueOnce(failed);
+    mockExecSyncHolder.fn.mockImplementation((cmd) => cmd === 'git remote' ? 'origin\n' : cmd.startsWith('git rev-parse') ? 'abc1234\n' : 'abc1234\trefs/heads/main\n');
+    try {
+      await pullCommand.execute(['--files', 'zrap_sync.bdef.asbdef', '--sync-xml', '--json'], makeXmlContext({ postMock }));
+      expect(consoleOutput).toHaveLength(1);
+      expect(JSON.parse(consoleOutput[0])).toEqual(failed);
+      expect(process.exitCode).toBe(1);
+      expect(postMock).toHaveBeenCalledTimes(repull ? 2 : 1);
+      if (!repull) {
+        expect(fs.writeFileSync).not.toHaveBeenCalled();
+        expect(mockExecSyncHolder.fn).not.toHaveBeenCalled();
+      }
+    } finally {
+      process.exitCode = undefined;
+    }
   });
 
   test('--sync-xml push always uses --set-upstream to keep remote tracking ref current', async () => {
@@ -1856,6 +1970,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
       if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git remote') return 'origin\n';
       if (cmd === 'git ls-remote origin "refs/heads/main"') return 'abc1234\trefs/heads/main\n'; // branch already pushed
       // primary push (with --set-upstream) succeeds
     });
@@ -1896,7 +2011,8 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
       if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
-      if (cmd === 'git ls-remote origin "refs/heads/main"') throw new Error('unable to connect to remote');
+      if (cmd === 'git remote') return ''; // genuinely local-only, not an unreachable configured origin
+      if (cmd === 'git ls-remote origin "refs/heads/main"') throw new Error('unexpected remote lookup');
       if (cmd === 'git push --set-upstream origin main') throw new Error('remote: repository not found');
     });
 
@@ -1938,6 +2054,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     mockExecSyncHolder.fn.mockImplementation((cmd) => {
       if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd === 'git remote') return 'origin\n';
       if (cmd === 'git ls-remote origin "refs/heads/main"') return ''; // branch not yet on remote
       // plain push (no --force-with-lease) succeeds
     });
@@ -1964,6 +2081,50 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     const output = consoleOutput.join('\n');
     expect(output).toMatch(/Synced 1 XML file\(s\)/);
     expect(output).toMatch(/re-pulled/);
+  });
+
+  test.each([
+    ['stale info', false], ['Authentication failed', false], ['Could not resolve host', false],
+    ['stale info', true], ['Authentication failed', true], ['Could not resolve host', true],
+    ['remote lookup failed', true]
+  ])('configured remote failure is not sync success (%s, json=%s)', async (message, json) => {
+    const failure = new Error(message);
+    const postMock = jest.fn();
+    if (!json) postMock.mockResolvedValueOnce({ status: 'Found', transport_required: false });
+    postMock.mockResolvedValueOnce({ SUCCESS: 'X', LOCAL_XML_FILES: [
+      { PATH: '/src/', FILENAME: 'zrap.bdef.xml', DATA: encode('<xml>canonical</xml>') }
+    ] });
+    mockExecSyncHolder.fn.mockImplementation((cmd) => {
+      if (cmd === 'git remote') return 'origin\n';
+      if (cmd.startsWith('git ls-remote')) {
+        if (message === 'remote lookup failed') throw failure;
+        return 'abc1234\trefs/heads/main\n';
+      }
+      if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
+      if (cmd.startsWith('git push')) throw failure;
+      return '';
+    });
+    try {
+      const args = ['--files', 'zrap.bdef.asbdef', '--sync-xml', ...(json ? ['--json'] : [])];
+      const run = require('../../src/commands/pull').execute(args, makeXmlContext({ postMock }));
+      if (json) {
+        await run;
+        expect(consoleOutput).toHaveLength(1);
+        expect(JSON.parse(consoleOutput[0])).toEqual({ success: false, message });
+        expect(process.exitCode).toBe(1);
+      } else {
+        await expect(run).rejects.toThrow('process.exit(1)');
+        expect(consoleOutput.join('\n')).not.toContain('Push skipped');
+        expect(consoleOutput.join('\n')).not.toContain('re-pulled');
+      }
+      expect(postMock).toHaveBeenCalledTimes(json ? 1 : 2);
+      if (message === 'remote lookup failed') {
+        expect(require('fs').writeFileSync).not.toHaveBeenCalled();
+      } else {
+        expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
+          'git push --set-upstream origin main --force-with-lease=main:abc1234', expect.any(Object));
+      }
+    } finally { process.exitCode = undefined; }
   });
 
   test('--sync-xml does nothing when no files differ', async () => {

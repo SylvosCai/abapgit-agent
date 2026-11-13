@@ -1,6 +1,6 @@
 {
   "global": {
-    "files": "/abap/**/*.{abap,xml}",
+    "files": "/abap/**/*.{abap,xml,asddls,asbdef,asddlxs}",
     "skipGeneratedFunctionGroups": true
   },
   "syntax": {
@@ -9,6 +9,7 @@
   },
   "rules": {
     "begin_end_names": true,
+    "bdef_parser_error": true,
     "cds_parser_error": true,
     "check_include": { "exclude": ["tests/fixtures/fugr/.*\\.fugr\\.sapl.*\\.abap", "tests/fixtures/include-prog.*/.*\\.abap"] },
     "parser_error": { "exclude": ["tests/fixtures/fugr/.*\\.abap", "tests/fixtures/include-prog.*/.*\\.abap"] },

@@ -280,6 +280,28 @@ All commands read configuration from:
 - `.abapGitAgent` file in current directory
 - Environment variables (`ABAP_HOST`, `ABAP_USER`, `ABAP_PROTOCOL`, etc.)
 
+### RAP Source Support
+
+BDEF (behavior definitions), SRVD (service definitions) and DDLX (CDS metadata extensions) have native source support. This is not full RAP lifecycle/diagnostic support; matching CLI and backend versions and the required SAP dependencies are needed. See [object-file handling architecture](architecture/object-file-handling.md) for the shared file-to-object routing and safety policies.
+
+| Command | BDEF | SRVD | DDLX |
+|---------|------|------|------|
+| `import`, full `pull` | Supported | Supported | Supported |
+| Selective `pull` | Native source selector | Native source selector | Native source selector |
+| `drop` | Native/XML identity | Native/XML identity | Native/XML identity |
+| `view` | Active source | Active source | Active source |
+| `syntax` | Native SAP supplied-source check | Native SAP supplied-source check | Native SAP supplied-source check |
+| `lint` | Parser/static checks | No source parser | Parser/static checks |
+| `list`, `tree` | Generic TADIR listing/package counts | Generic TADIR listing/package counts | Generic TADIR listing/package counts |
+| `where` target | Unsupported | Unsupported | Unsupported |
+| `inspect` | SCI variant/system-specific | No verified source-check coverage | No verified source-check coverage |
+
+`tree` is not a RAP BO/dependency graph. A zero-finding SCI result does not prove that the object was checked. SRVB has no dedicated command/publication support; upstream abapGit repository handling is a separate capability.
+
+For selective RAP pull, use the native source filename, not its XML companion. Exactly one native source per object is required, including when using legacy SRVD naming. Dependencies and separate behavior implementation classes are not selected automatically. See [pull safety](development/pull-conflict-detection.md) and [syntax](development/syntax-command.md).
+
+RAP filename selectors decode `#namespace#name` and enforce a 30-character decoded-name limit. This is an agent selector limit, not a universal SAP naming limit.
+
 ### File Patterns
 
 | Pattern | Description |
@@ -288,5 +310,8 @@ All commands read configuration from:
 | `zif_my_intf.intf.abap` | ABAP interface source |
 | `zcl_my_test.clas.testclasses.abap` | ABAP test class |
 | `zc_my_view.ddls.asddls` | CDS View/Entity |
-| `zmy_table.tabl.abap` | Table definition |
+| `zr_my_bo.bdef.asbdef` + `.bdef.xml` | RAP behavior declaration and metadata; implementation CLAS is separate |
+| `zui_my_service.srvd.srvdsrv` + `.srvd.xml` | Service definition and metadata; legacy `.srvd.assrvd` also accepted |
+| `zr_my_annotations.ddlx.asddlxs` + `.ddlx.xml` | CDS metadata extension and metadata |
+| `zmy_table.tabl.xml` | Table definition (XML-only) |
 | `zmy_prog.prog.abap` | ABAP program |

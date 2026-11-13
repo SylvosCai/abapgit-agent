@@ -16,6 +16,10 @@ repository: SylvosCai/abapgit-agent
 # Theme - Use remote_theme for GitHub Pages compatibility
 remote_theme: just-the-docs/just-the-docs
 
+# Render Mermaid diagrams with the theme's built-in integration.
+mermaid:
+  version: "12.3.0"
+
 # Color scheme
 color_scheme: light
 

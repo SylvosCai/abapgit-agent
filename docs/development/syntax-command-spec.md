@@ -4,6 +4,8 @@ nav_exclude: true
 
 # Syntax Command Specification
 
+> **Historical design:** this navigation-excluded specification predates several implemented checkers. Its supported/future-type lists are not current capability documentation. Use [syntax command](syntax-command.md) and the [RAP support matrix](../commands.md#rap-source-support) for the current contract.
+
 ## Overview
 
 The `syntax` command performs syntax checking on ABAP source code **without requiring pull/activation**. This enables faster feedback loops during development by checking code directly from git before committing to the ABAP system.

@@ -12,6 +12,18 @@ has_children: true
 
 Pull and activate ABAP objects from git repository.
 
+## RAP Native Selectors
+
+```bash
+abapgit-agent pull --files src/zr_my_bo.bdef.asbdef
+abapgit-agent pull --files src/zui_my_service.srvd.srvdsrv
+abapgit-agent pull --files src/zr_my_annotations.ddlx.asddlxs
+```
+
+Use native source, not `.bdef.xml`, `.srvd.xml` or `.ddlx.xml`, for selective RAP pull. Full repository import still uses the source/metadata pairs. Legacy `.srvd.assrvd` is accepted, but canonical and legacy source cannot both be present for one object.
+
+The source policy requires exactly one native source per RAP identity. Missing/duplicate/malformed source, unreadable required local source and UTF-8 decoding failures abort before deserialization. These guards also apply on a first baseline and with `--conflict-mode ignore`; they are not conflict overrides. Prepare dependencies separately: no RAP dependency graph, behavior-pool auto-selection or complete CLAS companion conflict protection is promised. See [conflict detection](pull-conflict-detection.md).
+
 ## Command
 
 ```bash
@@ -246,6 +258,8 @@ When `--sync-xml` is passed:
 - Only files that **already exist on disk** are overwritten (no new files are created)
 - When `--files` is used, only XML files for the specified objects are compared
 - AI agents should always pass `--sync-xml` after creating or modifying ABAP objects to keep git and the ABAP system in sync
+- With a configured `origin`, remote lookup, authentication, network or lease failures abort sync and return a failure/nonzero exit; they are not reported as successful synchronization. A push failure can leave the canonical XML and amended commit locally—inspect that state before retrying. No protected re-pull occurs until the push succeeds.
+- With no `origin`, sync intentionally remains local-only; it does not claim remote synchronization or perform a re-pull.
 
 ---
 

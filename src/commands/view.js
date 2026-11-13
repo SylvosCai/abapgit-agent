@@ -246,7 +246,8 @@ Description:
 Parameters:
   --objects <obj1,...>  Comma-separated object names (required).
   --type <type>         Object type: CLAS, INTF, PROG, TABL, STRU, DTEL, TTYP, DOMA,
-                        DDLS, DCLS, MSAG, FUGR, SUSO (auto-detected from TADIR if omitted).
+                        DDLS, DCLS, BDEF, SRVD, DDLX, MSAG, FUGR, SUSO
+                        (auto-detected from TADIR if omitted).
   --full                Show full source including all method implementations.
   --lines               Show dual line numbers (G = global for debug set, [N] = include-local).
   --fm <name>           With --full: show only the specified function module (FUGR only).
@@ -288,7 +289,7 @@ Examples:
       process.exit(1);
     }
 
-    console.log(`\n  Viewing ${objects.length} object(s)`);
+    if (!jsonOutput) console.log(`\n  Viewing ${objects.length} object(s)`);
 
     const config = loadConfig();
     const http = new AbapHttp(config);
@@ -313,13 +314,22 @@ Examples:
     const result = await http.post('/sap/bc/z_abapgit_agent/view', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
+    const success = result.SUCCESS ?? result.success;
     const viewObjects = result.OBJECTS || result.objects || [];
     const message = result.MESSAGE || result.message || '';
     const error = result.ERROR || result.error;
 
     if (!success || error) {
-      console.error(`\n  Error: ${error || 'Failed to view objects'}`);
+      if (jsonOutput) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.error(`\n  Error: ${error || 'Failed to view objects'}`);
+        for (const obj of viewObjects) {
+          const objectError = obj.ERROR || obj.error;
+          if (objectError) console.error(`  ${obj.NAME || obj.name}: ${objectError}`);
+        }
+      }
+      process.exitCode = 1;
       return;
     }
 
@@ -516,7 +526,7 @@ Examples:
               }
             }
           }
-        } else if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'PROG' || objType === 'Program' || objType === 'STOB' || objType === 'Structured Object')) {
+        } else if (source && (objType === 'INTF' || objType === 'Interface' || objType === 'CLAS' || objType === 'Class' || objType === 'DDLS' || objType === 'CDS View' || objType === 'BDEF' || objType === 'Behavior Definition' || objType === 'SRVD' || objType === 'Service Definition' || objType === 'DDLX' || objType === 'CDS Metadata Extension' || objType === 'PROG' || objType === 'Program' || objType === 'STOB' || objType === 'Structured Object')) {
           console.log('');
           // Replace escaped newlines with actual newlines and display
           const displaySource = source.replace(/\\n/g, '\n');

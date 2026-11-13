@@ -2,12 +2,27 @@ CLASS zcl_abgagt_conflict_detector DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     INTERFACES zif_abgagt_conflict_detector.
 
+    METHODS constructor
+      IMPORTING io_source_compare TYPE REF TO zif_abgagt_source_compare OPTIONAL.
+
     CLASS-METHODS get_instance
       RETURNING VALUE(ro_instance) TYPE REF TO zif_abgagt_conflict_detector.
 
+  PRIVATE SECTION.
+    DATA mo_source_compare TYPE REF TO zif_abgagt_source_compare.
+    METHODS matches_baseline
+      IMPORTING it_candidates TYPE string_table iv_baseline TYPE zabgagt_obj_meta-last_git_sha
+      RETURNING VALUE(rv_matches) TYPE abap_bool.
 ENDCLASS.
 
 CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
+
+  METHOD constructor.
+    mo_source_compare = io_source_compare.
+    IF mo_source_compare IS NOT BOUND.
+      mo_source_compare = NEW zcl_abgagt_source_compare( ).
+    ENDIF.
+  ENDMETHOD.
 
   METHOD get_instance.
     DATA lo_instance TYPE REF TO zcl_abgagt_conflict_detector.
@@ -35,6 +50,9 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+      DATA(ls_git_source) = mo_source_compare->prepare(
+        iv_obj_type = ls_file-obj_type iv_source = ls_file-content ).
+
       " Calculate current git SHA from remote file content
       DATA(lv_current_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-content ).
 
@@ -43,6 +61,8 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       " If local_content is not provided (old callers), default to unchanged (safe).
 
       IF ls_file-local_content IS NOT INITIAL.
+        DATA(ls_local_source) = mo_source_compare->prepare(
+          iv_obj_type = ls_file-obj_type iv_source = ls_file-local_content ).
         DATA(lv_local_sha) = zif_abgagt_conflict_detector~calculate_sha( ls_file-local_content ).
       ELSE.
         lv_local_sha = ls_baseline-last_git_sha.
@@ -52,6 +72,20 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       " This handles: edit in ADT → export to git → commit → pull the committed version.
       IF lv_local_sha = lv_current_sha.
         CONTINUE.
+      ENDIF.
+
+      IF matches_baseline( it_candidates = ls_git_source-baseline_candidates
+                           iv_baseline = ls_baseline-last_git_sha ) = abap_true.
+        lv_current_sha = ls_baseline-last_git_sha.
+      ENDIF.
+      IF ls_file-local_content IS NOT INITIAL.
+        IF ls_git_source-comparable_source = ls_local_source-comparable_source.
+          CONTINUE.
+        ENDIF.
+        IF matches_baseline( it_candidates = ls_local_source-baseline_candidates
+                             iv_baseline = ls_baseline-last_git_sha ) = abap_true.
+          lv_local_sha = ls_baseline-last_git_sha.
+        ENDIF.
       ENDIF.
 
       " Determine what changed
@@ -118,6 +152,15 @@ CLASS zcl_abgagt_conflict_detector IMPLEMENTATION.
       ENDIF.
 
       " All other combinations are safe (fast-forward, no changes, etc.)
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD matches_baseline.
+    LOOP AT it_candidates INTO DATA(lv_candidate).
+      IF zif_abgagt_conflict_detector~calculate_sha( lv_candidate ) = iv_baseline.
+        rv_matches = abap_true.
+        RETURN.
+      ENDIF.
     ENDLOOP.
   ENDMETHOD.
 

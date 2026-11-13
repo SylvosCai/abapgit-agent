@@ -37,6 +37,30 @@
  *   npm run test:cmd:dump
  *   npm run test:cmd:upgrade
  */
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { execFileSync } = require('child_process');
+const assert = require('assert');
+const { getTestRepoUrl } = require('./test-repos');
+const rapSyntaxObjects = [
+  ['BDEF', 'ZR_ABGAGT_DRP_RAP', 'zr_abgagt_drp_rap.bdef.asbdef'],
+  ['SRVD', 'ZUI_ABGAGT_DRP_RAP', 'zui_abgagt_drp_rap.srvd.srvdsrv'],
+  ['DDLX', 'ZR_ABGAGT_DRP_RAP', 'zr_abgagt_drp_rap.ddlx.asddlxs']
+];
+const rapCloneSource = file => path.join(os.tmpdir(), 'abgagt-drop-test', 'src', file);
+function rapActiveSource(type, name) {
+  const output = execFileSync(process.execPath, [path.join(__dirname, '../../bin/abapgit-agent'),
+    'view', '--objects', name, '--type', type, '--json'], { encoding: 'utf8', timeout: 120000 });
+  // Existing view --json emits this progress banner before its payload.
+  const result = JSON.parse(output.replace(/^\s*Viewing 1 object\(s\)\s*\n/, ''));
+  const object = result.OBJECTS?.[0];
+  assert(result.SUCCESS === true && object?.TYPE === type && object.NAME === name
+    && !object.NOT_FOUND && typeof object.SOURCE === 'string', `Active fixture unavailable: ${type} ${name}`);
+  return object.SOURCE;
+}
+let rapLegacyDir;
+let rapXmlDir;
 const commandTestCases = [
   // ===================================================================
   // PULL COMMAND - 1 test
@@ -46,18 +70,13 @@ const commandTestCases = [
   {
     command: 'pull',
     name: 'pull --files (specific file)',
-    args: ['--files', 'abap/zcl_abgagt_util.clas.abap', '--branch', 'master'],
+    // Pull a disposable fixture, never replace the backend under test from master.
+    args: ['--url', getTestRepoUrl('pull'), '--files', 'src/zif_simple_test.intf.abap', '--branch', 'main'],
     expectSuccess: true,
-    verify: (output) => {
-      // Should contain either success or failure info, but not crash
-      const hasResult = output.includes('Pull completed') ||
-        output.includes('Job ID') ||
-        output.includes(' Activated ') ||
-        output.includes('Failed Objects') ||
-        output.includes('conflict');
-      const noCrash = !output.includes('Error:') || output.includes('Error:') && output.includes('Job');
-      return hasResult && noCrash;
-    }
+    verify: (output, { exitCode }) => exitCode === 0 && (
+      output.includes('Pull completed successfully!') ||
+      output.includes('Pull completed — object already active, nothing to activate.')
+    )
   },
 
   // ===================================================================
@@ -445,6 +464,30 @@ const commandTestCases = [
   },
   {
     command: 'view',
+    name: 'view behavior definition source',
+    args: ['--objects', 'ZR_ABGAGT_DRP_RAP', '--type', 'BDEF'],
+    expectSuccess: true,
+    verify: (output) => output.includes('define behavior for ZR_ABGAGT_DRP_RAP')
+      && output.includes('persistent table zabgagt_drp_tabl')
+  },
+  {
+    command: 'view',
+    name: 'view service definition source',
+    args: ['--objects', 'ZUI_ABGAGT_DRP_RAP', '--type', 'SRVD'],
+    expectSuccess: true,
+    verify: (output) => output.includes('define service ZUI_ABGAGT_DRP_RAP')
+      && output.includes('expose ZR_ABGAGT_DRP_RAP as RapDrop')
+  },
+  {
+    command: 'view',
+    name: 'view metadata extension source',
+    args: ['--objects', 'ZR_ABGAGT_DRP_RAP', '--type', 'DDLX'],
+    expectSuccess: true,
+    verify: (output) => output.includes('annotate entity ZR_ABGAGT_DRP_RAP')
+      && output.includes("@EndUserText.label: 'RAP Test ID'")
+  },
+  {
+    command: 'view',
     name: 'view class --full (clean source without line numbers)',
     args: ['--objects', 'ZCL_ABGAGT_AGENT', '--full'],
     expectSuccess: true,
@@ -635,6 +678,103 @@ const commandTestCases = [
   //   - FIXPT flag handling (2 tests)
   //   - FUGR / function groups (5 tests)
   // ===================================================================
+
+  // Native RAP source uses existing disposable drop-repository dependencies.
+  ...rapSyntaxObjects.map(([type, name, file]) => ({
+    command: 'syntax',
+    name: `syntax checks supplied ${type} source`,
+    args: ['--files', rapCloneSource(file), '--json'],
+    expectSuccess: true,
+    verify: (output, { exitCode }) => {
+      try {
+        const result = JSON.parse(output);
+        const object = result.RESULTS?.[0];
+        return exitCode === 0 && result.SUCCESS === true && result.RESULTS.length === 1 && object?.OBJECT_TYPE === type
+          && object.OBJECT_NAME === name && object.SUCCESS === true && object.ERROR_COUNT === 0;
+      } catch { return false; }
+    }
+  })),
+
+  // Negative cases submit invalid local text for the same valid active objects.
+  ...rapSyntaxObjects.map(([type, name, file]) => {
+    let inputDir;
+    let before;
+    const testCase = {
+      command: 'syntax',
+      name: `syntax rejects supplied ${type} source without changing active source`,
+      args: [],
+      expectSuccess: false,
+      setup: () => {
+        inputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abgagt-rap-syntax-'));
+        before = rapActiveSource(type, name);
+        const input = path.join(inputDir, file);
+        fs.writeFileSync(input, 'This is not valid RAP source.', { flag: 'wx' });
+        testCase.args = ['--files', input, '--json'];
+      },
+      verify: (output, { exitCode }) => {
+        try {
+          const result = JSON.parse(output);
+          const object = result.RESULTS?.[0];
+          return exitCode === 1 && result.SUCCESS === false && result.RESULTS.length === 1
+            && object?.OBJECT_TYPE === type && object.OBJECT_NAME === name && object.SUCCESS === false
+            && object.ERROR_COUNT > 0 && object.ERRORS?.length > 0 && rapActiveSource(type, name) === before;
+        } catch { return false; }
+      },
+      cleanup: () => {
+        if (inputDir) fs.rmSync(inputDir, { recursive: true, force: true });
+        inputDir = undefined;
+      }
+    };
+    return testCase;
+  }),
+  {
+    command: 'syntax',
+    name: 'syntax checks legacy SRVD source suffix',
+    args: [],
+    expectSuccess: true,
+    setup() {
+      rapLegacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abgagt-rap-syntax-'));
+      const input = path.join(rapLegacyDir, 'zui_abgagt_drp_rap.srvd.assrvd');
+      fs.copyFileSync(rapCloneSource('zui_abgagt_drp_rap.srvd.srvdsrv'), input, fs.constants.COPYFILE_EXCL);
+      this.args = ['--files', input, '--json'];
+    },
+    verify: (output, { exitCode }) => {
+      try {
+        const result = JSON.parse(output);
+        const object = result.RESULTS?.[0];
+        return exitCode === 0 && result.SUCCESS === true && result.RESULTS.length === 1
+          && object?.OBJECT_TYPE === 'SRVD' && object.OBJECT_NAME === 'ZUI_ABGAGT_DRP_RAP'
+          && object.SUCCESS === true && object.ERROR_COUNT === 0;
+      } catch { return false; }
+    },
+    cleanup: () => {
+      if (rapLegacyDir) fs.rmSync(rapLegacyDir, { recursive: true, force: true });
+      rapLegacyDir = undefined;
+    }
+  },
+  {
+    command: 'syntax',
+    name: 'syntax rejects RAP XML metadata as source',
+    args: [],
+    expectSuccess: false,
+    setup() {
+      rapXmlDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abgagt-rap-syntax-'));
+      const input = path.join(rapXmlDir, 'zr_abgagt_drp_rap.bdef.xml');
+      fs.writeFileSync(input, '<BDEF/>', { flag: 'wx' });
+      this.args = ['--files', input, '--json'];
+    },
+    verify: (output, { exitCode }) => {
+      try {
+        const result = JSON.parse(output);
+        return exitCode === 1 && result.success === false && result.results?.length === 0
+          && /^Invalid RAP syntax source:/.test(result.message);
+      } catch { return false; }
+    },
+    cleanup: () => {
+      if (rapXmlDir) fs.rmSync(rapXmlDir, { recursive: true, force: true });
+      rapXmlDir = undefined;
+    }
+  },
 
   // Basic syntax validation
   {
@@ -1669,11 +1809,10 @@ ENDCLASS.`;
     name: 'upgrade --version (invalid version shows error)',
     args: ['--version', '99.99.99', '--cli-only', '--dry-run'],
     expectSuccess: false,
-    verify: (output) => {
-      // Should reject invalid version with helpful error
-      const hasError = output.includes('not found in npm registry');
-      const hasLink = output.includes('npmjs.com');
-      return hasError && hasLink;
+    verify: (output, { exitCode, stderr }) => {
+      const diagnostic = output + stderr;
+      return exitCode === 1 && diagnostic.includes('Version 99.99.99 not found in npm registry')
+        && diagnostic.includes('https://www.npmjs.com/package/abapgit-agent?activeTab=versions');
     }
   },
   {

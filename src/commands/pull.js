@@ -3,6 +3,7 @@
  */
 
 const { printHttpError } = require('../utils/format-error');
+const { isRapObjectFile, parseObjectFromFile } = require('../utils/validators');
 const { pollForCompletion, displayProgress } = require('../utils/backgroundJobPoller');
 const fs = require('fs');
 const pathModule = require('path');
@@ -143,6 +144,7 @@ Examples:
         return parts.length === 3 && parts[0].length > 0 && parts[2].toLowerCase() === 'xml';
       };
       const nonSourceFiles = files.filter(f => {
+        if (isRapObjectFile(f)) return !parseObjectFromFile(f) || /\.xml$/i.test(f);
         const base = f.split('/').pop(); // strip directory
         const parts = base.split('.');
         const ext = parts[parts.length - 1].toLowerCase();
@@ -151,9 +153,10 @@ Examples:
         return true;                                   // everything else — invalid
       });
       if (nonSourceFiles.length > 0) {
-        console.error('❌ Error: --files only accepts ABAP source files (.abap, .asddls, .asdcls) or XML-only object files (name.type.xml).');
+        console.error('❌ Error: --files accepts ABAP source files, native RAP source files, or non-RAP XML-only objects.');
         console.error('   The following file(s) are not recognised:');
         nonSourceFiles.forEach(f => console.error(`     ${f}`));
+        console.error('   For RAP objects select the native .asbdef, .srvdsrv/.assrvd, or .asddlxs source; RAP XML-only selection is unsafe.');
         console.error('   Tip: for source objects pass the .abap file (e.g. zcl_foo.clas.abap or zcl_foo.enho.28bbfe2f.abap);');
         console.error('   for XML-only objects (TABL, STRU, DTEL, TTYP) or enhancement metadata,');
         console.error('   pass the .xml file, e.g. --files abap/ztable.tabl.xml or abap/zfoo.enho.xml');
@@ -384,25 +387,20 @@ Examples:
       const missingAbapgitXml = fs.existsSync(pathModule.join(process.cwd(), '.git')) &&
           !fs.existsSync(pathModule.join(process.cwd(), '.abapgit.xml'));
 
-      // JSON output mode
-      if (jsonOutput) {
-        if (missingAbapgitXml) {
-          result.missing_abapgit_xml = true;
-        }
-        console.log(JSON.stringify(result, null, 2));
-        return result;
+      if (jsonOutput && missingAbapgitXml) {
+        result.missing_abapgit_xml = true;
       }
 
-      if (missingAbapgitXml) {
+      if (missingAbapgitXml && !jsonOutput) {
         console.warn('⚠️  .abapgit.xml not found in repository root.');
         console.warn('   Pull may return ACTIVATED_COUNT=0 if the ABAP-side starting_folder is wrong.');
         console.warn('   Run: abapgit-agent init --package <PACKAGE> to create it.\n');
       }
 
-      console.log('\n');
+      if (!jsonOutput) console.log('\n');
 
       // Display raw result for debugging
-      if (process.env.DEBUG) {
+      if (process.env.DEBUG && !jsonOutput) {
         console.log('Raw result:', JSON.stringify(result, null, 2));
       }
 
@@ -422,14 +420,18 @@ Examples:
 
       // --- Conflict report (pull was aborted) ---
       if (conflictCount > 0 && conflictReport) {
-        console.error(`⚠️  Pull aborted — ${conflictCount} conflict(s) detected\n`);
-        console.error('─'.repeat(TERM_WIDTH));
-        console.error(conflictReport.replace(/\\n/g, '\n'));
+        if (!jsonOutput) {
+          console.error(`⚠️  Pull aborted — ${conflictCount} conflict(s) detected\n`);
+          console.error('─'.repeat(TERM_WIDTH));
+          console.error(conflictReport.replace(/\\n/g, '\n'));
+        }
         const err = new Error(message || `Pull aborted — ${conflictCount} conflict(s) detected`);
         err._isPullError = true;
+        err._pullResult = result;
         throw err;
       }
 
+      if (!jsonOutput) {
       // Icon mapping for message types
       const getIcon = (type) => {
         const icons = {
@@ -576,6 +578,8 @@ Examples:
         console.log(`\n❌ Failed Objects Log (${failedCount})`);
       }
 
+      }
+
       // Throw if pull was not successful so callers (e.g. upgrade) can detect failure.
       // Exception: SUCCESS='' with no failures and no log = object already active, not a real error.
       const alreadyActive = failedCount === 0 && failedObjects.length === 0 &&
@@ -584,6 +588,7 @@ Examples:
       if (success !== 'X' && success !== true && !alreadyActive) {
         const err = new Error(message || 'Pull completed with errors');
         err._isPullError = true;
+        err._pullResult = result;
         throw err;
       }
 
@@ -606,13 +611,19 @@ Examples:
           }
         }
 
-        if (diffFiles.length > 0 && !syncXml) {
+        if (diffFiles.length > 0 && !syncXml && !jsonOutput) {
           console.log(`\n⚠️  ${diffFiles.length} XML file(s) differ from serializer output:`);
           for (const f of diffFiles) console.log(`   ${f.relPath}`);
           console.log(`   Run with --sync-xml to accept serializer output and amend the last commit`);
         } else if (diffFiles.length > 0 && syncXml) {
-          console.log(`\n🔄 Syncing ${diffFiles.length} XML file(s) to match serializer output:`);
-          for (const f of diffFiles) console.log(`   ${f.relPath}`);
+          const hasOrigin = execSync('git remote', { cwd: process.cwd(), stdio: 'pipe' })
+            .toString().trim().split(/\s+/).includes('origin');
+          const remoteRefExists = hasOrigin && execSync(`git ls-remote origin "refs/heads/${branch}"`,
+            { cwd: process.cwd(), stdio: 'pipe' }).toString().trim().length > 0;
+          if (!jsonOutput) {
+            console.log(`\n🔄 Syncing ${diffFiles.length} XML file(s) to match serializer output:`);
+            for (const f of diffFiles) console.log(`   ${f.relPath}`);
+          }
 
           // 1. Write serializer XML to disk
           for (const f of diffFiles) fs.writeFileSync(f.absPath, f.incoming);
@@ -624,18 +635,8 @@ Examples:
           // 3. Capture pre-amend SHA before amending (used for --force-with-lease below)
           const preAmendSha = execSync('git rev-parse HEAD', { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
 
-          // 3b. Check whether origin/<branch> already exists on the remote.
-          //     Use git ls-remote rather than rev-parse origin/<branch> because the local
-          //     remote-tracking ref may not exist even when the branch is on the remote
-          //     (e.g. after a push that only wrote branch config but not refs/remotes/).
-          let remoteRefExists = false;
-          try {
-            const lsOut = execSync(`git ls-remote origin "refs/heads/${branch}"`, { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
-            remoteRefExists = lsOut.length > 0;
-          } catch (_) { /* cannot reach remote — treat as new branch */ }
-
           // 4. Amend last commit
-          execSync('git commit --amend --no-edit', { cwd: process.cwd() });
+          execSync('git commit --amend --no-edit --allow-empty', { cwd: process.cwd() });
 
           // 5. Push with force-with-lease using the pre-amend SHA as the expected remote value.
           //    Using --force-with-lease=<refname>:<sha> tells git: "the remote must have exactly
@@ -643,9 +644,8 @@ Examples:
           //    Plain --force-with-lease (no sha) re-checks the tracking ref which was just updated
           //    by git fetch, making it always fail after an amend.
           let pushed = false;
-          try {
+          if (hasOrigin) {
             // Retry the push up to 3 times on transient server errors (e.g. GitHub Enterprise 500)
-            let pushErr;
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 // If origin/<branch> exists: use --force-with-lease=branch:preAmendSha so we only
@@ -658,7 +658,6 @@ Examples:
                 pushed = true;
                 break;
               } catch (err) {
-                pushErr = err;
                 const msg = (err.stderr || err.stdout || err.message || '').toString();
                 const transient = /internal server error|remote rejected|\b5\d\d\b|connection reset|timed? ?out/i.test(msg);
                 if (attempt < 3 && transient) {
@@ -668,16 +667,14 @@ Examples:
                 throw err;
               }
             }
-          } catch (pushErr) {
-            // Any push error (no remote, auth failure, etc.) → skip silently
           }
 
           if (pushed) {
-            console.log(`   Re-pulling so ABAP system matches the amended commit...`);
+            if (!jsonOutput) console.log(`   Re-pulling so ABAP system matches the amended commit...`);
             // 5. Re-pull so ABAP system matches the amended commit (no sync loop)
             await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, gitCredentials, conflictMode, verbose, false, true);
-            console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit, re-pulled`);
-          } else {
+            if (!jsonOutput) console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit, re-pulled`);
+          } else if (!jsonOutput) {
             // No remote at all — files are written and committed locally
             console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit`);
             console.log(`   Push skipped (no remote). Push manually to sync with remote.`);
@@ -685,8 +682,16 @@ Examples:
         }
       }
 
+      if (jsonOutput && !isRepull) console.log(JSON.stringify(result, null, 2));
       return result;
     } catch (error) {
+      if (jsonOutput) {
+        if (isRepull) throw error;
+        const result = error._pullResult || { success: false, message: error.message };
+        console.log(JSON.stringify(result, null, 2));
+        process.exitCode = 1;
+        return result;
+      }
       if (error._isPullError) {
         throw error;
       }

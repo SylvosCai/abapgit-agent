@@ -25,7 +25,7 @@
  *   npm run test:debug:scenarios  # Debug scenarios only (REPL + scripted AI + variable inspection)
  */
 
-const { execSync, spawn } = require('child_process');
+const { execSync, spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
@@ -304,7 +304,7 @@ let skipRemainingPauses = false;
 
 function pause(message = '  Press any key to continue (or "a" to skip all)...') {
   // If already set to skip, resolve immediately
-  if (skipRemainingPauses) {
+  if (skipRemainingPauses || !process.stdin.isTTY) {
     return Promise.resolve();
   }
 
@@ -364,6 +364,8 @@ function runDemoCommand(command, testName, verify, shouldPause = true) {
     });
 
     let output = '';
+    let stderr = '';
+    let spawnFailed = false;
 
     child.stdout.on('data', (data) => {
       const text = data.toString();
@@ -374,18 +376,21 @@ function runDemoCommand(command, testName, verify, shouldPause = true) {
     child.stderr.on('data', (data) => {
       const text = data.toString();
       process.stderr.write(text);
-      output += text;
+      stderr += text;
     });
 
-    child.on('close', async (code) => {
+    child.on('close', async (code, signal) => {
+      if (spawnFailed) return;
       console.log(''); // Add newline after output
 
       // Verify result
       let commandPassed = false;
-      if (verify) {
-        commandPassed = verify(output);
-      } else {
-        commandPassed = code === 0;
+      try {
+        commandPassed = !signal && Number.isInteger(code) && (verify
+          ? Boolean(verify(output, { exitCode: code, stderr }))
+          : code === 0);
+      } catch (error) {
+        stderr += error.message;
       }
 
       // Print result
@@ -400,10 +405,11 @@ function runDemoCommand(command, testName, verify, shouldPause = true) {
         await pause();
       }
 
-      resolve({ passed: commandPassed, output });
+      resolve({ passed: commandPassed, output: commandPassed ? output : output + stderr });
     });
 
     child.on('error', async (error) => {
+      spawnFailed = true;
       console.error(colorize('red', `  ❌ ERROR: ${error.message}`));
       if (shouldPause) {
         await pause();
@@ -420,9 +426,19 @@ async function runDemoCommandTests(testCases, startTime) {
   const results = [];
 
   for (const testCase of testCases) {
-    const command = [testCase.run || testCase.command, ...testCase.args].join(' ');
-
-    const result = await runDemoCommand(command, testCase.name, testCase.verify);
+    let result = { passed: false, output: '' };
+    try {
+      if (testCase.setup) testCase.setup();
+      const command = [testCase.run || testCase.command, ...testCase.args].join(' ');
+      result = await runDemoCommand(command, testCase.name, testCase.verify);
+    } catch (error) {
+      result.output = error.message;
+    } finally {
+      if (testCase.cleanup) {
+        try { testCase.cleanup(); }
+        catch (error) { result.passed = false; result.output += `\nCleanup failed: ${error.message}`; }
+      }
+    }
     results.push({ ...testCase, passed: result.passed, output: result.output.substring(0, 200) });
   }
 
@@ -504,14 +520,22 @@ function runCommandTests(demoMode = false, commandFilter = null) {
       const args = [testCase.run || testCase.command, ...testCase.args];
       const execCwd = testCase.cwd || repoRoot;
       const agentBin = path.join(repoRoot, 'bin', 'abapgit-agent');
-      output = execSync(
-        `node ${agentBin} ${args.join(' ')}`,
-        { cwd: execCwd, encoding: 'utf8', timeout: 120000 }
-      );
+      const execution = spawnSync(`node ${agentBin} ${args.join(' ')}`, {
+        shell: true, cwd: execCwd, encoding: 'utf8', timeout: 120000
+      });
+      if (execution.error) throw execution.error;
+      if (execution.signal || !Number.isInteger(execution.status)) {
+        throw new Error(`Command terminated: ${execution.signal || 'no exit status'}`);
+      }
+      output = String(execution.stdout || '');
+      const stderr = String(execution.stderr || '');
+      const exitCode = execution.status;
 
-      // Run custom verification if provided
+      // A nonzero exit still needs the case's diagnostic verification.
       if (testCase.verify) {
-        commandPassed = testCase.verify(output);
+        commandPassed = Boolean(testCase.verify(output, { exitCode, stderr }));
+      } else if (exitCode !== 0) {
+        commandPassed = !testCase.expectSuccess;
       } else {
         // Fallback to basic pattern matching
         const successPatterns = [
@@ -532,17 +556,18 @@ function runCommandTests(demoMode = false, commandFilter = null) {
           ? successPatterns.some(p => output.includes(p) || output.toLowerCase().includes(p.toLowerCase()))
           : output.toLowerCase().includes('failed') || output.toLowerCase().includes('error');
       }
+      if (!commandPassed && stderr) output += `\n${stderr}`;
     } catch (error) {
-      output = error.stdout || error.message;
-      // If command crashed, it's a failure (unless we expect failure)
-      commandPassed = !testCase.expectSuccess;
+      output = String(error.stdout || error.message);
+      commandPassed = false;
     } finally {
       // Run cleanup if provided
       if (testCase.cleanup) {
         try {
           testCase.cleanup();
         } catch (cleanupError) {
-          // Ignore cleanup errors
+          commandPassed = false;
+          output += `\nCleanup failed: ${cleanupError.message}`;
         }
       }
     }
@@ -920,4 +945,5 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) main();
+module.exports = { runCommandTests, runDemoCommand, runDemoCommandTests };

@@ -3,6 +3,7 @@
  */
 
 const { printHttpError } = require('../utils/format-error');
+const { isRapObjectFile, parseObjectFromFile } = require('../utils/validators');
 
 // Map file extension (second-to-last part) to ABAP object type label
 const EXT_TO_TYPE = {
@@ -17,6 +18,7 @@ const EXT_TO_TYPE = {
  * e.g. "abap/zcl_foo.clas.abap" → { name: "ZCL_FOO", type: "CLAS" }
  */
 function objectFromFile(filePath) {
+  if (isRapObjectFile(filePath)) return parseObjectFromFile(filePath);
   const base = filePath.split('/').pop();
   const parts = base.split('.');
   if (parts.length < 3) return null;
@@ -56,6 +58,7 @@ Parameters:
                           The file must exist on disk.
   --transport <TRANSPORT> Transport request (e.g. DEVK900001). Optional.
   --pull                  Re-activate the object via pull after deletion.
+                          For RAP, select the native source, not XML.
   --conflict-mode <mode>  Conflict mode for --pull: abort (default) or ignore.
 
 Examples:
@@ -92,12 +95,20 @@ Examples:
     const lastExt = parts[parts.length - 1].toLowerCase();
     const ABAP_SOURCE_EXTS = new Set(['abap', 'asddls', 'asdcls']);
     const isXmlOnlyObject = parts.length === 3 && parts[0].length > 0 && lastExt === 'xml';
-    if (!ABAP_SOURCE_EXTS.has(lastExt) && !isXmlOnlyObject) {
-      console.error('❌ Error: --files must be an ABAP source file (.abap, .asddls, .asdcls) or an XML-only object file (name.type.xml).');
+    const validFile = isRapObjectFile(filePath)
+      ? !!parseObjectFromFile(filePath)
+      : ABAP_SOURCE_EXTS.has(lastExt) || isXmlOnlyObject;
+    if (!validFile) {
+      console.error('❌ Error: --files must be an ABAP source file (.abap, .asddls, .asdcls), a RAP source file (.bdef.asbdef, .srvd.srvdsrv/.assrvd, .ddlx.asddlxs), or an XML-only object file (name.type.xml).');
       process.exit(1);
     }
 
     const obj = objectFromFile(filePath);
+
+    if (doPull && isRapObjectFile(filePath) && lastExt === 'xml') {
+      console.error('❌ Error: RAP drop --pull requires the native source file, not its XML companion. No object was deleted.');
+      process.exit(1);
+    }
 
     if (obj && obj.type === 'DTEL') {
       console.error(`❌ drop does not support DTEL objects.`);

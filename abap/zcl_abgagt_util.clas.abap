@@ -23,16 +23,66 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
     " 4-part pattern: "zcl_foo.enho.28bbfe2f.abap"     -> ENHO, ZCL_FOO
     "                 (hash middle segment is discarded; only obj_type+obj_name needed)
 
-    DATA(lv_upper) = iv_file.
-    TRANSLATE lv_upper TO UPPER CASE.
+    CLEAR: ev_obj_type, ev_obj_name.
+    DATA(lv_upper) = to_upper( iv_file ).
+    REPLACE ALL OCCURRENCES OF '\' IN lv_upper WITH '/'.
+    DATA(lv_path_offset) = find( val = reverse( lv_upper ) sub = '/' ).
+    IF lv_path_offset >= 0.
+      lv_path_offset = strlen( lv_upper ) - lv_path_offset.
+      lv_upper = lv_upper+lv_path_offset.
+    ENDIF.
 
-    " Split filename by '.' to get parts
-    DATA lt_parts TYPE TABLE OF string.
+    DATA lt_parts TYPE STANDARD TABLE OF string WITH EMPTY KEY.
     SPLIT lv_upper AT '.' INTO TABLE lt_parts.
-
     DATA(lv_part_count) = lines( lt_parts ).
-
     DATA lv_obj_name TYPE string.
+
+    DATA(lv_type_hint) = VALUE string( lt_parts[ 2 ] OPTIONAL ).
+    DATA(lv_ext_hint) = VALUE string( lt_parts[ lv_part_count ] OPTIONAL ).
+    IF lv_type_hint = 'BDEF' OR lv_type_hint = 'SRVD' OR lv_type_hint = 'DDLX'
+       OR lv_ext_hint = 'ASBDEF' OR lv_ext_hint = 'SRVDSRV'
+       OR lv_ext_hint = 'ASSRVD' OR lv_ext_hint = 'ASDDLXS'.
+      IF lv_part_count <> 3.
+        RETURN.
+      ENDIF.
+      CASE lv_type_hint.
+        WHEN 'BDEF'.
+          IF lv_ext_hint <> 'ASBDEF' AND lv_ext_hint <> 'XML'.
+            RETURN.
+          ENDIF.
+        WHEN 'SRVD'.
+          IF lv_ext_hint <> 'SRVDSRV' AND lv_ext_hint <> 'ASSRVD' AND lv_ext_hint <> 'XML'.
+            RETURN.
+          ENDIF.
+        WHEN 'DDLX'.
+          IF lv_ext_hint <> 'ASDDLXS' AND lv_ext_hint <> 'XML'.
+            RETURN.
+          ENDIF.
+        WHEN OTHERS.
+          RETURN.
+      ENDCASE.
+      lv_obj_name = lt_parts[ 1 ].
+      IF lv_obj_name IS INITIAL OR lv_obj_name CN 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_#'.
+        RETURN.
+      ENDIF.
+      IF lv_obj_name CS '#'.
+        DATA lt_name_parts TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+        SPLIT lv_obj_name AT '#' INTO TABLE lt_name_parts.
+        IF lines( lt_name_parts ) <> 3.
+          RETURN.
+        ENDIF.
+        IF lt_name_parts[ 1 ] IS NOT INITIAL OR lt_name_parts[ 2 ] IS INITIAL OR lt_name_parts[ 3 ] IS INITIAL.
+          RETURN.
+        ENDIF.
+        REPLACE ALL OCCURRENCES OF '#' IN lv_obj_name WITH '/'.
+      ENDIF.
+      IF strlen( lv_obj_name ) > 30.
+        RETURN.
+      ENDIF.
+      ev_obj_type = lv_type_hint.
+      ev_obj_name = lv_obj_name.
+      RETURN.
+    ENDIF.
 
     IF lv_part_count = 4.
       " 4-part patterns:
@@ -91,22 +141,13 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Extract file name from obj_name (remove path prefix)
-
-    DATA(lv_len) = strlen( lv_obj_name ).
-
-    DATA(lv_offs) = find( val = reverse( lv_obj_name ) sub = '/' ).
-    IF lv_offs > 0.
-      lv_offs = lv_len - lv_offs - 1.
-      lv_obj_name = lv_obj_name+lv_offs.
+    IF lv_obj_name IS INITIAL.
+      CLEAR ev_obj_type.
+      RETURN.
     ENDIF.
 
-    " Remove leading '/' if present
-    CHECK lv_obj_name IS NOT INITIAL.
-    IF lv_obj_name(1) = '/'.
-      lv_obj_name = lv_obj_name+1.
-    ENDIF.
-
+    " abapGit encodes classic namespaces with '#'.
+    REPLACE ALL OCCURRENCES OF '#' IN lv_obj_name WITH '/'.
     ev_obj_name = lv_obj_name.
   ENDMETHOD.
 
@@ -397,6 +438,18 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       WHERE obj_name = lv_obj_name
         AND object IN ('CLAS', 'INTF', 'TABL', 'DTEL', 'STRU', 'TTYP', 'DDLS', 'PROG', 'STOB', 'ENHO').
 
+    IF sy-subrc <> 0.
+      SELECT object AS obj_type, obj_name, devclass FROM tadir
+        WHERE pgmid = 'R3TR' AND obj_name = @lv_obj_name
+          AND object IN ( 'BDEF', 'SRVD', 'DDLX' )
+        ORDER BY object
+        INTO TABLE @DATA(lt_matches)
+        UP TO 1 ROWS.
+      IF lt_matches IS NOT INITIAL.
+        rs_info = CORRESPONDING #( lt_matches[ 1 ] ).
+      ENDIF.
+    ENDIF.
+
     CASE rs_info-obj_type.
       WHEN 'CLAS'. rs_info-type_text = 'Class'.
       WHEN 'INTF'. rs_info-type_text = 'Interface'.
@@ -408,6 +461,9 @@ CLASS zcl_abgagt_util IMPLEMENTATION.
       WHEN 'PROG'. rs_info-type_text = 'Program'.
       WHEN 'STOB'. rs_info-type_text = 'Structured Object'.
       WHEN 'ENHO'. rs_info-type_text = 'Enhancement'.
+      WHEN 'BDEF'. rs_info-type_text = 'Behavior Definition'.
+      WHEN 'SRVD'. rs_info-type_text = 'Service Definition'.
+      WHEN 'DDLX'. rs_info-type_text = 'CDS Metadata Extension'.
     ENDCASE.
   ENDMETHOD.
 ENDCLASS.

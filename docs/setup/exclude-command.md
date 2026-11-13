@@ -60,7 +60,9 @@ excludes every file under `src/aud_legacy/`.
 **`unsupportedTypes: true`** — automatically excludes any file whose object type (the middle
 dot-segment of the filename, e.g. `badi` in `zfoo.badi.xml`) is not in the set of types
 supported by abapgit-agent: CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS,
-MSAG, STRU, ENHO, SUSO, PINF. Use this after `import` to remove all types abapGit cannot activate.
+MSAG, STRU, ENHO, SUSO, PINF, BDEF, SRVD, DDLX. This is the agent-supported-type
+filter, not a claim that upstream abapGit cannot activate other types. Native RAP
+source/XML pairs are recognized; explicit patterns can still exclude them.
 
 **`patterns`** — explicit glob patterns. Two styles, distinguished by whether the
 pattern contains a forward slash:

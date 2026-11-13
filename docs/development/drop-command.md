@@ -50,9 +50,20 @@ Use `drop` when an ABAP object is in a broken or inconsistent state that prevent
 | `abap/zmy_msag.msag.xml` | MSAG ZMY_MSAG | ✅ |
 | `abap/zc_view.ddls.xml` | DDLS ZC_VIEW | ✅ |
 | `abap/zc_view.dcls.xml` | DCLS ZC_VIEW | ✅ |
+| `abap/zr_my_bo.bdef.asbdef` or `.bdef.xml` | BDEF ZR_MY_BO | ✅ |
+| `abap/zui_my_service.srvd.srvdsrv` (legacy `.srvd.assrvd`) or `.srvd.xml` | SRVD ZUI_MY_SERVICE | ✅ |
+| `abap/zr_my_annotations.ddlx.asddlxs` or `.ddlx.xml` | DDLX ZR_MY_ANNOTATIONS | ✅ |
 | `abap/zmy_elem.dtel.xml` | DTEL ZMY_ELEM | ❌ Not supported |
 
-The file must exist locally — this ensures the object can be re-pulled after deletion.
+The file must exist locally. RAP source/metadata pairs must have a valid matching identity; deletion affects one object, not its dependencies or implementation CLAS.
+
+For an explicitly authorized RAP round trip, use native source:
+
+```bash
+abapgit-agent drop --files src/zr_my_bo.bdef.asbdef --pull
+```
+
+Native RAP round trips were exercised. XML identity is accepted for standalone deletion, but RAP XML with `--pull` is rejected **before deletion**: re-pulling requires the native source selector so conflict baselines track source, not XML metadata. Check committed source/metadata and dependencies before any deletion; round trips are not atomic.
 
 > **DTEL not supported:** After deleting a data element with `RS_DD_DELETE_OBJ`, SAP's CBDA
 > in-memory activation engine cannot re-activate it (`act_rc=8`). To fix a data element,
@@ -129,4 +140,4 @@ abapgit-agent drop --files abap/zcl_foo.clas.abap --pull
 
 - [`pull`](pull-command.md) — Activate objects from git
 - [`inspect`](inspect-command.md) — Run Code Inspector checks on activated objects
-- [`delete`](delete-command.md) — Remove the entire abapGit repository link (not a single object)
+- [`delete`](../setup/delete-command.md) — Remove the entire abapGit repository link (not a single object)

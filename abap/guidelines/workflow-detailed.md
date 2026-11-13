@@ -18,15 +18,15 @@ grand_parent: ABAP Development
 3. Write code → place in correct folder (e.g., src/zcl_*.clas.abap)
        │
        ▼
-4. Syntax check (for CLAS, INTF, PROG, DDLS, ENHO only)
+4. Syntax check (CLAS, INTF, PROG, DDLS, DCLS, FUGR, ENHO, BDEF, SRVD, DDLX)
        │
-       ├─► CLAS/INTF/PROG/DDLS/ENHO → abapgit-agent syntax --files <file>
+       ├─► Supported source types → abapgit-agent syntax --files <native source>
        │       │
        │       ├─► Errors? → Fix locally (no commit needed), re-run syntax
        │       │
        │       └─► Clean ✅ → Proceed to 4b
        │
-       └─► Other types (FUGR, TABL, etc.) → Skip syntax, go to 4b
+       └─► Other types (TABL, etc.) → Skip syntax, go to 4b
                │
                ▼
 4b. abaplint (OPTIONAL — only if .abaplint.json exists in repo root)
@@ -68,13 +68,16 @@ grand_parent: ABAP Development
 | PROG (programs) | ✅ Supported | Run `syntax` before commit |
 | DDLS (CDS views) | ✅ Supported | Run `syntax` before commit (requires annotations) |
 | ENHO (enhancements) | ✅ Supported | Run `syntax` before commit (basic errors only — no target class context) |
-| FUGR (function groups) | ❌ Not supported | Skip syntax, use `pull` then `inspect` |
+| FUGR (function groups) | ✅ Supported | Check native FM source |
+| DCLS (access controls) | ✅ Supported | Requires active target DDLS |
+| BDEF / SRVD / DDLX | ✅ Native SAP checks | Use native source, prepare dependencies; no save/activation |
 | TABL/DTEL/DOMA/MSAG/SHLP | ❌ Not supported | Skip syntax, just `pull` |
 | All other types | ❌ Not supported | Skip syntax, just `pull` |
 
 **IMPORTANT**:
-- **Use `syntax` BEFORE commit** for CLAS/INTF/PROG/DDLS - catches errors early, no git pollution
-- **Syntax checks files INDEPENDENTLY** - syntax checker doesn't have access to uncommitted files
+- **Use `syntax` BEFORE commit** for supported source types, including BDEF/SRVD/DDLX — catches errors early, no git pollution
+- **RAP workflow**: prepare referenced DDLS/persistence first; check native source, lint BDEF/DDLX if configured, commit/push and selectively pull native source. SRVD has no abaplint source parser. Never keep both `.srvd.srvdsrv` and legacy `.srvd.assrvd` for one object. BDEF implementation CLAS and its tests are separate; dependencies are not auto-selected.
+- **Dependency context** — supplied source and applicable class companions are checked in memory; other uncommitted object definitions are not treated as activated dependencies.
 - **For dependent files** (interface + class): Create/activate underlying object FIRST, then dependent object (see workflow below)
 - **DDLS requires proper annotations** - CDS views need `@AbapCatalog.sqlViewName`, view entities don't
 - **ALWAYS push to git BEFORE running pull** - abapGit reads from git
@@ -136,7 +139,7 @@ abapgit-agent inspect --files src/zcl_my_class.clas.abap
 
 **Working with mixed file types:**
 When modifying multiple files of different types (e.g., 1 class + 1 CDS view):
-1. Run `syntax` on independent supported files (CLAS, INTF, PROG, DDLS)
+1. Run `syntax` on independent supported sources, including native BDEF/SRVD/DDLX; prepare dependencies first
 2. Commit ALL files together (including unsupported types)
 3. Push and pull ALL files together
 
@@ -155,9 +158,9 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
 ```
 
 **When to use syntax vs abaplint vs inspect vs view**:
-- **syntax**: Check LOCAL ABAP syntax BEFORE commit (CLAS, INTF, PROG, DDLS)
-- **abaplint**: Check LOCAL code style/quality BEFORE commit (only if .abaplint.json present)
-- **inspect**: Check ACTIVATED code AFTER pull (all types, runs Code Inspector)
+- **syntax**: Check LOCAL source BEFORE commit (CLAS, INTF, PROG, DDLS, DCLS, FUGR, ENHO, BDEF, SRVD, DDLX)
+- **abaplint**: Check LOCAL style/parser rules BEFORE commit (configured ABAP/DDLS/BDEF/DDLX; not SRVD)
+- **inspect**: Check ACTIVATED objects AFTER pull using the configured SCI variant; recognized types and zero findings do not prove checks ran
 - **view**: Understand object STRUCTURE (not for debugging errors)
 
 ### Quick Decision Tree for AI
@@ -171,6 +174,8 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
    ├─ .prog.abap → PROG ✅ syntax supported
    ├─ .ddls.asddls → DDLS ✅ syntax supported (requires proper annotations)
    ├─ .enho.<hash>.abap → ENHO ✅ syntax supported (basic errors; no target class context)
+   ├─ .bdef.asbdef / .srvd.srvdsrv / .srvd.assrvd / .ddlx.asddlxs → native RAP syntax; prepare dependencies
+   ├─ .dcls.asdcls / .fugr.<fm>.abap → syntax supported
    └─ All other extensions → ❌ syntax not supported
 
 2. Check for dependencies:
@@ -179,7 +184,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
    ├─ CDS view uses table? → INDEPENDENT (table already exists)
    └─ Unrelated bug fixes across files? → INDEPENDENT
 
-3. For SUPPORTED types (CLAS/INTF/PROG/DDLS/ENHO):
+3. For SUPPORTED types (CLAS/INTF/PROG/DDLS/DCLS/FUGR/ENHO/BDEF/SRVD/DDLX):
    ├─ INDEPENDENT files → Run syntax → [abaplint if enabled] → Fix errors → Commit → Push → Pull --sync-xml
    │
    └─ DEPENDENT files (NEW objects):
@@ -191,7 +196,7 @@ abapgit-agent pull --files src/zcl_my_class.clas.abap,src/zc_my_view.ddls.asddls
        └─ ALTERNATIVE: If interface design uncertain, commit both together
            → Skip syntax → [abaplint] → Commit both → Push → Pull --sync-xml → (if errors: inspect)
 
-4. For UNSUPPORTED types (FUGR, TABL, etc.):
+4. For UNSUPPORTED types (TABL, etc.):
    Write code → Skip syntax → [abaplint] → Commit → Push → Pull --sync-xml → (if errors: inspect)
 
 5. For MIXED types (some supported + some unsupported):
@@ -236,7 +241,7 @@ abapgit-agent pull --files src/zcl_class1.clas.abap,src/zcl_class2.clas.abap --s
 ### Commands
 
 ```bash
-# 1. Syntax check LOCAL code BEFORE commit (CLAS, INTF, PROG, DDLS)
+# 1. Syntax check LOCAL source BEFORE commit (supported types, including BDEF/SRVD/DDLX)
 abapgit-agent syntax --files src/zcl_my_class.clas.abap
 abapgit-agent syntax --files src/zc_my_view.ddls.asddls
 abapgit-agent syntax --files src/zcl_class1.clas.abap,src/zif_intf1.intf.abap,src/zc_view.ddls.asddls

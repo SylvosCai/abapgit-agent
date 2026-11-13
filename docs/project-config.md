@@ -215,7 +215,7 @@ Controls which files should be excluded from git tracking and filtered from `pul
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `patterns` | string[] | `[]` | Glob patterns. **Without `/`** → matched against file basenames. **With `/`** → matched against the full relative path. Use `**` for cross-segment paths. Case-insensitive. |
-| `unsupportedTypes` | boolean | `false` | Auto-exclude all files whose object type is not supported by abapgit-agent (CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS, MSAG, STRU, ENHO, SUSO, PINF). Useful after `import` to remove types abapGit cannot activate. |
+| `unsupportedTypes` | boolean | `false` | Auto-exclude files outside the agent-supported type set (CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DOMA, DDLS, DCLS, MSAG, STRU, ENHO, SUSO, PINF, BDEF, SRVD, DDLX). This is an agent filtering policy, not a statement that upstream abapGit cannot activate other types. Recognized RAP source/XML pairs remain eligible unless explicit patterns exclude them. |
 
 ```json
 "exclude": {

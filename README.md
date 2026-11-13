@@ -18,6 +18,18 @@ This project provides a bridge between AI coding tools and your ABAP system:
 
 [![Using abapgit-agent in Claude Code](https://img.youtube.com/vi/OkGlOsnXB4o/maxresdefault.jpg?v=2)](https://www.youtube.com/watch?v=OkGlOsnXB4o)
 
+## RAP Source Support
+
+BDEF behavior definitions, SRVD service definitions and DDLX metadata extensions support native import/pull/drop/view and SAP supplied-source syntax checks. BDEF/DDLX also support abaplint parser checks; SRVD does not. This is not full RAP or service-binding publication support. Matching CLI/backend support is required; see the [command support matrix and file formats](docs/commands.md#rap-source-support).
+
+```bash
+abapgit-agent syntax --files src/zr_my_bo.bdef.asbdef
+# After committing/pushing, selectively activate the native source:
+abapgit-agent pull --files src/zr_my_bo.bdef.asbdef
+```
+
+Prepare dependencies separately; a BDEF selector does not automatically select its behavior implementation CLAS.
+
 ## Quick Start
 
 ### For Existing Repositories

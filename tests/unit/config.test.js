@@ -632,6 +632,33 @@ describe('Config', () => {
       expect(getUnsupportedTypesFlag()).toBe(true);
     });
 
+    test.each([
+      'zrap.bdef.asbdef', 'zrap.bdef.xml', 'zrap.srvd.srvdsrv',
+      'zrap.srvd.assrvd', 'zrap.srvd.xml', 'zrap.ddlx.asddlxs', 'zrap.ddlx.xml'
+    ])('recognizes RAP source/metadata %s without changing explicit exclusions', file => {
+      const { isUnsupportedType, isExcluded } = require('../../src/config');
+      expect(isUnsupportedType(`src.v2/${file.toUpperCase()}`)).toBe(false);
+      expect(isExcluded(`src/${file}`, ['*.bdef.*'])).toBe(file.includes('.bdef.'));
+    });
+
+    test.each(['asbdef', 'srvdsrv', 'assrvd', 'asddlxs'])('does not treat unknown type with %s as a non-ABAP file', ext => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType(`src/zrap.unknown.${ext}`)).toBe(true);
+    });
+
+    test.each([
+      'zrap.bdef.srvdsrv', 'zrap.srvd.asbdef', 'zrap.ddlx.srvdsrv',
+      'zrap.bdef.abap', 'zrap.srvd.xml.extra'
+    ])('rejects mismatched or malformed RAP pair %s', file => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType(`src/${file}`)).toBe(true);
+    });
+
+    test('service binding remains outside dedicated support', () => {
+      const { isUnsupportedType } = require('../../src/config');
+      expect(isUnsupportedType('src/zrap.srvb.xml')).toBe(true);
+    });
+
     test('isUnsupportedType returns true for BADI file', () => {
       const { isUnsupportedType } = require('../../src/config');
       expect(isUnsupportedType('abap/zfoo.badi.xml')).toBe(true);

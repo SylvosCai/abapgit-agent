@@ -36,7 +36,8 @@ INTERFACE zif_abgagt_conflict_detector PUBLIC.
       it_files  TYPE ty_file_entries
       iv_branch TYPE string
     RETURNING
-      VALUE(rt_conflicts) TYPE ty_conflicts.
+      VALUE(rt_conflicts) TYPE ty_conflicts
+    RAISING zcx_abapgit_exception.
 
   "! Store pull metadata baseline after a successful pull
   "! Writes to ZABGAGT_OBJ_META (doubled in tests via cl_osql_test_environment).

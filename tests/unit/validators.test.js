@@ -224,6 +224,38 @@ describe('validators', () => {
     });
   });
 
+  describe('RAP file identity', () => {
+    test.each([
+      ['src/zrap.bdef.asbdef', 'BDEF'], ['src/zrap.bdef.xml', 'BDEF'],
+      ['src/zrap.srvd.srvdsrv', 'SRVD'], ['src/zrap.srvd.assrvd', 'SRVD'],
+      ['src/zrap.srvd.xml', 'SRVD'], ['src/zrap.ddlx.asddlxs', 'DDLX'],
+      ['src/zrap.ddlx.xml', 'DDLX']
+    ])('parses %s', (file, type) => {
+      expect(validators.parseObjectFromFile(file)).toEqual({ name: 'ZRAP', type });
+    });
+
+    test.each(['src.v2/sub/#Ns#Root.BdEf.AsBdEf', 'src\\sub\\#Ns#Root.BdEf.AsBdEf'])('decodes namespace in %s', file => {
+      expect(validators.parseObjectFromFile(file)).toEqual({ name: '/NS/ROOT', type: 'BDEF' });
+    });
+
+    test.each([
+      'zrap.bdef.abap', 'zrap.bdef.asddls', 'zrap.srvd.asbdef',
+      'zrap.ddlx.srvdsrv', 'zrap.unknown.asbdef', 'zrap.bdef.foo.xml',
+      '.bdef.asbdef', 'zrap..bdef.asbdef', 'zrap.bdef.',
+      '#ns##root.bdef.asbdef', '#ns#root#x.bdef.xml',
+      `${'z'.repeat(31)}.bdef.asbdef`, 'z rap.bdef.xml'
+    ])('rejects malformed RAP candidate %s', file => {
+      expect(validators.isRapObjectFile(file)).toBe(true);
+      expect(validators.parseObjectFromFile(file)).toBeNull();
+    });
+
+    test('does not classify dotted directories or an ordinary object name as RAP', () => {
+      expect(validators.isRapObjectFile('src.bdef/bdef.clas.abap')).toBe(false);
+      expect(validators.parseObjectFromFile('src.bdef/bdef.clas.abap')).toEqual({ name: 'BDEF', type: 'CLAS' });
+      expect(validators.parseObjectFromFile(`${'z'.repeat(30)}.bdef.asbdef`).name).toHaveLength(30);
+    });
+  });
+
   describe('validateDtelLabels', () => {
     const makeXml = (scr) => `<?xml version="1.0"?>
 <abapGit>

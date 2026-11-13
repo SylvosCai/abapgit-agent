@@ -43,7 +43,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/import` | **Import objects from package to git (async)** |
 | GET | `/import?jobNumber=X` | **Poll import job status** |
 | POST | `/status` | Check if repo exists in ABAP system |
-| POST | `/syntax` | **Pre-commit syntax check (CLAS, INTF, PROG, DDLS, ENHO)** |
+| POST | `/syntax` | **Pre-commit supplied-source check (CLAS/INTF/PROG/FUGR/ENHO/DDLS/DCLS/BDEF/SRVD/DDLX)** |
 | POST | `/inspect` | Inspect source file for issues (syntax check, CDS validation) |
 | POST | `/unit` | Execute unit tests (AUnit) |
 | POST | `/tree` | Display package hierarchy tree |
@@ -487,7 +487,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 
 ## POST /syntax
 
-**Pre-commit syntax check** for ABAP source code without requiring pull/activation. Checks CLAS, INTF, PROG, and DDLS files directly from local filesystem.
+**Pre-commit syntax check** without pull/activation. The CLI reads supported local native source and sends it to this endpoint; SAP checks supplied data in memory. Supported types include CLAS/INTF/PROG/FUGR/ENHO/DDLS/DCLS/BDEF/SRVD/DDLX.
 
 **Key Features:**
 - Check syntax before committing to git
@@ -523,7 +523,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | String | Object type: CLAS, INTF, PROG, DDLS, ENHO (required) |
+| `type` | String | Object type: CLAS, INTF, PROG, FUGR, ENHO, DDLS, DCLS, BDEF, SRVD, DDLX (required) |
 | `name` | String | Object name (required) |
 | `source` | String | Main source code with `\n` line separators (required) |
 | `locals_def` | String | Local class definitions (CLAS only, optional) |
@@ -540,6 +540,9 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 | PROG | Executable program (SUBC=1) | uccheck, fixpt |
 | PROG (INCLUDE) | Include program (SUBC=I) | Auto-detected via parent program |
 | DDLS | CDS View/Entity | Annotations required |
+| DCLS | Access control | Active target DDLS required |
+| FUGR | Function module source | FM/include context |
+| BDEF / SRVD / DDLX | Behavior/service definition / metadata extension | Native supplied-source checklist; existing dependencies and metadata language context |
 | ENHO | Enhancement (hook implementation) | Wraps hook body in REPORT skeleton; target class inferred from source header |
 
 ### Response (success)
@@ -606,17 +609,17 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
   "message": "1 of 1 object(s) have syntax errors",
   "results": [
     {
-      "object_type": "FUGR",
-      "object_name": "Z_MY_FUGR",
+      "object_type": "SRVB",
+      "object_name": "ZUI_MY_BINDING",
       "success": false,
       "error_count": 1,
       "errors": [
         {
           "line": 1,
-          "text": "Unsupported object type: FUGR. Syntax command only supports CLAS, INTF, PROG, DDLS. Use 'pull' command for other object types."
+          "text": "Unsupported object type: SRVB. Syntax command supports CLAS, INTF, PROG, FUGR, ENHO, DDLS, DCLS, BDEF, SRVD, DDLX. Use 'pull' command for other object types."
         }
       ],
-      "message": "Unsupported object type: FUGR. Use 'pull' command instead."
+      "message": "Unsupported object type: SRVB. Use 'pull' command instead."
     }
   ]
 }
@@ -632,7 +635,8 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 
 ### Notes
 
-- **Line numbers are exact** - they match the source code strings provided
+- **Line information** - Source/include remapping applies where supported. Native RAP checklist diagnostics can contain multiple errors and warnings; available line information is returned, but exact columns are not guaranteed.
+- **Native RAP input** - `source` is supplied BDEF/SRVD/DDLX text, not XML. Existing active metadata supplies language/version context; `uccheck` does not override it. The check neither saves nor activates. Missing APIs/dependencies fail, not skip. A BDEF does not auto-check its implementation CLAS. The CLI routes `.bdef.asbdef`, `.srvd.srvdsrv`/legacy `.srvd.assrvd`, and `.ddlx.asddlxs`; failed RAP batches exit 1, without changing legacy semantic-failure exit behavior.
 - **FIXPT support** - Reads from XML metadata, defaults to blank if not specified
 - **Auto-detection** - CLI automatically detects and includes companion files
 - **INCLUDE programs** - CLI auto-detects parent program for SUBC=I files; the include source is assembled into the parent and line numbers are remapped back to the include file for display
@@ -640,7 +644,7 @@ Check if an abapGit online repository exists in the ABAP system for a given URL.
 
 ## POST /inspect
 
-Inspect source files for issues (runs syntax check via Code Inspector, validates CDS views).
+Inspect system objects through the configured Code Inspector variant and the DDLS handler. Filename recognition is not evidence of executed checks. In the inspected native syntax variant BDEF is registered, but SRVD/DDLX zero-finding results did not prove source validation. Use `/syntax` for supplied local RAP source. Older deployed parser versions can reject native RAP suffixes; match CLI/backend versions before interpreting this as SCI capability.
 
 ### Request Body
 
@@ -846,7 +850,7 @@ List ABAP objects in a package with filtering and pagination.
 
 ### Supported Object Types
 
-CLAS, INTF, PROG, FUGR, TABL, STRU, DTEL, TTYP, DDLS, DDLX, XSLT, REPO, SUSH
+The query uses generic TADIR type filtering, including BDEF, SRVD and DDLX. Examples include CLAS, INTF, PROG, FUGR, TABL, DTEL, TTYP, DDLS and DDLX; this is not a fixed validation whitelist.
 
 ### Response (success)
 
@@ -888,7 +892,7 @@ CLAS, INTF, PROG, FUGR, TABL, STRU, DTEL, TTYP, DDLS, DDLX, XSLT, REPO, SUSH
 
 ## POST /view
 
-View ABAP object definitions directly from ABAP system.
+View ABAP object definitions directly from ABAP system. Native BDEF/SRVD/DDLX viewers return active source only: ordinary source output uses `source`, while `full` uses `sections[].lines`. No inactive fallback or BO graph is provided.
 
 ### Request Body
 
@@ -903,8 +907,8 @@ View ABAP object definitions directly from ABAP system.
 | Field | Type | Description |
 |-------|------|-------------|
 | `objects` | Array | List of object names (required) |
-| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, ENHO). Auto-detected if not specified |
-| `full` | Boolean | Return all source sections instead of public section only. For CLAS: returns `sections[]` with CU/CO/CP/CM*/CCDEF/CCIMP/CCAU includes. For INTF/PROG/DDLS/ENHO: returns single-entry `sections[]`. Default: `false` |
+| `type` | String | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, ENHO, BDEF, SRVD, DDLX). Auto-detected if not specified; pass explicit type for same-name BDEF/DDLX objects |
+| `full` | Boolean | Return all source sections instead of public section only. For CLAS: returns `sections[]` with CU/CO/CP/CM*/CCDEF/CCIMP/CCAU includes. For INTF/PROG/DDLS/ENHO/BDEF/SRVD/DDLX: returns single-entry `sections[]`. Default: `false` |
 
 ### Supported Object Types
 
@@ -918,6 +922,9 @@ View ABAP object definitions directly from ABAP system.
 | TTYP | Table type |
 | DDLS | CDS View/Entity |
 | ENHO | Enhancement object hook sections |
+| BDEF | RAP behavior definition, active native source |
+| SRVD | Service definition, active native source |
+| DDLX | CDS metadata extension, active native source |
 
 ### Response (success - class/interface)
 
@@ -1366,6 +1373,27 @@ Find where-used list for ABAP objects (classes, interfaces, programs).
     "total_references": 0
   },
   "error": ""
+}
+```
+
+### Response (unsupported where-used target)
+
+BDEF/SRVD/DDLX targets are explicitly unsupported, not successful empty reference lists. Explicit unsupported CLI `--type` values fail before a where-used HTTP request; backend auto-detection also rejects actual unsupported types. With `--json`, the CLI retains structured failure details and exits 1.
+
+Example backend failure fields (other envelope fields omitted):
+
+```json
+{
+  "success": false,
+  "command": "WHERE",
+  "error": "One or more object types are not supported by where-used",
+  "objects": [{
+    "name": "ZR_MY_BO",
+    "type": "BDEF",
+    "references": [],
+    "count": 0,
+    "error": "Where-used is not supported for object type BDEF. Supported types: CLAS, INTF, PROG."
+  }]
 }
 ```
 

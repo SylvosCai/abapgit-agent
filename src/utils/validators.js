@@ -50,10 +50,31 @@ function isValidObjectName(objectName) {
  * @param {string} filePath - File path (e.g., "src/zcl_my_class.clas.abap")
  * @returns {object|null} {type, name} or null if invalid
  */
-function parseObjectFromFile(filePath) {
-  const fileName = filePath.split('/').pop();
+const RAP_SOURCE_TYPES = { asbdef: 'BDEF', srvdsrv: 'SRVD', assrvd: 'SRVD', asddlxs: 'DDLX' };
 
-  // Match patterns: zcl_class.clas.abap, zif_intf.intf.abap, etc.
+// Recognize candidates, including malformed pairs, before legacy permissive validation.
+function isRapObjectFile(filePath) {
+  const fileName = filePath.split(/[\\/]/).pop();
+  return /\.(bdef|srvd|ddlx|asbdef|srvdsrv|assrvd|asddlxs)(\.|$)/i.test(fileName);
+}
+
+function parseObjectFromFile(filePath) {
+  const fileName = filePath.split(/[\\/]/).pop();
+
+  if (isRapObjectFile(filePath)) {
+    const parts = fileName.toLowerCase().split('.');
+    if (parts.length !== 3) return null;
+    const [encodedName, type, extension] = parts;
+    const objType = type.toUpperCase();
+    if (!Object.values(RAP_SOURCE_TYPES).includes(objType)) return null;
+    if (extension !== 'xml' && RAP_SOURCE_TYPES[extension] !== objType) return null;
+    if (!/^(?:[a-z0-9_]+|#[a-z0-9_]+#[a-z0-9_]+)$/.test(encodedName)) return null;
+    const name = encodedName.replace(/#/g, '/').toUpperCase();
+    if (name.length > 30) return null;
+    return { name, type: objType };
+  }
+
+  // Retain legacy parsing, including class parts, for existing callers.
   const match = fileName.match(/^([a-z0-9_]+)\.(clas|intf|prog|fugr|ddls|tabl|dtel|ttyp|stru)\..*$/i);
 
   if (!match) return null;
@@ -118,5 +139,6 @@ module.exports = {
   isValidPackageName,
   isValidObjectName,
   parseObjectFromFile,
+  isRapObjectFile,
   validateDtelLabels
 };

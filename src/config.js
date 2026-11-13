@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isRapObjectFile, parseObjectFromFile } = require('./utils/validators');
 
 let config = null;
 
@@ -353,7 +354,7 @@ function isExcluded(filePath, patterns) {
 
 const SUPPORTED_ABAP_TYPES = new Set([
   'clas','intf','prog','fugr','tabl','dtel','ttyp','doma',
-  'ddls','dcls','msag','stru','enho','suso','pinf'
+  'ddls','dcls','bdef','srvd','ddlx','msag','stru','enho','suso','pinf'
 ]);
 
 function getUnsupportedTypesFlag() {
@@ -361,9 +362,10 @@ function getUnsupportedTypesFlag() {
   return projectConfig?.exclude?.unsupportedTypes === true;
 }
 
-const ABAP_FILE_EXTENSIONS = new Set(['xml','abap','asddls','asdcls','baseinfo']);
+const ABAP_FILE_EXTENSIONS = new Set(['xml','abap','asddls','asdcls','asbdef','srvdsrv','assrvd','asddlxs','baseinfo']);
 
 function isUnsupportedType(filePath) {
+  if (isRapObjectFile(filePath)) return !parseObjectFromFile(filePath);
   const base = filePath.split('/').pop().toLowerCase();
   const parts = base.split('.');
   if (parts.length < 3) return false;

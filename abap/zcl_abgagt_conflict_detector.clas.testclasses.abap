@@ -10,16 +10,23 @@ CLASS ltcl_conflict_detector DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HA
     METHODS setup.
 
     " --- check_conflicts ---
-    METHODS test_no_baseline_no_conflict    FOR TESTING.
-    METHODS test_git_only_changed_safe      FOR TESTING.
-    METHODS test_sys_only_local_edit        FOR TESTING.
-    METHODS test_both_changed_type1         FOR TESTING.
-    METHODS test_branch_switch_type2        FOR TESTING.
-    METHODS test_branch_switch_same_sha     FOR TESTING.
-    METHODS test_multiple_objects_mixed     FOR TESTING.
-    METHODS test_brsw_same_user_safe               FOR TESTING.
-    METHODS test_brsw_diff_user_abort              FOR TESTING.
-    METHODS test_sys_idempotent_safe               FOR TESTING.
+    METHODS test_no_baseline_no_conflict FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_git_only_changed_safe FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_sys_only_local_edit FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_both_changed_type1 FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_branch_switch_type2 FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_branch_switch_same_sha FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_multiple_objects_mixed FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_brsw_same_user_safe FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_brsw_diff_user_abort FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_sys_idempotent_safe FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS bdef_eof_roundtrip FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS bdef_branch_matrix FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS bdef_real_edits_abort FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS non_bdef_eof_not_normalized FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS injected_comparison FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS comparison_failure_aborts FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS bdef_extra_blank_line FOR TESTING RAISING zcx_abapgit_exception.
 
     " --- store_pull_metadata / read back via check ---
     METHODS test_store_creates_baseline     FOR TESTING.
@@ -659,6 +666,117 @@ CLASS ltcl_conflict_detector IMPLEMENTATION.
     cl_abap_unit_assert=>assert_initial(
       act = lt_conflicts
       msg = 'System already has incoming content — pull is idempotent, no conflict' ).
+  ENDMETHOD.
+
+  METHOD bdef_eof_roundtrip.
+    DATA(lt_endings) = VALUE string_table(
+      ( `` ) ( CONV string( cl_abap_char_utilities=>newline ) )
+      ( CONV string( cl_abap_char_utilities=>cr_lf ) ) ).
+    LOOP AT lt_endings INTO DATA(lv_ending).
+      DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+        ( obj_type = 'BDEF' obj_name = 'ZE_SYNC'
+          content = |managed;{ lv_ending }| local_content = `managed;` ) ).
+      go_env->clear_doubles( ).
+      mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'test/cold' ).
+      cl_abap_unit_assert=>assert_initial(
+        mo_cut->check_conflicts( it_files = lt_files iv_branch = 'test/cold' ) ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD bdef_branch_matrix.
+    DATA(lt_users) = VALUE string_table( ( CONV string( sy-uname ) ) ( `COLLEAGUE` ) ).
+    DATA lt_meta TYPE STANDARD TABLE OF zabgagt_obj_meta WITH EMPTY KEY.
+    LOOP AT lt_users INTO DATA(lv_user).
+      CLEAR lt_meta.
+      APPEND make_meta_row(
+        iv_obj_type = 'BDEF' iv_obj_name = 'ZE_SYNC'
+        iv_git_sha = mo_cut->calculate_sha( |managed;{ cl_abap_char_utilities=>newline }| )
+        iv_branch = 'main' iv_sys_ts = CONV #( '20260305103000' )
+        iv_last_pulled_by = CONV #( lv_user ) ) TO lt_meta.
+      go_env->clear_doubles( ).
+      go_env->insert_test_data( lt_meta ).
+      DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+        ( obj_type = 'BDEF' obj_name = 'ZE_SYNC' content = `managed;` local_content = `managed;` ) ).
+      cl_abap_unit_assert=>assert_initial(
+        mo_cut->check_conflicts( it_files = lt_files iv_branch = 'feature/other' ) ).
+      lt_files[ 1 ]-content = |managed; strict ( 2 );{ cl_abap_char_utilities=>newline }|.
+      DATA(lt_conflicts) = mo_cut->check_conflicts( it_files = lt_files iv_branch = 'feature/other' ).
+      IF lv_user = sy-uname.
+        cl_abap_unit_assert=>assert_initial( lt_conflicts ).
+      ELSE.
+        cl_abap_unit_assert=>assert_equals( act = lines( lt_conflicts ) exp = 1 ).
+        cl_abap_unit_assert=>assert_equals( act = lt_conflicts[ 1 ]-conflict_type exp = 'BRANCH_SWITCH' ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD bdef_real_edits_abort.
+    DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+      ( obj_type = 'BDEF' obj_name = 'ZE_SYNC'
+        content = |managed;{ cl_abap_char_utilities=>newline }| local_content = `managed;` ) ).
+    mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
+    lt_files[ 1 ]-content = `managed;`.
+    lt_files[ 1 ]-local_content = |managed; strict ( 2 );{ cl_abap_char_utilities=>newline }|.
+    DATA(lt_conflicts) = mo_cut->check_conflicts( it_files = lt_files iv_branch = 'main' ).
+    cl_abap_unit_assert=>assert_equals( act = lines( lt_conflicts ) exp = 1 ).
+    cl_abap_unit_assert=>assert_equals( act = lt_conflicts[ 1 ]-conflict_type exp = 'LOCAL_EDIT' ).
+    lt_files[ 1 ]-content = `unmanaged;`.
+    lt_conflicts = mo_cut->check_conflicts( it_files = lt_files iv_branch = 'feature/other' ).
+    cl_abap_unit_assert=>assert_equals( act = lines( lt_conflicts ) exp = 1 ).
+    cl_abap_unit_assert=>assert_equals( act = lt_conflicts[ 1 ]-conflict_type exp = 'SYSTEM_EDIT' ).
+  ENDMETHOD.
+
+  METHOD non_bdef_eof_not_normalized.
+    DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+      ( obj_type = 'CLAS' obj_name = 'ZCL_SYNC'
+        content = |source{ cl_abap_char_utilities=>newline }| local_content = `source` ) ).
+    mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
+    DATA(lt_conflicts) = mo_cut->check_conflicts( it_files = lt_files iv_branch = 'main' ).
+    cl_abap_unit_assert=>assert_equals( act = lines( lt_conflicts ) exp = 1 ).
+    cl_abap_unit_assert=>assert_equals( act = lt_conflicts[ 1 ]-conflict_type exp = 'LOCAL_EDIT' ).
+  ENDMETHOD.
+
+  METHOD injected_comparison.
+    DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+      ( obj_type = 'CLAS' obj_name = 'ZCL_SYNC' content = `before` local_content = `after` ) ).
+    mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
+    DATA(lo_compare) = CAST zif_abgagt_source_compare(
+      cl_abap_testdouble=>create( 'ZIF_ABGAGT_SOURCE_COMPARE' ) ).
+    DATA(ls_source) = VALUE zif_abgagt_source_compare=>ty_source( comparable_source = `same` ).
+    cl_abap_testdouble=>configure_call( lo_compare )->returning( ls_source ).
+    lo_compare->prepare( iv_obj_type = 'CLAS' iv_source = `before` ).
+    cl_abap_testdouble=>configure_call( lo_compare )->returning( ls_source ).
+    lo_compare->prepare( iv_obj_type = 'CLAS' iv_source = `after` ).
+    mo_cut = NEW zcl_abgagt_conflict_detector( io_source_compare = lo_compare ).
+    cl_abap_unit_assert=>assert_initial(
+      mo_cut->check_conflicts( it_files = lt_files iv_branch = 'main' ) ).
+  ENDMETHOD.
+
+  METHOD comparison_failure_aborts.
+    DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+      ( obj_type = 'CLAS' obj_name = 'ZCL_SYNC' content = `source` local_content = `source` ) ).
+    mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
+    DATA(lo_compare) = CAST zif_abgagt_source_compare(
+      cl_abap_testdouble=>create( 'ZIF_ABGAGT_SOURCE_COMPARE' ) ).
+    cl_abap_testdouble=>configure_call( lo_compare )->raise_exception( NEW zcx_abapgit_exception( ) ).
+    lo_compare->prepare( iv_obj_type = 'CLAS' iv_source = `source` ).
+    mo_cut = NEW zcl_abgagt_conflict_detector( io_source_compare = lo_compare ).
+    TRY.
+        mo_cut->check_conflicts( it_files = lt_files iv_branch = 'main' ).
+        cl_abap_unit_assert=>fail( 'Comparison failure must abort, not return empty conflicts' ).
+      CATCH zcx_abapgit_exception.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD bdef_extra_blank_line.
+    DATA(lt_files) = VALUE zif_abgagt_conflict_detector=>ty_file_entries(
+      ( obj_type = 'BDEF' obj_name = 'ZE_SYNC'
+        content = |managed;{ cl_abap_char_utilities=>newline }|
+        local_content = |managed;{ cl_abap_char_utilities=>newline }{ cl_abap_char_utilities=>newline }| ) ).
+    mo_cut->store_pull_metadata( it_files = lt_files iv_branch = 'main' ).
+    DATA(lt_conflicts) = mo_cut->check_conflicts( it_files = lt_files iv_branch = 'main' ).
+    cl_abap_unit_assert=>assert_equals( act = lines( lt_conflicts ) exp = 1 ).
+    cl_abap_unit_assert=>assert_equals( act = lt_conflicts[ 1 ]-conflict_type exp = 'LOCAL_EDIT' ).
   ENDMETHOD.
 
   "-------------------------------------------------------------------

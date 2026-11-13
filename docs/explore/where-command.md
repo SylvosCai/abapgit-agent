@@ -11,6 +11,10 @@ parent: Explore Commands
 
 Find where-used-list for ABAP objects (classes, interfaces, programs). This command searches for references to a given object across the ABAP system and returns the source code includes where the object is used.
 
+Only **CLAS, INTF, and PROG** are supported as search targets. Other types—including BDEF, SRVD, DDLX, and DDLS—return an explicit **not supported** error and a nonzero CLI exit status, not an empty where-used list. Unsupported types discovered through auto-detection are also rejected. This command does not provide RAP-to-RAP dependency discovery.
+
+With `--json`, failures retain structured object names, types, and error details without a human-readable banner.
+
 This is particularly useful for:
 - Understanding how a class/method is used in other places
 - Finding usage (e.g., examples for API classes `CL_SUT_AUNIT_RUNNER`)
@@ -18,6 +22,14 @@ This is particularly useful for:
 - Analyzing dependencies before making changes
 
 **Workflow:** Use `where` to find where an object is used, then use `view` to examine the actual source code.
+
+### Unsupported RAP Target
+
+```bash
+abapgit-agent where --objects ZR_MY_BO --type BDEF --json
+```
+
+This exits 1 with structured unsupported-type details before a where-used HTTP request; it is not a successful empty reference list. Backend auto-detection also rejects actual unsupported types. See the [API failure example](../api.md#response-unsupported-where-used-target).
 
 ## Command
 

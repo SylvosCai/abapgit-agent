@@ -33,6 +33,8 @@ Usage:
 Description:
   Run abaplint static analysis on changed ABAP files. Requires .abaplint.json in repo root.
   By default detects files changed vs HEAD~1 (or vs --base branch).
+  Supported sources: .abap, .asddls (DDLS), .asbdef (BDEF), .asddlxs (DDLX).
+  SRVD and DCLS sources are not linted.
 
 Parameters:
   --files <file1,...>   Check specific files instead of auto-detecting changed files.
@@ -65,7 +67,7 @@ Examples:
     }
 
     if (abapFiles.length === 0) {
-      console.log('No changed .abap/.asddls files found — nothing to lint.');
+      console.log('No changed lintable ABAP/CDS/RAP sources found — nothing to lint.');
       return;
     }
 
@@ -91,6 +93,14 @@ Examples:
     const depFiles = resolveDependencies(abapFiles, fileIndex);
     const allFiles = [...new Set([...abapFiles, ...depFiles])];
     cfg.global.files = allFiles.map(f => `/${f}`);
+    if (abapFiles.some(f => f.toLowerCase().endsWith('.bdef.asbdef'))) {
+      cfg.rules ??= {};
+      cfg.rules.bdef_parser_error ??= true;
+    }
+    if (abapFiles.some(f => f.toLowerCase().endsWith('.ddlx.asddlxs'))) {
+      cfg.rules ??= {};
+      cfg.rules.cds_parser_error ??= true;
+    }
 
     const scopedConfig = '.abaplint-local.json';
     fs.writeFileSync(scopedConfig, JSON.stringify(cfg, null, 2));
@@ -105,11 +115,17 @@ Examples:
       const tempOut = '.abaplint-raw.xml';
       const abapFilesSet = new Set(abapFiles.map(f => path.resolve(f)));
       try {
-        spawnSync(
+        const result = spawnSync(
           `npx @abaplint/cli@latest ${scopedConfig} --outformat checkstyle --outfile ${tempOut}`,
           { stdio: 'pipe', shell: true }
         );
-        const raw = fs.existsSync(tempOut) ? fs.readFileSync(tempOut, 'utf8') : '<checkstyle version="8.0"/>';
+        if (result.error || result.signal || ![0, 1].includes(result.status)
+            || !fs.existsSync(tempOut)) {
+          console.error(`abaplint failed to produce a usable report: ${result.error?.message || result.stderr?.toString().trim() || result.stdout?.toString().trim() || `exit ${result.status}`}`);
+          process.exitCode = 1;
+          return;
+        }
+        const raw = fs.readFileSync(tempOut, 'utf8');
         const filtered = filterCheckstyleToFiles(raw, abapFilesSet);
         if (outformat === 'checkstyle') {
           if (outfile) {
@@ -140,7 +156,7 @@ function argValue(args, flag) {
 }
 
 /**
- * Detect changed .abap files using git diff.
+ * Detect changed lintable ABAP/CDS/RAP sources using git diff.
  * - If on a PR branch (CHANGE_TARGET set, e.g. in CI): diffs against that target.
  * - If --base is given: diffs against that branch.
  * - Otherwise: diffs HEAD~1..HEAD (last commit).
@@ -151,12 +167,12 @@ function detectChangedAbapFiles(baseBranch) {
 
   let diffCmd;
   if (base) {
-    diffCmd = `git diff --name-only ${base}...HEAD -- '*.abap' '*.asddls'`;
+    diffCmd = `git diff --name-only ${base}...HEAD -- '*.abap' '*.asddls' '*.asbdef' '*.asddlxs'`;
   } else {
     // Fall back to uncommitted changes first, then last commit
-    const uncommitted = runGit(`git diff --name-only HEAD -- '*.abap' '*.asddls'`).filter(Boolean);
+    const uncommitted = runGit(`git diff --name-only HEAD -- '*.abap' '*.asddls' '*.asbdef' '*.asddlxs'`).filter(Boolean);
     if (uncommitted.length > 0) return filterAbapFiles(uncommitted);
-    diffCmd = `git diff --name-only HEAD~1 HEAD -- '*.abap' '*.asddls'`;
+    diffCmd = `git diff --name-only HEAD~1 HEAD -- '*.abap' '*.asddls' '*.asbdef' '*.asddlxs'`;
   }
 
   return filterAbapFiles(runGit(diffCmd));
@@ -171,7 +187,7 @@ function runGit(cmd) {
 }
 
 /**
- * Build a map of basename → full path for all .abap and .xml files
+ * Build a map of basename → full path for lintable sources and .xml files
  * found recursively under abapDir. Used for dependency resolution so
  * that projects with nested folder structures (e.g. src/module/pkg/foo.clas.abap)
  * are handled correctly — not just flat abap/ layouts.
@@ -185,7 +201,7 @@ function buildFileIndex(abapDir) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         walk(full);
-      } else if (entry.name.endsWith('.abap') || entry.name.endsWith('.xml') || entry.name.endsWith('.asddls')) {
+      } else if (isLintable(entry.name) || entry.name.toLowerCase().endsWith('.xml')) {
         index.set(entry.name.toLowerCase(), full);
       }
     }
@@ -266,7 +282,7 @@ function resolveDependencies(abapFiles, fileIndex) {
     }
 
     // Always include the XML companion of each scanned file
-    const xmlBasename = path.basename(file).replace(/\.abap$/, '.xml').toLowerCase();
+    const xmlBasename = path.basename(file).replace(/\.(abap|asddls|asbdef|asddlxs)$/i, '.xml').toLowerCase();
     const xmlCompanion = fileIndex.get(xmlBasename);
     if (xmlCompanion) deps.add(xmlCompanion);
   }
@@ -329,14 +345,17 @@ function printCheckstyleAsText(xml) {
  * Returns true if the file is a type abaplint can analyse.
  * - .abap — all ABAP source files (CLAS, INTF, PROG, FUGR, ENHO, etc.)
  * - .asddls — CDS view / view entity sources (DDLS)
+ * - .bdef.asbdef / .ddlx.asddlxs — RAP behavior / metadata extension sources
+ * SRVD and DCLS have no supported source parser.
  */
 function isLintable(f) {
   const lower = f.toLowerCase();
-  return lower.endsWith('.abap') || lower.endsWith('.asddls');
+  return lower.endsWith('.abap') || lower.endsWith('.asddls')
+    || lower.endsWith('.bdef.asbdef') || lower.endsWith('.ddlx.asddlxs');
 }
 
 /**
- * Keep only lintable files (name.type.abap / name.type.subtype.abap / name.ddls.asddls)
+ * Keep only lintable sources (.abap, DDLS, BDEF, DDLX)
  * that still exist on disk. Deleted files appear in git diff output but must not
  * be passed to abaplint.
  */

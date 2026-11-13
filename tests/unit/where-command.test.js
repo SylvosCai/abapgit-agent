@@ -199,3 +199,72 @@ describe('Where Command - CLI Output Format', () => {
     expect(output).toMatch(/--offset 50/i); // Next offset suggestion
   });
 });
+
+ describe('Where Command - Supported types', () => {
+  const whereCommand = require('../../src/commands/where');
+  let logs;
+  let errors;
+  let context;
+  let post;
+
+  beforeEach(() => {
+    logs = jest.spyOn(console, 'log').mockImplementation(() => {});
+    errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+    post = jest.fn().mockResolvedValue({ SUCCESS: true, OBJECTS: [], PAGINATION: {} });
+    context = {
+      loadConfig: jest.fn(() => ({})),
+      AbapHttp: jest.fn(() => ({ fetchCsrfToken: jest.fn().mockResolvedValue('token'), post }))
+    };
+  });
+
+  afterEach(() => {
+    logs.mockRestore();
+    errors.mockRestore();
+    process.exitCode = undefined;
+  });
+
+  test.each(['BDEF', 'SRVD', 'DDLX', 'TABL', 'UNKNOWN'])('rejects %s before HTTP with valid JSON', async type => {
+    await whereCommand.execute(['--objects', 'ZTEST', '--type', type, '--json'], context);
+    const result = JSON.parse(logs.mock.calls[0][0]);
+    expect(result.success).toBe(false);
+    expect(result.objects[0]).toMatchObject({ name: 'ZTEST', type });
+    expect(result.error).toContain(`not supported for object type ${type}`);
+    expect(result.error).toContain('CLAS, INTF, PROG');
+    expect(logs).toHaveBeenCalledTimes(1);
+    expect(context.loadConfig).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+
+  test.each(['clas', 'intf', 'prog'])('preserves %s dispatch', async type => {
+    await whereCommand.execute(['--objects', 'ZTEST', '--type', type, '--json'], context);
+    expect(post).toHaveBeenCalledWith('/sap/bc/z_abapgit_agent/where',
+      expect.objectContaining({ type: type.toUpperCase() }), { csrfToken: 'token' });
+    expect(JSON.parse(logs.mock.calls[0][0]).SUCCESS).toBe(true);
+    expect(process.exitCode).not.toBe(1);
+  });
+
+  test('preserves backend unsupported-object details in JSON and exits nonzero', async () => {
+    const result = { SUCCESS: false, ERROR: 'Unsupported object type',
+      OBJECTS: [{ NAME: 'ZTEST', TYPE: 'SRVD', ERROR: 'Where-used is not supported for object type SRVD' }] };
+    post.mockResolvedValue(result);
+    await whereCommand.execute(['--objects', 'ZTEST', '--json'], context);
+    expect(JSON.parse(logs.mock.calls[0][0])).toEqual(result);
+    expect(logs).toHaveBeenCalledTimes(1);
+    expect(process.exitCode).toBe(1);
+  });
+
+  test('prints the specific auto-detected type error without a pagination object', async () => {
+    post.mockResolvedValue({ SUCCESS: false, ERROR: 'Unsupported object type',
+      OBJECTS: [{ NAME: 'ZTEST', TYPE: 'DDLX', ERROR: 'Where-used is not supported for object type DDLX' }] });
+    await whereCommand.execute(['--objects', 'ZTEST'], context);
+    expect(logs.mock.calls.flat().join('\n')).toContain('not supported for object type DDLX');
+    expect(process.exitCode).toBe(1);
+  });
+
+  test('reports a missing type instead of throwing', async () => {
+    await whereCommand.execute(['--objects', 'ZTEST', '--type'], context);
+    expect(errors.mock.calls.flat().join('\n')).toContain('Supported types: CLAS, INTF, PROG');
+    expect(context.loadConfig).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+});

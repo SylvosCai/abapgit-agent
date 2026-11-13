@@ -126,6 +126,25 @@ const TEST_OBJECTS = [
     type:   'DCLS',
     object: 'ZC_ABGAGT_DRP'
   },
+  // RAP source objects depend on ZR_ABGAGT_DRP_RAP, activated during reset
+  {
+    name:   'BDEF ZR_ABGAGT_DRP_RAP',
+    file:   'src/zr_abgagt_drp_rap.bdef.asbdef',
+    type:   'BDEF',
+    object: 'ZR_ABGAGT_DRP_RAP'
+  },
+  {
+    name:   'DDLX ZR_ABGAGT_DRP_RAP',
+    file:   'src/zr_abgagt_drp_rap.ddlx.asddlxs',
+    type:   'DDLX',
+    object: 'ZR_ABGAGT_DRP_RAP'
+  },
+  {
+    name:   'SRVD ZUI_ABGAGT_DRP_RAP',
+    file:   'src/zui_abgagt_drp_rap.srvd.srvdsrv',
+    type:   'SRVD',
+    object: 'ZUI_ABGAGT_DRP_RAP'
+  },
   // INTF — no dependencies
   {
     name:   'INTF ZIF_ABGAGT_DRP_TEST',
@@ -332,6 +351,7 @@ function runDropTests(repoRoot, { printSubHeader, printInfo, printSuccess, print
   // DTEL is included first as it is a dependency but not in TEST_OBJECTS (drop is unsupported).
   const allResetFiles = [
     'src/zabgagt_drp_dtel.dtel.xml',
+    'src/zr_abgagt_drp_rap.ddls.asddls',
     ...TEST_OBJECTS.map(o => o.file)
   ].join(',');
   let { output: resetOutput, exitCode: resetExitCode } = runPullFromDropRepo(agentBin, allResetFiles, ['--conflict-mode', 'ignore']);

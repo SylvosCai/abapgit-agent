@@ -4,6 +4,7 @@
 
 const pathModule = require('path');
 const fs = require('fs');
+const { isRapObjectFile, parseObjectFromFile } = require('../utils/validators');
 
 module.exports = {
   name: 'syntax',
@@ -24,7 +25,7 @@ Description:
   Reads source from local files and checks directly in the ABAP system.
 
 Parameters:
-  --files <file1,...>  Comma-separated ABAP source files (required). Accepts CLAS, INTF, PROG, ENHO.
+  --files <file1,...>  Comma-separated source files (required). CLAS, INTF, PROG, ENHO, DDLS, DCLS, BDEF, SRVD, DDLX.
   --cloud              Use ABAP Cloud (BTP) stricter syntax check.
   --json               Output as JSON.
 
@@ -54,6 +55,15 @@ Examples:
     const syntaxFiles = args[filesArgIndex + 1].split(',').map(f => f.trim());
     const cloudMode = args.includes('--cloud');
     const jsonOutput = args.includes('--json');
+    const invalidRapFile = syntaxFiles.find(file => isRapObjectFile(file)
+      && (!parseObjectFromFile(file) || /\.xml$/i.test(file)));
+    if (invalidRapFile) {
+      const message = `Invalid RAP syntax source: ${invalidRapFile}. Use .bdef.asbdef, .srvd.srvdsrv/.assrvd, or .ddlx.asddlxs, not XML.`;
+      if (jsonOutput) console.log(JSON.stringify({ success: false, message, results: [] }));
+      else console.error(message);
+      process.exitCode = 1;
+      return;
+    }
 
     if (!jsonOutput) {
       console.log(`\n  Syntax check for ${syntaxFiles.length} file(s)`);
@@ -81,7 +91,9 @@ Examples:
       let fileKind = 'main'; // main, locals_def, locals_imp
 
       // Parse file type from extension
-      if (baseName.includes('.clas.locals_def.')) {
+      if (isRapObjectFile(file)) {
+        ({ type: objType, name: objName } = parseObjectFromFile(file));
+      } else if (baseName.includes('.clas.locals_def.')) {
         objType = 'CLAS';
         objName = baseName.split('.')[0].toUpperCase();
         fileKind = 'locals_def';
@@ -473,6 +485,7 @@ Examples:
     const success = result.SUCCESS !== undefined ? result.SUCCESS : result.success;
     const results = result.RESULTS || result.results || [];
     const message = result.MESSAGE || result.message || '';
+    if (success === false && syntaxFiles.some(isRapObjectFile)) process.exitCode = 1;
 
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2));

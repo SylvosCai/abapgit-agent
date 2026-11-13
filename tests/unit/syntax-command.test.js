@@ -28,6 +28,9 @@ jest.mock('../../src/config', () => ({
   })
 }));
 
+const originalExitCode = process.exitCode;
+afterEach(() => { process.exitCode = originalExitCode; });
+
 // Mock process.exit
 const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
   throw new Error(`process.exit(${code})`);
@@ -1680,5 +1683,51 @@ describe('Syntax Command - FUGR support via execute()', () => {
     expect(parsed.SUCCESS).toBe(true);
     expect(parsed.RESULTS[0].OBJECT_TYPE).toBe('FUGR');
     expect(parsed.RESULTS[0].OBJECT_NAME).toBe('ZMY_FUGR');
+  });
+});
+
+describe('RAP native syntax routing', () => {
+  const syntaxCommand = require('../../src/commands/syntax');
+  let post, context, log;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fs.existsSync = jest.fn().mockReturnValue(true);
+    fs.readFileSync = jest.fn().mockReturnValue('supplied local source');
+    post = jest.fn().mockResolvedValue({ SUCCESS: true, RESULTS: [] });
+    context = {
+      loadConfig: jest.fn(() => ({})),
+      AbapHttp: jest.fn().mockImplementation(() => ({ fetchCsrfToken: jest.fn(), post }))
+    };
+    log = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => { log.mockRestore(); });
+
+  test.each([
+    ['zrap.bdef.asbdef', 'BDEF', 'ZRAP'],
+    ['zrap.srvd.srvdsrv', 'SRVD', 'ZRAP'],
+    ['zrap.srvd.assrvd', 'SRVD', 'ZRAP'],
+    ['zrap.ddlx.asddlxs', 'DDLX', 'ZRAP'],
+    ['#demo#zrap.bdef.asbdef', 'BDEF', '/DEMO/ZRAP']
+  ])('routes %s without changing local source', async (file, type, name) => {
+    await syntaxCommand.execute(['--files', file, '--json'], context);
+    expect(post.mock.calls[0][1].objects).toEqual([{ type, name, source: 'supplied local source' }]);
+  });
+
+  test.each(['zrap.bdef.xml', 'zrap.srvd.xml', 'zrap.ddlx.xml', 'zrap.bdef.asddlxs', 'zrap.asbdef'])
+    ('rejects %s before contacting SAP', async file => {
+      await syntaxCommand.execute(['--files', file, '--json'], context);
+      expect(context.AbapHttp).not.toHaveBeenCalled();
+      expect(process.exitCode).toBe(1);
+      expect(JSON.parse(log.mock.calls[0][0]).success).toBe(false);
+    });
+
+  test('mixed batch sends RAP and existing types and returns nonzero on native failure', async () => {
+    const response = { SUCCESS: false, RESULTS: [{ OBJECT_TYPE: 'BDEF', SUCCESS: false, ERRORS: [{ LINE: 2, TEXT: 'Bad token' }] }] };
+    post.mockResolvedValue(response);
+    fs.existsSync = jest.fn(p => !p.endsWith('.xml'));
+    await syntaxCommand.execute(['--files', 'zrap.bdef.asbdef,zold.intf.abap', '--json'], context);
+    expect(post.mock.calls[0][1].objects.map(o => o.type)).toEqual(['BDEF', 'INTF']);
+    expect(process.exitCode).toBe(1);
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual(response);
   });
 });

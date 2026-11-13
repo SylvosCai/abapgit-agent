@@ -15,7 +15,8 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
         io_repo              TYPE REF TO zif_abapgit_repo             OPTIONAL
         io_conflict_detector TYPE REF TO zif_abgagt_conflict_detector OPTIONAL
         io_rtti              TYPE REF TO zif_abgagt_rtti_provider      OPTIONAL
-        io_util              TYPE REF TO zif_abgagt_util               OPTIONAL.
+        io_util              TYPE REF TO zif_abgagt_util               OPTIONAL
+        io_source_file_policy TYPE REF TO zif_abgagt_source_file_policy OPTIONAL.
 
     METHODS: get_version RETURNING VALUE(rv_version) TYPE string.
 
@@ -33,6 +34,7 @@ CLASS zcl_abgagt_agent DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA: mo_obj_filter        TYPE REF TO zif_abapgit_object_filter.
     DATA: mo_rtti              TYPE REF TO zif_abgagt_rtti_provider.
     DATA: mo_util              TYPE REF TO zif_abgagt_util.
+    DATA: mo_source_file_policy TYPE REF TO zif_abgagt_source_file_policy.
     " Remote files fetched pre-pull in build_file_entries_from_remote.
     " Reused in get_local_xml_files — get_files_remote() after the pull may
     " re-fetch from GitHub (invalidated cache) causing a slow second round-trip.
@@ -195,6 +197,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
                       ELSE NEW lcl_rtti_provider( ) ).
     mo_util = COND #( WHEN io_util IS BOUND THEN io_util
                       ELSE zcl_abgagt_util=>get_instance( ) ).
+    mo_source_file_policy = COND #(
+      WHEN io_source_file_policy IS BOUND THEN io_source_file_policy
+      ELSE NEW zcl_abgagt_source_file_policy( ) ).
   ENDMETHOD.
 
   METHOD zif_abgagt_agent~pull.
@@ -809,6 +814,8 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
+    mo_source_file_policy->validate_remote( mt_remote_files ).
+
     " Build lookup of requested files (filename only, uppercased)
     DATA lt_filter TYPE HASHED TABLE OF string WITH UNIQUE KEY table_line.
     IF it_files IS SUPPLIED AND lines( it_files ) > 0.
@@ -841,7 +848,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
       DATA(lv_suffix_off) = lv_ext_len - lv_last_dot - 1.
       DATA(lv_true_ext) = lv_ext+lv_suffix_off.
-      IF lv_true_ext <> '.ABAP' AND lv_true_ext <> '.ASDDLS' AND lv_true_ext <> '.XML'.
+      IF mo_source_file_policy->accepts_source_extension( lv_true_ext ) = abap_false.
         CONTINUE.
       ENDIF.
 
@@ -882,7 +889,9 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           DATA(lv_content) = cl_abap_codepage=>convert_from(
             source   = ls_remote_file-data
             codepage = 'UTF-8' ).
-        CATCH cx_root.
+        CATCH cx_root INTO DATA(lx_remote_decode).
+          mo_source_file_policy->handle_decode_failure(
+            iv_type = lv_obj_type iv_filename = lv_filename ix_previous = lx_remote_decode ).
           CONTINUE.
       ENDTRY.
 
@@ -911,6 +920,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           lt_local = mo_repo->get_files_local( ).
         ENDIF.
       CATCH zcx_abapgit_exception cx_root.
+        mo_source_file_policy->handle_local_read_failure( mt_remote_files ).
         " Cannot read local files — proceed without local_content (no LOCAL_EDIT detection).
         " rt_entries is already populated with remote data and must be returned as-is so
         " store_pull_metadata runs and ZABGAGT_OBJ_META (including DEVCLASS) stays up to date.
@@ -918,6 +928,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
     ENDTRY.
 
     CHECK lv_local_read_ok = abap_true.
+    mo_source_file_policy->validate_local( it_files = lt_local it_objects = rt_entries ).
 
     " Build lookup: obj_type + obj_name → local file content (main source only)
     DATA lt_local_idx TYPE ty_entries_idx.
@@ -931,7 +942,7 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
       ENDIF.
       DATA(lv_local_off) = lv_local_len - lv_local_dot - 1.
       DATA(lv_local_ext) = lv_local_fn+lv_local_off.
-      IF lv_local_ext <> '.ABAP' AND lv_local_ext <> '.ASDDLS' AND lv_local_ext <> '.XML'.
+      IF mo_source_file_policy->accepts_source_extension( lv_local_ext ) = abap_false.
         CONTINUE.
       ENDIF.
       IF lv_local_fn CS '.TESTCLASSES.' OR lv_local_fn CS '.LOCALS_DEF.' OR lv_local_fn CS '.LOCALS_IMP.'.
@@ -942,7 +953,11 @@ CLASS zcl_abgagt_agent IMPLEMENTATION.
           DATA(lv_local_content) = cl_abap_codepage=>convert_from(
             source   = ls_local_item-file-data
             codepage = 'UTF-8' ).
-        CATCH cx_root.
+        CATCH cx_root INTO DATA(lx_local_decode).
+          mo_source_file_policy->handle_decode_failure(
+            iv_type = |{ ls_local_item-item-obj_type }|
+            iv_filename = ls_local_item-file-filename
+            ix_previous = lx_local_decode ).
           CONTINUE.
       ENDTRY.
 

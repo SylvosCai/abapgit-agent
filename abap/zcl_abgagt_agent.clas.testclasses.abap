@@ -272,6 +272,7 @@ CLASS ltcl_repo_spy DEFINITION FOR TESTING.
     DATA mo_log    TYPE REF TO ltcl_log_double.
     DATA mt_remote TYPE zif_abapgit_git_definitions=>ty_files_tt.
     DATA mt_local  TYPE zif_abapgit_definitions=>ty_files_item_tt.
+    DATA mv_deserialize_called TYPE abap_bool.
 ENDCLASS.
 
 CLASS ltcl_repo_spy IMPLEMENTATION.
@@ -294,6 +295,7 @@ CLASS ltcl_repo_spy IMPLEMENTATION.
     rs_checks = VALUE #( ).
   ENDMETHOD.
   METHOD zif_abapgit_repo~deserialize.
+    mv_deserialize_called = abap_true.
   ENDMETHOD.
   METHOD zif_abapgit_repo~get_key.
   ENDMETHOD.
@@ -340,6 +342,31 @@ CLASS ltcl_repo_spy IMPLEMENTATION.
 ENDCLASS.
 
 "----------------------------------------------------------------------
+" File policy double: fails during remote validation
+"----------------------------------------------------------------------
+CLASS ltcl_source_policy_fails DEFINITION FINAL.
+  PUBLIC SECTION.
+    INTERFACES zif_abgagt_source_file_policy.
+    DATA mv_validate_called TYPE abap_bool.
+ENDCLASS.
+
+CLASS ltcl_source_policy_fails IMPLEMENTATION.
+  METHOD zif_abgagt_source_file_policy~accepts_source_extension.
+    rv_accepted = abap_true.
+  ENDMETHOD.
+  METHOD zif_abgagt_source_file_policy~validate_remote.
+    mv_validate_called = abap_true.
+    zcx_abapgit_exception=>raise( iv_text = 'Policy rejected remote files' ).
+  ENDMETHOD.
+  METHOD zif_abgagt_source_file_policy~validate_local.
+  ENDMETHOD.
+  METHOD zif_abgagt_source_file_policy~handle_local_read_failure.
+  ENDMETHOD.
+  METHOD zif_abgagt_source_file_policy~handle_decode_failure.
+  ENDMETHOD.
+ENDCLASS.
+
+"----------------------------------------------------------------------
 " Main test class
 "----------------------------------------------------------------------
 CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
@@ -349,7 +376,7 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     DATA mo_det  TYPE REF TO zif_abgagt_conflict_detector.
     DATA mo_log  TYPE REF TO ltcl_log_double.
 
-    METHODS setup.
+    METHODS setup RAISING zcx_abapgit_exception.
 
     " --- parse_file_to_object ---
     METHODS test_parse_file_class      FOR TESTING.
@@ -366,6 +393,7 @@ CLASS ltcl_agent DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
     METHODS test_pull_failed_objects   FOR TESTING RAISING zcx_abapgit_exception.
     METHODS test_pull_transport        FOR TESTING RAISING zcx_abapgit_exception.
     METHODS test_pull_conflict_ignored FOR TESTING RAISING zcx_abapgit_exception.
+    METHODS test_file_policy_delegation FOR TESTING RAISING zcx_abapgit_exception.
 
     " --- RTTI alias parameter detection ---
     METHODS test_rtti_alias_filter_param FOR TESTING.
@@ -994,6 +1022,23 @@ CLASS ltcl_agent IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
       act = lo_spy->mt_stored_files[ 1 ]-local_content exp = '<tabl local/>'
       msg = 'local_content must be populated from the local XML file' ).
+  ENDMETHOD.
+
+  METHOD test_file_policy_delegation.
+    DATA(lo_repo) = NEW ltcl_repo_spy( ).
+    lo_repo->mo_log = NEW ltcl_log_double( ).
+    APPEND VALUE #( path = '/src/' filename = 'zcl_test.clas.abap'
+      data = cl_abap_codepage=>convert_to( source = 'CLASS zcl_test DEFINITION. ENDCLASS.' ) )
+      TO lo_repo->mt_remote.
+
+    DATA(lo_policy) = NEW ltcl_source_policy_fails( ).
+    DATA(ls_result) = NEW zcl_abgagt_agent(
+      io_repo = lo_repo io_source_file_policy = lo_policy
+      )->zif_abgagt_agent~pull( iv_url = 'https://example.com/repo.git' ).
+
+    cl_abap_unit_assert=>assert_true( lo_policy->mv_validate_called ).
+    cl_abap_unit_assert=>assert_false( ls_result-success ).
+    cl_abap_unit_assert=>assert_false( lo_repo->mv_deserialize_called ).
   ENDMETHOD.
 
 ENDCLASS.

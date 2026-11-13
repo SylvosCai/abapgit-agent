@@ -129,11 +129,15 @@ VRSD (SAP version management) is only updated when objects are added to transpor
 
 ### Bootstrap Behavior (First Pull)
 
-No baseline exists → conflict detection is skipped → pull always succeeds → baseline written.
+No baseline exists → baseline comparison is skipped → source guards and import/activation still run → baseline written only after success.
+
+For BDEF/SRVD/DDLX, exactly one native source per identity is required. Missing, duplicate or malformed sources and required local read/UTF-8 failures abort before deserialization, even on the first pull or with `--conflict-mode ignore`. Canonical and legacy SRVD files together count as duplicate source.
+
+Protection follows the installed abapGit serialized source version; it is not universal active/inactive draft protection. Complete CLAS main/local/test conflict bundles and behavior-pool auto-selection are outside this scope.
 
 | Pull # | Baseline exists? | Conflict detection |
 |--------|------------------|--------------------|
-| 1st | No | Skipped — baseline created |
+| 1st | No | Baseline comparison skipped — baseline created only after successful pull |
 | 2nd+ | Yes | Active |
 
 ---
@@ -186,7 +190,9 @@ Pull proceeds as normal — no additional output. Baseline is silently updated a
 | `abap/zcl_abgagt_conflict_detector.clas.abap` | Core detection logic |
 | `abap/zcl_abgagt_conflict_detector.clas.testclasses.abap` | ABAP unit tests (19 tests) |
 | `abap/zif_abgagt_agent.intf.abap` | `iv_conflict_mode` added to `pull()` |
-| `abap/zcl_abgagt_agent.clas.abap` | Conflict check + metadata store in `pull()` |
+| `abap/zcl_abgagt_agent.clas.abap` | Conflict check + metadata store in `pull()`; generic source-policy delegation |
+| `abap/zif_abgagt_source_file_policy.intf.abap` | Generic source-file policy interface |
+| `abap/zcl_abgagt_source_file_policy.clas.abap` | Native source identity/read validation, including RAP policy |
 | `abap/zcl_abgagt_command_pull.clas.abap` | `conflict_mode` in params struct |
 | `src/commands/pull.js` | `--conflict-mode` flag |
 | `tests/integration/conflict-runner.js` | Integration tests (5 scenarios) |
@@ -231,7 +237,7 @@ CLI --conflict-mode flag  >  .abapgit-agent.json conflictDetection.mode  >  "abo
 ## Key Behaviors
 
 1. **Always on by default** — `abort` is the default; use `--conflict-mode ignore` or project config to bypass
-2. **First pull always succeeds** — no baseline yet, detection skipped
+2. **First pull skips baseline comparison** — source guards, deserialization and activation still apply; success is not guaranteed
 3. **Per-object tracking** — each object has its own baseline
 4. **Content SHA, not timestamps** — works for all package types including local `$` packages
 5. **Store after success only** — baseline never updated when pull fails or is aborted

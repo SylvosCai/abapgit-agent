@@ -122,6 +122,9 @@ Use the object name from `objects.local.md` (or `objects.md` as fallback) in pla
 | Program (PROG) | `<name>.prog.abap` | `<name>.prog.xml` |
 | CDS View (DDLS) | `<name>.ddls.asddls` | `<name>.ddls.xml` |
 | CDS Access Control (DCLS) | `<name>.dcls.asdcls` | `<name>.dcls.xml` |
+| Behavior Definition (BDEF) | `<name>.bdef.asbdef` | `<name>.bdef.xml` |
+| Service Definition (SRVD) | `<name>.srvd.srvdsrv` | `<name>.srvd.xml` |
+| Metadata Extension (DDLX) | `<name>.ddlx.asddlxs` | `<name>.ddlx.xml` |
 | Function Group (FUGR) | `<name>.fugr.abap` + includes | `<name>.fugr.xml` |
 | Enhancement (ENHO) | `<name>.enho.<hash>.abap` (one per hook) | `<name>.enho.xml` |
 | Table (TABL) | *(none)* | `<name>.tabl.xml` |
@@ -176,18 +179,19 @@ Anything else (SAP namespace object, or SAP-delivered package)?
 
 → For exact XML templates: `abapgit-agent ref --topic abapgit` (CLAS/INTF/PROG/ENHO), `abapgit-agent ref --topic abapgit-cds` (DDLS view/view-entity/table-function/DCLS), or `abapgit-agent ref --topic abapgit-xml-only` (TABL/STRU/DTEL/TTYP/DOMA/MSAG)
 → For local helper/test-double class files: `abapgit-agent ref --topic object-creation`
+→ RAP file formats/dependencies: `abapgit-agent ref --topic abapgit-cds`. Legacy `.srvd.assrvd` is accepted instead of canonical `.srvd.srvdsrv`, never alongside it. Filename RAP selectors decode `#namespace#name` and currently cap decoded names at 30 characters (agent limit, not a universal SAP limit). Local/custom `ref` overrides can shadow bundled topics; check the reported topic source after upgrading.
 → For documentation comment format (shorttext, @parameter, CDS): `abapgit-agent ref --topic comments`
 
 ---
 
-### 4. Use Syntax Command Before Commit (for CLAS, INTF, PROG, DDLS, FUGR)
+### 4. Use Syntax Command Before Commit (CLAS, INTF, PROG, DDLS, DCLS, FUGR, ENHO, BDEF, SRVD, DDLX)
 
 ```
 ❌ WRONG: Make changes → Commit → Push → Pull → Find errors → Fix → Repeat
 ✅ CORRECT: Make changes → Run syntax → Fix locally → Commit → Push → Pull → Done
 ```
 
-**For CLAS, INTF, PROG, DDLS, FUGR files**: Run `syntax` command BEFORE commit to catch errors early.
+**For supported source types above**: Run `syntax` BEFORE commit. Native RAP checks use supplied source without saving/activating, but require SAP APIs and existing dependencies; missing dependencies are not a clean check. Use the native file, never XML. Check any behavior implementation CLAS separately.
 
 ```bash
 # Check syntax of local code (no commit/push needed)
@@ -458,7 +462,7 @@ In these cases, suggest the fix and wait for confirmation:
 2. Immediately re-pulls and re-activates it from git (clean state)
 3. Does NOT touch the git repository file
 
-**Constraint:** Only CLAS, INTF, PROG, TABL, TTYP are supported. DTEL (data elements) are rejected — edit the XML and use `pull` instead.
+**Constraint:** Drop supports native BDEF/SRVD/DDLX as well as existing supported types, without cascading deletion. Use native RAP source for `--pull`; RAP XML with `--pull` is rejected before deletion. DTEL remains rejected — edit its XML and use `pull` instead.
 
 ---
 
@@ -758,7 +762,7 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 **When `abapgit-agent drop` is relevant:**
 1. ✗ Never call `abapgit-agent drop` unless the user explicitly confirms — it physically deletes the object from ABAP, irreversible without re-pull
 2. ✓ When an object is in a broken state (stale include, activation permanently blocked): suggest `drop --pull` and wait for confirmation
-3. ✓ Supported types for drop: CLAS, INTF, PROG, TABL, TTYP only — DTEL is not supported
+3. ✓ Supported drop types include CLAS, INTF, PROG, TABL, TTYP, BDEF, SRVD and DDLX — DTEL remains blocked. RAP deletion is not cascading. Use native filenames for RAP `drop --pull`; RAP XML with `--pull` is rejected before deletion.
 
 **When using `abapgit-agent debug` commands:**
 1. ✓ Always use `--json` for ALL debug commands (`attach`, `vars`, `stack`, `step`) — human output is not machine-parseable
@@ -847,10 +851,10 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 1. ✗ Do not run `abapgit-agent transport release`
 2. ✓ Inform the user that transport release is disabled for this project
 
-**Before every `git commit` (when `.abaplint.json` exists AND changed files include `.abap` or `.xml` ABAP source files):**
+**Before every `git commit` (when `.abaplint.json` exists AND changed files include `.abap`, `.xml`, `.asddls`, `.bdef.asbdef` or `.ddlx.asddlxs` ABAP object files):**
 1. ✓ Run `abapgit-agent lint` before committing — no exceptions for ABAP file type or workflow mode (trunk or branch)
 2. ✓ Run lint even when syntax is skipped (dependent files, XML-only types, ENHO)
-3. ✓ Correct pre-commit sequence: syntax (if applicable for CLAS/INTF/PROG/DDLS/FUGR) → `abapgit-agent lint` → `git commit`
+3. ✓ Correct pre-commit sequence: syntax (for supported source types, including BDEF/SRVD/DDLX) → `abapgit-agent lint` for eligible changes → `git commit`. BDEF/DDLX parser checks were verified with abaplint 2.120.103; SRVD has no abaplint source parser.
 4. ✗ Never commit ABAP files without running lint first when `.abaplint.json` exists
 5. ✓ Non-ABAP changes only (docs, config, JS): skip lint and syntax — they do not apply
 6. ✓ Before applying any abaplint quickfix, run `abapgit-agent ref --topic abaplint` first — the `prefer_inline` fix has a known silent type truncation bug
@@ -889,6 +893,12 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 
 ```
 Modified ABAP files?
+├─ BDEF/SRVD/DDLX native source?
+│  └─ Prepare dependencies → native syntax → [abaplint for BDEF/DDLX only] → commit → push → selective native-source pull
+│         .bdef.asbdef / .srvd.srvdsrv (legacy .srvd.assrvd) / .ddlx.asddlxs
+│         Exactly one source per identity; do not select RAP XML alone for pull.
+│         Implementation CLAS is separate; no dependency/behavior-pool auto-selection.
+│         inspect is variant-specific, not proof of complete RAP checking.
 ├─ CLAS/INTF/PROG/DDLS/FUGR files?
 │  ├─ DDLS table function (SOURCE_TYPE F, `define table function` + AMDP class)?
 │  │  └─ ✅ Use: skip syntax (inspect is unreliable for TFs) → [abaplint] → commit → push →
@@ -958,7 +968,7 @@ Modified ABAP files?
 | `ref --topic common-errors` | Common ABAP Errors - Quick Fixes |
 | `ref --topic string-template` | String Templates — syntax, escaping `\{` `\}`, JSON payloads |
 | `ref --topic abapgit` | abapGit XML Metadata — CLAS, INTF, PROG, ENHO; high-level field-presence rules |
-| `ref --topic abapgit-cds` | abapGit XML Metadata — CDS objects: DDLS view / view entity / table function + AMDP class side-car, DCLS access control |
+| `ref --topic abapgit-cds` | abapGit CDS/RAP metadata — DDLS, DCLS, BDEF, SRVD, DDLX; native source pairs and dependency limits |
 | `ref --topic abapgit-xml-only` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `ref --topic abapgit-fugr` | abapGit XML Metadata — Function Group (FUGR) details |
 | `ref --topic enho` | Enhancement Objects (ENHO) — workflow, hash algorithm, creation guide |

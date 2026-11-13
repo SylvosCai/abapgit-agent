@@ -92,7 +92,7 @@ describe('Drop Command - missing --files', () => {
       getTransport: jest.fn(() => null)
     };
 
-    await expect(dropCommand.execute(['--files', 'abap/config.json'], mockContext))
+    await expect(dropCommand.execute(['--files', 'abap/zrap.bdef.abap'], mockContext))
       .rejects.toThrow('process.exit(1)');
     expect(consoleOutput.join('\n')).toMatch(/ABAP source file/);
   });
@@ -145,8 +145,8 @@ describe('Drop Command - success response', () => {
         fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
         post: jest.fn().mockResolvedValue({
           SUCCESS: 'X',
-          OBJECT: 'ZCL_FOO',
-          TYPE: 'CLAS',
+          OBJECT: '/NS/ROOT',
+          TYPE: 'BDEF',
           MESSAGE: 'Object deleted successfully'
         })
       })),
@@ -154,11 +154,11 @@ describe('Drop Command - success response', () => {
       getTransport: jest.fn(() => null)
     };
 
-    await dropCommand.execute(['--files', 'abap/zcl_foo.clas.abap'], mockContext);
+    await dropCommand.execute(['--files', 'src/#ns#root.bdef.asbdef'], mockContext);
 
     const output = consoleOutput.join('\n');
     expect(output).toMatch(/✅/);
-    expect(output).toMatch(/ZCL_FOO/);
+    expect(output).toMatch(/\/NS\/ROOT/);
   });
 
   test('displays error message on failed drop', async () => {
@@ -296,5 +296,16 @@ describe('Drop Command - success response', () => {
 
     await dropCommand.execute(['--files', 'abap/zc_my_role.dcls.asdcls'], mockContext);
     expect(consoleOutput.join('\n')).toMatch(/✅/);
+  });
+
+  test.each(['bdef', 'srvd', 'ddlx'])('rejects %s XML --pull before loading config or sending DROP', async (type) => {
+    require('fs').existsSync.mockReturnValue(true);
+    const ctx = { loadConfig: jest.fn(), AbapHttp: jest.fn(), gitUtils: {}, getTransport: jest.fn() };
+    await expect(require('../../src/commands/drop').execute(['--files', `src/zrap.${type}.xml`, '--pull'], ctx))
+      .rejects.toThrow('process.exit(1)');
+    expect(consoleOutput.join('\n')).toContain('No object was deleted');
+    expect(ctx.loadConfig).not.toHaveBeenCalled();
+    expect(ctx.AbapHttp).not.toHaveBeenCalled();
+    expect(ctx.getTransport).not.toHaveBeenCalled();
   });
 });

@@ -118,7 +118,7 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
     LOOP AT ls_params-objects INTO DATA(lv_object).
       ls_where_obj-name = lv_object.
 
-      DATA(lv_type) = ls_params-type.
+      DATA(lv_type) = to_upper( ls_params-type ).
       IF lv_type IS INITIAL.
         lv_type = detect_object_type( lv_object ).
       ENDIF.
@@ -129,6 +129,14 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ENDIF.
 
       ls_where_obj-type = lv_type.
+
+      IF lv_type <> 'CLAS' AND lv_type <> 'INTF' AND lv_type <> 'PROG'.
+        ls_where_obj-error = |Where-used is not supported for object type { lv_type }. Supported types: CLAS, INTF, PROG.|.
+        ls_result-error = 'One or more object types are not supported by where-used'.
+        APPEND ls_where_obj TO lt_objects.
+        CLEAR ls_where_obj.
+        CONTINUE.
+      ENDIF.
 
       " Check if object exists in TADIR before calling where-used list
       DATA lv_obj_type TYPE trobjtype.
@@ -202,8 +210,10 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
       ls_result-pagination-next_offset = ls_params-offset + ls_params-limit.
     ENDIF.
 
-    ls_result-success = abap_true.
-    IF ls_result-summary-total_references = 1.
+    ls_result-success = xsdbool( ls_result-error IS INITIAL ).
+    IF ls_result-error IS NOT INITIAL.
+      ls_result-message = ls_result-error.
+    ELSEIF ls_result-summary-total_references = 1.
       ls_result-message = |Found { ls_result-summary-total_references } reference|.
     ELSE.
       ls_result-message = |Found { ls_result-summary-total_references } references|.
@@ -215,20 +225,33 @@ CLASS zcl_abgagt_command_where IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detect_object_type.
-    " Auto-detect object type from name pattern
     IF iv_name CP 'ZCL_*' OR iv_name CP 'CL_*'.
       rv_type = 'CLAS'.
     ELSEIF iv_name CP 'ZIF_*' OR iv_name CP 'IF_*'.
       rv_type = 'INTF'.
     ELSEIF iv_name CP 'SAPL*'.
       rv_type = 'PROG'.
-    ELSE.
-      " Check TADIR for actual type
+    ENDIF.
+
+    " Preserve a supported name-pattern match only when that type exists.
+    IF rv_type IS NOT INITIAL.
+      SELECT SINGLE object FROM tadir
+        INTO @DATA(lv_existing_type)
+        WHERE obj_name = @iv_name AND object = @rv_type.
+      IF lv_existing_type IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    SELECT SINGLE object FROM tadir
+      INTO rv_type
+      WHERE obj_name = iv_name
+        AND object IN ('CLAS', 'INTF', 'PROG').
+    IF sy-subrc <> 0.
       SELECT SINGLE object FROM tadir
         INTO rv_type
-        WHERE obj_name = iv_name
-          AND object IN ('CLAS', 'INTF', 'PROG').
-      IF sy-subrc <> 0.
+        WHERE obj_name = iv_name.
+      IF sy-subrc <> 0 AND rv_type IS INITIAL.
         rv_type = 'CLAS'. " Default fallback
       ENDIF.
     ENDIF.

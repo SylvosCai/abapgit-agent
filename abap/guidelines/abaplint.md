@@ -213,8 +213,16 @@ Run this before pushing to catch issues early, matching what CI does.
 abapgit-agent lint
 ```
 
-This automatically detects changed `.abap` files (via `git diff`), creates a scoped
-abaplint config for just those files, runs the check, and cleans up.
+This automatically detects changed ABAP/DDLS/BDEF/DDLX source files (via `git diff`),
+includes their XML companions, creates a scoped config, runs the check and cleans up.
+Native `.bdef.asbdef` and `.ddlx.asddlxs` changes participate even without `.abap` changes.
+For selected RAP types, omitted `bdef_parser_error` / `cds_parser_error` rules are enabled;
+explicit `false` remains respected. SRVD has no abaplint source parser and is excluded.
+
+abaplint 2.120.103 was verified for these parser rules; it is not a minimum-version guarantee.
+A cached older engine, unknown rule, process failure or missing report must fail visibly,
+not become a clean result. The CLI uses `npx`; no SAP connection is needed, but package
+acquisition may still require network access. Static/parser checks do not replace native SAP `syntax`.
 
 ### Options
 

@@ -32,6 +32,11 @@ abapgit-agent syntax --files src/zcl_my_class.clas.locals_imp.abap
 # Check CDS view
 abapgit-agent syntax --files src/zc_my_view.ddls.asddls
 
+# Check native RAP source (not metadata XML)
+abapgit-agent syntax --files src/zr_my_bo.bdef.asbdef
+abapgit-agent syntax --files src/zui_my_service.srvd.srvdsrv
+abapgit-agent syntax --files src/zr_my_annotations.ddlx.asddlxs
+
 # Check INCLUDE program - auto-detects parent program in same directory
 abapgit-agent syntax --files src/zmy_include.prog.abap
 
@@ -55,10 +60,17 @@ abapgit-agent syntax --files src/zcl_my_class.clas.abap --json
 
 - `.abapGitAgent` exists with valid credentials
 - Files must exist in the filesystem
-- Supported object types: CLAS, INTF, PROG (including INCLUDEs), DDLS, DCLS, FUGR
+- Supported object types: CLAS, INTF, PROG (including INCLUDEs), DDLS, DCLS, FUGR, BDEF, SRVD, DDLX
+- RAP checking requires the corresponding native Workbench API and referenced CDS/persistence dependencies in the target system; missing APIs/dependencies are failures, not skipped checks.
 - For class files: Companion files are auto-detected if they exist
 - For FUGR files: All FM source files in the function group are auto-detected
 - For INCLUDE programs (SUBC=I): Parent program is auto-detected in the same directory
+
+## RAP source checks
+
+BDEF `.asbdef`, SRVD `.srvdsrv` (legacy `.assrvd`), and DDLX `.asddlxs` files are routed to dedicated backend checker classes. The CLI only sends local source; SAP Workbench performs the syntax check in memory, with commits disabled and no save or activation. RAP XML and malformed type/suffix pairs are rejected before contacting SAP.
+
+For existing objects, active metadata supplies the native language/version context. New objects use minimal metadata and still require their referenced dependencies. `--cloud` does not override RAP object language metadata. Native diagnostics include errors/warnings and available line numbers, without invented columns. Syntax failures return exit status 1 in both human and JSON modes.
 
 ## Parameters
 
@@ -275,8 +287,8 @@ Errors:
 3. **INCLUDE programs auto-detect parent** - When a `.prog.abap` with SUBC=I is checked, the parent program containing `INCLUDE <name>.` is found in the same directory and the source is assembled before checking. Errors are remapped to include-relative line numbers.
 4. **Error location displayed** - Shows exactly which file contains the error (e.g., "In: Local implementations (zcl_my_class.clas.locals_imp.abap)")
 5. **Test classes fully supported** - `.testclasses.abap` files can be checked by providing just the testclasses file
-6. **First error only** - ABAP's `SYNTAX-CHECK` stops at the first error per file
-7. **No warnings** - Only syntax errors are reported (use `inspect` for warnings)
+6. **First error for ABAP `SYNTAX-CHECK`** - That checker stops at the first error; this is not a limit on native RAP checklist diagnostics
+7. **Warnings depend on the checker** - Native BDEF/SRVD/DDLX checks report errors and warnings; ABAP `SYNTAX-CHECK` reports errors only
 8. **No database writes** - Source is checked in memory only
 
 ---
@@ -294,6 +306,9 @@ Errors:
 | PROG | INCLUDE program | `.prog.abap` (SUBC=I in `.prog.xml`) |
 | DDLS | CDS View | `.ddls.asddls` |
 | DCLS | CDS Access Control (role) | `.dcls.asdcls` |
+| BDEF | RAP behavior definition | `.bdef.asbdef` |
+| SRVD | Service definition | `.srvd.srvdsrv` (legacy `.srvd.assrvd`) |
+| DDLX | CDS metadata extension | `.ddlx.asddlxs` |
 | FUGR | Function module source | `<group>.fugr.<fm_name>.abap` |
 
 **Note:**
@@ -302,7 +317,8 @@ Errors:
 - For INCLUDE programs (SUBC=I), the parent program is auto-detected in the same directory; if no parent is found, a warning is printed and the check is skipped
 - For DDLS: Requires `@AbapCatalog.sqlViewName` annotation for CDS views
 - For DCLS: Requires the granted-on DDL view to be active (CL_ACM_DCL_HANDLER->CHECK validates entity references). Pull the DDL view first if it isn't active yet.
-- For other types (TABL, STRU, etc.), use `pull` then `inspect`
+- For native RAP: dependencies must exist in SAP; existing active metadata supplies language/version context. Available checklist line information is reported, but exact columns are not guaranteed. BDEF implementation CLAS files require a separate check; they are not auto-selected. XML is not syntax source. A failed batch containing RAP sets exit code 1; legacy semantic-failure exit behavior is unchanged.
+- For other types (TABL, STRU, etc.), use `pull` and the applicable system/variant diagnostics; `inspect` is not proof that every type was checked
 
 ---
 
@@ -372,6 +388,9 @@ Files are parsed to extract object type and name:
 | `zcl_my_class.clas.testclasses.abap` | CLAS | ZCL_MY_CLASS (test classes) |
 | `zc_my_view.ddls.asddls` | DDLS | ZC_MY_VIEW |
 | `zc_my_role.dcls.asdcls` | DCLS | ZC_MY_ROLE |
+| `zr_my_bo.bdef.asbdef` | BDEF | ZR_MY_BO |
+| `zui_my_service.srvd.srvdsrv` (or `.srvd.assrvd`) | SRVD | ZUI_MY_SERVICE |
+| `zr_my_annotations.ddlx.asddlxs` | DDLX | ZR_MY_ANNOTATIONS |
 | `zmy_fugr.fugr.zmy_my_function.abap` | FUGR | ZMY_FUGR (FM: ZMY_MY_FUNCTION) |
 | `zmy_fugr.fugr.lzmy_fugrtop.abap` | FUGR | ZMY_FUGR (triggers auto-detection) |
 | `zmy_include.prog.abap` (SUBC=I) | PROG | ZMY_INCLUDE (checked via parent) |

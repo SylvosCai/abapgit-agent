@@ -1061,3 +1061,56 @@ describe('View Command - countEnhoLines()', () => {
     expect(execOffset - enhoCount).toBe(4);
   });
 });
+
+describe('View Command - RAP result contract', () => {
+  let log, error;
+  beforeEach(() => {
+    log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    error = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => { log.mockRestore(); error.mockRestore(); process.exitCode = undefined; });
+
+  function context(result) {
+    const post = jest.fn().mockResolvedValue(result);
+    return { post, loadConfig: () => ({}), AbapHttp: jest.fn(() => ({
+      fetchCsrfToken: jest.fn().mockResolvedValue('token'), post
+    })) };
+  }
+
+  test.each(['BDEF', 'SRVD', 'DDLX'])('returns pure successful %s JSON without a banner', async (type) => {
+    const result = { SUCCESS: true, OBJECTS: [{ NAME: 'ZRAP_VIEW', TYPE: type, SOURCE: 'source', NOT_FOUND: false }] };
+    const ctx = context(result);
+    await require('../../src/commands/view').execute(['--objects', 'ZRAP_VIEW', '--json'], ctx);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual(result);
+    expect(ctx.post.mock.calls[0][1]).toEqual({ objects: ['ZRAP_VIEW'] });
+  });
+
+  test('preserves native failure identity and diagnostics in JSON with exit 1', async () => {
+    const result = { SUCCESS: false, ERROR: 'Could not read object', OBJECTS: [
+      { NAME: 'ZRAP_VIEW', TYPE: 'SRVD', NOT_FOUND: false, ERROR: 'Active source unavailable' }
+    ] };
+    await require('../../src/commands/view').execute(['--objects', 'ZRAP_VIEW', '--type', 'SRVD', '--json'], context(result));
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual(result);
+    expect(error).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+
+  test('prints per-object native errors in human mode with exit 1', async () => {
+    await require('../../src/commands/view').execute(['--objects', 'ZRAP_VIEW'], context({
+      SUCCESS: false, ERROR: 'Could not read object', OBJECTS: [
+        { NAME: 'ZRAP_VIEW', TYPE: 'BDEF', ERROR: 'Native API unavailable', NOT_FOUND: false }
+      ]
+    }));
+    expect(error.mock.calls.flat().join('\n')).toContain('ZRAP_VIEW: Native API unavailable');
+    expect(process.exitCode).toBe(1);
+  });
+
+  test('actual nonexistence remains distinct from operational failure', async () => {
+    const result = { SUCCESS: true, OBJECTS: [{ NAME: 'ZRAP_MISSING', TYPE: 'DDLX', NOT_FOUND: true }] };
+    await require('../../src/commands/view').execute(['--objects', 'ZRAP_MISSING', '--json'], context(result));
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual(result);
+    expect(process.exitCode).not.toBe(1);
+  });
+});

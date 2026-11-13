@@ -24,6 +24,9 @@ CDS View (DDLS)    | zc_*.ddls.asddls             | zc_*.ddls.xml
 CDS Access Control | zc_*.dcls.asdcls             | zc_*.dcls.xml
 Function Group     | z*fugr*.abap (1 per FM + includes) | z*.fugr.xml
 Enhancement (ENHO) | z*.enho.<hash>.abap (N files)| z*.enho.xml
+Behavior (BDEF)    | zr_*.bdef.asbdef             | zr_*.bdef.xml
+Service (SRVD)     | zui_*.srvd.srvdsrv           | zui_*.srvd.xml
+Annotations (DDLX) | zr_*.ddlx.asddlxs            | zr_*.ddlx.xml
 ```
 
 > **XML-only objects** (TABL, STRU, DTEL, TTYP, DOMA, MSAG) have **no ABAP source file** and are not covered here.
@@ -37,6 +40,8 @@ Enhancement (ENHO) | z*.enho.<hash>.abap (N files)| z*.enho.xml
 > default values.** Extra fields cause a permanent "M" (modified) diff. Follow the exact templates below.
 
 **Searchable keywords**: class xml, interface xml, program xml, cds view xml, ddls, dcls, access control xml, function group xml, fugr, test class, exposure, serializer, abapgit
+
+RAP BDEF/SRVD/DDLX conventions and dependency limits are covered by `abapgit-agent ref --topic abapgit-cds`. Legacy `.srvd.assrvd` replaces, rather than accompanies, canonical SRVD source. Use verified serializer metadata; the CLAS templates below are not templates for RAP declarations.
 
 ## Why XML Metadata?
 

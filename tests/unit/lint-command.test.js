@@ -45,6 +45,7 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = originalEnv;
+  process.exitCode = undefined;
 });
 
 // ---------------------------------------------------------------------------
@@ -164,7 +165,7 @@ describe('lint command — no changed files', () => {
 
     lint.execute([]);
 
-    expect(logs.join('\n')).toMatch(/No changed .abap\/.asddls files found/);
+    expect(logs.join('\n')).toMatch(/No changed lintable ABAP\/CDS\/RAP sources found/);
     expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 
@@ -174,7 +175,7 @@ describe('lint command — no changed files', () => {
 
     lint.execute([]);
 
-    expect(logs.join('\n')).toMatch(/No changed .abap\/.asddls files found/);
+    expect(logs.join('\n')).toMatch(/No changed lintable ABAP\/CDS\/RAP sources found/);
     expect(mockSpawnSync).not.toHaveBeenCalled();
   });
 });
@@ -851,5 +852,105 @@ describe('lint command — dependency resolution', () => {
     expect(writtenConfig.global.exclude).toContain('/abap/generated/**');
     // dep file is NOT added to exclude (must be parseable for cross-reference)
     expect(writtenConfig.global.exclude).not.toContain('/abap/zif_bar.intf.abap');
+  });
+});
+
+// Exercise the real command: RAP detection, XML companions, parser rules, and runner failures.
+describe('lint command — RAP sources', () => {
+  const bdef = 'src/zbehavior.bdef.asbdef';
+  const ddlx = 'src/zannotations.ddlx.asddlxs';
+  const config = { global: { files: '/src/**/*.abap' }, rules: {} };
+
+  function setupRap(cfg = config) {
+    const files = [bdef, ddlx, 'src/zbehavior.bdef.xml', 'src/zannotations.ddlx.xml'];
+    mockFileSystem(['.abaplint.json', '.abaplint-raw.xml', ...files]);
+    mockFsReadFileSync.mockImplementation(p => p === '.abaplint.json'
+      ? JSON.stringify(cfg) : p === '.abaplint-raw.xml' ? '<checkstyle version="8.0"></checkstyle>' : '');
+    mockSpawnSync.mockReturnValue({ status: 0 });
+  }
+
+  function scopedConfig() {
+    return JSON.parse(mockFsWriteFileSync.mock.calls.find(([p]) => p === '.abaplint-local.json')[1]);
+  }
+
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    setupRap();
+  });
+
+  test.each([
+    [bdef, '/src/zbehavior.bdef.xml', 'bdef_parser_error'],
+    [ddlx, '/src/zannotations.ddlx.xml', 'cds_parser_error'],
+  ])('lints %s with its XML companion and parser rule', (file, xml, rule) => {
+    lint.execute(['--files', file]);
+    expect(scopedConfig().global.files).toEqual([`/${file}`, xml]);
+    expect(scopedConfig().rules[rule]).toBe(true);
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  test('keeps explicit parser-rule overrides', () => {
+    setupRap({ ...config, rules: { bdef_parser_error: false, cds_parser_error: false } });
+    lint.execute(['--files', `${bdef},${ddlx}`]);
+    expect(scopedConfig().rules).toEqual({ bdef_parser_error: false, cds_parser_error: false });
+  });
+
+  test.each(['base', 'PR', 'uncommitted', 'last commit'])('detects RAP-only changes for %s', mode => {
+    if (mode === 'PR') process.env.CHANGE_TARGET = 'main';
+    const diff = `${bdef}\n${ddlx}\nsrc/deleted.bdef.asbdef\nsrc/zservice.srvd.srvdsrv`;
+    if (mode === 'last commit') mockExecSync.mockReturnValueOnce('').mockReturnValueOnce(diff);
+    else mockExecSync.mockReturnValue(diff);
+    lint.execute(mode === 'base' ? ['--base', 'main'] : []);
+    expect(scopedConfig().global.files).toContain(`/${bdef}`);
+    expect(scopedConfig().global.files).toContain(`/${ddlx}`);
+    expect(scopedConfig().global.files).not.toContain('/src/deleted.bdef.asbdef');
+    expect(scopedConfig().global.files).not.toContain('/src/zservice.srvd.srvdsrv');
+    for (const [cmd] of mockExecSync.mock.calls) {
+      expect(cmd).toContain("'*.asbdef'");
+      expect(cmd).toContain("'*.asddlxs'");
+    }
+  });
+
+  test.each(['src/zservice.srvd.srvdsrv', 'src/zservice.srvd.assrvd', 'src/zrole.dcls.asdcls',
+    'src/wrong.srvd.asbdef', 'src/wrong.bdef.asddlxs'])('does not lint unsupported source %s', file => {
+    mockFsExistsSync.mockReturnValue(true);
+    lint.execute(['--files', file]);
+    expect(mockSpawnSync).not.toHaveBeenCalled();
+  });
+
+  test('includes uppercase native source and its indexed XML', () => {
+    mockFileSystem(['.abaplint.json', '.abaplint-raw.xml', 'src/ZBEHAVIOR.BDEF.ASBDEF', 'src/zbehavior.bdef.xml']);
+    lint.execute(['--files', 'src/ZBEHAVIOR.BDEF.ASBDEF']);
+    expect(scopedConfig().global.files).toContain('/src/zbehavior.bdef.xml');
+    expect(scopedConfig().rules.bdef_parser_error).toBe(true);
+  });
+
+  test.each([
+    { status: 2, stderr: Buffer.from('Unknown rule: bdef_parser_error') },
+    { status: null, signal: 'SIGTERM' },
+    { status: null, error: new Error('spawn failed') },
+  ])('fails closed when abaplint cannot run: %j', result => {
+    mockSpawnSync.mockReturnValue(result);
+    lint.execute(['--files', bdef]);
+    expect(process.exitCode).toBe(1);
+    expect(mockFsUnlinkSync).toHaveBeenCalledWith('.abaplint-local.json');
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  test('fails closed when abaplint leaves no report, even with exit 0', () => {
+    mockFsExistsSync.mockImplementation(p => p !== '.abaplint-raw.xml');
+    lint.execute(['--files', bdef]);
+    expect(process.exitCode).toBe(1);
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  test('retains RAP parser diagnostics and exits 1', () => {
+    mockSpawnSync.mockReturnValue({ status: 1 });
+    mockFsReadFileSync.mockImplementation(p => p === '.abaplint.json' ? JSON.stringify(config)
+      : p === '.abaplint-raw.xml'
+        ? `<checkstyle version="8.0"><file name="${bdef}"><error line="1" severity="error" message="Parse error" source="bdef_parser_error"/></file></checkstyle>` : '');
+    lint.execute(['--files', bdef, '--outformat', 'checkstyle', '--outfile', 'report.xml']);
+    expect(mockFsWriteFileSync.mock.calls.find(([p]) => p === 'report.xml')[1]).toContain('bdef_parser_error');
+    expect(process.exitCode).toBe(1);
   });
 });

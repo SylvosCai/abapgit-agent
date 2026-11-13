@@ -8,7 +8,7 @@ grand_parent: ABAP Development
 
 # ABAP Naming Length Limits
 
-**Searchable keywords**: name length, character limit, 30 characters, 16 characters, 40 characters, too long, truncate, field name, method name, class name, table name, CDS name
+**Searchable keywords**: name length, character limit, 30 characters, 16 characters, 40 characters, too long, truncate, field name, method name, class name, table name, CDS name, RAP, BDEF, SRVD, DDLX
 
 > **Rule of thumb**: Most ABAP object names → 30 chars. Table/structure **field names** → 16 chars. CDS/DDLS names → 40 chars. Method names (including test methods) → 30 chars.
 
@@ -33,6 +33,7 @@ grand_parent: ABAP Development
 | Package name | **30** |
 | **CDS View Entity name (DDLS)** | **40** |
 | CDS Access Control name (DCLS) | **40** |
+| RAP object names (BDEF, SRVD, DDLX) | [See DDIC widths and agent limits below](#rap-names-ddic-width-versus-agent-limit) |
 | CDS field alias | **30** |
 | Message Class name (MSAG) | **20** |
 | Class method name | **30** |
@@ -79,6 +80,16 @@ ZC_FLIGHT_REVENUE                        ← 17 chars (fine)
 ```
 
 However, CDS **field aliases** inside the view are still limited to **30 characters** (ABAP identifier rules).
+
+### RAP Names: DDIC Width Versus Agent Limit
+
+| Object | SAP name data element | Verified DDIC width | Current agent limit |
+|---|---|---|---|
+| BDEF | `ABP_BDEF_NAME` | **30** | **30** |
+| SRVD | `SRVDNAME` | **40** | **30** |
+| DDLX | `DDLXNAME` / `DDDDLXNAME` | **40** | **30** |
+
+The agent limit applies to the decoded object name, including `/namespace/`.
 
 ### Function Group Names: 26 Characters MAX
 

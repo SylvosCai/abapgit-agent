@@ -9,6 +9,10 @@ parent: Setup Commands
 
 Import existing ABAP objects from a package into an existing abapGit online repository.
 
+## RAP Objects
+
+The existing supported-type filter includes BDEF/SRVD/DDLX. Import retains their native source and XML metadata pairs: `.bdef.asbdef`, `.srvd.srvdsrv` (legacy `.srvd.assrvd`) and `.ddlx.asddlxs`, with matching object XML. Explicit exclusion patterns still apply. This uses upstream abapGit serialization, not a separate RAP import command or runtime SRVB publication. See the [support matrix](../commands.md#rap-source-support).
+
 ## Command
 
 ```bash
@@ -301,7 +305,7 @@ abapgit-agent import
 
 - [`init`](init-command.md) - Initialize local configuration
 - [`create`](create-command.md) - Create online repository in ABAP
-- [`pull`](pull-command.md) - Pull and activate objects in ABAP
+- [`pull`](../development/pull-command.md) - Pull and activate objects in ABAP
 
 ## Project-Level Safeguards
 

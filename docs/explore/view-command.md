@@ -44,6 +44,9 @@ abapgit-agent view --objects ZMY_MSG_CLASS --type MSAG
 abapgit-agent view --objects ZMY_FUNC_GROUP --type FUGR
 abapgit-agent view --objects ZMY_ACCESS_CTRL --type DCLS
 abapgit-agent view --objects ZMY_SUSO --type SUSO
+abapgit-agent view --objects ZR_MY_BO --type BDEF
+abapgit-agent view --objects ZUI_MY_SERVICE --type SRVD
+abapgit-agent view --objects ZR_MY_BO --type DDLX
 
 # View multiple objects
 abapgit-agent view --objects ZCL_CLASS1,ZCL_CLASS2,ZIF_INTERFACE1
@@ -85,6 +88,12 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --json
 abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 ```
 
+## RAP Active Source
+
+BDEF, SRVD and DDLX viewers read active native source only. There is no inactive fallback. Ordinary source output uses `source`; `--full` uses `sections[].lines`. BDEF/DDLX may share an object name, so specify `--type`. This is source viewing, not a RAP BO/dependency browser. See the [support matrix](../commands.md#rap-source-support).
+
+A genuinely absent object has `NOT_FOUND: true`. If an existing object's active source or native API cannot be read, the object has `ERROR`, the result has `SUCCESS: false`, and the CLI exits nonzero. `--json` emits one JSON result without a human banner, including on failure.
+
 ## Prerequisite
 
 - `.abapGitAgent` exists with valid credentials
@@ -95,10 +104,10 @@ abapgit-agent view --objects ZCL_MY_CLASS --full --lines --json
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `--objects` | Yes | Comma-separated list of object names (e.g., `ZCL_MY_CLASS,ZIF_MY_INTERFACE`) |
-| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS, ENHO, SUSO). Auto-detected from TADIR if not specified |
+| `--type` | No | Object type (CLAS, INTF, TABL, STRU, DTEL, TTYP, DDLS, STOB, PROG, DOMA, MSAG, FUGR, DCLS, ENHO, SUSO, BDEF, SRVD, DDLX). Auto-detected from TADIR if not specified; use explicit type for same-name BDEF/DDLX objects |
 | `--full` | No | Return all sections (definition + all method implementations) as clean readable source. For CLAS: shows CU/CO/CP/CM*/CCDEF/CCIMP/CCAU sections plus any active ENHO hook lines injected into CM sections. For INTF/PROG/DDLS: shows full source |
 | `--lines` | No | Add dual line numbers to `--full` output: `G [N]  code` where G is assembled-source global line and [N] is include-relative. Also adds breakpoint hints to method headers. Only meaningful with `--full` |
-| `--json` | No | Output raw JSON only (for scripting) |
+| `--json` | No | Emit JSON response data. The current CLI may print a `Viewing ... object(s)` banner before the payload; scripts must account for it |
 
 ---
 
@@ -253,7 +262,7 @@ abapgit-agent debug set --objects ZCL_MY_CLASS:12 --include testclasses
 abapgit-agent debug set --objects ZCL_MY_CLASS:5 --include locals_imp
 ```
 
-Non-CLAS types (INTF, PROG, DDLS): single section, section-local line numbers only (no `[N]` brackets).
+Non-CLAS source types (including INTF/PROG/DDLS/BDEF/SRVD/DDLX): single section, section-local line numbers only (no `[N]` brackets).
 
 #### Using `--full` vs `--full --lines`
 
@@ -612,7 +621,7 @@ The `FILE` field (when present) signals that the section comes from a separate g
       "DOMAIN_LENGTH": number,      // For DTEL/DOMA: field length
       "DOMAIN_DECIMALS": number,    // For DTEL/DOMA: decimal places
       "SOURCE": "string",           // Full source (CLAS/INTF/DDLS/STOB/DCLS) — omitted when sections present
-      "SECTIONS": [                 // Present only when --full is used (CLAS/INTF/PROG/DDLS/DCLS)
+      "SECTIONS": [                 // Present when --full is used for supported source viewers, including BDEF/SRVD/DDLX
         {
           "SUFFIX": "string",       // CU, CO, CP, CM001..CMxxx, CCDEF, CCIMP, CCAU, asdcls
           "DESCRIPTION": "string",  // Human-readable section label
@@ -690,6 +699,9 @@ The `FILE` field (when present) signals that the section comes from a separate g
 | `FUGR` | Function Group | Function group with function module list |
 | `DCLS` | Access Control | CDS access control (DCL source) |
 | `ENHO` | Enhancement | Enhancement object hook sections |
+| `BDEF` | Behavior Definition | Active native RAP declaration; implementation CLAS separate |
+| `SRVD` | Service Definition | Active native service exposure source |
+| `DDLX` | Metadata Extension | Active native CDS annotations |
 | `SUSO` | Authorization Object | Authorization object (SU21) — fields, object class, and allowed activities |
 
 ---

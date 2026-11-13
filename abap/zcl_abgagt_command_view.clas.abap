@@ -45,6 +45,7 @@ CLASS zcl_abgagt_command_view DEFINITION PUBLIC FINAL CREATE PUBLIC.
              source TYPE string,
              definition TYPE string,
              not_found TYPE abap_bool,
+             error TYPE string,
              sections TYPE ty_sections,
              components TYPE STANDARD TABLE OF ty_component WITH DEFAULT KEY,
            END OF ty_view_object.
@@ -103,10 +104,17 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
     DATA(lo_factory) = zcl_abgagt_viewer_factory=>get_instance( ).
 
     LOOP AT ls_params-objects INTO DATA(lv_object).
+      CLEAR ls_info.
       " Auto-detect type if not provided
       DATA(lv_type) = ls_params-type.
       IF lv_type IS INITIAL.
         lv_type = detect_object_type( iv_name = lv_object ).
+      ENDIF.
+
+      IF lv_type IS INITIAL.
+        ls_info = VALUE #( name = lv_object not_found = abap_true ).
+        APPEND ls_info TO lt_objects.
+        CONTINUE.
       ENDIF.
 
       " Get viewer and retrieve info
@@ -119,23 +127,19 @@ CLASS zcl_abgagt_command_view IMPLEMENTATION.
           ls_info = lo_viewer->get_info(
             iv_name = lv_viewer_name
             iv_full = ls_params-full ).
-        CATCH cx_sy_create_object_error.
-          " Viewer class not found - set not found flag
-          ls_info-name = lv_object.
-          ls_info-type = lv_type.
-          ls_info-not_found = abap_true.
-        CATCH cx_root.
-          " Any other error (e.g. cx_dd_ddl_read) - set not found flag
-          ls_info-name = lv_object.
-          ls_info-type = lv_type.
-          ls_info-not_found = abap_true.
+        CATCH cx_root INTO DATA(lx_error).
+          ls_info = VALUE #( name = lv_object type = lv_type error = lx_error->get_text( ) ).
       ENDTRY.
 
+      IF ls_info-error IS NOT INITIAL.
+        ls_result-error = 'One or more objects could not be read'.
+      ENDIF.
       APPEND ls_info TO lt_objects.
     ENDLOOP.
 
-    ls_result-success = abap_true.
-    ls_result-message = 'Retrieved object(s)'.
+    ls_result-success = xsdbool( ls_result-error IS INITIAL ).
+    ls_result-message = COND #( WHEN ls_result-success = abap_true THEN 'Retrieved object(s)'
+                               ELSE ls_result-error ).
     ls_result-objects = lt_objects.
     ls_result-summary = build_summary( lt_objects ).
 

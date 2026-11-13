@@ -76,12 +76,13 @@ skips all registration/activation steps — adding only a few seconds overhead.
 | Run | `npm run test:cmd -- --command=run` | `run --program` and `run --class` | `$ABGAGT_RUN_TEST` |
 | Exclude | `npm run test:exclude` | `exclude` command — pattern + unsupportedTypes filtering | `$ABGAGT_EXCL_TEST` |
 | Syntax (FUGR) | `npm run test:cmd -- --command=syntax` | FUGR function group syntax checks | `$ABGAGT_SYNTAX_TEST` |
+| Syntax (RAP) | `npm run test:cmd:syntax` | Eight BDEF/SRVD/DDLX cases: valid/invalid source, active-source preservation, legacy SRVD, XML rejection | `$ABGAGT_DROP_TEST` |
 | JUnit output | `npm run test:junit` | `--junit-output` flag | `$ABGAGT_UNIT_TEST` |
 | Debug | `npm run test:debug` | Breakpoint management (ADT) | `$ABGAGT_DEBUG_TEST` |
 | HANA | `npm run test:hana` | `hana view/schema/table` commands against a real HANA tenant | — (HANA-only repo; no ABAP package) |
 | DTEL SCRLEN | `npm run test:dtel-scrlen` | `pull` correctly fails (exit 1, ❌) and surfaces the cause when a DTEL's SCRTEXT exceeds its SCRLEN | `$ABGABT_PULL_TEST` (uses fixture branch `test/dtel-scrlen` of `abgagt-pull-test`) |
 
-> **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase. The `hana` suite is different: its test repo (`abgagt-hta-test`) holds only HANA artifacts (`.calculationview` etc.), so setup just clones it — the HANA tenant connection comes from your `.abapGitAgent` and the test deploys/drops via the `hana` command itself.
+> **Note:** Most command tests use objects in the project package. Exceptions: `run` requires `$ABGAGT_RUN_TEST`, `syntax` FUGR tests require `$ABGAGT_SYNTAX_TEST`, RAP syntax/view cases use `$ABGAGT_DROP_TEST`, `junit` requires `$ABGAGT_UNIT_TEST`, `debug` requires `$ABGAGT_DEBUG_TEST`, and `exclude` requires `$ABGAGT_EXCL_TEST` — all are set up automatically by the setup phase. The `hana` suite is different: its test repo (`abgagt-hta-test`) holds only HANA artifacts (`.calculationview` etc.), so setup just clones it — the HANA tenant connection comes from your `.abapGitAgent` and the test deploys/drops via the `hana` command itself.
 
 ### Running a single command suite
 
@@ -92,6 +93,16 @@ npm run test:cmd -- --command=view
 npm run test:cmd -- --command=debug
 # etc.
 ```
+
+With prerequisites already available, `npm run test:cmd:syntax -- --no-setup` runs the syntax cases without cloning, registering, or activating repositories. RAP source files come from the existing drop-test clone under `os.tmpdir()`. Generated invalid/legacy/XML inputs use separate temporary directories and are removed after each case; missing fixtures fail rather than skip.
+
+Command verifiers receive `verify(stdout, { exitCode, stderr })` on both zero and nonzero exits. RAP negatives require exit 1 **and** the intended structured diagnostic, so an authentication failure or crash cannot count as a successful negative test. Older one-argument verifiers remain supported. Setup, verification, and cleanup failures fail the case; demo mode runs the same hooks.
+
+### RAP Lint and Fixture Evidence
+
+`tests/unit/lint-command.test.js` exercises BDEF/DDLX selection, XML companions, scoped parser rules, explicit-false overrides and engine/report failures. Real parser smoke checks used abaplint 2.120.103; these are static checks, not SAP semantic/BO tests. CI detection regressions are documented in the companion CI repository.
+
+Setup's sentinel object does not prove every RAP fixture is active: confirm the required BDEF/SRVD/DDLX identities and native source when running their cases. `--no-setup` skips setup only; other suites can still pull, drop or mutate repositories/SAP. Eight RAP syntax cases are specific scenario coverage, not all RAP types/variants or line/branch coverage.
 
 ## Test Repo Access Requirements
 

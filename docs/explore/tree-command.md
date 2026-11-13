@@ -11,6 +11,14 @@ parent: Explore Commands
 
 Display the package hierarchy tree from an ABAP system, showing parent packages, sub-packages, and object counts.
 
+## RAP Package Counts
+
+```bash
+abapgit-agent tree --package '$MY_PACKAGE' --include-types
+```
+
+The existing generic TADIR aggregation includes BDEF/SRVD/DDLX counts. This is a package hierarchy with object-type counts, not a RAP BO, composition, service or dependency graph. No RAP-specific tree test coverage is implied by generic support.
+
 ## Command
 
 ```bash

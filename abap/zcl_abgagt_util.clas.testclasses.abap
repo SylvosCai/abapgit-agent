@@ -9,6 +9,9 @@ CLASS ltcl_zcl_abgagt_util DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARM
     METHODS test_parse_intf FOR TESTING.
     METHODS test_parse_with_path FOR TESTING.
     METHODS test_parse_invalid FOR TESTING.
+    METHODS test_rap_formats FOR TESTING.
+    METHODS test_rap_invalid_reset FOR TESTING.
+    METHODS test_parse_namespace_path FOR TESTING.
     METHODS test_parse_enho_hash_file FOR TESTING.
     METHODS test_parse_enho_with_path FOR TESTING.
     METHODS test_parse_enho_unknown_4part FOR TESTING.
@@ -87,6 +90,63 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       act = lv_obj_type msg = 'Invalid file should return empty type' ).
     cl_abap_unit_assert=>assert_initial(
       act = lv_obj_name msg = 'Invalid file should return empty name' ).
+  ENDMETHOD.
+
+  METHOD test_rap_formats.
+    TYPES: BEGIN OF ty_case,
+             file TYPE string,
+             obj_type TYPE string,
+           END OF ty_case.
+    TYPES tt_case TYPE STANDARD TABLE OF ty_case WITH EMPTY KEY.
+    DATA(lt_cases) = VALUE tt_case(
+      ( file = 'src.v2/zrap.bdef.asbdef' obj_type = 'BDEF' )
+      ( file = 'src/zrap.bdef.xml' obj_type = 'BDEF' )
+      ( file = 'src/zrap.srvd.srvdsrv' obj_type = 'SRVD' )
+      ( file = 'src/zrap.srvd.assrvd' obj_type = 'SRVD' )
+      ( file = 'src/zrap.srvd.xml' obj_type = 'SRVD' )
+      ( file = 'src/zrap.ddlx.asddlxs' obj_type = 'DDLX' )
+      ( file = 'src/zrap.ddlx.xml' obj_type = 'DDLX' ) ).
+    LOOP AT lt_cases INTO DATA(ls_case).
+      mo_util->parse_file_to_object(
+        EXPORTING iv_file = ls_case-file
+        IMPORTING ev_obj_type = DATA(lv_type) ev_obj_name = DATA(lv_name) ).
+      cl_abap_unit_assert=>assert_equals( act = lv_type exp = ls_case-obj_type msg = ls_case-file ).
+      cl_abap_unit_assert=>assert_equals( act = lv_name exp = 'ZRAP' msg = ls_case-file ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD test_rap_invalid_reset.
+    DATA(lt_invalid) = VALUE string_table(
+      ( `zrap.bdef.abap` ) ( `zrap.srvd.asbdef` ) ( `zrap.ddlx.srvdsrv` )
+      ( `zrap.unknown.asbdef` ) ( `zrap.bdef.foo.xml` ) ( `.bdef.asbdef` )
+      ( `zrap..bdef.asbdef` ) ( `zrap.bdef.` ) ( `#ns##root.bdef.xml` )
+      ( `#ns#root#x.bdef.xml` ) ( `z rap.bdef.xml` )
+      ( `zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz.bdef.asbdef` ) ( `invalid.txt` ) ).
+    LOOP AT lt_invalid INTO DATA(lv_file).
+      mo_util->parse_file_to_object(
+        EXPORTING iv_file = 'zrap.bdef.asbdef'
+        IMPORTING ev_obj_type = DATA(lv_type) ev_obj_name = DATA(lv_name) ).
+      mo_util->parse_file_to_object(
+        EXPORTING iv_file = lv_file
+        IMPORTING ev_obj_type = lv_type ev_obj_name = lv_name ).
+      cl_abap_unit_assert=>assert_initial( act = lv_type msg = lv_file ).
+      cl_abap_unit_assert=>assert_initial( act = lv_name msg = lv_file ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD test_parse_namespace_path.
+    DATA(lt_files) = VALUE string_table(
+      ( `src.v2/sub/#Ns#Root.BdEf.AsBdEf` )
+      ( `src.v2\sub\#Ns#Root.BdEf.AsBdEf` )
+      ( `src.v2/#ns#root.clas.locals_imp.abap` )
+      ( `src.v2/#ns#root.ddls.asddls` ) ).
+    LOOP AT lt_files INTO DATA(lv_file).
+      mo_util->parse_file_to_object(
+        EXPORTING iv_file = lv_file
+        IMPORTING ev_obj_type = DATA(lv_type) ev_obj_name = DATA(lv_name) ).
+      cl_abap_unit_assert=>assert_equals( act = lv_name exp = '/NS/ROOT' msg = lv_file ).
+      cl_abap_unit_assert=>assert_not_initial( act = lv_type msg = lv_file ).
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD test_parse_enho_hash_file.
@@ -221,4 +281,45 @@ CLASS ltcl_zcl_abgagt_util IMPLEMENTATION.
       msg = '36 should be CM010' ).
   ENDMETHOD.
 
+ENDCLASS.
+
+CLASS ltcl_rap_tadir DEFINITION FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+  PRIVATE SECTION.
+    DATA mo_env TYPE REF TO if_osql_test_environment.
+    METHODS setup.
+    METHODS teardown.
+    METHODS detects_rap FOR TESTING.
+    METHODS preserves_legacy_priority FOR TESTING.
+ENDCLASS.
+
+CLASS ltcl_rap_tadir IMPLEMENTATION.
+  METHOD setup.
+    mo_env = cl_osql_test_environment=>create( VALUE #( ( 'TADIR' ) ) ).
+  ENDMETHOD.
+  METHOD teardown.
+    mo_env->destroy( ).
+  ENDMETHOD.
+  METHOD detects_rap.
+    DATA lt_rows TYPE STANDARD TABLE OF tadir WITH EMPTY KEY.
+    lt_rows = VALUE #( ( pgmid = 'R3TR' object = 'BDEF' obj_name = 'ZRAP_VIEW_B' devclass = '$TEST' )
+                      ( pgmid = 'R3TR' object = 'SRVD' obj_name = 'ZRAP_VIEW_S' devclass = '$TEST' )
+                      ( pgmid = 'R3TR' object = 'DDLX' obj_name = 'ZRAP_VIEW_X' devclass = '$TEST' ) ).
+    mo_env->insert_test_data( lt_rows ).
+    DATA(lo_util) = zcl_abgagt_util=>get_instance( ).
+    LOOP AT lt_rows INTO DATA(ls_row).
+      DATA(ls_info) = lo_util->get_object_info_from_tadir( CONV #( ls_row-obj_name ) ).
+      cl_abap_unit_assert=>assert_equals( act = ls_info-obj_type exp = ls_row-object ).
+      cl_abap_unit_assert=>assert_equals( act = ls_info-obj_name exp = ls_row-obj_name ).
+      cl_abap_unit_assert=>assert_not_initial( ls_info-type_text ).
+    ENDLOOP.
+  ENDMETHOD.
+  METHOD preserves_legacy_priority.
+    DATA lt_rows TYPE STANDARD TABLE OF tadir WITH EMPTY KEY.
+    lt_rows = VALUE #( ( pgmid = 'R3TR' object = 'DDLS' obj_name = 'ZRAP_SHARED' )
+                      ( pgmid = 'R3TR' object = 'BDEF' obj_name = 'ZRAP_SHARED' )
+                      ( pgmid = 'R3TR' object = 'DDLX' obj_name = 'ZRAP_SHARED' ) ).
+    mo_env->insert_test_data( lt_rows ).
+    DATA(ls_info) = zcl_abgagt_util=>get_instance( )->get_object_info_from_tadir( 'ZRAP_SHARED' ).
+    cl_abap_unit_assert=>assert_equals( act = ls_info-obj_type exp = 'DDLS' ).
+  ENDMETHOD.
 ENDCLASS.

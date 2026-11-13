@@ -23,7 +23,8 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `naming-limits.md` | Naming Length Limits (30/16/40 char rules per type) |
 | `json.md` | JSON Handling |
 | `string-template.md` | String Templates — syntax, escaping `\{` `\}`, JSON payloads |
-| `abapgit.md` | abapGit XML Metadata — CLAS, INTF, PROG, CDS/DDLS, DCLS, FUGR |
+| `abapgit.md` | abapGit XML Metadata — CLAS, INTF, PROG, CDS/DDLS, DCLS, FUGR, RAP file pairs |
+| `abapgit-cds.md` | CDS/RAP metadata — DDLS, DCLS, BDEF, SRVD, DDLX; dependency and native-source conventions |
 | `abapgit-xml-only.md` | abapGit XML Metadata — XML-only objects (TABL, STRU, DTEL, TTYP, DOMA, MSAG) |
 | `abapgit-fugr.md` | abapGit XML Metadata — Function Group (FUGR) details |
 | `enho.md` | Enhancement Objects (ENHO) — workflow, hash algorithm, creation guide |

@@ -8,14 +8,19 @@ grand_parent: ABAP Development
 
 # Unit Testing
 
+## RAP Test Placement
+
+Declarative BDEF/SRVD/DDLX objects do not get invented `.bdef.testclasses.abap` or similar includes. ABAP Unit remains class-based: use an appropriate behavior implementation/test class and explicit dependencies/test doubles. The agent's `unit` executes class tests, not declarative objects. Native syntax/view/lifecycle checks are distinct from RAP/EML business-behavior tests; a passing syntax case is not BO test coverage.
+
 **Searchable keywords**: unit test, AUnit, test class, cl_abap_unit_assert, FOR TESTING, setup, teardown, RISK LEVEL, DURATION, WITH_UNIT_TESTS, testclasses
 
 ## TOPICS IN THIS FILE
-1. Local Test Classes - line 22
-2. File Structure - line 24
-3. Required Elements - line 35
-4. Naming Conventions - line 67
-5. Common Mistake: DDLS Testing - line 133
+1. Local Test Classes
+2. File Structure
+3. Required Elements
+4. Naming Conventions
+5. Common Mistake: DDLS Testing
+6. RAP Test Placement
 
 ## Unit Testing with Local Test Classes
 

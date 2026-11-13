@@ -11,6 +11,12 @@ parent: Development Commands
 
 Inspect ABAP source file(s) for syntax errors and issues.
 
+## RAP Diagnostic Boundaries
+
+Native RAP filename recognition is not proof that the selected SCI variant executes a source check. In the inspected SAP syntax variant BDEF is registered; SRVD/DDLX zero-finding results did not establish source validation. Other variants/releases were not audited. Use [native syntax](syntax-command.md) to check supplied local BDEF/SRVD/DDLX source, and read activation logs for dependency errors.
+
+If native suffixes are rejected or results show `N/A` identity, check that the deployed backend parser matches the CLI's RAP support. An older parser is a deployment/version mismatch, not evidence that a zero-finding SCI result is valid. No complete RAP SCI capability is promised.
+
 ## Command
 
 ```bash

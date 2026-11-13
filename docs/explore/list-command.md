@@ -238,7 +238,15 @@ echo "Package has $CLASS_COUNT classes"
 | **TDEVC** | Package definitions (validate package exists) |
 | **TADIR** | Object directory (fetch objects in package) |
 
-### Supported Object Types
+### Object Type Examples
+
+The query uses generic TADIR types, not a fixed validation whitelist. For example:
+
+```bash
+abapgit-agent list --package '$MY_PACKAGE' --type BDEF,SRVD,DDLX
+```
+
+BDEF and DDLX can share a name; retain both type and name when consuming results.
 
 | Type | Description |
 |------|-------------|
@@ -250,8 +258,10 @@ echo "Package has $CLASS_COUNT classes"
 | STRU | Structure |
 | DTEL | Data Element |
 | TTYP | Table Type |
-| DDLS | CDS View |
-| DDLX | CDS View Entity |
+| DDLS | CDS View / View Entity |
+| BDEF | RAP Behavior Definition |
+| SRVD | Service Definition |
+| DDLX | CDS Metadata Extension |
 
 ### Query Logic
 

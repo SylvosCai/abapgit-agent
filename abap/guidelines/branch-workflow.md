@@ -8,6 +8,10 @@ grand_parent: ABAP Development
 
 # Branch Workflow
 
+#### RAP Source Changes
+
+Use `.bdef.asbdef`, `.srvd.srvdsrv` (or legacy `.srvd.assrvd`) and `.ddlx.asddlxs` for syntax/selective pull, not XML. Prepare dependencies first; a BDEF does not auto-select its implementation CLAS. Run configured lint for native BDEF/DDLX changes; SRVD has no abaplint source parser. Commit source and metadata together and preserve the existing push/rebase/pull workflow. See `ref --topic abapgit-cds` for file pairs and safety limits.
+
 #### Starting a New Feature
 
 ```bash
@@ -19,7 +23,7 @@ git checkout -b feature/user-authentication
 # 2. Make your changes
 edit src/zcl_auth_handler.clas.abap
 
-# 3. Check syntax (CLAS/INTF/PROG/DDLS only, if independent)
+# 3. Check syntax (supported source types, including BDEF/SRVD/DDLX; prepare dependencies first)
 abapgit-agent syntax --files src/zcl_auth_handler.clas.abap
 ls .abaplint.json 2>/dev/null && abapgit-agent lint   # abaplint (if configured)
 

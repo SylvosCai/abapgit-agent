@@ -17,11 +17,12 @@ Usage:
   abapgit-agent where --objects <obj1>,<obj2>,... [--type <type>] [--limit <n>] [--offset <n>] [--json]
 
 Description:
-  Find where-used list for ABAP objects (classes, interfaces, programs, etc.).
+  Find where-used list for classes, interfaces, and programs.
+  Other object types, including BDEF/SRVD/DDLX, are not supported.
 
 Parameters:
   --objects <obj1,...>  Comma-separated object names (required).
-  --type <type>         Object type (e.g. CLAS, INTF — auto-detected if omitted).
+  --type <type>         CLAS, INTF, or PROG — auto-detected if omitted.
   --limit <n>           Maximum number of results (default: 50).
   --offset <n>          Skip first N results (for pagination).
   --json                Output as JSON.
@@ -48,7 +49,7 @@ Examples:
 
     const objects = args[objectsArgIndex + 1].split(',').map(o => o.trim().toUpperCase());
     const typeArg = args.indexOf('--type');
-    const type = typeArg !== -1 ? args[typeArg + 1].toUpperCase() : null;
+    const type = typeArg !== -1 ? (args[typeArg + 1] || '').toUpperCase() : null;
     const limitArg = args.indexOf('--limit');
     const limitRaw = limitArg !== -1 ? args[limitArg + 1] : null;
     const limitParsed = parseInt(limitRaw, 10);
@@ -59,7 +60,19 @@ Examples:
     const offset = offsetRaw && !offsetRaw.startsWith('--') && !isNaN(offsetParsed) ? Math.max(0, offsetParsed) : 0;
     const jsonOutput = args.includes('--json');
 
-    console.log(`\n  Where-used list for ${objects.length} object(s)`);
+    if (typeArg !== -1 && !['CLAS', 'INTF', 'PROG'].includes(type)) {
+      const error = `Where-used is not supported for object type ${type || '(missing)'}. Supported types: CLAS, INTF, PROG.`;
+      if (jsonOutput) {
+        console.log(JSON.stringify({ success: false, command: 'WHERE', error,
+          objects: objects.map(name => ({ name, type, error, references: [], count: 0 })) }));
+      } else {
+        console.error(error);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!jsonOutput) console.log(`\n  Where-used list for ${objects.length} object(s)`);
 
     const config = loadConfig();
     const http = new AbapHttp(config);
@@ -78,24 +91,29 @@ Examples:
     const result = await http.post('/sap/bc/z_abapgit_agent/where', data, { csrfToken });
 
     // Handle uppercase keys from ABAP
-    const success = result.SUCCESS || result.success;
+    const success = result.SUCCESS ?? result.success;
     const whereObjects = result.OBJECTS || result.objects || [];
     const message = result.MESSAGE || result.message || '';
     const error = result.ERROR || result.error;
     const pagination = result.PAGINATION || result.pagination || null;
 
-    if (!success || error) {
-      console.error(`\n  Error: ${error || 'Failed to get where-used list'}`);
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2));
+      if (!success || error) process.exitCode = 1;
       return;
     }
 
-    if (jsonOutput) {
-      console.log(JSON.stringify(result, null, 2));
-    } else {
+    if (!success || error) {
+      console.error(`\n  Error: ${error || 'Failed to get where-used list'}`);
+      process.exitCode = 1;
+      if (whereObjects.length === 0) return;
+    }
+
+    {
       // Build pagination message
       let paginationMsg = '';
-      const paginationTotal = pagination.TOTAL || pagination.total || 0;
-      const paginationHasMore = pagination.HAS_MORE || pagination.has_more || false;
+      const paginationTotal = pagination?.TOTAL ?? pagination?.total ?? 0;
+      const paginationHasMore = pagination?.HAS_MORE ?? pagination?.has_more ?? false;
       if (pagination && paginationTotal > 0) {
         // Handle case where offset exceeds total
         if (offset >= paginationTotal) {
