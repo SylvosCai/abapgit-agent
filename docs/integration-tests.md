@@ -64,7 +64,8 @@ skips all registration/activation steps — adding only a few seconds overhead.
 |---|---|---|---|
 | Unit (Jest) | `npm test` | JavaScript code, no ABAP needed | — |
 | AUnit | `npm run test:aunit` | ABAP test classes | project package |
-| Command | `npm run test:cmd` | All CLI commands end-to-end | project package (see note) |
+| Command | `npm run test:cmd` | Standard CLI command cases | project package (see note) |
+| SO10 | `npm run test:so10` | Standard text lifecycle and optional cross-client COPY | — (clone-only repo; no ABAP package) |
 | Pull workflow | `npm run test:pull` | Git ref switching (tags/branches) | `$ABGAGT_PULL_TEST` |
 | Full pull | `npm run test:full-pull` | Pull without `--files` | `$ABGAGT_PULL_TEST` |
 | Conflict detection | `npm run test:conflict` | Conflict abort / ignore modes | `$ABGAGT_PULL_TEST` |
@@ -98,6 +99,53 @@ With prerequisites already available, `npm run test:cmd:syntax -- --no-setup` ru
 
 Command verifiers receive `verify(stdout, { exitCode, stderr })` on both zero and nonzero exits. RAP negatives require exit 1 **and** the intended structured diagnostic, so an authentication failure or crash cannot count as a successful negative test. Older one-argument verifiers remain supported. Setup, verification, and cleanup failures fail the case; demo mode runs the same hooks.
 
+### SO10 Lifecycle
+
+```bash
+npm run test:so10                         # SO10 suite only
+node tests/run-all.js --so10              # equivalent direct selection
+npm run test:cmd -- --command=so10        # command-filter selection
+```
+
+The suite requires an installed SO10 backend and explicit authorization to modify
+`TEXT / ZABGAGT_SO10_TEST / ST / E` in the configured development client. It manages
+its own disposable fixture clone without global setup, ABAP registration or activation.
+
+The lifecycle checks CREATE, IMPORT, UPDATE, same-account source changes, conflict
+rejection, explicit ignore and Git-protected DROP. Fresh CLI sessions verify content
+and cleanup. The suite preserves committed fixture files, never pushes, uses no CTS
+operations and does not automate SAP GUI edits.
+
+**Optional COPY:** Configure an approved, existing read-only source in ignored
+`.abapGitAgent`:
+
+```json
+{
+  "testSo10": {
+    "copySource": {
+      "client": "000",
+      "key": {
+        "object": "TEXT",
+        "name": "APPROVED_EXISTING_TEXT",
+        "id": "ST",
+        "language": "E"
+      }
+    }
+  }
+}
+```
+
+Use a real source key approved for this test, not the placeholder above. COPY preserves
+the full key and writes only to an absent text/baseline in the development client.
+The runner imports and commits the copy in its disposable local clone for DROP cleanup,
+then verifies that the source content and baseline are unchanged. It never creates test
+texts in another client or switches the HTTP logon. Without `copySource`, the five COPY
+checks are reported as not run; the ten development-only checks still run.
+
+Preexisting content/baselines and partial outcomes fail closed, without destructive
+reset or automatic retry. The local per-host/client lock is not distributed across
+machines. See [SO10 Test Fails](#so10-test-fails) before rerunning a failed suite.
+
 ### RAP Lint and Fixture Evidence
 
 `tests/unit/lint-command.test.js` exercises BDEF/DDLX selection, XML companions, scoped parser rules, explicit-false overrides and engine/report failures. Real parser smoke checks used abaplint 2.120.103; these are static checks, not SAP semantic/BO tests. CI detection regressions are documented in the companion CI repository.
@@ -106,8 +154,8 @@ Setup's sentinel object does not prove every RAP fixture is active: confirm the 
 
 ## Test Repo Access Requirements
 
-The integration tests **write** to the test repos during execution (branch creation,
-pushes, abapGit registrations). This means:
+Most integration suites **write** to their test repos during execution (branch
+creation, pushes, abapGit registrations). These suites require:
 
 - **Read access is not enough** — `gitUsername`/`gitPassword` must have **push access** to
   the configured test repo URLs.
@@ -116,6 +164,12 @@ pushes, abapGit registrations). This means:
   suite against them directly.
 - **You must fork the repos** (or host your own copies) and configure your forks via
   `testRepos` in `.abapGitAgent`.
+
+SO10 is clone-only and needs only Git read access. Its default fixture is
+`https://github.tools.sap/I045696/abgagt-so10-test.git`; override `testRepos.so10`
+if that URL is not accessible. A replacement must preserve the committed
+`so10.repoId` (`abgagt.so10.test`), managed lifecycle payload and update/system-edit
+variants. It has no `.abapgit.xml` or ABAP package.
 
 ### Forking the reference repos
 
@@ -148,16 +202,17 @@ pushes, abapGit registrations). This means:
     "unit":      "https://github.com/your-org/abgagt-unit-test.git",
     "pullType":  "https://github.com/your-org/abgagt-pull-type-test.git",
     "exclude":   "https://github.com/your-org/abgagt-exclude-test.git",
-    "hana":      "https://github.com/your-org/abgagt-hta-test.git"
+    "hana":      "https://github.com/your-org/abgagt-hta-test.git",
+    "so10":      "https://github.tools.sap/your-org/abgagt-so10-test.git"
   }
 }
 ```
 
-Any key that is absent falls back to the public default URL, so you only need to
-specify repos you are overriding.
+Any key that is absent falls back to its default URL, so you only need to specify
+repos you are overriding.
 
-3. Ensure `gitUsername`/`gitPassword` in `.abapGitAgent` have **push access** to all
-   configured repos.
+3. Ensure `gitUsername`/`gitPassword` in `.abapGitAgent` have **push access** to repos
+   that their suites push. SO10 is clone-only and needs only Git read access.
 
 ## Skipping Auto-Setup
 
@@ -169,6 +224,11 @@ npm run test:all -- --no-setup
 ```
 
 ## CI Environment Variables
+
+`npm run test:all` includes SO10 by default and reports it under **SO10 Tests**.
+Jenkins forwards managed-file `testRepos` overrides and optional `testSo10.copySource`
+settings to the test configuration. The named fixture and COPY source require the
+same execution authorization as local runs.
 
 In CI pipelines you can override git credentials for test repos that live under
 a different account than the main project:
@@ -210,6 +270,13 @@ The lifecycle test creates and deletes an abapGit repo registration on each run.
 If a previous run crashed mid-test the registration may already exist. The
 `lifecycle-runner.js` detects this and calls `delete` automatically before
 re-running `create`.
+
+### SO10 Test Fails
+
+Do not reset preexisting texts or baselines to make the suite pass. Inspect the
+failure artifacts and obtain authorization for any required recovery before rerunning.
+Artifacts retain Git state, not credentials; temporary configs use mode `0600` and
+owned per-call session caches are removed. The local lock is never automatically stolen.
 
 ### Debug tests: breakpoint line numbers wrong
 

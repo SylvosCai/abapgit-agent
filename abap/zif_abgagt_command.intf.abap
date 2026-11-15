@@ -19,6 +19,7 @@ INTERFACE zif_abgagt_command PUBLIC.
     gc_transport TYPE string VALUE 'TRANSPORT',
     gc_drop TYPE string VALUE 'DROP',
     gc_customize TYPE string VALUE 'CUSTOMIZE',
+    gc_so10 TYPE string VALUE 'SO10',
     gc_unit TYPE string VALUE 'UNIT',
     gc_hana        TYPE string VALUE 'HANA'.
 

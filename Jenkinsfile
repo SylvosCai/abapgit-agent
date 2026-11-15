@@ -45,7 +45,10 @@ abapPipeline(
         configFileProvider([configFile(fileId: cfgFileId, variable: 'CONFIG_FILE')]) {
             def testCfg = readJSON file: CONFIG_FILE
 
-            writeFile file: '.test-repos.json', text: groovy.json.JsonOutput.toJson(testCfg.testRepos ?: [:])
+            writeFile file: '.test-config.json', text: groovy.json.JsonOutput.toJson([
+                testRepos: testCfg.testRepos ?: [:],
+                testSo10: testCfg.testSo10 ?: [:]
+            ])
 
             withCredentials([usernamePassword(
                 credentialsId: cfgTestGitCredentials,
@@ -65,10 +68,12 @@ abapPipeline(
                       var fs = require('fs');
                       var cfg = JSON.parse(fs.readFileSync('.abapGitAgent', 'utf8'));
                       cfg.referenceFolder = process.env.HOME + '/abap-reference';
-                      cfg.testRepos = JSON.parse(fs.readFileSync('.test-repos.json', 'utf8'));
+                      var testCfg = JSON.parse(fs.readFileSync('.test-config.json', 'utf8'));
+                      cfg.testRepos = testCfg.testRepos;
+                      cfg.testSo10 = testCfg.testSo10;
                       fs.writeFileSync('.abapGitAgent', JSON.stringify(cfg, null, 2));
                     "
-                    rm -f .test-repos.json
+                    rm -f .test-config.json
 
                     abapgit-agent ref --clone SAP-samples/abap-cheat-sheets || true
 

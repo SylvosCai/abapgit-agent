@@ -47,6 +47,7 @@ const { runDropTests } = require('./integration/drop-runner');
 const { runCustomizeTests } = require('./integration/customize-runner');
 const { runExcludeTests } = require('./integration/exclude-runner');
 const { runHanaTests } = require('./integration/hana-runner');
+const { runSo10Tests } = require('./integration/so10-runner');
 const { runDtelScrlenTests } = require('./integration/dtel-scrlen-runner');
 const { runSetup } = require('./integration/setup-runner');
 
@@ -283,6 +284,10 @@ function runDtelScrlenTestsWrapper() {
   });
 }
 
+function runSo10TestsWrapper() {
+  return runSo10Tests(repoRoot, { printSubHeader, printInfo, printSuccess, printError });
+}
+
 function runExcludeTestsWrapper() {
   return runExcludeTests(repoRoot, {
     printSubHeader,
@@ -461,6 +466,7 @@ async function runDemoCommandTests(testCases, startTime) {
  * @param {string} commandFilter - Optional command name to filter tests (e.g., 'syntax', 'pull')
  */
 function runCommandTests(demoMode = false, commandFilter = null) {
+  if (commandFilter === 'so10') return runSo10TestsWrapper();
   printSubHeader('Running Command Tests (Real ABAP System)' + (demoMode ? ' [DEMO MODE]' : ''));
 
   // Filter test cases by command if specified
@@ -801,6 +807,7 @@ const SUITES = [
   { key: 'drop',           flag: '--drop',           label: 'Drop Tests',                            run: () => runDropTestsWrapper(),                                         ciDefault: true,        needsAbap: true,    cooldownAfter: 'cmd' },
   { key: 'customize',      flag: '--customize',      label: 'Customize Tests',                       run: () => runCustomizeTestsWrapper(),                                    ciDefault: true,        needsAbap: true     },
   { key: 'asyncPull',      flag: '--async-pull',     label: 'Async Pull Tests',                      run: () => runAsyncPullTestsWrapper(),                                    ciDefault: false,       needsAbap: true     },
+  { key: 'so10',           flag: '--so10',           label: 'SO10 Tests',                            run: () => runSo10TestsWrapper(),                                         ciDefault: true                              },
   { key: 'exclude',        flag: '--exclude',        label: 'Exclude Tests',                         run: () => runExcludeTestsWrapper(),                                      ciDefault: true                              },
   { key: 'hana',           flag: '--hana',           label: 'HANA Tests',                            run: () => runHanaTestsWrapper(),                                         ciDefault: true                              },
   { key: 'dtelScrlen',     flag: '--dtel-scrlen',    label: 'DTEL SCRLEN Tests',                     run: () => runDtelScrlenTestsWrapper(),                                   ciDefault: true                              },
@@ -888,6 +895,7 @@ async function main() {
     s.ciDefault === 'localOnly' ? !isCI : !!s.ciDefault;
 
   const explicit = SUITES.filter(s => args.includes(s.flag));
+  if (explicit.length === 0 && commandFilter === 'so10') explicit.push(SUITES.find(s => s.key === 'so10'));
   const toRun = explicit.length > 0 ? explicit : SUITES.filter(resolveDefault);
   const toRunKeys = new Set(toRun.map(s => s.key));
 
@@ -908,7 +916,8 @@ async function main() {
   // Run setup phase before any ABAP-dependent integration tests.
   // Skipped when running Jest-only (no ABAP connection needed).
   // --no-setup flag disables auto-setup for developers who manage prerequisites manually.
-  const needsAbap = toRun.some(s => s.needsAbap);
+  // SO10 owns its clone and prerequisites; global setup would activate unrelated fixtures.
+  const needsAbap = toRun.some(s => s.needsAbap && !(s.key === 'cmd' && commandFilter === 'so10'));
   const skipAutoSetup = args.includes('--no-setup');
   if (needsAbap && !skipAutoSetup) {
     const setupResult = runSetup(repoRoot, {
@@ -946,4 +955,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { runCommandTests, runDemoCommand, runDemoCommandTests };
+module.exports = { runCommandTests, runDemoCommand, runDemoCommandTests, main, SUITES };

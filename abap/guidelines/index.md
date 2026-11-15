@@ -40,6 +40,7 @@ This folder contains detailed ABAP coding guidelines that can be searched using 
 | `comments.md` | Documentation Comments (ABAP DOC, shorttext, @parameter, CDS //) |
 | `run-probe-classes.md` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
 | `probe-poc.md` | Probe and PoC — Full Decision Flow |
+| `so10.md` | SO10 Standard Texts — Git-managed ITF and client workflows |
 
 ## Usage
 

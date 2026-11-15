@@ -85,7 +85,7 @@ async function createTransport(http, description, type = 'workbench') {
  * @param {string} [type] - 'workbench' (default) | 'customizing'
  * @returns {Promise<string|null>}
  */
-async function interactivePicker(http, type = 'workbench') {
+async function interactivePicker(http, type = 'workbench', options = {}) {
   const readline = require('readline');
 
   let scope = 'mine';
@@ -119,7 +119,7 @@ async function interactivePicker(http, type = 'workbench') {
 
     if (scope !== 'task') process.stderr.write('  s. Show transports where I have a task\n');
     if (scope !== 'all') process.stderr.write('  a. Show all open transports\n');
-    process.stderr.write('  c. Create new transport request\n');
+    if (!options.existingOnly) process.stderr.write('  c. Create new transport request\n');
     process.stderr.write('  0. Skip (no transport request)\n\n');
   };
 
@@ -146,7 +146,7 @@ async function interactivePicker(http, type = 'workbench') {
       continue;
     }
 
-    if (answer === 'c') {
+    if (answer === 'c' && !options.existingOnly) {
       const desc = (await ask('Description: ')).trim();
       rl.close();
       const number = await createTransport(http, desc, type);
@@ -165,7 +165,7 @@ async function interactivePicker(http, type = 'workbench') {
       return transports[idx - 1].number;
     }
 
-    process.stderr.write(`Invalid selection '${answer}'. Enter a number, s, a, c, or 0.\n`);
+    process.stderr.write(`Invalid selection '${answer}'. Enter a number, s, a${options.existingOnly ? '' : ', c'}, or 0.\n`);
   }
 }
 
@@ -191,11 +191,14 @@ async function interactivePicker(http, type = 'workbench') {
  * @param {string}   [type]               - 'workbench' (default) | 'customizing'
  * @returns {Function|undefined}          - The run helper, or undefined if factories are missing
  */
-function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench') {
+function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench', options = {}) {
   if (!loadConfig || !AbapHttp) return undefined;
 
   return async function run(command) {
     let [commandName, ...args] = command.trim().split(/\s+/);
+    if (options.existingOnly && (commandName !== 'transport' || args[0] !== 'list')) {
+      throw new Error('Existing-only transport selection permits only transport list');
+    }
 
     // Auto-inject --type for "transport list" so the hook gets the right request type
     // without needing to know about the transport type explicitly.
@@ -252,12 +255,12 @@ function buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type
  *                                          needing to handle type explicitly.
  * @returns {Promise<string|null>}
  */
-async function selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench') {
+async function selectTransport(config, http, loadConfig, AbapHttp, getTransportSettings, type = 'workbench', options = {}) {
   // Hook takes precedence over the interactive picker — runs in both TTY and non-TTY mode
   const hookConfig = module.exports._getTransportHookConfig();
   if (hookConfig && hookConfig.hook) {
     const hookPath = path.resolve(process.cwd(), hookConfig.hook);
-    const run = buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type);
+    const run = buildRun(config, http, loadConfig, AbapHttp, getTransportSettings, type, options);
     try {
       return await module.exports.runHook(hookPath, { config, http, run, type });
     } catch {
@@ -271,7 +274,7 @@ async function selectTransport(config, http, loadConfig, AbapHttp, getTransportS
   }
 
   // Manual mode: interactive picker
-  return interactivePicker(http, type);
+  return interactivePicker(http, type, options);
 }
 
 /**

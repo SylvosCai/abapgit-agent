@@ -759,6 +759,11 @@ abapgit-agent pull --files src/<name>.clas.abap --sync-xml  # --sync-xml amends 
 3. ✓ Before calling `run`: verify the object type — `--class` for CLAS, `--program` for PROG. Check the file extension (`.clas.abap` vs `.prog.abap`) if unsure
 4. ✓ For full guidelines: `abapgit-agent ref --topic run-probe-classes`
 
+**When working with SO10 standard texts:**
+1. ✓ Use `abapgit-agent so10` — standard texts are SAPscript content, not repository objects for `pull` or `customize`
+2. ✗ Never modify real texts, baselines or transports, or run named-text tests, without explicit execution authorization
+3. ✓ For the import, update, copy, transport and drop workflows: `abapgit-agent ref --topic so10`
+
 **When `abapgit-agent drop` is relevant:**
 1. ✗ Never call `abapgit-agent drop` unless the user explicitly confirms — it physically deletes the object from ABAP, irreversible without re-pull
 2. ✓ When an object is in a broken state (stale include, activation permanently blocked): suggest `drop --pull` and wait for confirmation
@@ -980,6 +985,7 @@ Modified ABAP files?
 | `ref --topic object-creation` | Object Creation (XML metadata, local classes) |
 | `ref --topic run-probe-classes` | run Command — AI Guidelines (probe classes, scratchWorkspace) |
 | `ref --topic probe-poc` | Probe and PoC — Full Decision Flow |
+| `ref --topic so10` | SO10 Standard Texts — Git-managed ITF and client workflows |
 
 > `objects.local.md` — **Project** Naming Conventions (created by `init`, never overwritten). Read directly from `guidelines/objects.local.md` — no ref topic.
 

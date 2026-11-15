@@ -76,6 +76,21 @@ describe('guide command', () => {
     expect(output.length).toBeGreaterThan(100);
   });
 
+  test('--ai points to the complete bundled SO10 workflow', async () => {
+    await guideCommand.execute(['--ai', '--json']);
+    const { content } = JSON.parse(consoleLogOutput.join(''));
+    expect(content).toContain('ref --topic so10');
+    expect(content).toContain('without explicit execution authorization');
+    const topic = await require('../../src/utils/abap-reference').getTopic('so10');
+    expect(topic.file).toBe('so10.md');
+    expect(topic.truncated).toBe(false);
+    expect(topic.content).toContain('the unchanged development HTTP connection');
+    expect(topic.content).toContain('standalone writes do not advance Git baselines');
+    expect(topic.content).toContain('do not authorize live operations or named-text tests');
+    expect(topic.content).toContain('parent: ABAP Coding Guidelines');
+    expect(topic.content).toContain('grand_parent: ABAP Development');
+  });
+
   test('bundled CLAUDE.md exists on disk', () => {
     const candidates = [
       path.join(__dirname, '..', '..', 'abap', 'CLAUDE.md'),

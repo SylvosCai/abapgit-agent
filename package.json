@@ -58,6 +58,7 @@
     "test:full-pull": "node tests/run-all.js --full-pull",
     "test:conflict": "node tests/run-all.js --conflict",
     "test:async-pull": "node tests/run-all.js --async-pull",
+    "test:so10": "node tests/run-all.js --so10",
     "test:exclude": "node tests/run-all.js --exclude",
     "test:hana": "node tests/run-all.js --hana",
     "test:dtel-scrlen": "node tests/run-all.js --dtel-scrlen",

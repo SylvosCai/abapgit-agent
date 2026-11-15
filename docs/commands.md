@@ -41,6 +41,7 @@ All available CLI commands for abapGit Agent.
 | [run](development/run-command.md) | ✅ | Execute ABAP program (`--program`) or class implementing `IF_OO_ADT_CLASSRUN` (`--class`) |
 | [transport](development/transport-command.md) | ✅ | List, create, check, and release SAP transport requests |
 | [customize](development/customize-command.md) | ✅ | Write a row to a SAP customizing table (delivery class C/E) |
+| [so10](development/so10-command.md) | ✅ | Manage SAPscript standard texts (SO10) |
 | [hana](development/hana-command.md) | ✅ | Manage HANA repository views (`view deploy/import/list/drop/preview`), query the HANA catalog (`schema list/tables/fields`), and preview raw tables (`table preview`) |
 | [status](utility/status-command.md) | ✅ | Status check - verify config and repo existence |
 | [health](utility/health-command.md) | ✅ | Health check |

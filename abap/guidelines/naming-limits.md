@@ -10,7 +10,7 @@ grand_parent: ABAP Development
 
 **Searchable keywords**: name length, character limit, 30 characters, 16 characters, 40 characters, too long, truncate, field name, method name, class name, table name, CDS name, RAP, BDEF, SRVD, DDLX
 
-> **Rule of thumb**: Most ABAP object names → 30 chars. Table/structure **field names** → 16 chars. CDS/DDLS names → 40 chars. Method names (including test methods) → 30 chars.
+> **Rule of thumb**: Most ABAP object names → 30 chars. Non-namespaced transparent table names and table/structure **field names** → 16 chars. CDS/DDLS names → 40 chars. Method names (including test methods) → 30 chars.
 
 ---
 
@@ -23,7 +23,7 @@ grand_parent: ABAP Development
 | Program name (PROG) | **30** |
 | Function Group name (FUGR) | **26** |
 | Function Module name | **30** |
-| Table name (TABL) | **30** |
+| Transparent table name (TABL, non-namespaced) | **16** |
 | **Table field name** | **16** |
 | Structure name (STRU) | **30** |
 | **Structure field name** | **16** |
@@ -49,6 +49,10 @@ grand_parent: ABAP Development
 ---
 
 ## Critical Differences — Don't Confuse These
+
+### Transparent Table Names: 16 Characters MAX
+
+Keep non-namespaced transparent database table names within 16 characters. A wider DDIC name field or the agent's generic object-name limit does not guarantee that SAP can create that database table. Structures and CDS entities have different limits; verify registered-namespace rules on the target system rather than assuming the same budget.
 
 ### Table/Structure Field Names: 16 Characters MAX
 
@@ -121,7 +125,8 @@ Use this mental check before naming any ABAP element:
 ZCL_             (4 chars) + name ≤ 30  →  name ≤ 26 chars
 ZIF_             (4 chars) + name ≤ 30  →  name ≤ 26 chars
 ZC_              (3 chars) + name ≤ 40  →  name ≤ 37 chars  (CDS)
-Z                (1 char)  + name ≤ 30  →  name ≤ 29 chars  (table/program)
+Z                (1 char)  + name ≤ 16  →  name ≤ 15 chars  (transparent table)
+Z                (1 char)  + name ≤ 30  →  name ≤ 29 chars  (program)
 
 # Project-specific sub-namespace eats more of the budget — plan ahead
 # Example: project uses ZFICO_ prefix for all objects
@@ -159,6 +164,7 @@ These limits come from the ABAP Dictionary (DDIC) and ABAP kernel:
 | Limit Source | Explanation |
 |---|---|
 | 30 chars (most objects) | ABAP uses `RSYN` program name space; objects stored in `TADIR` with `SOBJ_NAME CHAR(40)` but compiler enforces 30 for classes/interfaces/programs |
+| 16 chars (transparent table names) | SAP validates database table names separately from the width of the DDIC name field; keep non-namespaced names within 16 characters |
 | 16 chars (DDIC fields) | Stored in `DD03L.FIELDNAME CHAR(16)` — this is a hard database column width |
 | 40 chars (CDS names) | CDS objects stored in `DD02L.TABNAME CHAR(40)` — intentionally larger for CDS |
 | 20 chars (MSAG) | Message class name stored in `T100A.ARBGB CHAR(20)` |

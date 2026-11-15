@@ -28,6 +28,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 - [POST /preview](#post-preview)
 - [POST /where](#post-where)
 - [POST /customize](#post-customize)
+- [POST /so10](#post-so10)
 - [POST /hana](#post-hana)
 
 ---
@@ -52,6 +53,7 @@ The ABAP system exposes these endpoints via SICF handler: `sap/bc/z_abapgit_agen
 | POST | `/preview` | Preview table/CDS view data |
 | POST | `/where` | Find where-used list for ABAP objects |
 | POST | `/customize` | Write a single row to a SAP customizing table |
+| POST | `/so10` | Manage SAPscript standard texts |
 | POST | `/hana` | **Manage HANA repository views and query the HANA catalog** |
 
 ## GET /health
@@ -1641,6 +1643,79 @@ Only tables with delivery class `C` (Customer Customizing) or `E` (System Settin
 | `action` | String | `"MODIFIED"` (row updated) or `"INSERTED"` (new row created) |
 | `transport` | String | Transport request number used (empty if none recorded) |
 | `delivery_class` | String | Table delivery class (`C` or `E`) |
+
+---
+
+## POST /so10
+
+Manage SAPscript standard texts. The `action` field selects `LIST`, `READ`, `ADOPT`, `CREATE`, `UPDATE`, `DROP`, `COPY` or `TRANSPORT`. CLI `so10 import` uses LIST/READ/ADOPT; there is no backend IMPORT action.
+
+### Request Body
+
+```json
+{
+  "action": "READ",
+  "object": "TEXT",
+  "name": "ZAPP_FOOTER",
+  "id": "ST",
+  "language": "E"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `action` | String | Operation to perform (required). |
+| `object`, `name`, `id`, `language` | String | Text key: object `TEXT`, case-preserved name (max 70), ID (max 4, default `ST`), SAP/ISO language. LIST accepts optional exact filters instead. |
+| `prefixes` | Array | Required literal OR prefixes for LIST. |
+| `max_hits` | Integer | LIST limit, default 100, maximum 1000. Overflow returns no keys. |
+| `client` | String | READ/LIST/ADOPT data client, default connected client. |
+| `lines` | Array | CREATE/UPDATE desired ITF or DROP committed snapshot: `{tdformat, tdline}`, limits 2/132 characters. Empty/all-blank content is rejected. |
+| `repo_id` | String | Repository owner for managed writes, ADOPT and DROP. |
+| `conflict_mode` | String | CREATE/UPDATE: `abort` (default) or explicit `ignore`. Without `repo_id`, `ignore` is required. |
+| `source_sha` | String | ADOPT: observed 64-character lowercase SHA256, rechecked before recording. |
+| `source_client`, `target_client` | String | COPY source/destination. Clients must differ. `target_client` also selects the DROP client. |
+| `overwrite` | Boolean | COPY may replace an existing target, default false. COPY accepts no lines/repository context. |
+| `transport` | String | TRANSPORT: existing modifiable customizing request/task in the connected client. |
+
+### Response (success)
+
+```json
+{
+  "success": true,
+  "command": "SO10",
+  "action": "READ",
+  "object": "TEXT",
+  "name": "ZAPP_FOOTER",
+  "id": "ST",
+  "language": "E",
+  "found": true,
+  "line_count": 1,
+  "saved": false,
+  "lines": [{ "tdformat": "*", "tdline": "Application footer" }],
+  "error": ""
+}
+```
+
+### Response Fields
+
+Additional fields depend on the action.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Operation succeeded; check this even on HTTP 200. |
+| `command`, `action` | String | `SO10` and the requested operation. |
+| `object`, `name`, `id`, `language` | String | Canonical text key. |
+| `client`, `data_client` | String | Connected and selected data clients. |
+| `found`, `line_count`, `lines` | Boolean / Integer / Array | READ existence and ITF content. |
+| `source_sha`, `base_sha`, `base_repo_id`, `base_found` | String / Boolean | Source fingerprint and baseline diagnostics. |
+| `keys`, `max_hits`, `at_least`, `has_more` | Array / Integer / Boolean | LIST headers and selection status. |
+| `saved`, `baseline_recorded`, `deleted`, `baseline_removed`, `transport_recorded` | Boolean / null | Independent save, baseline, DROP and transport outcomes. |
+| `transport_request`, `transport_task`, `object_key` | String | Recorded transport details. |
+| `message`, `error`, `error_kind`, `stage`, `conflict_kind` | String | Result or failure details. |
+
+`null` means an outcome is unconfirmed: inspect before retrying. Saving/dropping do not record transports automatically. COPY uses the same connection without advancing baselines; CREATE/UPDATE use the connected client.
+
+DROP requires matching owned baseline/content and a clean committed payload; Git commitment is checked by the CLI, not proven by a REST `repo_id`. See the [SO10 command specification](development/so10-command.md) for conflict protection, adoption and partial-failure recovery.
 
 ---
 

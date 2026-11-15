@@ -14,11 +14,12 @@
  *     "lifecycle": "https://github.com/your-org/abgagt-lifecycle-test.git",
  *     "run":       "https://github.com/your-org/abgagt-run-test.git",
  *     "syntax":    "https://github.com/your-org/abgagt-syntax-test.git",
- *     "hana":      "https://github.com/your-org/abgagt-hta-test.git"
+ *     "hana":      "https://github.com/your-org/abgagt-hta-test.git",
+ *     "so10":      "https://github.tools.sap/your-org/abgagt-so10-test.git"
  *   }
  *
- * If a key is absent the default (github.tools.sap) URL is used, so existing
- * setups require no config change.
+ * Each runner has a built-in fixture URL, with per-environment overrides above.
+ * SO10 uses its clone-only fixture and creates test texts only in the logon client.
  */
 
 'use strict';
@@ -38,6 +39,7 @@ const DEFAULTS = {
   pullType:  'https://github.com/SylvosCai/abgagt-pull-type-test.git',
   exclude:   'https://github.com/SylvosCai/abgagt-exclude-test.git',
   hana:      'https://github.com/SylvosCai/abgagt-hta-test.git',
+  so10:      'https://github.tools.sap/I045696/abgagt-so10-test.git',
 };
 
 /**
@@ -70,7 +72,7 @@ const _overrides = loadTestRepos();
  * Returns the URL for the given test repo key, preferring any override
  * configured in .abapGitAgent over the built-in default.
  *
- * @param {'pull'|'drop'|'customize'|'lifecycle'|'debug'|'run'|'syntax'|'unit'|'pullType'|'exclude'|'hana'} key
+ * @param {'pull'|'drop'|'customize'|'lifecycle'|'debug'|'run'|'syntax'|'unit'|'pullType'|'exclude'|'hana'|'so10'} key
  * @returns {string}
  */
 function getTestRepoUrl(key) {

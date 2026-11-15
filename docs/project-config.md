@@ -260,3 +260,25 @@ Controls transport creation, release, and selection behaviour.
 
 See [pull-transport-selection.md](development/pull-transport-selection.md) for details on
 the transport hook interface.
+
+---
+
+## `so10`
+
+Enables Git-managed SAPscript standard texts. Add this section to the Git-tracked repository-root `.abapgit-agent.json`.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `repoId` | string | Required | Stable repository owner: 1–80 lowercase ASCII letters/digits/`.`/`_`/`-`, starting with a letter or digit. Changing it does not transfer baseline ownership. |
+| `folder` | string | `texts/so10` | Flat managed ITF folder inside the repository. Absolute paths, parent traversal and symlinks are rejected. |
+
+```json
+"so10": {
+  "repoId": "example.app",
+  "folder": "texts/so10"
+}
+```
+
+Logon credentials belong in the ignored `.abapGitAgent`, not this section. SO10's optional `customizingClient` and `customizingLogon` settings are described in the [command specification](development/so10-command.md#record-a-customizing-transport).
+
+See [SO10](development/so10-command.md) for import, save, copy and drop usage.
