@@ -1601,7 +1601,10 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     jest.resetModules();
     mockExecSyncHolder.fn = jest.fn();
 
-    jest.mock('child_process', () => ({ execSync: (...a) => mockExecSyncHolder.fn(...a) }));
+    jest.mock('child_process', () => ({
+      execSync: (...a) => mockExecSyncHolder.fn(...a),
+      execFileSync: jest.fn((file, args, options) => mockExecSyncHolder.fn(`${file} ${args.join(' ')}`, options))
+    }));
     jest.mock('fs', () => ({
       existsSync: jest.fn(() => true),
       readFileSync: jest.fn((p) => p && p.includes && p.includes('.abapgit-agent.json') ? '{}' : Buffer.from('original content')),
@@ -1836,9 +1839,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       expect.any(Object)
     );
 
-    // 4. git push --set-upstream origin <branch> --force-with-lease=<branch>:<preAmendSha> called
+    // 4. Push the amended HEAD with the exact pre-amend SHA lease.
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      'git push --set-upstream origin main --force-with-lease=main:abc1234',
+      'git push --set-upstream origin HEAD:refs/heads/main --force-with-lease=refs/heads/main:abc1234',
       expect.any(Object)
     );
 
@@ -1854,9 +1857,13 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
   });
 
   test.each([
-    ['bdef', 'asbdef', false], ['srvd', 'srvdsrv', false], ['ddlx', 'asddlxs', false],
-    ['bdef', 'asbdef', true], ['srvd', 'srvdsrv', true], ['ddlx', 'asddlxs', true]
-  ])('--sync-xml preserves an empty normalized %s.%s commit and re-pulls (real Git, json=%s)', async (type, extension, json) => {
+    ['bdef', 'asbdef', false, 'attached'], ['srvd', 'srvdsrv', false, 'attached'], ['ddlx', 'asddlxs', false, 'attached'],
+    ['bdef', 'asbdef', true, 'attached'], ['srvd', 'srvdsrv', true, 'attached'], ['ddlx', 'asddlxs', true, 'attached'],
+    ['bdef', 'asbdef', false, 'detached'], ['bdef', 'asbdef', true, 'detached'],
+    ['bdef', 'asbdef', false, 'detached-stale'],
+    ['bdef', 'asbdef', false, 'concurrent'], ['bdef', 'asbdef', true, 'concurrent'],
+    ['bdef', 'asbdef', false, 'new'], ['bdef', 'asbdef', false, 'new-concurrent']
+  ])('--sync-xml preserves normalized %s.%s commits and remote leases (real Git, json=%s, layout=%s)', async (type, extension, json, layout) => {
     const realFs = jest.requireActual('fs');
     const realPath = jest.requireActual('path');
     const { execFileSync, execSync } = jest.requireActual('child_process');
@@ -1900,14 +1907,29 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       git('commit', '-m', 'XML formatting only');
       const before = git('rev-parse', 'HEAD');
       git('remote', 'add', 'origin', remote);
-      git('push', '-u', 'origin', 'main');
+      if (!layout.startsWith('new')) git('push', '-u', 'origin', 'main');
+      if (layout.startsWith('detached')) {
+        git('checkout', '--detach', before);
+        if (layout === 'detached') git('branch', '-D', 'main');
+      }
+      const concurrent = layout.includes('concurrent')
+        ? git('commit-tree', `${base}^{tree}`, '-p', before, '-m', 'Concurrent remote edit')
+        : null;
+      if (concurrent) git('push', 'origin', `${concurrent}:refs/heads/fixture`);
 
       const pullCommand = require('../../src/commands/pull');
       const fs = require('fs');
       fs.existsSync.mockImplementation((p) => realFs.existsSync(realPath.resolve(work, p)));
       fs.readFileSync.mockImplementation((p) => p.includes('.abapgit-agent.json') ? '{}' : realFs.readFileSync(realPath.resolve(work, p)));
       fs.writeFileSync.mockImplementation(realFs.writeFileSync);
-      mockExecSyncHolder.fn.mockImplementation(execSync);
+      let raced = false;
+      mockExecSyncHolder.fn.mockImplementation((cmd, options) => {
+        if (concurrent && !raced && cmd.startsWith('git push')) {
+          execFileSync('git', ['update-ref', 'refs/heads/main', concurrent], { cwd: remote });
+          raced = true;
+        }
+        return execSync(cmd, options);
+      });
       cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(work);
       const postMock = jest.fn();
       if (!json) postMock.mockResolvedValueOnce({ status: 'Found', transport_required: false });
@@ -1915,7 +1937,22 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
           { path: '/src/', filename: `zrap_sync.${type}.xml`, data: canonical.toString('base64') }
         ] })
         .mockResolvedValueOnce({ success: 'X', local_xml_files: [] });
-      await pullCommand.execute(['--files', native, '--sync-xml', ...(json ? ['--json'] : [])], makeXmlContext({ postMock }));
+      const run = pullCommand.execute(['--files', native, '--sync-xml', ...(json ? ['--json'] : [])], makeXmlContext({ postMock }));
+      if (concurrent) {
+        if (json) {
+          await run;
+          expect(process.exitCode).toBe(1);
+          expect(JSON.parse(consoleOutput[0]).success).toBe(false);
+        } else {
+          await expect(run).rejects.toThrow('process.exit(1)');
+        }
+        expect(git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0]).toBe(concurrent);
+        expect(postMock).toHaveBeenCalledTimes(json ? 1 : 2);
+        expect(consoleOutput.join('\n')).not.toContain('re-pulled');
+        return;
+      }
+      await run;
+      if (layout.startsWith('detached')) expect(git('rev-parse', '--abbrev-ref', 'HEAD')).toBe('HEAD');
       if (json) {
         expect(consoleOutput).toHaveLength(1);
         expect(JSON.parse(consoleOutput[0]).success).toBe('X');
@@ -1926,11 +1963,15 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       expect(git('rev-parse', 'HEAD^')).toBe(base);
       expect(git('rev-parse', 'HEAD^{tree}')).toBe(git('rev-parse', `${base}^{tree}`));
       expect(git('ls-remote', 'origin', 'refs/heads/main').split(/\s/)[0]).toBe(after);
+      expect(git('rev-parse', 'origin/main')).toBe(after);
       expect(git('status', '--porcelain')).toBe('');
       expect(realFs.readFileSync(realPath.join(work, xml))).toEqual(canonical);
       expect(realFs.readFileSync(realPath.join(work, native), 'utf8')).toBe('unchanged source\n');
       expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-        `git push --set-upstream origin main --force-with-lease=main:${before}`, expect.any(Object));
+        `git push --set-upstream origin HEAD:refs/heads/main --force-with-lease=refs/heads/main:${layout === 'new' ? '' : before}`, expect.any(Object));
+      expect(require('child_process').execFileSync).toHaveBeenCalledWith('git',
+        ['push', '--set-upstream', 'origin', 'HEAD:refs/heads/main',
+          `--force-with-lease=refs/heads/main:${layout === 'new' ? '' : before}`], expect.any(Object));
       expect(postMock).toHaveBeenCalledTimes(json ? 2 : 3);
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
@@ -1998,9 +2039,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
 
-    // push always uses --set-upstream so remote tracking ref stays current
+    // Attached branches retain upstream/tracking behavior with an explicit HEAD source.
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      'git push --set-upstream origin main --force-with-lease=main:abc1234',
+      'git push --set-upstream origin HEAD:refs/heads/main --force-with-lease=refs/heads/main:abc1234',
       expect.any(Object)
     );
 
@@ -2050,7 +2091,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
     expect(output).not.toMatch(/re-pulled/);
   });
 
-  test('--sync-xml uses plain push (no --force-with-lease) when branch not yet on remote', async () => {
+  test('--sync-xml uses an empty expected-SHA lease when branch not yet on remote', async () => {
     const statusResponse = { status: 'Found', transport_required: false };
     const postMock = jest.fn()
       .mockResolvedValueOnce(statusResponse)
@@ -2071,7 +2112,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
       if (cmd === 'git rev-parse HEAD') return 'abc1234\n';
       if (cmd === 'git remote') return 'origin\n';
       if (cmd === 'git ls-remote origin "refs/heads/main"') return ''; // branch not yet on remote
-      // plain push (no --force-with-lease) succeeds
+      // New-branch push with an empty expected-SHA lease succeeds.
     });
 
     const pullCommand = require('../../src/commands/pull');
@@ -2082,14 +2123,9 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
 
     await pullCommand.execute(['--files', 'zcl_test.clas.abap', '--sync-xml'], ctx);
 
-    // When branch not on remote: plain push with --set-upstream only (no lease check)
+    // The remote must still be absent when creating the branch.
     expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-      'git push --set-upstream origin main',
-      expect.any(Object)
-    );
-    // Force-with-lease variant must NOT have been called
-    expect(mockExecSyncHolder.fn).not.toHaveBeenCalledWith(
-      expect.stringContaining('--force-with-lease'),
+      'git push --set-upstream origin HEAD:refs/heads/main --force-with-lease=refs/heads/main:',
       expect.any(Object)
     );
 
@@ -2137,7 +2173,7 @@ describe('Pull Command - XML Sync (--sync-xml)', () => {
         expect(require('fs').writeFileSync).not.toHaveBeenCalled();
       } else {
         expect(mockExecSyncHolder.fn).toHaveBeenCalledWith(
-          'git push --set-upstream origin main --force-with-lease=main:abc1234', expect.any(Object));
+          'git push --set-upstream origin HEAD:refs/heads/main --force-with-lease=refs/heads/main:abc1234', expect.any(Object));
       }
     } finally { process.exitCode = undefined; }
   });

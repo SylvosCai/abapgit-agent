@@ -7,7 +7,7 @@ const { isRapObjectFile, parseObjectFromFile } = require('../utils/validators');
 const { pollForCompletion, displayProgress } = require('../utils/backgroundJobPoller');
 const fs = require('fs');
 const pathModule = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 // Calculate display width accounting for emoji (2 cells) vs ASCII (1 cell)
 function calcWidth(str) {
@@ -648,13 +648,12 @@ Examples:
             // Retry the push up to 3 times on transient server errors (e.g. GitHub Enterprise 500)
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
-                // If origin/<branch> exists: use --force-with-lease=branch:preAmendSha so we only
-                // overwrite if the remote still has the pre-amend commit (safe concurrent guard).
-                // If origin/<branch> doesn't exist yet: plain push with --set-upstream (no lease needed).
-                const pushCmd = remoteRefExists
-                  ? `git push --set-upstream origin ${branch} --force-with-lease=${branch}:${preAmendSha}`
-                  : `git push --set-upstream origin ${branch}`;
-                execSync(pushCmd, { cwd: process.cwd(), stdio: 'pipe' });
+                // HEAD is the amended commit even when Jenkins has no local source branch.
+                // An empty expected SHA protects a new branch against concurrent creation.
+                const remoteRef = `refs/heads/${branch}`;
+                execFileSync('git', ['push', '--set-upstream', 'origin', `HEAD:${remoteRef}`,
+                  `--force-with-lease=${remoteRef}:${remoteRefExists ? preAmendSha : ''}`],
+                { cwd: process.cwd(), stdio: 'pipe' });
                 pushed = true;
                 break;
               } catch (err) {
