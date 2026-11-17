@@ -2,6 +2,28 @@
 title: Release Notes
 ---
 
+## v1.23.0
+
+### New Features
+
+- Read, create, and update Git-managed SO10 texts.
+- Copy SO10 texts across clients using isolated connections.
+- Record SO10 text keys on customizing transport tasks.
+
+### Bug Fixes
+
+- Include all registered commands in general help.
+- Push XML-synced amended commits with an explicit lease.
+
+### Documentation
+
+- Add SO10 command usage examples.
+
+---
+
+---
+
+
 ## v1.22.0
 
 ### New Features
