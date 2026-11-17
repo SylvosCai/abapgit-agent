@@ -77,6 +77,10 @@ Commands:
   customize <table> --set <field>=<value> [<field>=<value> ...] [--transport <TRKORR>] [--no-transport] [--json]
     Write a row (insert-or-update) into a SAP customizing table (delivery class C or E).
 
+  so10 <subcommand> [options]
+    Manage SAPscript standard texts with Git-managed ITF files.
+    Subcommands: list, import, read, create, update, copy, drop, transport
+
   hana <subcommand> [options]
     Manage HANA repository views and query the HANA catalog.
     Subcommands:
@@ -147,6 +151,9 @@ Commands:
   status
     Check if ABAP integration is configured for this repo
 
+  help
+    Display usage information and available commands
+
 Examples:
   abapgit-agent init --folder /src --package ZMY_PACKAGE      # Initialize
   abapgit-agent init --update                                # Update files to latest
@@ -172,6 +179,9 @@ Examples:
   abapgit-agent preview --objects SFLIGHT                    # Preview table data
   abapgit-agent where --objects ZCL_MY_CLASS                 # Find where class is used
   abapgit-agent customize ZAPP_CONFIG --set KEY=X VALUE=Y --no-transport  # Write customizing entry
+  abapgit-agent so10 list --prefix ZAPP_ --language EN        # List standard-text headers
+  abapgit-agent so10 read ZAPP_NOTICE --language EN          # Read a standard text
+  abapgit-agent so10 import --prefix ZAPP_ --language EN --dry-run  # Preview Git import
   abapgit-agent hana view list --package com.example.myapp   # List HANA views in a package
   abapgit-agent hana view deploy --file hana/.../SalesAnalytics.calculationview --force
   abapgit-agent hana view preview --file hana/.../SalesAnalytics.calculationview --limit 20
