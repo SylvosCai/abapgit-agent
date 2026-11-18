@@ -221,8 +221,9 @@ Examples:
 
     if (jsonOutput) {
       const config = loadConfig();
-      const csrfToken = await fetchCsrfToken(config);
-      const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, request);
+      const http = new AbapHttp(config);
+      const csrfToken = await http.fetchCsrfToken();
+      const result = await runTreeCommand(packageName, depth, includeTypes, csrfToken, http);
       console.log(JSON.stringify(result, null, 2));
     } else {
       await displayTreeOutput(packageName, depth, includeTypes, loadConfig, AbapHttp);

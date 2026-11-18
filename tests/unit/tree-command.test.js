@@ -93,6 +93,59 @@ describe('Tree Command - CLI Output Format', () => {
     console.error = originalConsoleError;
   });
 
+  test.each([
+    [[], 3, false],
+    [['--depth', '2', '--include-types'], 2, true],
+    [['--depth', '5', '--include-objects'], 5, true]
+  ])('JSON execution preserves the response and forwards options %j', async (options, depth, includeTypes) => {
+    const result = {
+      SUCCESS: true,
+      PACKAGE: '$ZMAIN',
+      NODES: [{ PACKAGE: '$ZMAIN', DEPTH: 0 }],
+      TOTAL_PACKAGES: 1,
+      TOTAL_OBJECTS: 0,
+      MESSAGE: 'Tree retrieved\nwithout formatting changes'
+    };
+    const config = { host: 'test', port: 443 };
+    const http = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+      post: jest.fn().mockResolvedValue(result)
+    };
+    const context = {
+      loadConfig: jest.fn(() => config),
+      AbapHttp: jest.fn(() => http)
+    };
+
+    await require('../../src/commands/tree').execute(['--package', '$ZMAIN', '--json', ...options], context);
+
+    expect(context.loadConfig).toHaveBeenCalledTimes(1);
+    expect(context.AbapHttp).toHaveBeenCalledWith(config);
+    expect(context.AbapHttp).toHaveBeenCalledTimes(1);
+    expect(http.fetchCsrfToken).toHaveBeenCalledTimes(1);
+    expect(http.post).toHaveBeenCalledTimes(1);
+    expect(http.post).toHaveBeenCalledWith('/sap/bc/z_abapgit_agent/tree', {
+      package: '$ZMAIN', depth, include_objects: includeTypes
+    }, { csrfToken: 'token123' });
+    expect(consoleOutput).toHaveLength(1);
+    expect(JSON.parse(consoleOutput[0])).toEqual(result);
+  });
+
+  test.each(['fetchCsrfToken', 'post'])('JSON execution propagates %s failures without output', async (method) => {
+    const error = new Error('HTTP request failed');
+    const http = {
+      fetchCsrfToken: jest.fn().mockResolvedValue('token123'),
+      post: jest.fn().mockResolvedValue({ SUCCESS: true })
+    };
+    http[method].mockRejectedValue(error);
+    const context = { loadConfig: jest.fn(() => ({})), AbapHttp: jest.fn(() => http) };
+
+    await expect(require('../../src/commands/tree').execute(['--package', '$ZMAIN', '--json'], context))
+      .rejects.toBe(error);
+    expect(http.fetchCsrfToken).toHaveBeenCalledTimes(1);
+    expect(http.post).toHaveBeenCalledTimes(method === 'post' ? 1 : 0);
+    expect(consoleOutput).toEqual([]);
+  });
+
   test('output matches spec format for package tree', async () => {
     const treeCommand = require('../../src/commands/tree');
 
