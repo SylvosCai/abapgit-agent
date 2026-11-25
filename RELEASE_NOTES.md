@@ -2,6 +2,32 @@
 title: Release Notes
 ---
 
+## v1.24.0
+
+### New Features
+
+- Central systems and credential providers
+- Metadata-only system, logon, and credential commands
+- Per-repository SAP client selection
+
+### Bug Fixes
+
+- Fixed tree JSON output using the HTTP client
+
+### Improvements
+
+- Verified TLS for central connections
+- Isolated connection state while preserving legacy configuration compatibility
+
+### Documentation
+
+- Added [connection format and credential configuration guidance](https://sylvoscai.github.io/abapgit-agent/docs/install.html#choose-a-connection-format)
+
+---
+
+---
+
+
 ## v1.23.0
 
 ### New Features
