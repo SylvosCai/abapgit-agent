@@ -145,6 +145,20 @@ Commands:
   upgrade [--abap-only] [--cli-only] [--version <v>]
     Upgrade CLI and/or ABAP backend to latest or specific version.
 
+  system list | create <name> --host <hostname>
+    Manage reusable central SAP endpoints (local metadata only).
+
+  logon list | current | use <client> | create <client> --provider <provider>
+    Inspect/save client selection or add logons within a bound central system.
+
+  credential adapters | register <name> --executable <path> | create <profile> --origin <https-origin>
+    Manage central Git credential profiles and trusted custom helper registrations.
+    Credentials are never printed. File creation leaves an empty password draft.
+
+  --logon-client <client> <command>
+    Override one invocation's central SAP client; ABAP_LOGON_CLIENT is the environment equivalent.
+    Precedence: CLI override, environment, saved repository client. No system switching.
+
   health
     Check if ABAP REST API is healthy
 

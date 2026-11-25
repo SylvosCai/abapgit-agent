@@ -186,6 +186,14 @@ module.exports = {
   },
 
   async execute(args) {
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`Usage:
+  abapgit-agent guide [--ai] [--json | --path]
+  abapgit-agent guide --migrate [--dry-run] [--yes]
+
+Shows the bundled ABAP guide. --migrate replaces copied guidelines with bundled-guide stubs.`);
+      return;
+    }
     if (args.includes('--migrate')) {
       return this._runMigrate(args);
     }

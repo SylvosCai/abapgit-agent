@@ -318,11 +318,14 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
 
         console.log('📝 Updating existing .abapGitAgent configuration');
         console.log('');
+        const connection = currentConfig.system
+          ? `central ${currentConfig.system}/${currentConfig.client || '(no client)'}`
+          : `legacy flat ${currentConfig.host || '(no host)'}`;
         console.log('Current values:');
         console.log(`   Package:      ${currentConfig.package || '(not set)'}`);
         console.log(`   Folder:       ${currentConfig.folder || '(not set)'}`);
         console.log(`   Folder Logic: ${currentConfig.folderLogic || '(not set)'}`);
-        console.log(`   Host:         ${currentConfig.host || '(not set)'}`);
+        console.log(`   Connection:   ${connection}`);
         console.log('');
 
         // Merge: keep existing values, update package, folder, and folderLogic
@@ -358,7 +361,7 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
           console.log('Changes to be made:');
           changes.forEach(change => console.log(`   ${change}`));
           console.log('');
-          console.log('✅ Keeping all other settings (host, credentials, workflow, etc.)');
+          console.log('✅ Keeping all other settings (connection fields, credentials/references, workflow, etc.)');
           console.log('');
         }
       } catch (error) {
@@ -584,7 +587,10 @@ Uncomment and edit the rows that differ from the defaults in \`guidelines/object
 
     console.log(`
 📋 Next steps:
-   1. Edit .abapGitAgent with your ABAP credentials (host, user, password)
+   1. Choose one .abapGitAgent connection format:
+      • Legacy flat: edit the host/user/password fields created by init
+      • Central: replace flat connection fields with system/client/gitProfile
+        references after configuring the private systems catalog
    2. Review .abapgit-agent.json and commit it to git (team settings)
    3. Run 'abapgit-agent create --import' to create online repository
    4. Run 'abapgit-agent pull' to activate objects

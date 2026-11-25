@@ -18,6 +18,7 @@
 
 const pathModule = require('path');
 const fs = require('fs');
+const { parseGlobal, createConnectionContext } = require('../src/utils/connection-context');
 
 // Import utilities
 const gitUtils = require('../src/utils/git-utils');
@@ -31,7 +32,7 @@ const getTermWidth = () => process.stdout.columns || 80;
 const TERM_WIDTH = getTermWidth();
 
 async function main() {
-  const args = process.argv.slice(2);
+  const { args, override: logonClient } = parseGlobal(process.argv.slice(2));
   const command = args[0];
 
   const commandModules = require('../src/commands/index');
@@ -46,8 +47,9 @@ async function main() {
   if (commandModules[command] || command === '--help' || command === '-h') {
     const cmd = command === '--help' || command === '-h' ? commandModules.help : commandModules[command];
 
-    // Check if command requires ABAP configuration
-    if (cmd.requiresAbapConfig && !isAbapIntegrationEnabled()) {
+    const offline = args.includes('--help') || args.includes('-h') || ['system', 'logon', 'credential'].includes(command);
+    // Help and catalog operations must not trigger connection or version probes.
+    if (!offline && cmd.requiresAbapConfig && !isAbapIntegrationEnabled()) {
       console.log(`
 ⚠️  ABAP Git Agent not configured for this repository.
 
@@ -68,11 +70,17 @@ To enable integration:
       process.exit(1);
     }
 
-    // Load config if needed
-    const config = cmd.requiresAbapConfig ? loadConfig() : null;
+    const needsConnection = !offline && (cmd.requiresAbapConfig ||
+      (command === 'status' && isAbapIntegrationEnabled()) ||
+      (command === 'upgrade' && !args.includes('--cli-only') && !args.includes('--check') && isAbapIntegrationEnabled()));
+    const connection = needsConnection ? await createConnectionContext(loadConfig(), logonClient) : null;
+    if (!offline && !needsConnection && logonClient !== undefined) {
+      throw new Error('--logon-client requires a SAP command or logon metadata operation');
+    }
+    const config = connection?.config ?? null;
 
     // Version check if needed
-    if (cmd.requiresVersionCheck && config) {
+    if (!offline && cmd.requiresVersionCheck && config) {
       await versionCheck.checkCompatibility(config);
     }
 
@@ -83,13 +91,17 @@ To enable integration:
       validators,
       versionCheck,
       isAbapIntegrationEnabled,
-      loadConfig,
+      loadConfig: connection?.loadConfig || loadConfig,
+      loadRawConfig: loadConfig,
+      logonClient,
+      resolveGitCredentials: connection?.resolveGitCredentials,
+      resolveSapClient: connection?.resolveSapClient,
       AbapHttp,
-      getTransport,
+      getTransport: connection ? () => config.transport || null : getTransport,
       getSafeguards,
       getConflictSettings,
       getTransportSettings,
-      getScratchWorkspace,
+      getScratchWorkspace: connection ? () => getScratchWorkspace(config) : getScratchWorkspace,
       getInspectConfig,
       getTimeoutMs
     };
@@ -98,7 +110,7 @@ To enable integration:
     await cmd.execute(args.slice(1), context);
 
     // Show new version reminder (non-blocking, cached daily)
-    if (command !== 'upgrade') {
+    if (!offline && command !== 'upgrade') {
       await versionCheck.showNewVersionReminder();
     }
     return;

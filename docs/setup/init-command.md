@@ -58,14 +58,15 @@ git remote get-url origin
 ### 2. Create or Update Configuration
 
 **If `.abapGitAgent` does NOT exist:**
-- Copy from `.abapGitAgent.example` template
+- Copy the backward-compatible legacy flat `.abapGitAgent.example` template
 - Set `package`, `folder`, and `folderLogic` from CLI parameters (or defaults)
-- Initialize with placeholder credentials
+- Initialize with placeholder legacy credentials
+- Do not infer or create central catalog entries; central binding is a deliberate follow-up described below
 
 **If `.abapGitAgent` already exists (re-init):**
 - Read existing configuration
 - Update ONLY `package`, `folder`, and `folderLogic` fields
-- Keep ALL other settings (host, credentials, workflow, etc.)
+- Keep ALL other settings, including either legacy fields or central `system`/`client`/`gitProfile` references, `clientSettings`, workflow and credentials
 - Show what changed
 
 **Example: Copying config from another project**
@@ -256,12 +257,11 @@ export GIT_PASSWORD="ghp_your_token_here"
 
 ## Post-Init Steps
 
-1. Edit `.abapGitAgent` with correct values:
-   - `host`: SAP system hostname
-   - `user`: SAP username
-   - `password`: SAP password
-   - `gitUsername`: GitHub username (for import command)
-   - `gitPassword`: GitHub PAT (for import command)
+1. Choose one connection format; never mix a central `system` reference with flat SAP endpoint/account fields or a `gitProfile` reference with flat Git account fields:
+   - **Legacy flat (created by `init`):** edit `host`, `user`, `password`, and optional `gitUsername`/`gitPassword` directly in the ignored `.abapGitAgent`.
+   - **Central references:** create the private catalog metadata with `system create`, `logon create`, and optional `credential create`; maintain provider secrets only in that private catalog; then replace the flat connection fields with `system`, `client`, and optional `gitProfile`. Compare the paired files under `examples/configuration/central/` and see [Installation & Setup](../install.md#choose-a-connection-format).
+
+   Repository settings such as `package`, `folder`, `folderLogic`, `workflow`, `referenceFolder`, `testRepos`, and `clientSettings` stay in `.abapGitAgent` in both formats. `init` does not migrate formats.
 
 2. Run `abapgit-agent create` to create abapGit repo in ABAP
 
@@ -273,7 +273,7 @@ export GIT_PASSWORD="ghp_your_token_here"
 1. abapgit-agent init --folder /src/ --package ZMY_PACKAGE
    └─> Creates .abapGitAgent, .abapgit.xml, CLAUDE.md, /src/, updates .gitignore
 
-2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
+2. Configure .abapGitAgent using either legacy flat fields or central references
 
 3. abapgit-agent create
    └─> Creates online repository in ABAP

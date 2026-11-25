@@ -222,7 +222,7 @@ describe('Drop Command - success response', () => {
       null,
       expect.any(Function),
       expect.any(Function),
-      false, undefined, 'abort', false, false
+      false, undefined, 'abort', false, false, false, undefined
     );
   });
 

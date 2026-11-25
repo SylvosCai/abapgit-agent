@@ -9,6 +9,16 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`Usage:
+  abapgit-agent ref <pattern> [--json]
+  abapgit-agent ref --topic <name> [--json]
+  abapgit-agent ref --list-topics | --list-repos
+  abapgit-agent ref --clone <repo> [--name <name>] [--json]
+
+Search local ABAP references or explicitly clone a reference repository.`);
+      return;
+    }
     const refSearch = require('../utils/abap-reference');
 
     const topicIndex = args.indexOf('--topic');

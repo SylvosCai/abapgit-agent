@@ -11,6 +11,8 @@
     "abap/.github/copilot-instructions.md",
     "abap/.github/copilot-instructions.slim.md",
     ".abapGitAgent.example",
+    "examples/configuration/central/repository.abapGitAgent.json",
+    "examples/configuration/central/systems.json",
     ".abapgit-agent.example.json"
   ],
   "repository": {

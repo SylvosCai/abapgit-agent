@@ -6,6 +6,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const catalogSchema = require('../../src/utils/central-catalog');
 
 describe('Init Command Integration', () => {
   let testDir;
@@ -20,6 +21,26 @@ describe('Init Command Integration', () => {
     if (testDir && fs.existsSync(testDir)) {
       fs.rmSync(testDir, { recursive: true, force: true });
     }
+  });
+
+  test('repository examples cover valid legacy and central formats', () => {
+    const root = path.join(__dirname, '..', '..');
+    const legacy = JSON.parse(fs.readFileSync(path.join(root, '.abapGitAgent.example'), 'utf8'));
+    const exampleDir = path.join(root, 'examples', 'configuration', 'central');
+    const central = JSON.parse(fs.readFileSync(path.join(exampleDir, 'repository.abapGitAgent.json'), 'utf8'));
+    const catalog = JSON.parse(fs.readFileSync(path.join(exampleDir, 'systems.json'), 'utf8'));
+
+    expect(legacy).toMatchObject({ host: expect.any(String), client: '100', user: expect.any(String) });
+    expect(legacy).not.toHaveProperty('system');
+    expect(central).toMatchObject({ system: 'DEV', client: '100', gitProfile: 'work-git' });
+    expect(central).not.toHaveProperty('host');
+    expect(central).not.toHaveProperty('user');
+
+    catalogSchema.validate(catalog);
+    const system = catalogSchema.system(catalog, central.system);
+    catalogSchema.credentials(system.clients[central.client].credentials, catalog);
+    catalogSchema.origin(catalog.gitProfiles[central.gitProfile].origin);
+    catalogSchema.credentials(catalog.gitProfiles[central.gitProfile].credentials, catalog);
   });
 
   test('init creates .abapGitAgent with package and folder', () => {
@@ -149,6 +170,38 @@ describe('Init Command Integration', () => {
     expect(config.password).toBe('mypassword'); // Preserved
     expect(config.package).toBe('ZNEW_PACKAGE'); // Updated
     expect(config.folder).toBe('/src/'); // Updated
+  });
+
+  test('init preserves an existing central binding', () => {
+    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: testDir, stdio: 'pipe' });
+
+    const configPath = path.join(testDir, '.abapGitAgent');
+    fs.writeFileSync(configPath, JSON.stringify({
+      system: 'DEV',
+      client: '100',
+      gitProfile: 'work-git',
+      clientSettings: { '100': { transport: 'DEVK900001' } },
+      package: 'ZOLD_PACKAGE',
+      folder: '/old/'
+    }, null, 2));
+
+    const binPath = path.join(__dirname, '..', '..', 'bin', 'abapgit-agent');
+    const output = execSync(`node "${binPath}" init --folder /src --package ZNEW_PACKAGE`, {
+      cwd: testDir,
+      encoding: 'utf8'
+    });
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config).toMatchObject({
+      system: 'DEV',
+      client: '100',
+      gitProfile: 'work-git',
+      clientSettings: { '100': { transport: 'DEVK900001' } },
+      package: 'ZNEW_PACKAGE',
+      folder: '/src/'
+    });
+    expect(output).toContain('Connection:   central DEV/100');
   });
 
   test('init creates .gitignore with sensitive files', () => {

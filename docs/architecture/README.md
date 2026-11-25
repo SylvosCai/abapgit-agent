@@ -28,3 +28,4 @@ The existing diagram is an architectural overview, not an exhaustive inventory o
 |----------|-------------|
 | [Background Job Architecture](background-job-architecture) | Asynchronous command execution with real-time progress reporting via polling — used by the `import` command |
 | [Object File Handling](object-file-handling.md) | File families, object identities, pull/drop lifecycle, source policies and native/static checking paths |
+| [Central Systems and Credentials](central-systems-client-logons.md) | Reusable SAP/Git credentials, registered CLI helpers, file/built-in Bitwarden local-serve providers and legacy compatibility; POSIX implementation and verification gates |

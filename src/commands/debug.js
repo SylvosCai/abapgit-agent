@@ -659,7 +659,7 @@ async function cmdAttach(args, config, adt) {
     const agent = adt._axios.defaults.httpsAgent || adt._axios.defaults.httpAgent;
     if (agent) agent.destroy();
     if (adt._axios.defaults.httpsAgent) {
-      adt._axios.defaults.httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false, keepAlive: true });
+      adt._axios.defaults.httpsAgent = new (require('https').Agent)({ rejectUnauthorized: config.verifiedTls === true, keepAlive: true });
     } else if (adt._axios.defaults.httpAgent) {
       adt._axios.defaults.httpAgent = new (require('http').Agent)({ keepAlive: true });
     }
@@ -1471,16 +1471,15 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
-    const { loadConfig, AdtHttp: AdtHttpCtx } = context;
     const subcommand = args[0];
     const subArgs = args.slice(1);
 
-    if (!subcommand || subcommand === '--help' || subcommand === '-h') {
+    if (!subcommand || args.includes('--help') || args.includes('-h')) {
       printUsage();
       return;
     }
 
-    const config = loadConfig();
+    const config = context.loadConfig();
     // Allow test injection via context; otherwise use the real AdtHttp
     const HttpClass = (context && context.AdtHttpClass) || AdtHttp;
     const adt = new HttpClass(config);

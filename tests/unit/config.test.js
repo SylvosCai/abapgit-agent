@@ -303,6 +303,37 @@ describe('Config', () => {
     });
   });
 
+  describe('connection gate respects existing discovery', () => {
+    let previousPath;
+    beforeEach(() => { previousPath = process.env.CONFIG_PATH; delete process.env.CONFIG_PATH; });
+    afterEach(() => { if (previousPath === undefined) delete process.env.CONFIG_PATH; else process.env.CONFIG_PATH = previousPath; });
+    test('accepts an explicit config file without materializing credentials', () => {
+      const fs = require('fs');
+      process.env.CONFIG_PATH = '/explicit/config.json';
+      fs.existsSync.mockImplementation(p => p === process.env.CONFIG_PATH);
+      fs.readFileSync.mockClear();
+      expect(require('../../src/config').isAbapIntegrationEnabled()).toBe(true);
+      expect(fs.readFileSync).not.toHaveBeenCalled();
+    });
+    test('accepts complete effective environment settings and rejects incomplete ones', () => {
+      require('fs').existsSync.mockReturnValue(false);
+      Object.assign(process.env, { ABAP_HOST: 'env.example', ABAP_USER: 'dummy', ABAP_PASSWORD: 'dummy' });
+      const config = require('../../src/config');
+      expect(config.isAbapIntegrationEnabled()).toBe(true);
+      expect(config.loadConfig().host).toBe('env.example');
+      delete process.env.ABAP_PASSWORD;
+      expect(config.isAbapIntegrationEnabled()).toBe(false);
+    });
+    test('does not activate an implicit package binding from another cwd', () => {
+      const packageConfig = require('path').resolve(__dirname, '../../.abapGitAgent');
+      require('fs').existsSync.mockImplementation(p => p === packageConfig);
+      Object.assign(process.env, { ABAP_HOST: 'env.example', ABAP_USER: 'dummy', ABAP_PASSWORD: 'dummy' });
+      const cwd = jest.spyOn(process, 'cwd').mockReturnValue('/unrelated-workspace');
+      try { expect(require('../../src/config').isAbapIntegrationEnabled()).toBe(false); }
+      finally { cwd.mockRestore(); }
+    });
+  });
+
   describe('loadProjectConfig()', () => {
     test('returns parsed JSON when .abapgit-agent.json exists', () => {
       const fs = require('fs');

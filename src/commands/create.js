@@ -25,7 +25,8 @@ Description:
 
 Prerequisites:
   - Run "abapgit-agent init" first
-  - Edit .abapGitAgent with credentials (host, user, password)
+  - Configure .abapGitAgent using either legacy flat fields or central
+    system/client/gitProfile references
 
 Examples:
   abapgit-agent create                    # Create repo using config settings
@@ -51,6 +52,7 @@ Examples:
       process.exit(1);
     }
 
+    if (config.gitProfile) require('../utils/central-catalog').destination(repoUrl);
     const branch = gitUtils.getBranch();
 
     // Extract repo name from git URL
@@ -76,13 +78,11 @@ Examples:
       folder_logic: folderLogic
     };
 
-    if (config.gitUsername) {
-      data.username = config.gitUsername;
-    }
-
-    if (config.gitPassword) {
-      data.password = config.gitPassword;
-    }
+    const credentials = context.resolveGitCredentials
+      ? await context.resolveGitCredentials(repoUrl)
+      : { username: config.gitUsername, password: config.gitPassword };
+    if (credentials?.username) data.username = credentials.username;
+    if (credentials?.password) data.password = credentials.password;
 
     const result = await http.post('/sap/bc/z_abapgit_agent/create', data, { csrfToken });
 

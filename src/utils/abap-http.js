@@ -13,10 +13,8 @@
 const axios = require('axios');
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
 const { extractBodyDetail } = require('./format-error');
-const os = require('os');
-const crypto = require('crypto');
+const { stateFile, readState, writeState } = require('./connection-state');
 
 class AbapHttp {
   /**
@@ -48,12 +46,12 @@ class AbapHttp {
     }
 
     const isHttp = config.protocol === 'http';
-    const baseURL = `${config.protocol || 'https'}://${config.host}:${config.sapport}`;
+    const baseURL = `${config.protocol || 'https'}://${config.host.includes(':') && !config.host.startsWith('[') ? `[${config.host}]` : config.host}:${config.sapport}`;
     this._axios = axios.create({
       baseURL,
       ...(isHttp
         ? { httpAgent: new (require('http').Agent)({ keepAlive: true }) }
-        : { httpsAgent: new https.Agent({ rejectUnauthorized: false, keepAlive: true }) }),
+        : { httpsAgent: new https.Agent({ rejectUnauthorized: config.verifiedTls === true, keepAlive: true }) }),
       maxRedirects: 0,
       validateStatus: () => true,
     });
@@ -103,19 +101,14 @@ class AbapHttp {
     });
 
     // Session cache file path
-    const configHash = crypto.createHash('md5')
-      .update(`${config.host}:${config.user}:${config.client}`)
-      .digest('hex')
-      .substring(0, 8);
-
-    this.sessionFile = path.join(os.tmpdir(), `abapgit-session-${configHash}.json`);
+    this.sessionFile = stateFile(config, 'abapgit-session');
     this.loadSession();
   }
 
   loadSession() {
     if (!fs.existsSync(this.sessionFile)) return;
     try {
-      const session = JSON.parse(fs.readFileSync(this.sessionFile, 'utf8'));
+      const session = readState(this.sessionFile, this.config);
       const safetyMargin = 2 * 60 * 1000;
       if (session.expiresAt > Date.now() + safetyMargin) {
         this.csrfToken = session.csrfToken;
@@ -131,12 +124,9 @@ class AbapHttp {
   saveSession() {
     const expiresAt = Date.now() + (15 * 60 * 1000);
     try {
-      fs.writeFileSync(this.sessionFile, JSON.stringify({
-        csrfToken: this.csrfToken,
-        cookies: this.cookies,
-        expiresAt,
-        savedAt: Date.now()
-      }));
+      writeState(this.sessionFile, {
+        csrfToken: this.csrfToken, cookies: this.cookies, expiresAt, savedAt: Date.now()
+      }, this.config);
     } catch (e) {
       // Ignore write errors
     }

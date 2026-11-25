@@ -35,6 +35,7 @@ Description:
       const repoUrl = gitUtils.getRemoteUrl();
 
       if (repoUrl) {
+        if (config.gitProfile) require('../utils/central-catalog').destination(repoUrl);
         try {
           const http = new AbapHttp(config);
           const csrfToken = await http.fetchCsrfToken();

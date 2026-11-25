@@ -223,7 +223,7 @@ DROP defaults to the configured client; --target-client is explicit native data 
     let writeAttempted = false;
     try {
       const baseConfig = context.loadConfig();
-      const config = payload.action === 'TRANSPORT' ? transportProfile(baseConfig, options['--target-client']) : baseConfig;
+      const config = payload.action === 'TRANSPORT' ? await transportProfile(baseConfig, options['--target-client'], context.resolveSapClient) : baseConfig;
       if (payload.action === 'COPY') {
         payload.source_client = payload.source_client || String(config.client);
         payload.target_client = payload.target_client || String(config.customizingClient ?? config.client);

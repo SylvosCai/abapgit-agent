@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "systems": {
+    "DEV": {
+      "protocol": "https",
+      "host": "your-sap-system.com",
+      "sapport": 443,
+      "language": "EN",
+      "clients": {
+        "100": {
+          "credentials": {
+            "provider": "file",
+            "user": "TECH_USER",
+            "password": "replace-with-local-secret"
+          }
+        }
+      }
+    }
+  },
+  "gitProfiles": {
+    "work-git": {
+      "origin": "https://github.com",
+      "credentials": {
+        "provider": "file",
+        "user": "github-username",
+        "password": "replace-with-local-token"
+      }
+    }
+  }
+}

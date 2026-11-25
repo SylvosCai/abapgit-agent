@@ -50,13 +50,11 @@ async function checkCompatibility(config) {
   const cliVersion = getCliVersion();
 
   try {
-    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `${config.protocol || 'https'}://${config.host}:${config.sapport}`);
+    const host = config.host.includes(':') && !config.host.startsWith('[') ? `[${config.host}]` : config.host;
+    const url = new URL(`/sap/bc/z_abapgit_agent/health`, `${config.protocol || 'https'}://${host}:${config.sapport}`);
 
     return new Promise((resolve) => {
       const options = {
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
         method: 'GET',
         headers: {
           'Authorization': `Basic ${Buffer.from(`${config.user}:${config.password}`).toString('base64')}`,
@@ -64,10 +62,10 @@ async function checkCompatibility(config) {
           'sap-language': config.language || 'EN',
           'Content-Type': 'application/json'
         },
-        agent: config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: false })
+        agent: config.protocol === 'http' ? undefined : new https.Agent({ rejectUnauthorized: config.verifiedTls === true })
       };
 
-      const req = (config.protocol === 'http' ? http : https).request(options, (res) => {
+      const req = (config.protocol === 'http' ? http : https).request(url, options, (res) => {
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {

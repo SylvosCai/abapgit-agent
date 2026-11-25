@@ -10,25 +10,10 @@
  * can be maintained locally (required for PUT/synchronize model of ADT API).
  */
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const crypto = require('crypto');
+const { stateFile, readState, writeState } = require('./connection-state');
 
-function _stateFile(config) {
-  const hash = crypto.createHash('md5')
-    .update(`${config.host}:${config.user}:${config.client}`)
-    .digest('hex')
-    .substring(0, 8);
-  return path.join(os.tmpdir(), `abapgit-debug-active-${hash}.json`);
-}
-
-function _bpStateFile(config) {
-  const hash = crypto.createHash('md5')
-    .update(`${config.host}:${config.user}:${config.client}`)
-    .digest('hex')
-    .substring(0, 8);
-  return path.join(os.tmpdir(), `abapgit-bpstate-${hash}.json`);
-}
+function _stateFile(config) { return stateFile(config, 'abapgit-debug-active'); }
+function _bpStateFile(config) { return stateFile(config, 'abapgit-bpstate'); }
 
 /**
  * Return the deterministic Unix socket path for the debug daemon.
@@ -37,11 +22,7 @@ function _bpStateFile(config) {
  * @returns {string}
  */
 function getDaemonSocketPath(config) {
-  const hash = crypto.createHash('md5')
-    .update(`${config.host}:${config.user}:${config.client}`)
-    .digest('hex')
-    .substring(0, 8);
-  return path.join(os.tmpdir(), `abapgit-debug-daemon-${hash}.sock`);
+  return stateFile(config, 'abapgit-debug-daemon', '.sock');
 }
 
 /**
@@ -51,7 +32,7 @@ function getDaemonSocketPath(config) {
  */
 function saveBreakpointState(config, bps) {
   try {
-    fs.writeFileSync(_bpStateFile(config), JSON.stringify({ breakpoints: bps, savedAt: Date.now() }), 'utf8');
+    writeState(_bpStateFile(config), { breakpoints: bps, savedAt: Date.now() }, config);
   } catch (e) {
     // Non-fatal
   }
@@ -66,7 +47,7 @@ function loadBreakpointState(config) {
   const file = _bpStateFile(config);
   if (!fs.existsSync(file)) return [];
   try {
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const data = readState(file, config);
     return Array.isArray(data.breakpoints) ? data.breakpoints : [];
   } catch (e) {
     return [];
@@ -80,7 +61,7 @@ function loadBreakpointState(config) {
  */
 function saveActiveSession(config, state) {
   try {
-    fs.writeFileSync(_stateFile(config), JSON.stringify({ ...state, savedAt: Date.now() }), 'utf8');
+    writeState(_stateFile(config), { ...state, savedAt: Date.now() }, config);
   } catch (e) {
     // Non-fatal — AI mode will require --session explicitly if file can't be written
   }
@@ -95,7 +76,7 @@ function loadActiveSession(config) {
   const file = _stateFile(config);
   if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    return readState(file, config);
   } catch (e) {
     return null;
   }
@@ -115,7 +96,7 @@ function loadActiveSession(config) {
 function clearActiveSession(config) {
   try {
     const file = _stateFile(config);
-    fs.writeFileSync(file, JSON.stringify({ sessionId: null, clearedAt: Date.now() }), 'utf8');
+    writeState(file, { sessionId: null, clearedAt: Date.now() }, config);
   } catch (e) {
     // Ignore
   }

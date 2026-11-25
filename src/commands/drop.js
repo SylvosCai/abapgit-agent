@@ -120,6 +120,15 @@ Examples:
     const transportRequest = transportArgIndex !== -1 ? args[transportArgIndex + 1] : (getTransport ? getTransport() : null);
     const conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : (getConflictSettings ? getConflictSettings().mode : 'abort');
 
+    let gitUrl, branch, gitCredentials;
+    if (doPull) {
+      gitUrl = gitUtils.getRemoteUrl();
+      branch = gitUtils.getBranch();
+      if (!gitUrl) throw new Error('Cannot re-pull: no git remote configured. No object was deleted.');
+      // Fail predictable credential/destination errors before the destructive step.
+      if (context.resolveGitCredentials) gitCredentials = await context.resolveGitCredentials(gitUrl);
+    }
+
     console.log(`\n🗑️  Dropping ${obj ? obj.type + ' ' + obj.name : filePath} from ABAP system...`);
     if (transportRequest) {
       console.log(`   Transport: ${transportRequest}`);
@@ -163,16 +172,10 @@ Examples:
     if (doPull) {
       console.log(`\n↩️  Re-pulling from git...`);
       const pullCommand = require('./pull');
-      const gitUrl = gitUtils.getRemoteUrl();
-      const branch = gitUtils.getBranch();
-      if (!gitUrl) {
-        console.error('❌ Cannot re-pull: no git remote configured.');
-        process.exit(1);
-      }
       try {
         await pullCommand.pull(
           gitUrl, branch, [filePath], transportRequest || null,
-          loadConfig, AbapHttp, false, undefined, conflictMode, false, false
+          loadConfig, AbapHttp, false, gitCredentials, conflictMode, false, false, false, context.resolveGitCredentials
         );
       } catch (pullError) {
         // pull() already printed the error

@@ -56,6 +56,16 @@ All available CLI commands for abapGit Agent.
 | [guide](utility/guide-command.md) | ✅ | Show full bundled ABAP development guide |
 | [ref](utility/ref-command.md) | ✅ | Search ABAP reference repositories (topics, patterns, export) |
 
+### Central Configuration Commands (POSIX)
+
+Implemented on this feature branch, not yet released. Windows central mode fails closed. See the [Central Systems and Credentials architecture and verification limits](architecture/central-systems-client-logons.md). All listed metadata operations are local and require no SAP connection or credential retrieval.
+
+| Command | Status | Description |
+|---------|--------|-------------|
+| [system](setup/system-command.md) | Implemented | `create`, `list`: add/list reusable central system endpoints |
+| [logon](setup/logon-command.md) | Implemented | `create`, `list`, `current`, `use`: add clients and inspect/save client selection; global `--logon-client` override |
+| [credential](utility/credential-command.md) | Implemented | `create` Git profiles, `register` custom helpers, `adapters` metadata listing; file-provider passwords maintained manually |
+
 ---
 
 ## Quick Start
@@ -66,7 +76,8 @@ All available CLI commands for abapGit Agent.
 # 1. Initialize local configuration
 abapgit-agent init --package ZMY_PACKAGE
 
-# 2. Edit .abapGitAgent with credentials
+# 2. Choose one .abapGitAgent format:
+#    legacy flat credentials, or central system/client/gitProfile references
 vim .abapGitAgent
 
 # 3. Commit and push new files to git

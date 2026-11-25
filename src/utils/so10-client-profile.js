@@ -1,6 +1,10 @@
-function transportProfile(config, targetClient) {
+function transportProfile(config, targetClient, resolveSapClient) {
   const client = String(targetClient ?? config.customizingClient ?? config.client);
   if (client.length !== 3 || !/^\d{3}$/.test(client)) throw new Error('Invalid customizing client');
+  if (config.system) {
+    if (typeof resolveSapClient !== 'function') throw new Error('Central customizing logon requires the pinned client resolver');
+    return resolveSapClient(client);
+  }
   const logon = config.customizingLogon;
   if (client === String(config.client) && (logon == null || (targetClient != null && String(logon.client) !== client))) return config;
   if (!logon || Array.isArray(logon) || String(logon.client) !== client ||

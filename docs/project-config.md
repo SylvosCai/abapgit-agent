@@ -279,6 +279,6 @@ Enables Git-managed SAPscript standard texts. Add this section to the Git-tracke
 }
 ```
 
-Logon credentials belong in the ignored `.abapGitAgent`, not this section. SO10's optional `customizingClient` and `customizingLogon` settings are described in the [command specification](development/so10-command.md#record-a-customizing-transport).
+Keep logon configuration out of this Git-tracked section. In central mode, the ignored `.abapGitAgent` contains `system`/`client` references and per-client `clientSettings`; credentials stay in the private catalog or provider. Legacy flat mode keeps credentials and optional `customizingClient`/`customizingLogon` in `.abapGitAgent`. Do not mix those flat fields with a central `system` binding. See the [SO10 transport configuration examples](development/so10-command.md#record-a-customizing-transport).
 
 See [SO10](development/so10-command.md) for import, save, copy and drop usage.

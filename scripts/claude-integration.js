@@ -18,6 +18,9 @@ const path = require('path');
 const fs = require('fs');
 
 const COOKIE_FILE = path.join(__dirname, '..', '.abapgit_agent_cookies.txt');
+const { createConnectionContext, parseGlobal } = require('../src/utils/connection-context');
+const { AbapHttp } = require('../src/utils/abap-http');
+let connection, centralHttp;
 
 /**
  * Check if ABAP AI integration is configured for this repo
@@ -41,7 +44,9 @@ function isAbapIntegrationEnabled() {
 /**
  * Load configuration from .abapGitAgent
  */
-function loadConfig() {
+function loadConfig() { return connection?.config || loadRawConfig(); }
+
+function loadRawConfig() {
   // First check current working directory (repo root)
   const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
 
@@ -97,6 +102,7 @@ function readNetscapeCookies() {
  * Fetch CSRF token using GET /pull with X-CSRF-Token: fetch
  */
 async function fetchCsrfToken(config) {
+  if (centralHttp) return centralHttp.fetchCsrfToken();
   const url = new URL(`/sap/bc/z_abapgit_agent/pull`, `https://${config.host}:${config.sapport}`);
 
   return new Promise((resolve, reject) => {
@@ -146,6 +152,7 @@ async function fetchCsrfToken(config) {
  * Make HTTP request to ABAP REST endpoint
  */
 function request(method, path, data = null, options = {}) {
+  if (centralHttp) return method === 'GET' ? centralHttp.get(path, options) : centralHttp.post(path, data, options);
   return new Promise((resolve, reject) => {
     const config = loadConfig();
     const url = new URL(path, `https://${config.host}:${config.sapport}`);
@@ -215,12 +222,8 @@ async function pull(gitUrl, branch = 'main') {
     const csrfToken = await fetchCsrfToken(config);
 
     // Prepare request data with git credentials
-    const data = {
-      url: gitUrl,
-      branch: branch,
-      username: config.gitUsername,
-      password: config.gitPassword
-    };
+    const credentials = connection ? await connection.resolveGitCredentials(gitUrl) : { username: config.gitUsername, password: config.gitPassword };
+    const data = { url: gitUrl, branch, username: credentials?.username, password: credentials?.password };
 
     const result = await request('POST', '/sap/bc/z_abapgit_agent/pull', data, { csrfToken });
 
@@ -264,7 +267,7 @@ async function healthCheck() {
  * Main CLI
  */
 async function main() {
-  const args = process.argv.slice(2);
+  const { args, override } = parseGlobal(process.argv.slice(2));
   const command = args[0];
 
   // Check if ABAP integration is enabled for this repo
@@ -292,6 +295,13 @@ To enable integration:
   }
 
   try {
+    if (['pull', 'health'].includes(command)) {
+      const raw = loadRawConfig();
+      if (raw.system !== undefined || raw.gitProfile !== undefined || override !== undefined) {
+        connection = await createConnectionContext(raw, override);
+        centralHttp = new AbapHttp(connection.config);
+      }
+    }
     switch (command) {
       case 'pull':
         const urlIndex = args.indexOf('--url') !== -1 ? args.indexOf('--url') + 1 : 1;

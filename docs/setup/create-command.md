@@ -94,7 +94,7 @@ abapgit-agent pull
 1. abapgit-agent init --folder /src/ --package ZMY_PACKAGE
    └─> Creates .abapGitAgent, CLAUDE.md, /src/, updates .gitignore
 
-2. Edit .abapGitAgent (host, user, password, gitUsername, gitPassword)
+2. Configure .abapGitAgent using either legacy flat fields or central system/client/gitProfile references
 
 3. abapgit-agent create
    └─> Creates online repository in ABAP

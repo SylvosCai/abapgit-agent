@@ -148,7 +148,25 @@ DROP requires a clean committed full-key payload/configuration and matching owne
 abapgit-agent so10 transport ZAPP_FOOTER --language EN --transport "$CUSTOMIZING_TASK"
 ```
 
-TRANSPORT uses an existing modifiable customizing request/task. Resolution is CLI → effective client's configured transport → `ABAP_TRANSPORT` → existing-task hook/picker. A different logon client requires `.abapGitAgent.customizingLogon` with matching `client`, `user`, `password` and optional `transport`; development credentials/tasks are not copied. Recording does not save/copy text or create/release/import transports.
+TRANSPORT uses an existing modifiable customizing request/task. Resolution is CLI → effective client's configured transport → `ABAP_TRANSPORT` → existing-task hook/picker. Recording does not save/copy text or create/release/import transports.
+
+- **Central SAP binding:** the target logon client is explicit `--target-client`, then the primary client's `clientSettings.customizingClient`, then the selected primary client. Its own credentials must exist in the bound system's catalog. Resolve that provider and the target client's project settings separately; never inherit another client's credentials or configured transport. Do not add flat `customizingLogon`, `customizingClient` or `transport` alongside `system`.
+- **Legacy flat binding:** a different logon client still requires `.abapGitAgent.customizingLogon` with matching `client`, `user`, `password` and optional `transport`.
+
+For example, this ignored repository config selects client 100 for ordinary commands but client 200 for customizing transport recording (client 200 must already have a catalog logon):
+
+```json
+{
+  "system": "DEV",
+  "client": "100",
+  "clientSettings": {
+    "100": { "customizingClient": "200" },
+    "200": { "transport": "DEVK900001" }
+  }
+}
+```
+
+Secondary transport logons do not update the repo's saved `client`. COPY/READ client options continue to select data clients, not separate credential logons.
 
 ---
 

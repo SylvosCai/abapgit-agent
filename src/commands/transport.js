@@ -14,6 +14,17 @@ module.exports = {
   requiresVersionCheck: false,
 
   async execute(args, context) {
+    if (args.includes('--help') || args.includes('-h')) {
+      console.log(`Usage:
+  abapgit-agent transport list [--scope mine|task|all] [--type workbench|customizing]
+  abapgit-agent transport create --description <text> [--type workbench|customizing]
+  abapgit-agent transport check --number <request>
+  abapgit-agent transport release --number <request>
+
+Options: --json, --verbose, --help, -h
+Creation and release require the project's transport safeguards to allow them.`);
+      return;
+    }
     const { loadConfig, AbapHttp, getTransportSettings } = context;
 
     const jsonOutput = args.includes('--json');

@@ -286,7 +286,7 @@ describe('version-check (mocked fs/https)', () => {
       res.statusCode = statusCode;
       const req = new EventEmitter();
       req.end = jest.fn();
-      https.request.mockImplementation((_opts, cb) => {
+      https.request.mockImplementation((_url, _opts, cb) => {
         process.nextTick(() => {
           cb(res);
           process.nextTick(() => {

@@ -84,6 +84,7 @@ Examples:
       process.exit(1);
     }
 
+    if (config.gitProfile) require('../utils/central-catalog').destination(repoUrl);
     const messageArgIndex = args.indexOf('--message');
     let commitMessage = null;
     if (messageArgIndex !== -1 && messageArgIndex + 1 < args.length) {
@@ -122,13 +123,11 @@ Examples:
       data.message = commitMessage;
     }
 
-    if (config.gitUsername) {
-      data.username = config.gitUsername;
-    }
-
-    if (config.gitPassword) {
-      data.password = config.gitPassword;
-    }
+    const credentials = context.resolveGitCredentials
+      ? await context.resolveGitCredentials(repoUrl)
+      : { username: config.gitUsername, password: config.gitPassword };
+    if (credentials?.username) data.username = credentials.username;
+    if (credentials?.password) data.password = credentials.password;
 
     const { getExcludePatterns, getUnsupportedTypesFlag } = require('../config');
     const excludePatterns = getExcludePatterns();

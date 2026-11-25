@@ -23,7 +23,8 @@ abapgit-agent init --package ZMY_PACKAGE
 # This copies CLAUDE.md, guidelines, and creates .abapGitAgent
 # Defaults: --folder /src/ --folder-logic PREFIX
 
-# 4. Edit .abapGitAgent with your SAP system details
+# 4. Choose either legacy flat credentials or central references
+#    in .abapGitAgent (see "Choose a connection format" below)
 
 # 5. Verify
 abapgit-agent health
@@ -103,7 +104,58 @@ This command:
 - Copies `CLAUDE.md` for Claude Code integration
 - Copies `guidelines/` folder for ABAP reference
 
-After initialization, edit `.abapGitAgent` with your SAP system details. See [init command docs](setup/init-command.md) for configuration options.
+`init` creates the backward-compatible **legacy flat** template. After initialization, choose one connection format below. See [init command docs](setup/init-command.md) for repository settings.
+
+### Choose a connection format
+
+Both formats use the ignored repository-local `.abapGitAgent`, but they store connection details differently. Do not combine `system` with flat SAP endpoint/account fields, or `gitProfile` with flat Git account fields.
+
+**Legacy flat format** — edit the file created by `init`; credentials stay in this repository's ignored file:
+
+```json
+{
+  "host": "your-sap-system.com",
+  "sapport": 443,
+  "client": "100",
+  "user": "TECH_USER",
+  "password": "your-password",
+  "language": "EN",
+  "protocol": "https",
+  "gitUsername": "github-username",
+  "gitPassword": "github-token",
+  "package": "ZMY_PACKAGE",
+  "folder": "/src/",
+  "folderLogic": "PREFIX"
+}
+```
+
+See the repository file `.abapGitAgent.example`.
+
+**Central reference format** — reusable endpoints and provider credentials live in the private personal catalog; the repository keeps only aliases plus its project settings:
+
+```json
+{
+  "system": "DEV",
+  "client": "100",
+  "gitProfile": "work-git",
+  "package": "ZMY_PACKAGE",
+  "folder": "/src/",
+  "folderLogic": "PREFIX"
+}
+```
+
+Set up and bind central mode deliberately:
+
+```bash
+abapgit-agent system create DEV --host your-sap-system.com --port 443
+abapgit-agent logon create 100 --system DEV --provider file --user TECH_USER
+abapgit-agent credential create work-git --origin https://github.com \
+  --provider file --user github-username
+```
+
+These metadata commands do **not** collect passwords or tokens. For `file` providers, add the secret only to the private catalog entry they created, then replace the repository's flat connection fields with `system`, `client`, and `gitProfile`. Other providers store Bitwarden item IDs or registered CLI-adapter references instead. Compare `examples/configuration/central/repository.abapGitAgent.json` and `examples/configuration/central/systems.json`, then read the [central configuration architecture](architecture/central-systems-client-logons.md) for provider and private-file rules.
+
+Repository-only settings such as `package`, `folder`, `folderLogic`, `workflow`, `referenceFolder`, `testRepos`, and per-client `clientSettings` remain in `.abapGitAgent` in either format.
 
 Verify: `abapgit-agent health` should return `{"status": "OK", "version": "1.x.x"}`.
 

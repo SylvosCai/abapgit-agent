@@ -45,7 +45,10 @@ cd abap-project
 # 3. Initialize configuration
 abapgit-agent init --package ZMY_PACKAGE
 
-# 4. Edit .abapGitAgent with credentials
+# 4. Choose one connection format:
+#    - Legacy: edit the flat credentials created by init
+#    - Central: replace them with system/client/gitProfile references
+#      and maintain credentials in your private systems catalog
 
 # 5. Create online repository in ABAP
 abapgit-agent create
@@ -106,6 +109,17 @@ abapgit-agent upgrade                 # Upgrade CLI and ABAP backend
 abapgit-agent status                  # Check configuration
 abapgit-agent health                  # Verify ABAP connection
 ```
+
+### Central Configuration
+
+```bash
+abapgit-agent system list              # List reusable SAP systems
+abapgit-agent logon current            # Show the effective client
+abapgit-agent logon use 200            # Save this repository's client
+abapgit-agent credential adapters      # List credential adapters
+```
+
+Both legacy flat and central-reference `.abapGitAgent` formats are supported. See [Installation & Setup](docs/install.md#choose-a-connection-format), the [central examples](examples/configuration/central/), and the [`system`](docs/setup/system-command.md), [`logon`](docs/setup/logon-command.md), and [`credential`](docs/utility/credential-command.md) command guides.
 
 ## Local Development
 

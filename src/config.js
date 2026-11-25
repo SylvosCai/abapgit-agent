@@ -70,11 +70,15 @@ function getTransport() {
 
 /**
  * Check if ABAP integration is configured for this repo
- * @returns {boolean} True if .abapGitAgent file exists
+ * @returns {boolean} True for a repository/explicit config or effective environment credentials
  */
 function isAbapIntegrationEnabled() {
   const repoConfigPath = path.join(process.cwd(), '.abapGitAgent');
-  return fs.existsSync(repoConfigPath);
+  if (fs.existsSync(repoConfigPath)) return true;
+  const configPath = process.env.CONFIG_PATH || path.join(__dirname, '..', '.abapGitAgent');
+  // Do not activate an implicit package-directory binding from an unrelated cwd.
+  if (fs.existsSync(configPath)) return Boolean(process.env.CONFIG_PATH);
+  return Boolean(process.env.ABAP_HOST && process.env.ABAP_USER && process.env.ABAP_PASSWORD);
 }
 
 /**
@@ -223,8 +227,7 @@ function getTransportSettings() {
  * Used by AI to create probe/throwaway ABAP classes outside the current project
  * @returns {{ path: string, classPrefix: string, programPrefix: string }|null}
  */
-function getScratchWorkspace() {
-  const cfg = loadConfig();
+function getScratchWorkspace(cfg = loadConfig()) {
   if (!cfg.scratchWorkspace) return null;
   const user = (cfg.user || 'PROBE').toUpperCase();
   return {

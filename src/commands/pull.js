@@ -102,6 +102,7 @@ Examples:
 
     // Auto-detect git remote URL if not provided
     let gitUrl = urlArgIndex !== -1 ? args[urlArgIndex + 1] : null;
+    if (gitUrl && loadConfig().gitProfile) require('../utils/central-catalog').destination(gitUrl);
     let branch = branchArgIndex !== -1 ? args[branchArgIndex + 1] : gitUtils.getBranch();
     let files = null;
     let conflictMode = conflictModeArgIndex !== -1 ? args[conflictModeArgIndex + 1] : getConflictSettings().mode;
@@ -124,6 +125,7 @@ Examples:
         console.error('Either run from a git repo, or specify --url <git-url>');
         process.exit(1);
       }
+      if (loadConfig().gitProfile) require('../utils/central-catalog').destination(gitUrl);
       if (!jsonOutput) {
         console.log(`📌 Auto-detected git remote: ${gitUrl}`);
       }
@@ -291,11 +293,12 @@ Examples:
       }
     }
 
-    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode, verbose, syncXml);
+    await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, undefined, conflictMode, verbose, syncXml, false, context.resolveGitCredentials);
   },
 
-  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort', verbose = false, syncXml = false, isRepull = false) {
+  async pull(gitUrl, branch = 'main', files = null, transportRequest = null, loadConfig, AbapHttp, jsonOutput = false, gitCredentials = undefined, conflictMode = 'abort', verbose = false, syncXml = false, isRepull = false, resolveGitCredentials) {
     const TERM_WIDTH = process.stdout.columns || 80;
+    if (gitCredentials === undefined && loadConfig().gitProfile) require('../utils/central-catalog').destination(gitUrl);
 
     if (!jsonOutput && !isRepull) {
       console.log(`\n🚀 Starting pull for: ${gitUrl}`);
@@ -318,7 +321,7 @@ Examples:
       // Prepare request data with git credentials
       // gitCredentials=null means no credentials (public repo); undefined means use config defaults
       const resolvedCredentials = gitCredentials === undefined
-        ? { username: config.gitUsername, password: config.gitPassword }
+        ? (resolveGitCredentials ? await resolveGitCredentials(gitUrl) : { username: config.gitUsername, password: config.gitPassword })
         : gitCredentials;
 
       const data = {
@@ -671,7 +674,7 @@ Examples:
           if (pushed) {
             if (!jsonOutput) console.log(`   Re-pulling so ABAP system matches the amended commit...`);
             // 5. Re-pull so ABAP system matches the amended commit (no sync loop)
-            await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, gitCredentials, conflictMode, verbose, false, true);
+            await this.pull(gitUrl, branch, files, transportRequest, loadConfig, AbapHttp, jsonOutput, resolvedCredentials, conflictMode, verbose, false, true, resolveGitCredentials);
             if (!jsonOutput) console.log(`\n✅ Synced ${diffFiles.length} XML file(s), amended commit, re-pulled`);
           } else if (!jsonOutput) {
             // No remote at all — files are written and committed locally
